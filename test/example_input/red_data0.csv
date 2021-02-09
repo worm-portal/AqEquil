@@ -1,0 +1,19 @@
+name,azero,neutral_ion_type,formula_ox,dissrxn,tag
+FeCl+,4,0,Fe+2 Cl-,,
+FeCl2,4,0,Fe+2 2Cl-,,
+Fe+2,6,0,Fe+2,,
+Fe+3,9,0,Fe+3,,
+FeOH+,4,0,Fe+2 O-2 H+,,
+FeO,3,0,Fe+2 O-2,,
+HFeO2-,4,0,Fe+2 2O-2 H+,,
+FeOH+2,4,0,Fe+3 O-2 H+,,
+FeO+,4,0,Fe+3 O-2,,
+HFeO2,4,0,Fe+3 2O-2 H+,,
+FeO2-,4,0,Fe+3 2O-2,,
+Fe4O5,4,0,2Fe+2 2Fe+3 5O-2,,
+O2(g),,,2O,-1.0000 O2(g) 1.0000 O2(g),refstate
+HS-,4,0,S-2 H+,,
+H2S,4,0,S-2 2H+,,
+SO4-2,4,0,S+6 4O-2,,
+HSO4-,4,0,S+6 4O-2 H+,,
+iron,,,Fe,-1.0000 iron -2.0000 H+ -0.5000 O2(g) 1.0000 Fe+2 1.0000 H2O,refstate
