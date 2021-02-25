@@ -190,11 +190,11 @@ class AqEquil():
         filename_3o = filename_3i[:-1] + 'o'
         filename_3p = filename_3i[:-1] + 'p'
 
-        #try:
-        # rename output
-        os.rename(path_3i + '/output', path_3i + "/" + filename_3o)
-        #except:
-        #    print('Error: EQ3 failed to produce output for ' + filename_3i)
+        try:
+            # rename output
+            os.rename(path_3i + '/output', path_3i + "/" + filename_3o)
+        except:
+           print('Error: EQ3 failed to produce output for ' + filename_3i)
 
         try:
             # move output
@@ -296,6 +296,12 @@ class AqEquil():
             batch_3o_filename = ro.r("NULL")
 
         if custom_db:
+
+            # EQ3/6 cannot handle spaces in the 'EQ36DA' path name.
+            if " " in os.getcwd():
+                raise Exception("Error: the path to the custom database cannot contain spaces. The current path is: [ " + os.getcwd() + " ].",
+                                "Remove or replace spaces in folder names for this feature. Example: [ " + os.getcwd().replace(" ", "-") + " ].")
+
             self.runeqpt(db, extra_eqpt_output)
             os.environ['EQ36DA'] = os.getcwd()
 
