@@ -271,7 +271,7 @@ create_data0 <- function(supp_file,
                          supp_file_ss=NULL,
                          grid_temps,
                          grid_press,
-                         lettercode,
+                         db,
                          template,
                          dissrxns,
                          modified_custom_obigt,
@@ -987,9 +987,9 @@ create_data0 <- function(supp_file,
   # modify the data0 header lines
   desc <- "data0.%s"
   min_desc <- "data0.min\nminimal working data0 file"
-  data0_template <- sub(min_desc, sprintf(desc, lettercode), data0_template)
+  data0_template <- sub(min_desc, sprintf(desc, db), data0_template)
   message("Finished.")
-  write(data0_template, paste0("data0.", lettercode))
+  write(data0_template, paste0("data0.", db))
 }
 
 
@@ -1000,7 +1000,7 @@ main_create_data0 <- function(filename,
                  supp_file_ss,
                  grid_temps,
                  grid_press,
-                 lettercode,
+                 db,
                  template,
                  exceed_Ttr,
                  data0_formula_ox_name,
@@ -1255,7 +1255,7 @@ main_create_data0 <- function(filename,
               supp_file_ss,
               grid_temps,
               grid_press,
-              lettercode,
+              db,
               template,
               dissrxns,
               modified_custom_obigt,
