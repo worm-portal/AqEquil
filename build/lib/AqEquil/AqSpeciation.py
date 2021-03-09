@@ -1124,6 +1124,7 @@ class AqEquil():
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
         grid_temps = convert_to_RVector(grid_temps)
+        grid_press = convert_to_RVector(grid_press)
         suppress_redox = convert_to_RVector(suppress_redox)
 
         if supp_file_ss == None:
