@@ -4,19 +4,43 @@ import sys
 import shutil
 import copy
 import collections
+import pickle
 
 import warnings
 from subprocess import Popen
 import pkg_resources
 import pandas as pd
-from plotnine import *
+import numpy as np
+from plotnine import * # convert to matplotlib
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import rpy2.robjects as ro
     from rpy2.robjects import pandas2ri
-    pandas2ri.activate()
+    pandas2ri.activate()   
 
+def load(filename, messages=True):
+    """
+    Load a speciation file.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the speciation file.
+
+    Returns
+    ----------
+    An object of class `Speciation`.
+    """
+
+    with open(filename, 'rb') as handle:
+        speciation = pickle.load(handle)
+        if messages:
+            print("Loaded '{}'".format(filename))
+        return speciation
 
 def convert_to_RVector(value, force_Rvec=True):
     
@@ -66,7 +90,7 @@ class Speciation(object):
     input : pd.Dataframe
         Pandas dataframe containing user-supplied sample chemistry data.
     
-    aq_contribution : pd.Dataframe
+    mass_contribution : pd.Dataframe
         Pandas dataframe containing basis species contributions to mass balance
         of aqueous species.
     
@@ -97,16 +121,75 @@ class Speciation(object):
 
     def __getitem__(self, item):
          return getattr(self, item)
-
-    def col_lookup(self, column_list):
+        
+    def save(self, filename, messages=True):
+        """
+        Save the speciation as a '.speciation' file to your current working
+        directory. This file can be loaded with `AqEquil.load(filename)`.
+        
+        Parameters
+        ----------
+        filename : str
+            The desired name of the file.
+            
+        messages : str
+            Print a message confirming the save?
+        """
+        
+        if filename[-11:] != '.speciation':
+            filename = filename + '.speciation'
+        
+        with open(filename, 'wb') as handle:
+            pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            if messages:
+                print("Saved as '{}'".format(filename))
+    
+    
+    @staticmethod
+    def __get_unit_info(subheader):
+        
+        unit_name_dict = {
+            "pH" : ("", "pH"),
+            "ppm" : ("", "ppm"),
+            "ppb" : ("", "ppb"),
+            "mg/L" : ("", "mg/L"),
+            "degC" : ("temperature", "°C"),
+            "log_molality" : ("log molality", "log(mol/kg)"),
+            "Molality" : ("molality", "mol/kg"),
+            "molality" : ("molality", "mol/kg"),
+            "molal" : ("molality", "mol/kg"),
+            "log_activity" : ("log activity", "log(mol/kg)"),
+            "Log activity" : ("log activity", "log(mol/kg)"),
+            "mg/kg.sol" : ("", "mg solute per kg solution"),
+            "Alk., eq/kg.H2O" : ("alkalinity", "eq/kg"),
+            "Alk., eq/L" : ("alkalinity", "eq/L"),
+            "Alk., eq/kg.sol" : ("alkalinity", "eq/kg solution"),
+            "Alk., mg/L CaCO3" : ("alkalinity", "mg/L CaCO3"),
+            "Alk., mg/L HCO3-" : ("alkalinity", "mg/L HCO3-"),
+            "pX" : ("-(log activity)", "-log(mol/kg)"),
+            "activity" : ("activity", "mol/kg"),
+            "log_gamma" : ("log gamma", ""),
+            "gamma" : ("gamma", ""),
+            "affinity_kcal" : ("affinity", "kcal/mol"),
+            "%" : ("", "%"),
+            "Eh_volts" : ("Eh", "volts"),
+            "eq/kg.H2O" : ("charge", "eq/kg"),
+        }
+        
+        out = unit_name_dict.get(subheader)
+        
+        return out[0], out[1]
+    
+    
+    def lookup(self, col):
         
         """
         Look up desired columns in the speciation report.
         
         Parameters
         ----------
-        column_list : list of str
-            List of column names to look up.
+        col : str or list of str
+            Column name (or a list of column names) to look up.
             
         Returns
         ----------
@@ -114,31 +197,454 @@ class Speciation(object):
             The speciation report with only the desired columns.
         """
         
-        return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(column_list))]
+        if isinstance(col, str):
+            col = [col]
+        
+        return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
-    def viz_mass_contribution(self, basis):
+    
+    def __convert_aq_units_to_log_friendly(self, species):
+
+        col_data = self.lookup(species)
+        if col_data.columns.get_level_values(1) == 'log_activity':
+            y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
+            out_unit = 'activity'
+        elif col_data.columns.get_level_values(1) == 'log_molality':
+            y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
+            out_unit = 'molality'
+        elif col_data.columns.get_level_values(1) == 'log_gamma':
+            y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
+            out_unit = 'gamma'
+        else:
+            y = [float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
+            out_unit = col_data.columns.get_level_values(1)[0]
+        return y, out_unit
+    
+    
+    def plot_mineral_saturation(self, sample_name, mineral_sat_type="affinity",
+                                yrange=None,
+                                colors=["blue", "orange"], bg_color="white",
+                                save_as=None):
+        """
+        Vizualize mineral saturation states in a sample as a bar plot.
+        
+        Parameters
+        ----------
+        sample_name : str
+            Name of the sample to plot.
+        
+        mineral_sat_type : str, default "affinity"
+            Metric for mineral saturation state to plot. Can be "affinity" or
+            "logQoverK".
+            
+        yrange : list of numeric, optional
+            Sets the lower and upper limits of the y axis.
+        
+        colors : list of two str, default ["blue", "orange"]
+            Sets the color of the bars representing supersaturated
+            and undersaturated states, respectively.
+        
+        bg_color : str, default "white"
+            Name of the Matplotlib color you wish to set as the panel
+            background. A list of named colors can be found here:
+            https://matplotlib.org/stable/gallery/color/named_colors.html
+            
+        save_as : str, optional
+            Provide a filename to save this figure as a PNG.
+        """
+        
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+        plt.xticks(rotation = 45, ha='right')
+        
+        if 'mineral_sat' in self.sample_data[sample_name].keys():
+            mineral_data = self.sample_data[sample_name]['mineral_sat'][mineral_sat_type].astype(float).sort_values(ascending=False)
+            x = mineral_data.index
+        else:
+            msg = ("This sample does not contain mineral saturation state data."
+                   "To generate this data, ensure that get_mineral_sat=True when"
+                   "running speciate().")
+            raise Exception(msg)
+        
+        pos_sat = [m if m >= 0 else float("nan") for m in mineral_data] # possibly: special list for m==0
+        neg_sat = [m if m < 0 else float("nan") for m in mineral_data]
+        
+        barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
+        for i, y_plot in enumerate([pos_sat, neg_sat]):
+            
+            if i == 0:
+                color = colors[0]
+            else:
+                color = colors[1]
+                
+            bars = ax.bar(x, y_plot, tick_label=x, color=color)
+            
+            barlist.append(bars)
+            
+            if mineral_sat_type == "affinity":
+                ylabel = 'affinity, kcal/mol'
+            if mineral_sat_type == "logQoverK":
+                ylabel = 'logQ/K'
+        
+        if yrange != None:
+            plt.ylim(yrange[0], yrange[1])
+        
+        ax.set_facecolor(bg_color)
+        plt.ylabel(ylabel)
+
+        if save_as != None:
+            if ".png" not in save_as[:-4]:
+                save_as = save_as+".png"
+            
+            plt.savefig(save_as, dpi=300, bbox_inches="tight")
+            print("Saved figure as {}".format(save_as))
+        
+        plt.show()
+    
+
+    def barplot(self, y, yrange=None, show_trace=True,
+                show_legend=True, legend_loc="best",
+                colormap="viridis", bg_color="white", save_as=None):
         
         """
-        Plot basis species contributions to mass balance of aqueous
-        species.
+        Show a bar plot to vizualize one or more variables across all samples.
+        
+        Parameters
+        ----------
+        y : str or list of str
+            Name (or list of names) of the variables to plot. Valid variables
+            are columns in the speciation report.
+       
+        yrange : list of numeric, optional
+            Sets the lower and upper limits of the y axis.
+        
+        show_trace : bool, default True
+            Show asterisks for columns with numerical values but are too short
+            to see clearly?
+            
+        show_legend : bool, default True
+            Show a legend if there is more than one variable?
+        
+        legend_loc : str or pair of float, default "best"
+            Location of the legend on the plot. See
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        
+        colormap : str, default "viridis"
+            Name of the Matplotlib colormap to color the barplot. See
+            https://matplotlib.org/stable/tutorials/colors/colormaps.html
+
+        bg_color : str, default "white"
+            Name of the Matplotlib color you wish to set as the panel
+            background. A list of named colors can be found here:
+            https://matplotlib.org/stable/gallery/color/named_colors.html
+            
+        save_as : str, optional
+            Provide a filename to save this figure as a PNG.
+        """
+        
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+        plt.xticks(rotation = 45, ha='right')
+
+        if not isinstance(y, list):
+            y = [y]
+        
+        x = self.lookup(y[0]).index # names of samples
+        
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
+        cmap = cm.__getattribute__(colormap)
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        X = np.arange(len(x))
+        
+        barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
+        for i, yi in enumerate(y):
+            y_col = self.lookup(yi)
+            
+            try:
+                subheader = y_col.columns.get_level_values(1)[0]
+            except:
+                msg = ("Could not find '{}' ".format(yi)+"in the speciation "
+                       "report. Available variables include "
+                      "{}".format(list(set(self.report.columns.get_level_values(0))))+"")
+                raise Exception(msg)
+            unit_type, unit = self.__get_unit_info(subheader)
+            
+            try:
+                y_vals = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
+            except:
+                msg = ("One or more the values belonging to "
+                       "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0])+"")
+                raise Exception(msg)
+            
+            if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
+                if subheader in ["log_activity", "log_molality", "log_gamma"]:
+                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi)
+                    unit_type, unit = self.__get_unit_info(out_unit)
+                else:
+                    y_plot = y_vals
+            else:
+                y_plot = y_vals
+                
+            if i == 0:
+                subheader_previous = subheader
+                unit_previous = unit
+            if unit != unit_previous and i != 0:
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format(unit, yi_previous, unit_previous)+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "activity" in subheader.lower() and "molality" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("activity", yi_previous, "molality")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "molality" in subheader.lower() and "activity" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("molality", yi_previous, "activity")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+                
+            yi_previous = copy.deepcopy(yi)
+            unit_previous = copy.deepcopy(unit)
+            subheader_previous = copy.deepcopy(subheader)
+            
+            if len(y) != 1:
+                color = m.to_rgba(i)
+            else:
+                color = "black"
+                
+            bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
+            
+            barlist.append(bars)
+
+        max_bar_height = 0
+        for bars in barlist:
+            for p in bars.patches:
+                max_bar_height = max([max_bar_height, np.nanmax(abs(p.get_height()))])
+                
+        for i,bars in enumerate(barlist):
+            for p in bars.patches:
+                if show_trace and abs(p.get_height())/max_bar_height <= 0.009:
+                    plt.annotate("*",
+                                  (p.get_x() + p.get_width() / 2., p.get_height()),
+                                  ha = 'center', va = 'center', xytext = (0, 10),
+                                  color=m.to_rgba(i),
+                                  weight='bold',
+                                  fontsize=18,
+                                  textcoords = 'offset points')
+        
+        if len(y) > 1:
+            ylabel = "{} [{}]".format(unit_type, unit)
+            if show_legend:
+                ax.legend(labels=y, loc=legend_loc)
+        else:
+            if 'pH' in y:
+                ylabel = 'pH'
+            elif 'Temperature' in y:
+                ylabel = 'Temperature [°C]'
+            else:
+                ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
+        
+        if yrange != None:
+            plt.ylim(yrange[0], yrange[1])
+        
+        ax.set_facecolor(bg_color)
+        plt.ylabel(ylabel)
+
+        if save_as != None:
+            if ".png" not in save_as[:-4]:
+                save_as = save_as+".png"
+            
+            plt.savefig(save_as, dpi=300, bbox_inches="tight")
+            print("Saved figure as {}".format(save_as))
+        
+        plt.show()
+    
+    
+    def scatterplot(self, x="pH", y="Temperature", xrange=None, yrange=None,
+                show_legend=True, legend_loc="best",
+                colormap="viridis", bg_color="white", save_as=None):
+        
+        """
+        Vizualize two or more sample variables with a scatterplot.
+        
+        Parameters
+        ----------
+        x, y : str, default for x is "pH", default for y is "Temperature"
+            Names of the variables to plot against each other. Valid variables
+            are columns in the speciation report. `y` can be a list of
+            of variable names for a multi-series scatterplot.
+       
+        xrange, yrange : list of numeric, optional
+            Sets the lower and upper limits of the x and y axis.
+            
+        show_legend : bool, default True
+            Show a legend if there is more than one variable?
+        
+        legend_loc : str or pair of float, default "best"
+            Location of the legend on the plot. See
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        
+        colormap : str, default "viridis"
+            Name of the Matplotlib colormap to color the scatterpoints. See
+            https://matplotlib.org/stable/tutorials/colors/colormaps.html
+
+        bg_color : str, default "white"
+            Name of the Matplotlib color you wish to set as the panel
+            background. A list of named colors can be found here:
+            https://matplotlib.org/stable/gallery/color/named_colors.html
+            
+        save_as : str, optional
+            Provide a filename to save this figure as a PNG.
+        """
+        
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+
+        if not isinstance(y, list):
+            y = [y]
+        
+        if not isinstance(x, str):
+            raise Exception("x must be a string.")
+        
+        x_col = self.lookup(x)
+        try:
+            x_plot = [float(x0[0]) if x0[0] != 'NA' else float("nan") for x0 in x_col.values.tolist()]
+        except:
+            msg = ("One or more the values belonging to "
+                   "'{}' are non-numeric and cannot be plotted.".format(x_col.columns.get_level_values(0)[0])+"")
+            raise Exception(msg)
+        
+        try:
+            xsubheader = x_col.columns.get_level_values(1)[0]
+        except:
+            msg = ("Could not find '{}' ".format(x)+"in the speciation "
+                   "report. Available variables include "
+                   "{}".format(list(set(self.report.columns.get_level_values(0))))+"")
+            raise Exception(msg)
+        xunit_type, xunit = self.__get_unit_info(xsubheader)
+        
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
+        cmap = cm.__getattribute__(colormap)
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        
+        for i, yi in enumerate(y):
+            y_col = self.lookup(yi)
+            
+            try:
+                subheader = y_col.columns.get_level_values(1)[0]
+            except:
+                msg = ("Could not find '{}' ".format(yi)+"in the speciation "
+                       "report. Available variables include "
+                      "{}".format(list(set(self.report.columns.get_level_values(0))))+"")
+                raise Exception(msg)
+            unit_type, unit = self.__get_unit_info(subheader)
+            
+            try:
+                y_plot = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
+            except:
+                msg = ("One or more the values belonging to "
+                       "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0])+"")
+                raise Exception(msg)
+                
+            if i == 0:
+                subheader_previous = subheader
+                unit_previous = unit
+            if unit != unit_previous and i != 0:
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format(unit, yi_previous, unit_previous)+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "activity" in subheader.lower() and "molality" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("activity", yi_previous, "molality")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "molality" in subheader.lower() and "activity" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("molality", yi_previous, "activity")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+                
+            yi_previous = copy.deepcopy(yi)
+            unit_previous = copy.deepcopy(unit)
+            subheader_previous = copy.deepcopy(subheader)
+            
+            if len(y) != 1:
+                color = m.to_rgba(i)
+            else:
+                color = "black"
+            
+            plt.scatter(x_plot, y_plot, marker='o', color=color)
+
+        if len(y) > 1:
+            ylabel = "{} [{}]".format(unit_type, unit)
+            if show_legend:
+                ax.legend(labels=y, loc=legend_loc)
+        else:
+            if 'pH' in y:
+                ylabel = 'pH'
+            elif 'Temperature' in y:
+                ylabel = 'Temperature [°C]'
+            else:
+                ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
+        
+        if x == 'pH':
+            xlabel = 'pH'
+        elif x == 'Temperature':
+            xlabel = 'Temperature [°C]'
+        else:
+            xlabel = "{} {} [{}]".format(x, xunit_type, xunit)
+        
+        if xrange != None:
+            plt.xlim(xrange[0], xrange[1])
+        
+        if yrange != None:
+            plt.ylim(yrange[0], yrange[1])
+
+        ax.set_facecolor(bg_color)
+        plt.ylabel(ylabel)
+        plt.xlabel(xlabel)
+
+        if save_as != None:
+            if ".png" not in save_as[:-4]:
+                save_as = save_as+".png"
+            
+            plt.savefig(save_as, dpi=300, bbox_inches="tight")
+            print("Saved figure as {}".format(save_as))
+        
+        plt.show()
+    
+    
+    def plot_mass_contribution(self, basis):
+        
+        """
+        Plot basis species contributions to mass balance of aqueous species
+        across all samples.
         
         Parameters
         ----------
         basis : str
-            Name of the basis species
+            Name of the basis species.
             
         Returns
         ----------
         g : plotnine ggplot object
             A stacked bar plot.
         """
+
+        if basis not in set(self.mass_contribution['basis']):
+            msg = ("The species '{}' was ".format(basis) + "not found among "
+                   "valid basis species. Valid basis species include "
+                   "{}".format(str(set(self.mass_contribution['basis'])))+"")
+            raise Exception(msg)
         
-        df_spec = copy.deepcopy(
-            self.aq_contribution.loc[self.aq_contribution['basis'] == basis])
+        df_sp = copy.deepcopy(
+            self.mass_contribution.loc[self.mass_contribution['basis'] == basis])
 
-        df_spec['percent'] = df_spec['percent'].astype(float)
+        df_sp['percent'] = df_sp['percent'].astype(float)
 
-        g = ggplot(df_spec, aes(fill="species", y="percent", x="sample")) + \
+        g = ggplot(df_sp, aes(fill="species", y="percent", x="sample")) + \
             geom_bar(stat="identity") + \
             ylab("%") + \
             ggtitle("Species Accounting for Mass Balance of " + basis) + \
@@ -151,9 +657,10 @@ class Speciation(object):
                   legend_title=element_blank(),
                   plot_title=element_text(size=9, hjust=0.5)) + \
             guides(color=guide_legend(override_aes=None)) + \
-            scale_y_continuous(limits=[0, 100], breaks=range(0, 125, 25))
+            coord_cartesian(ylim=[0,100])
+            #scale_y_continuous(limits=[0, 100], breaks=range(0, 125, 25))
 
-        print(g)
+        return g
 
 
 class AqEquil():
@@ -203,7 +710,7 @@ class AqEquil():
 
         os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
-    
+            
     def _check_sample_input_file(self, input_filename, exclude, db, custom_db):
         
         """
@@ -217,26 +724,38 @@ class AqEquil():
                 err = "Cannot locate input file {}.".format(input_filename)
                 raise Exception(err)
         else:
-            err = "Input file {}".format(input_filename) + \
-                " must be in comma separated values (.csv) format."
+            err = ("Input file {}".format(input_filename) + " "
+                "must be in comma separated values (.csv) format.")
             raise Exception(err)
         
         # are there any samples?
         if df_in.shape[0] <= 2:
-            err_no_samples = "The file {} ".format(input_filename) + \
-                "must contain at least three rows: the " + \
-                "first for column names, the second for column subheaders, " + \
-                "followed by one or more rows for sample data."
+            err_no_samples = ("The file {}".format(input_filename) + " "
+                "must contain at least three rows: the "
+                "first for column names, the second for column subheaders, "
+                "followed by one or more rows for sample data.")
             raise Exception(err_no_samples)
         
         err_list = [] # for appending errors found in the sample input file
         
-        # are there duplicate headers?
+        # get header list
         col_list = list(df_in.iloc[0, 1:])
+        
+        # are there blank headers?
+        if True in [isinstance(x, float) and x != x for x in col_list]:
+            # isinstance(x, float) and x != x is a typesafe way to check for nan
+            err_blank_header = ("One or more columns in the sample input "
+                "file have blank headers. These might be empty columns. "
+                "Only the first column may have a blank header. Remove any "
+                "empty columns and/or give each header a name.")
+            raise Exception(err_blank_header)
+        
+        # are there duplicate headers?
         dupe_cols = list(set([x for x in col_list if col_list.count(x) > 1]))
         if len(dupe_cols) > 0:
-            err_dupe_cols = "Duplicate column names are not allowed. " + \
-                "Duplicate column names were found for:\n{}".format(str(dupe_cols))
+            err_dupe_cols = ("Duplicate column names are not allowed. "
+                "Duplicate column names were found for:\n"
+                "{}".format(str(dupe_cols)))
             err_list.append(err_dupe_cols)
         
         df_in.columns = df_in.iloc[0] # set column names
@@ -249,12 +768,24 @@ class AqEquil():
             err_bad_exclude = "err_bad_exclude"
             err_list.append(err_bad_exclude)
         
-        # are there duplicate rows?
+        # get row list
         row_list = list(df_in.iloc[1:, 0])
+        
+        # are there blank rows?
+        if True in [isinstance(x, float) and x != x for x in row_list]:
+            # isinstance(x, float) and x != x is a typesafe way to check for nan
+            err_blank_row = ("One or more rows in the sample input "
+                "file have blank sample names. These might be empty rows. "
+                "Remove any empty rows and/or give each sample a name. Sample "
+                "names go in the first column.")
+            raise Exception(err_blank_row)
+            
+        # are there duplicate rows?
         dupe_rows = list(set([x for x in row_list if row_list.count(x) > 1]))
         if len(dupe_rows) > 0:
-            err_dupe_rows = "Duplicate sample names are not allowed. " + \
-                "Duplicate sample names were found for:\n{}".format(str(dupe_rows))
+            err_dupe_rows = ("Duplicate sample names are not allowed. "
+                "Duplicate sample names were found for:\n"
+                "{}".format(str(dupe_rows)))
             err_list.append(err_dupe_rows)
         
         # are column names valid entries in the database?
@@ -270,19 +801,19 @@ class AqEquil():
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
                 for species in list(set(df_in_headercheck.columns)):
                     if species not in db_species and species != 'Temperature':
-                        err_species_not_in_db = "The species '{}' ".format(species) + \
-                            "was not found in {}".format(data0_path) + \
-                            ". If the column contains data that should not be " + \
-                            "included in the speciation calculation, add the " + \
-                            "column name to the 'exclude' argument. Try " + \
-                            "help(AqEquil.AqEquil.speciate) " + \
-                            "for more information about 'exclude'."
+                        err_species_not_in_db = ("The species '{}'".format(species) + " "
+                            "was not found in {}".format(data0_path) + ". "
+                            "If the column contains data that should not be "
+                            "included in the speciation calculation, add the "
+                            "column name to the 'exclude' argument. Try "
+                            "help(AqEquil.AqEquil.speciate) "
+                            "for more information about 'exclude'.")
                         err_list.append(err_species_not_in_db)
         else:
-            err_no_data0 = "Could not locate {}. ".format(data0_path) + \
-                "Unable to determine if column headers included in " + \
-                "{} ".format(input_filename) + "match entries for species " + \
-                "in the requested thermodynamic database '{}'.".format(db)
+            err_no_data0 = ("Could not locate {}.".format(data0_path) + " "
+                "Unable to determine if column headers included in "
+                "{} ".format(input_filename) + "match entries for species "
+                "in the requested thermodynamic database '{}'.".format(db))
             err_list.append(err_no_data0)
         
         
@@ -296,29 +827,29 @@ class AqEquil():
                             "Hetero. equil.", "Homo. equil.", "Make non-basis"]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
-                err_valid_sub = "The subheader '{}' ".format(subheader) + \
-                    "for the column '{}'".format(df_in_headercheck.columns[i]) + \
-                    " is not recognized. Valid subheaders are {}".format(str(valid_subheaders)) + \
-                    ". If the column {} ".format(df_in_headercheck.columns[i]) + \
-                    "contains data that is not meant for the " + \
-                    "speciation calculation, add the column name " + \
-                    "to the 'exclude' argument. Try help(AqEquil.AqEquil.speciate) " + \
-                    "for more information about 'exclude'."
+                err_valid_sub = ("The subheader '{}'".format(subheader) + " "
+                    "for the column '{}'".format(df_in_headercheck.columns[i]) + " "
+                    "is not recognized. Valid subheaders are {}".format(str(valid_subheaders)) + ". "
+                    "If the column {}".format(df_in_headercheck.columns[i]) + " "
+                    "contains data that is not meant for the "
+                    "speciation calculation, add the column name "
+                    "to the 'exclude' argument. Try help(AqEquil.AqEquil.speciate) "
+                    "for more information about 'exclude'.")
                 err_list.append(err_valid_sub)
             
         # is a 'Temperature' column present?
         if "Temperature" not in df_in_headercheck.columns and "Temperature" not in exclude:
-            err_temp = "The column 'Temperature' was not found in the input file. "+\
-                "Please include a column with 'Temperature' in the first row, "+\
-                "'degC' in the second row, and a temperature value for each "+\
-                "sample in degrees Celsius."
+            err_temp = ("The column 'Temperature' was not found in the input file. "
+                "Please include a column with 'Temperature' in the first row, "
+                "'degC' in the second row, and a temperature value for each "
+                "sample in degrees Celsius.")
             err_list.append(err_temp)
         
         # raise exception that outlines all errors found
         if len(err_list) > 0:
             errs = "\n\n*".join(err_list)
-            errs = "The input file {}".format(input_filename)+" encountered" + \
-                " errors:\n\n*" + errs
+            errs = ("The input file {}".format(input_filename)+" encountered"
+                " errors:\n\n*" + errs)
             raise Exception(errs)
         
         return
@@ -368,8 +899,7 @@ class AqEquil():
         args = ['/bin/csh', self.eq36co+'/runeqpt', db]
 
         try:
-            # run EQPT
-            self.__run_script_and_wait(args)
+            self.__run_script_and_wait(args) # run EQPT
         except:
             os.environ['EQ36DA'] = self.eq36da
             raise Exception(
@@ -388,8 +918,9 @@ class AqEquil():
             if self.messages:
                 print("Successfully created a data1."+db+" from data0."+db)
         else:
-            raise Exception("EQPT could not create data1."+db+" from",
-                            "data0."+db+". Check eqpt_log.txt for details.")
+            msg = ("EQPT could not create data1."+db+" from "
+                   "data0."+db+". Check eqpt_log.txt for details.")
+            raise Exception(msg)
 
         if not extra_eqpt_output:
             self.__clear_eqpt_extra_output()
@@ -420,8 +951,7 @@ class AqEquil():
         os.chdir(path_3i)  # step into 3i folder
         args = ['/bin/csh', self.eq36co+'/runeq3', db, filename_3i]
 
-        # run EQ3
-        self.__run_script_and_wait(args)
+        self.__run_script_and_wait(args) # run EQ3
 
         # restore working dir
         os.chdir(cwd)
@@ -520,8 +1050,8 @@ class AqEquil():
                  report_filename=None,
                  get_aq_dist=True,
                  aq_dist_type="log_activity",
-                 get_aq_contrib=True,
-                 aq_contrib_other=True,
+                 get_mass_contribution=True,
+                 mass_contribution_other=True,
                  get_mineral_sat=True,
                  mineral_sat_type="affinity",
                  get_redox=True,
@@ -680,13 +1210,14 @@ class AqEquil():
             species. Can be "molality", "log_molality", "log_gamma", or
             "log_activity". Ignored if `get_aq_dist` is False.
         
-        get_aq_contrib : bool, default True
+        get_mass_contribution : bool, default True
             Calculate basis species contributions to mass balance of aqueous
             species?
         
-        aq_contrib_other : bool, default True
+        mass_contribution_other : bool, default True
             Include an "other" species for the sake of summing percents of basis
-            species contributions to 100%? Ignored if `get_aq_contrib` is False.
+            species contributions to 100%? Ignored if `get_mass_contribution` is
+            False.
         
         get_mineral_sat : bool, default True
             Calculate saturation states of pure solids?
@@ -763,31 +1294,30 @@ class AqEquil():
         if custom_db:
             # EQ3/6 cannot handle spaces in the 'EQ36DA' path name.
             if " " in os.getcwd():
-                raise Exception(
-                    "Error: the path to the custom database " + \
-                    "cannot contain spaces. The current path " + \
-                    "is: [ " + os.getcwd() + " ]. Remove or " + \
-                    "replace spaces in folder names for this " + \
-                    "feature. Example: [ " + \
-                    os.getcwd().replace(" ", "-") + " ].")
+                msg = ("Error: the path to the custom database "
+                    "cannot contain spaces. The current path "
+                    "is: [ " + os.getcwd() + " ]. Remove or "
+                    "replace spaces in folder names for this "
+                    "feature. Example: [ " + os.getcwd().replace(" ", "-") + " ].")
+                raise Exception(msg)
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ['EQ36DA'] = os.getcwd()
 
         if get_affinity_energy:
             if rxn_filename == None:
-                warnings.warn(
-                    "A reaction file was not specified. Affinities and " + \
+                wrn = ("A reaction file was not specified. Affinities and "
                     "energy supplies will not be calculated.")
+                warnings.warn(wrn)
                 get_affinity_energy = False
                 rxn_filename = ""
             elif os.path.exists(rxn_filename) and os.path.isfile(rxn_filename):
                 pass
             else:
-                warnings.warn(
-                    "Reaction file {} was not found. Affinities and " + \
-                    "energy supplies will not be " + \
+                wrn = ("Reaction file {} was not found. Affinities and "
+                    "energy supplies will not be "
                     "calculated.".format(rxn_filename))
+                warnings.warn(wrn)
                 get_affinity_energy = False
                 rxn_filename = ""
         else:
@@ -798,7 +1328,7 @@ class AqEquil():
             warnings.simplefilter("always")
             r_prescript = pkg_resources.resource_string(
                 __name__, 'preprocess_for_EQ3.r').decode("utf-8")
-            ro.r(r_prescript)  # this will need to change when packaging
+            ro.r(r_prescript)
             df_input_processed = ro.r.preprocess(input_filename=input_filename,
                                                  exclude=convert_to_RVector(
                                                      exclude),
@@ -838,14 +1368,14 @@ class AqEquil():
             warnings.simplefilter("always")
             r_3o_mine = pkg_resources.resource_string(
                 __name__, '3o_mine.r').decode("utf-8")
-            ro.r(r_3o_mine)  # this will need to change when packaging
+            ro.r(r_3o_mine)
             batch_3o = ro.r.main_3o_mine(
                 input_filename=input_filename,
                 rxn_filename=rxn_filename,
                 get_aq_dist=get_aq_dist,
                 aq_dist_type=aq_dist_type,
-                get_aq_contrib=get_aq_contrib,
-                aq_contrib_other=aq_contrib_other,
+                get_mass_contribution=get_mass_contribution,
+                mass_contribution_other=mass_contribution_other,
                 get_mineral_sat=get_mineral_sat,
                 mineral_sat_type=mineral_sat_type,
                 get_redox=get_redox,
@@ -864,7 +1394,7 @@ class AqEquil():
         for warning in w:
             print(warning.message)
 
-        aq_contribution = pandas2ri.ri2py_dataframe(batch_3o[1])
+        mass_contribution = pandas2ri.ri2py_dataframe(batch_3o[1])
         df_report = pandas2ri.ri2py_dataframe(batch_3o[2])
         df_input = pandas2ri.ri2py_dataframe(batch_3o[3])
         df_pinput = pandas2ri.ri2py_dataframe(batch_3o[4])
@@ -875,7 +1405,8 @@ class AqEquil():
 
         # handle headers and subheaders of input section
         headers = [col.split("_")[0] for col in list(df_input.columns)]
-        headers = [header+"_(input)" for header in headers]
+        headers = ["pH" if header == "H+" else header for header in headers]
+        headers = [header+"_(input)" if header not in ["Temperature", "pH"]+exclude else header for header in headers]
         subheaders = [subheader[1] if len(subheader) > 1 else "" for subheader in [
             col.split("_") for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -887,6 +1418,7 @@ class AqEquil():
         if get_aq_dist:
             aq_distribution_cols = list(report_divs.rx2('aq_distribution'))
             df_aq_distribution = df_report.loc[:, aq_distribution_cols]
+            df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors='coerce')
 
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
@@ -899,6 +1431,7 @@ class AqEquil():
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2('mineral_sat'))
             df_mineral_sat = df_report.loc[:, mineral_sat_cols]
+            df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors='coerce')
 
             # handle headers of df_mineral_sat section
             if mineral_sat_type == "affinity":
@@ -919,6 +1452,7 @@ class AqEquil():
         if get_redox:
             redox_cols = list(report_divs.rx2('redox'))
             df_redox = df_report.loc[:, redox_cols]
+            df_redox = df_redox.apply(pd.to_numeric, errors='coerce')
 
             # handle headers of df_redox section
             if redox_type == "Eh":
@@ -943,6 +1477,7 @@ class AqEquil():
         if get_charge_balance:
             charge_balance_cols = list(report_divs.rx2('charge_balance'))
             df_charge_balance = df_report.loc[:, charge_balance_cols]
+            df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors='coerce')
 
             # handle headers of df_charge_balance section
             headers = df_charge_balance.columns
@@ -958,6 +1493,8 @@ class AqEquil():
             energy_cols = list(report_divs.rx2('energy'))
             df_affinity = df_report.loc[:, affinity_cols]
             df_energy = df_report.loc[:, energy_cols]
+            df_affinity = df_affinity.apply(pd.to_numeric, errors='coerce')
+            df_energy = df_energy.apply(pd.to_numeric, errors='coerce')
 
             # handle headers of df_affinity section
             headers = df_affinity.columns
@@ -976,7 +1513,7 @@ class AqEquil():
             df_join = df_join.join(df_energy)
 
         out_dict = {'sample_data': {},
-                    'aq_contribution': aq_contribution, 'report': df_join,
+                    'mass_contribution': mass_contribution, 'report': df_join,
                     'input': df_input, 'processed_input': df_pinput, 'report_divs': report_divs}
 
         sample_data = batch_3o.rx2('sample_data')
@@ -995,26 +1532,28 @@ class AqEquil():
                 }
 
             if get_aq_dist:
-                dict_sample_data.update(
-                    {"aq_distribution": pandas2ri.ri2py_dataframe(sample.rx2('aq_distribution'))})
+                sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2('aq_distribution'))
+                sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors='coerce')
+                dict_sample_data.update({"aq_distribution": sample_aq_dist})
 
-            if get_aq_contrib:
-                sample_aq_contrib = sample.rx2('aq_contribution')
+            if get_mass_contribution:
+                sample_mass_contribution = sample.rx2('mass_contribution')
+                sample_mass_contribution_pandas = pandas2ri.ri2py_dataframe(sample_mass_contribution).apply(pd.to_numeric, errors='coerce')
                 dict_sample_data.update(
-                    {"aq_contribution": pandas2ri.ri2py_dataframe(sample.rx2('aq_contribution'))})
-                sample_aq_contrib_dict = {}
-                for ii, species_df in enumerate(sample_aq_contrib):
-                    species_name = sample_aq_contrib.names[ii]
-                    sample_aq_contrib_dict.update(
-                        {species_name: pandas2ri.ri2py_dataframe(species_df)})
+                    {"mass_contribution": sample_mass_contribution_pandas})
+                sample_mass_contribution_dict = {}
+                for ii, species_df in enumerate(sample_mass_contribution):
+                    species_name = sample_mass_contribution.names[ii]
+                    sample_mass_contribution_dict.update(
+                        {species_name: pandas2ri.ri2py_dataframe(species_df).apply(pd.to_numeric, errors='coerce')})
 
             if get_mineral_sat:
                 dict_sample_data.update(
-                    {"mineral_sat": pandas2ri.ri2py_dataframe(sample.rx2('mineral_sat'))})
+                    {"mineral_sat": pandas2ri.ri2py_dataframe(sample.rx2('mineral_sat')).apply(pd.to_numeric, errors='coerce')})
 
             if get_redox:
                 dict_sample_data.update(
-                    {"redox": pandas2ri.ri2py_dataframe(sample.rx2('redox'))})
+                    {"redox": pandas2ri.ri2py_dataframe(sample.rx2('redox')).apply(pd.to_numeric, errors='coerce')})
 
             if get_charge_balance:
                 cbal = sample.rx2('charge_balance')
@@ -1033,9 +1572,9 @@ class AqEquil():
 
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": pandas2ri.ri2py_dataframe(
-                    sample.rx2('affinity_energy_raw'))})
+                    sample.rx2('affinity_energy_raw')).apply(pd.to_numeric, errors='coerce')})
                 dict_sample_data.update(
-                    {"affinity_energy": pandas2ri.ri2py_dataframe(sample.rx2('affinity_energy'))})
+                    {"affinity_energy": pandas2ri.ri2py_dataframe(sample.rx2('affinity_energy')).apply(pd.to_numeric, errors='coerce')})
 
             out_dict["sample_data"].update(
                 {sample_data.names[i]: dict_sample_data})
@@ -1066,9 +1605,10 @@ class AqEquil():
                                  200.0000, 250.0000, 300.0000, 350.0000],
                      grid_press="Psat",
                      infer_formula_ox=False,
-                     # basis_pref_mods={}, # TODO: dict of replacements. e.g. iron oxidation example.
+                     basis_prefs={},
+                     generate_template=True,
                      template_name=None,
-                     ):
+                     verbose=1):
         """
         Create a data0 file from a custom thermodynamic dataset.
         
@@ -1115,18 +1655,26 @@ class AqEquil():
             elements, Dy and S, would have to be estimated together; S has many
             oxidation states and Dy's oxidation states are not hard-coded.
         
+        generate_template : bool, default True
+            Generate a CSV sample input template customized to this data0?
+        
         template_name : str, optional
             Name of the sample input template file generated. If no name is
             supplied, defaults to 'sample_template_xyz.csv', where 'xyz' is
-            the three letter code given to `db`.
+            the three letter code given to `db`. Ignored if `generate_template`
+            is False.
         """
-        
+
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
         grid_temps = convert_to_RVector(grid_temps)
         grid_press = convert_to_RVector(grid_press)
         suppress_redox = convert_to_RVector(suppress_redox)
-
+        bp_values = list(basis_prefs.values())
+        bp_keys = list(basis_prefs.keys())
+        basis_prefs = convert_to_RVector(bp_values)
+        basis_pref_names = convert_to_RVector(bp_keys)
+        
         if supp_file_ss == None:
             supp_file_ss = ro.r("NULL")
         if data0_formula_ox_name == None:
@@ -1138,7 +1686,7 @@ class AqEquil():
             warnings.simplefilter("always")
             r_create_data0 = pkg_resources.resource_string(
                 __name__, 'create_data0.r').decode("utf-8")
-            ro.r(r_create_data0)  # this will need to change when packaging
+            ro.r(r_create_data0)
             ro.r.main_create_data0(filename=filename,
                                    supp_file=supp_file,
                                    supp_file_ss=supp_file_ss,
@@ -1150,9 +1698,11 @@ class AqEquil():
                                    data0_formula_ox_name=data0_formula_ox_name,
                                    suppress_redox=suppress_redox,
                                    infer_formula_ox=infer_formula_ox,
+                                   generate_template=generate_template,
                                    template_name=template_name,
-                                   #basis_pref_mods=basis_pref_mods, # TODO: dict of replacements. e.g. iron oxidation example.
-                                   )
-
+                                   verbose=verbose,
+                                   basis_prefs=basis_prefs,
+                                   basis_pref_names=basis_pref_names)
+    
         for warning in w:
             print(warning.message)

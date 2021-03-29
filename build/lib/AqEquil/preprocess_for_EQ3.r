@@ -2,8 +2,7 @@
 # Summary: import, clean, and generate a batch of EQ3 input files from a
 #   user-supplied csv table of samples.
 # Author: Grayson Boyer (gmboyer@asu.edu)
-# Created for the ENKI project
-# Last updated Jan 31, 2021
+# Last updated March 17, 2021
 
 
 suppressMessages({

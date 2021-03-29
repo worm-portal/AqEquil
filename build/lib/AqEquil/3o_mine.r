@@ -22,13 +22,13 @@ isolate_block <- function(str, begin_str, end_str){
 mine_3o <- function(this_file,
                     rxn_table,
                     get_aq_dist=T,
-                    get_aq_contrib=T,
+                    get_mass_contribution=T,
                     get_mineral_sat=T,
                     get_redox=T,
                     get_charge_balance=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
-                    aq_contrib_other=T){
+                    mass_contribution_other=T){
 
   # allow user to add their custom obigt entries
   if(exists("custom_obigt")){
@@ -122,7 +122,7 @@ mine_3o <- function(this_file,
   } # end of 'aqueous distribution' extraction
     
     
-  if(get_aq_contrib){
+  if(get_mass_contribution){
     ### begin extracting 'Major Species by Contribution to Aqueous Mass Balances' ###
     
     # string to isolate the species saturation section:
@@ -163,7 +163,7 @@ mine_3o <- function(this_file,
         rownames(df_basis) <- df_basis$species
         df_basis$species <- NULL
         # add contribution data to list of sample data
-        sample_3o[["aq_contribution"]][[this_basis]] <- df_basis
+        sample_3o[["mass_contribution"]][[this_basis]] <- df_basis
       }
     }
   } # end 'aqueous contribution' extraction
@@ -547,7 +547,7 @@ mine_3o <- function(this_file,
 
 # function to melt aqueous contribution data from multiple samples into
 # a single dataframe and then return it.
-melt_aq_contrib <- function(batch_3o, other=F){
+melt_mass_contribution <- function(batch_3o, other=F){
 
   # initialize empty dataframe
   df_aq_cont <- data.frame(sample=character(0),
@@ -559,13 +559,13 @@ melt_aq_contrib <- function(batch_3o, other=F){
                            stringsAsFactors=FALSE)
 
   # get all aqueous contribution data
-  aq_contributions <- lapply(batch_3o[["sample_data"]], `[[`, 'aq_contribution')
+  mass_contributions <- lapply(batch_3o[["sample_data"]], `[[`, 'mass_contribution')
 
   # loop through each sample and basis species
-  for(sample in names(aq_contributions)){
-    message(paste0("Processing aqueous contribution of ", sample, "..."))
-    for(basis in names(aq_contributions[[sample]])){
-      df <- aq_contributions[[sample]][[basis]]
+  for(sample in names(mass_contributions)){
+    message(paste0("Processing mass contribution of basis species in ", sample, "..."))
+    for(basis in names(mass_contributions[[sample]])){
+      df <- mass_contributions[[sample]][[basis]]
       df[, "basis"] <- basis
       df[, "sample"] <- sample
       df[, "species"] <- rownames(df)
@@ -677,13 +677,13 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
 ### main
 main_3o_mine <- function(rxn_filename,
                          get_aq_dist,
-                         get_aq_contrib,
+                         get_mass_contribution,
                          get_mineral_sat,
                          get_redox,
                          get_charge_balance,
                          get_affinity_energy,
                          not_limiting,
-                         aq_contrib_other,
+                         mass_contribution_other,
                          csv_filename,
                          aq_dist_type,
                          mineral_sat_type,
@@ -718,13 +718,13 @@ main_3o_mine <- function(rxn_filename,
       sample_3o <- mine_3o(file,
                            rxn_table=rxn_table,
                            get_aq_dist=get_aq_dist,
-                           get_aq_contrib=get_aq_contrib,
+                           get_mass_contribution=get_mass_contribution,
                            get_mineral_sat=get_mineral_sat,
                            get_redox=get_redox,
                            get_charge_balance=get_charge_balance,
                            get_affinity_energy=get_affinity_energy,
                            not_limiting=not_limiting,
-                           aq_contrib_other=aq_contrib_other)
+                           mass_contribution_other=mass_contribution_other)
 
       # if this file could be processed, add its data to the batch_3o object
       if(length(sample_3o)>1){
@@ -738,11 +738,10 @@ main_3o_mine <- function(rxn_filename,
 
     # compile aqueous contribution data into a single melted dataframe and
     # append it to the batch_3o object.
-    if(get_aq_contrib){
-      message("Now processing aqueous contribution data...")
-      get_aq_contrib_start_time <- Sys.time()
-      batch_3o[["aq_contrib"]] <- melt_aq_contrib(batch_3o=batch_3o, other=aq_contrib_other)
-      message("Finished processing aqueous contribution data...")
+    if(get_mass_contribution){
+      message("Now processing mass contribution data...")
+      batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o, other=mass_contribution_other)
+      message("Finished processing mass contribution data...")
     }
 
     # create a report summarizing 3o data from all samples
