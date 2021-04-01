@@ -456,6 +456,7 @@ create_data0 <- function(supp_file,
       vmessage("Resorting to using a temperature grid of:", 1, verbose)
       vmessage(paste0(grid_temps), 1, verbose)
       grid_press <- "Psat" # "Psat" for liquid-vapor saturation curve from temperature grid
+      vmessage("and Psat pressure.", 1, verbose)
   }
 
   # round grid temperatures to four decimal places
@@ -997,6 +998,17 @@ create_data0 <- function(supp_file,
   B_DHgrid <- paste(B_DHgrid, collapse="")
   bdotgrid <- paste(bdotgrid, collapse="")
   logkgrid <- paste(logkgrid, collapse="")
+
+  # insert minimum and maximum temperature values into data0 template
+  temp_min_max_insertlines <- "\nTemperature limits \\(degC\\)\n.*\ntemperatures\n"
+  t_min <- min(grid_temps)
+  t_max <- max(grid_temps)
+  t_min_f <- as.character(format(round(t_min, 4), nsmall = 4))
+  t_max_f <- as.character(format(round(t_max, 4), nsmall = 4))
+  t_min_max <- paste0(paste(rep(" ", 10-nchar(t_min_f)), collapse=""), t_min_f)
+  t_min_max <- paste0(t_min_max, paste(rep(" ", 10-nchar(t_max_f)), collapse=""), t_max_f)
+  t_min_max <- paste0("     ", t_min_max)
+  data0_template <- sub(temp_min_max_insertlines, paste0("\nTemperature limits (degC)\n", t_min_max, "\ntemperatures\n"), data0_template)
 
   # insert temperature grid values into data0 template
   tempgrid_insertlines <- "\ntemperatures\n.*\npressures\n"

@@ -20,7 +20,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import rpy2.robjects as ro
     from rpy2.robjects import pandas2ri
-    pandas2ri.activate()   
+    pandas2ri.activate()
 
 def load(filename, messages=True):
     """
@@ -41,6 +41,13 @@ def load(filename, messages=True):
         if messages:
             print("Loaded '{}'".format(filename))
         return speciation
+    
+
+def unique(seq):
+    seen = set()
+    seen_add = seen.add
+    return [x for x in seq if not (x in seen or seen_add(x))]
+
 
 def convert_to_RVector(value, force_Rvec=True):
     
@@ -97,10 +104,6 @@ class Speciation(object):
     batch_3o : rpy2 ListVector
         An rpy2 ListVector (R object) containing speciation results, in case
         analysis in R is preferred.
-    
-    processed_input : pd.Dataframe
-        Pandas dataframe containing user-supplied sample chemistry data that has
-        been processed for `speciate`.
     
     report : pd.Dataframe
         Pandas dataframe reporting major results of speciation calculation in
@@ -616,7 +619,8 @@ class Speciation(object):
         plt.show()
     
     
-    def plot_mass_contribution(self, basis):
+    def plot_mass_contribution(self, basis, width=0.9,
+                                     legend_loc=(1.02, 0.5)):
         
         """
         Plot basis species contributions to mass balance of aqueous species
@@ -627,40 +631,63 @@ class Speciation(object):
         basis : str
             Name of the basis species.
             
-        Returns
-        ----------
-        g : plotnine ggplot object
-            A stacked bar plot.
-        """
-
-        if basis not in set(self.mass_contribution['basis']):
-            msg = ("The species '{}' was ".format(basis) + "not found among "
-                   "valid basis species. Valid basis species include "
-                   "{}".format(str(set(self.mass_contribution['basis'])))+"")
-            raise Exception(msg)
+        width : float, default 0.9
+            Width of bars. No space between bars if width=1.0.
         
-        df_sp = copy.deepcopy(
-            self.mass_contribution.loc[self.mass_contribution['basis'] == basis])
-
+        legend_loc : str or pair of float, default (1.02, 0.5)
+            Location of the legend on the plot. See
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        """
+        
+        try:
+            self.mass_contribution
+        except:
+            msg = ("Results for basis species contributions to aqueous mass "
+                   "balance could not be found. Ensure that "
+                   "get_mass_contribution = True when running speciate().")
+            raise Exception(msg)
+            
+        if basis not in set(self.mass_contribution['basis']):
+            msg = ("The basis species {} ".format(basis)+"could not be found "
+                   "among available basis species: "
+                   "{}".format(str(list(set(self.mass_contribution['basis']))))+"")
+            raise Exception(msg)
+            
+        df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution['basis'] == basis])
+        
         df_sp['percent'] = df_sp['percent'].astype(float)
+        
+        unique_species = unique(df_sp["species"])
+        
+        if "Other" in unique_species:
 
-        g = ggplot(df_sp, aes(fill="species", y="percent", x="sample")) + \
-            geom_bar(stat="identity") + \
-            ylab("%") + \
-            ggtitle("Species Accounting for Mass Balance of " + basis) + \
-            theme(axis_line=element_line(colour="black", size=0.25, linetype="solid"),
-                  axis_text_x=element_text(angle=45, vjust=1, hjust=1),
-                  axis_title_x=element_blank(),
-                  panel_grid_major=element_blank(), panel_grid_minor=element_blank(),
-                  panel_background=element_blank(),
-                  legend_key=element_rect(fill=None, color=None),
-                  legend_title=element_blank(),
-                  plot_title=element_text(size=9, hjust=0.5)) + \
-            guides(color=guide_legend(override_aes=None)) + \
-            coord_cartesian(ylim=[0,100])
-            #scale_y_continuous(limits=[0, 100], breaks=range(0, 125, 25))
+            unique_species.append(unique_species.pop(unique_species.index("Other")))
+        
+        labels = unique(df_sp["sample"])
 
-        return g
+        fig, ax = plt.subplots()
+
+        bottom = np.array([0]*len(labels))
+
+        for i,sp in enumerate(unique_species):
+            percents = []
+            for sample in labels:
+                df_sample = df_sp[df_sp["sample"]==sample]
+                try:
+                    percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
+                    percents.append(percent)
+                except:
+                    percents.append(0.0)
+            ax.bar(labels, percents, width, bottom=bottom, label=sp)
+            bottom = bottom + np.array(percents)
+
+        ax.set_ylabel('%')
+        ax.set_title('Species accounting for mass balance of '+basis)
+        plt.xticks(rotation = 45, ha='right')
+
+        ax.legend(loc=legend_loc)
+        
+        plt.show()
 
 
 class AqEquil():
@@ -1350,19 +1377,23 @@ class AqEquil():
 
         self.__mk_check_del_directory('rxn_3o')
         self.__mk_check_del_directory('rxn_3p')
-        three_i_files, three_i_file_paths = self.__read_inputs('3i', 'rxn_3i')
+        files_3i, files_3i_paths = self.__read_inputs('3i', 'rxn_3i')
 
         input_dir = cwd + "/rxn_3i/"
         output_dir = cwd + "/rxn_3o/"
         pickup_dir = cwd + "/rxn_3p/"
-
-        for file in three_i_files:
+        
+        for file in files_3i:
             self.runeq3(filename_3i=file, db=db, path_3i=input_dir,
                         path_3o=output_dir, path_3p=pickup_dir)
 
         if custom_db:
             os.environ['EQ36DA'] = self.eq36da
 
+        files_3o = [file+".3o" for file in self.df_input_processed.index]
+        
+        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+        
         # mine output
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -1370,6 +1401,7 @@ class AqEquil():
                 __name__, '3o_mine.r').decode("utf-8")
             ro.r(r_3o_mine)
             batch_3o = ro.r.main_3o_mine(
+                files_3o=convert_to_RVector(files_3o),
                 input_filename=input_filename,
                 rxn_filename=rxn_filename,
                 get_aq_dist=get_aq_dist,
@@ -1388,16 +1420,15 @@ class AqEquil():
                 # Needed for keeping symbols in column names after porting
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
-                df_input_processed_names=convert_to_RVector(
-                    list(self.df_input_processed.columns)),
+                df_input_processed_names=df_input_processed_names,
             )
         for warning in w:
             print(warning.message)
-
-        mass_contribution = pandas2ri.ri2py_dataframe(batch_3o[1])
-        df_report = pandas2ri.ri2py_dataframe(batch_3o[2])
-        df_input = pandas2ri.ri2py_dataframe(batch_3o[3])
-        df_pinput = pandas2ri.ri2py_dataframe(batch_3o[4])
+        
+        if get_mass_contribution:
+            mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2('mass_contribution'))
+        df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2('report'))
+        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2('input'))
         report_divs = batch_3o.rx2('report_divs')
 
         input_cols = list(report_divs.rx2('input'))
@@ -1513,8 +1544,11 @@ class AqEquil():
             df_join = df_join.join(df_energy)
 
         out_dict = {'sample_data': {},
-                    'mass_contribution': mass_contribution, 'report': df_join,
-                    'input': df_input, 'processed_input': df_pinput, 'report_divs': report_divs}
+                    'report': df_join,
+                    'input': df_input, 'report_divs': report_divs}
+        
+        if get_mass_contribution:
+            out_dict['mass_contribution'] = mass_contribution
 
         sample_data = batch_3o.rx2('sample_data')
 
@@ -1537,15 +1571,9 @@ class AqEquil():
                 dict_sample_data.update({"aq_distribution": sample_aq_dist})
 
             if get_mass_contribution:
-                sample_mass_contribution = sample.rx2('mass_contribution')
-                sample_mass_contribution_pandas = pandas2ri.ri2py_dataframe(sample_mass_contribution).apply(pd.to_numeric, errors='coerce')
+                sample_mass_contribution = mass_contribution[mass_contribution["sample"] == sample.rx2('name')[0]]
                 dict_sample_data.update(
-                    {"mass_contribution": sample_mass_contribution_pandas})
-                sample_mass_contribution_dict = {}
-                for ii, species_df in enumerate(sample_mass_contribution):
-                    species_name = sample_mass_contribution.names[ii]
-                    sample_mass_contribution_dict.update(
-                        {species_name: pandas2ri.ri2py_dataframe(species_df).apply(pd.to_numeric, errors='coerce')})
+                    {"mass_contribution": sample_mass_contribution})
 
             if get_mineral_sat:
                 dict_sample_data.update(
@@ -1556,19 +1584,7 @@ class AqEquil():
                     {"redox": pandas2ri.ri2py_dataframe(sample.rx2('redox')).apply(pd.to_numeric, errors='coerce')})
 
             if get_charge_balance:
-                cbal = sample.rx2('charge_balance')
-                charge_balance_dict = {
-                    'IS (molal)': float(cbal.rx2('IS (molal)')[0]),
-                    'stoichiometric IS (molal)': float(cbal.rx2('stoichiometric IS (molal)')[0]),
-                    'Sigma(mz) cations': float(cbal.rx2('Sigma(mz) cations')[0]),
-                    'Sigma(mz) anions': float(cbal.rx2('Mean charge')[0]),
-                    'Total charge': float(cbal.rx2('Total charge')[0]),
-                    'Charge imbalance': float(cbal.rx2('Charge imbalance')[0]),
-                    '%CI of total': float(cbal.rx2('%CI of total')[0]),
-                    '%CI of mean': float(cbal.rx2('%CI of mean')[0]),
-                    }
-                dict_sample_data.update(
-                    {"charge_balance": pandas2ri.ri2py_dataframe(sample.rx2('charge_balance'))})
+                dict_sample_data.update({"charge_balance": df_charge_balance.loc[sample.rx2('name')[0], :]})
 
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": pandas2ri.ri2py_dataframe(
@@ -1663,8 +1679,23 @@ class AqEquil():
             supplied, defaults to 'sample_template_xyz.csv', where 'xyz' is
             the three letter code given to `db`. Ignored if `generate_template`
             is False.
+        
+        verbose : int, 0, 1, or 2, default 1
+            Level determining how many messages are returned during a
+            calculation. 2 for all messages, 1 for errors or warnings only,
+            0 for silent.
         """
 
+        if verbose >= 1:
+            print("Creating data0.{}...".format(db))
+        
+        if sum([T >= 10000 for T in grid_temps]):
+            raise Exception("Grid temperatures must be below 10000 °C.")
+        
+        if isinstance(grid_press, list):
+            if sum([T >= 10000 for T in grid_temps]):
+                raise Exception("Grid pressures must be below 10000 bars.")
+        
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
         grid_temps = convert_to_RVector(grid_temps)
@@ -1706,3 +1737,6 @@ class AqEquil():
     
         for warning in w:
             print(warning.message)
+        
+        if verbose >= 1:
+            print("Finished creating data0.{}.".format(db))

@@ -559,7 +559,7 @@ melt_mass_contribution <- function(batch_3o, other=F){
                            stringsAsFactors=FALSE)
 
   # get all aqueous contribution data
-  mass_contributions <- lapply(batch_3o[["sample_data"]], `[[`, 'mass_contribution')
+  mass_contributions <- lapply(batch_3o[["sample_data"]], `[[`, 'mass_contribution')  
 
   # loop through each sample and basis species
   for(sample in names(mass_contributions)){
@@ -587,7 +587,7 @@ melt_mass_contribution <- function(batch_3o, other=F){
   }
   
   df_aq_cont <- df_aq_cont[, c("sample", "basis", "species", "factor", "molality", "percent")]
-
+    
   return(df_aq_cont)
 
 }
@@ -675,7 +675,8 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
 
 
 ### main
-main_3o_mine <- function(rxn_filename,
+main_3o_mine <- function(files_3o,
+                         rxn_filename,
                          get_aq_dist,
                          get_mass_contribution,
                          get_mineral_sat,
@@ -703,9 +704,6 @@ main_3o_mine <- function(rxn_filename,
 
     # set directory to rxn_3o folder where .3o files are kept
     setwd("rxn_3o")
-
-    # get a list of all .3o files in rxn_3o
-    files_3o <- list.files()
 
     # instantiate an empty object to store data from all 3o files
     batch_3o <- list()
