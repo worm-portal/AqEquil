@@ -28,7 +28,8 @@ mine_3o <- function(this_file,
                     get_charge_balance=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
-                    mass_contribution_other=T){
+                    mass_contribution_other=T,
+                    verbose=1){
 
   # allow user to add their custom obigt entries
   if(exists("custom_obigt")){
@@ -42,11 +43,15 @@ mine_3o <- function(this_file,
   # get sample name
   this_name <- trimspace(isolate_block(extractme, begin_str="^.*\\|Sample:\\s+", end_str="\\|\\n\\|.*$"))
   
-  message(paste0("Processing EQ3 output for ", this_name))
+  if(verbose > 1){
+    message(paste0("Processing EQ3 output for ", this_name))
+  }
 
   # check if file exited normally. If not, skip processing the file:
   if (grepl("Normal exit", extractme) == FALSE){
-    message(paste0("Could not process ", this_file, " because this file did not have a normal exit from EQ3."))
+    if(verbose > 0){
+      message(paste0("Could not process ", this_file, " because this file did not have a normal exit from EQ3."))
+    }
     return(list())
   }
     
@@ -547,7 +552,7 @@ mine_3o <- function(this_file,
 
 # function to melt aqueous contribution data from multiple samples into
 # a single dataframe and then return it.
-melt_mass_contribution <- function(batch_3o, other=F){
+melt_mass_contribution <- function(batch_3o, other=F, verbose=1){
 
   # initialize empty dataframe
   df_aq_cont <- data.frame(sample=character(0),
@@ -563,7 +568,9 @@ melt_mass_contribution <- function(batch_3o, other=F){
 
   # loop through each sample and basis species
   for(sample in names(mass_contributions)){
-    message(paste0("Processing mass contribution of basis species in ", sample, "..."))
+    if(verbose > 1){
+      message(paste0("Processing mass contribution of basis species in ", sample, "..."))
+    }
     for(basis in names(mass_contributions[[sample]])){
       df <- mass_contributions[[sample]][[basis]]
       df[, "basis"] <- basis
@@ -692,7 +699,8 @@ main_3o_mine <- function(files_3o,
                          input_filename,
                          batch_3o_filename,
                          df_input_processed,
-                         df_input_processed_names){
+                         df_input_processed_names,
+                         verbose){
     
     start_time <- Sys.time()
 
@@ -707,8 +715,10 @@ main_3o_mine <- function(files_3o,
 
     # instantiate an empty object to store data from all 3o files
     batch_3o <- list()
-
-    message("Now processing EQ3 output files...")
+    
+    if(verbose > 1){
+      message("Now processing EQ3 output files...")
+    }
 
     # process each .3o file
     for(file in files_3o){
@@ -722,7 +732,8 @@ main_3o_mine <- function(files_3o,
                            get_charge_balance=get_charge_balance,
                            get_affinity_energy=get_affinity_energy,
                            not_limiting=not_limiting,
-                           mass_contribution_other=mass_contribution_other)
+                           mass_contribution_other=mass_contribution_other,
+                           verbose=verbose)
 
       # if this file could be processed, add its data to the batch_3o object
       if(length(sample_3o)>1){
@@ -731,15 +742,23 @@ main_3o_mine <- function(files_3o,
     }
 
     setwd("../")
-
-    message("Finished processing EQ3 output files...")
-
+    
+    if(verbose > 1){
+      message("Finished processing EQ3 output files...")
+    }
+    
     # compile aqueous contribution data into a single melted dataframe and
     # append it to the batch_3o object.
     if(get_mass_contribution){
-      message("Now processing mass contribution data...")
-      batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o, other=mass_contribution_other)
-      message("Finished processing mass contribution data...")
+      if(verbose > 1){
+        message("Now processing mass contribution data...")
+      }
+      batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o,
+                                                                other=mass_contribution_other,
+                                                                verbose=verbose)
+      if(verbose > 1){
+        message("Finished processing mass contribution data...")
+      }
     }
 
     # create a report summarizing 3o data from all samples
@@ -770,7 +789,9 @@ main_3o_mine <- function(files_3o,
     }
 
     time_elapsed <- Sys.time() - start_time
-    message(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
+    if(verbose > 1){
+      message(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
+    }
     
     return(batch_3o)
 }

@@ -787,7 +787,7 @@ preprocess <- function(input_filename,
 
     this_time <- proc.time() - ptm                             
 
-    message(paste("Preprocessing done! Took", round(this_time["elapsed"], 1), "seconds."))
+    vprint(paste("Preprocessing done! Took", round(this_time["elapsed"], 1), "seconds."), verbose=verbose)
                                  
     return(df)
 }

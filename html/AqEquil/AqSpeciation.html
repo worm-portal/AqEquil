@@ -39,7 +39,6 @@ from subprocess import Popen
 import pkg_resources
 import pandas as pd
 import numpy as np
-from plotnine import * # convert to matplotlib
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -72,6 +71,9 @@ def load(filename, messages=True):
     
 
 def unique(seq):
+    &#34;&#34;&#34;
+    Provide a sequence, get a list of non-repeating elements in the same order.
+    &#34;&#34;&#34;
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
@@ -748,8 +750,10 @@ class AqEquil():
         Pandas dataframe reporting results of last speciation calculation
         performed by `speciate`.
     
-    messages : bool, default True
-        Print messages during calculations?
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
         
     &#34;&#34;&#34;
 
@@ -761,7 +765,7 @@ class AqEquil():
         self.eq36co = eq36co
         self.df_input_processed = None
         self.out_dict = None
-        self.messages = True
+        self.verbose = 1
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
@@ -970,7 +974,7 @@ class AqEquil():
             os.rename(&#34;slist&#34;, &#34;slist.txt&#34;)
 
         if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
-            if self.messages:
+            if self.verbose &gt; 0:
                 print(&#34;Successfully created a data1.&#34;+db+&#34; from data0.&#34;+db)
         else:
             msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
@@ -1001,8 +1005,9 @@ class AqEquil():
 
         # get current working dir
         cwd = os.getcwd()
-
-        print(&#39;Calling EQ3 on &#39; + filename_3i + &#39; using &#39; + db)
+        
+        if self.verbose &gt; 0:
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -1018,27 +1023,31 @@ class AqEquil():
             # rename output
             os.rename(path_3i + &#39;/output&#39;, path_3i + &#34;/&#34; + filename_3o)
         except:
-            print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
 
         try:
             # move output
             shutil.move(path_3i + &#34;/&#34; + filename_3o,
                         path_3o + &#34;/&#34; + filename_3o)
         except:
-            print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
 
         try:
             # rename pickup
             os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
         except:
-            print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
 
         try:
             # move pickup
             shutil.move(path_3i + &#34;/&#34; + filename_3p,
                         path_3p + &#34;/&#34; + filename_3p)
         except:
-            print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
     def __mk_check_del_directory(self, path):
         
@@ -1093,7 +1102,7 @@ class AqEquil():
 
     def speciate(self,
                  input_filename,
-                 db=&#34;jus&#34;,
+                 db=&#34;wrm&#34;,
                  redox_flag=0,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
@@ -1168,7 +1177,7 @@ class AqEquil():
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : three letter str, default &#34;jus&#34;
+        db : three letter str, default &#34;wrm&#34;
             Three letter file extension for the desired thermodynamic database.
             If `custom_db` is False, this database must be named data1.xyz
             (where xyz is your desired three letter extension) and located
@@ -1334,6 +1343,8 @@ class AqEquil():
         
         &#34;&#34;&#34;
         
+        self.verbose = verbose
+        
         # check input sample file for errors
         self._check_sample_input_file(input_filename, exclude, db, custom_db)
         
@@ -1393,7 +1404,7 @@ class AqEquil():
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
-                                                 verbose=verbose)
+                                                 verbose=self.verbose)
 
         for warning in w:
             print(warning.message)
@@ -1449,6 +1460,7 @@ class AqEquil():
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                verbose=self.verbose,
             )
         for warning in w:
             print(warning.message)
@@ -1634,8 +1646,12 @@ class AqEquil():
 
         if delete_generated_folders:
             self._delete_rxn_folders()
-
+        
+        if self.verbose &gt; 0:
+            print(&#34;Finished!&#34;)
+        
         return speciation
+
 
     def create_data0(self,
                      filename,
@@ -1713,8 +1729,10 @@ class AqEquil():
             calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         &#34;&#34;&#34;
-
-        if verbose &gt;= 1:
+        
+        self.verbose = verbose
+        
+        if self.verbose &gt;= 1:
             print(&#34;Creating data0.{}...&#34;.format(db))
         
         if sum([T &gt;= 10000 for T in grid_temps]):
@@ -1759,14 +1777,14 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=verbose,
+                                   verbose=self.verbose,
                                    basis_prefs=basis_prefs,
                                    basis_pref_names=basis_pref_names)
     
         for warning in w:
             print(warning.message)
         
-        if verbose &gt;= 1:
+        if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 </section>
@@ -1879,12 +1897,15 @@ True will always return an R vector.</dd>
 <span>def <span class="ident">unique</span></span>(<span>seq)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Provide a sequence, get a list of non-repeating elements in the same order.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def unique(seq):
+    &#34;&#34;&#34;
+    Provide a sequence, get a list of non-repeating elements in the same order.
+    &#34;&#34;&#34;
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]</code></pre>
@@ -1921,8 +1942,10 @@ been processed by <code>speciate</code>.</dd>
 <dt><strong><code>out_dict</code></strong> :&ensp;<code>pd.Dataframe</code></dt>
 <dd>Pandas dataframe reporting results of last speciation calculation
 performed by <code>speciate</code>.</dd>
-<dt><strong><code>messages</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Print messages during calculations?</dd>
+<dt><strong><code>verbose</code></strong> :&ensp;<code>int, 0, 1,</code> or <code>2</code>, default <code>1</code></dt>
+<dd>Level determining how many messages are returned during a
+calculation. 2 for all messages, 1 for errors or warnings only,
+0 for silent.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -1958,8 +1981,10 @@ performed by <code>speciate</code>.</dd>
         Pandas dataframe reporting results of last speciation calculation
         performed by `speciate`.
     
-    messages : bool, default True
-        Print messages during calculations?
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
         
     &#34;&#34;&#34;
 
@@ -1971,7 +1996,7 @@ performed by <code>speciate</code>.</dd>
         self.eq36co = eq36co
         self.df_input_processed = None
         self.out_dict = None
-        self.messages = True
+        self.verbose = 1
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
@@ -2180,7 +2205,7 @@ performed by <code>speciate</code>.</dd>
             os.rename(&#34;slist&#34;, &#34;slist.txt&#34;)
 
         if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
-            if self.messages:
+            if self.verbose &gt; 0:
                 print(&#34;Successfully created a data1.&#34;+db+&#34; from data0.&#34;+db)
         else:
             msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
@@ -2211,8 +2236,9 @@ performed by <code>speciate</code>.</dd>
 
         # get current working dir
         cwd = os.getcwd()
-
-        print(&#39;Calling EQ3 on &#39; + filename_3i + &#39; using &#39; + db)
+        
+        if self.verbose &gt; 0:
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -2228,27 +2254,31 @@ performed by <code>speciate</code>.</dd>
             # rename output
             os.rename(path_3i + &#39;/output&#39;, path_3i + &#34;/&#34; + filename_3o)
         except:
-            print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
 
         try:
             # move output
             shutil.move(path_3i + &#34;/&#34; + filename_3o,
                         path_3o + &#34;/&#34; + filename_3o)
         except:
-            print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
 
         try:
             # rename pickup
             os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
         except:
-            print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
 
         try:
             # move pickup
             shutil.move(path_3i + &#34;/&#34; + filename_3p,
                         path_3p + &#34;/&#34; + filename_3p)
         except:
-            print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
     def __mk_check_del_directory(self, path):
         
@@ -2303,7 +2333,7 @@ performed by <code>speciate</code>.</dd>
 
     def speciate(self,
                  input_filename,
-                 db=&#34;jus&#34;,
+                 db=&#34;wrm&#34;,
                  redox_flag=0,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
@@ -2378,7 +2408,7 @@ performed by <code>speciate</code>.</dd>
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : three letter str, default &#34;jus&#34;
+        db : three letter str, default &#34;wrm&#34;
             Three letter file extension for the desired thermodynamic database.
             If `custom_db` is False, this database must be named data1.xyz
             (where xyz is your desired three letter extension) and located
@@ -2544,6 +2574,8 @@ performed by <code>speciate</code>.</dd>
         
         &#34;&#34;&#34;
         
+        self.verbose = verbose
+        
         # check input sample file for errors
         self._check_sample_input_file(input_filename, exclude, db, custom_db)
         
@@ -2603,7 +2635,7 @@ performed by <code>speciate</code>.</dd>
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
-                                                 verbose=verbose)
+                                                 verbose=self.verbose)
 
         for warning in w:
             print(warning.message)
@@ -2659,6 +2691,7 @@ performed by <code>speciate</code>.</dd>
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                verbose=self.verbose,
             )
         for warning in w:
             print(warning.message)
@@ -2844,8 +2877,12 @@ performed by <code>speciate</code>.</dd>
 
         if delete_generated_folders:
             self._delete_rxn_folders()
-
+        
+        if self.verbose &gt; 0:
+            print(&#34;Finished!&#34;)
+        
         return speciation
+
 
     def create_data0(self,
                      filename,
@@ -2923,8 +2960,10 @@ performed by <code>speciate</code>.</dd>
             calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         &#34;&#34;&#34;
-
-        if verbose &gt;= 1:
+        
+        self.verbose = verbose
+        
+        if self.verbose &gt;= 1:
             print(&#34;Creating data0.{}...&#34;.format(db))
         
         if sum([T &gt;= 10000 for T in grid_temps]):
@@ -2969,14 +3008,14 @@ performed by <code>speciate</code>.</dd>
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=verbose,
+                                   verbose=self.verbose,
                                    basis_prefs=basis_prefs,
                                    basis_pref_names=basis_pref_names)
     
         for warning in w:
             print(warning.message)
         
-        if verbose &gt;= 1:
+        if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 <h3>Methods</h3>
@@ -3111,8 +3150,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         calculation. 2 for all messages, 1 for errors or warnings only,
         0 for silent.
     &#34;&#34;&#34;
-
-    if verbose &gt;= 1:
+    
+    self.verbose = verbose
+    
+    if self.verbose &gt;= 1:
         print(&#34;Creating data0.{}...&#34;.format(db))
     
     if sum([T &gt;= 10000 for T in grid_temps]):
@@ -3157,14 +3198,14 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                infer_formula_ox=infer_formula_ox,
                                generate_template=generate_template,
                                template_name=template_name,
-                               verbose=verbose,
+                               verbose=self.verbose,
                                basis_prefs=basis_prefs,
                                basis_pref_names=basis_pref_names)
 
     for warning in w:
         print(warning.message)
     
-    if verbose &gt;= 1:
+    if self.verbose &gt; 0:
         print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 </dd>
@@ -3203,8 +3244,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     # get current working dir
     cwd = os.getcwd()
-
-    print(&#39;Calling EQ3 on &#39; + filename_3i + &#39; using &#39; + db)
+    
+    if self.verbose &gt; 0:
+        print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
     os.chdir(path_3i)  # step into 3i folder
     args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -3220,27 +3262,31 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         # rename output
         os.rename(path_3i + &#39;/output&#39;, path_3i + &#34;/&#34; + filename_3o)
     except:
-        print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
+        if self.verbose &gt; 0:
+            print(&#39;Error: EQ3 failed to produce output for &#39; + filename_3i)
 
     try:
         # move output
         shutil.move(path_3i + &#34;/&#34; + filename_3o,
                     path_3o + &#34;/&#34; + filename_3o)
     except:
-        print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
+        if self.verbose &gt; 0:
+            print(&#39;Error: Could not move&#39;, filename_3o, &#34;to&#34;, path_3o)
 
     try:
         # rename pickup
         os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
     except:
-        print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
+        if self.verbose &gt; 0:
+            print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
 
     try:
         # move pickup
         shutil.move(path_3i + &#34;/&#34; + filename_3p,
                     path_3p + &#34;/&#34; + filename_3p)
     except:
-        print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)</code></pre>
+        if self.verbose &gt; 0:
+            print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeqpt"><code class="name flex">
@@ -3307,7 +3353,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
         os.rename(&#34;slist&#34;, &#34;slist.txt&#34;)
 
     if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
-        if self.messages:
+        if self.verbose &gt; 0:
             print(&#34;Successfully created a data1.&#34;+db+&#34; from data0.&#34;+db)
     else:
         msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
@@ -3321,7 +3367,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='jus', redox_flag=0, redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag=0, redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -3375,7 +3421,7 @@ subheader.</p>
 duplicate sample names.</li>
 </ul>
 </dd>
-<dt><strong><code>db</code></strong> :&ensp;<code>three letter str</code>, default <code>"jus"</code></dt>
+<dt><strong><code>db</code></strong> :&ensp;<code>three letter str</code>, default <code>"wrm"</code></dt>
 <dd>Three letter file extension for the desired thermodynamic database.
 If <code>custom_db</code> is False, this database must be named data1.xyz
 (where xyz is your desired three letter extension) and located
@@ -3521,7 +3567,7 @@ calculation is complete?</dd>
 </summary>
 <pre><code class="python">def speciate(self,
              input_filename,
-             db=&#34;jus&#34;,
+             db=&#34;wrm&#34;,
              redox_flag=0,
              redox_aux=&#34;Fe+3&#34;,
              default_logfO2=-6,
@@ -3596,7 +3642,7 @@ calculation is complete?</dd>
         - The first column must contain sample names. There cannot be
           duplicate sample names.
     
-    db : three letter str, default &#34;jus&#34;
+    db : three letter str, default &#34;wrm&#34;
         Three letter file extension for the desired thermodynamic database.
         If `custom_db` is False, this database must be named data1.xyz
         (where xyz is your desired three letter extension) and located
@@ -3762,6 +3808,8 @@ calculation is complete?</dd>
     
     &#34;&#34;&#34;
     
+    self.verbose = verbose
+    
     # check input sample file for errors
     self._check_sample_input_file(input_filename, exclude, db, custom_db)
     
@@ -3821,7 +3869,7 @@ calculation is complete?</dd>
                                              suppress_missing=suppress_missing,
                                              suppress=convert_to_RVector(
                                                  suppress),
-                                             verbose=verbose)
+                                             verbose=self.verbose)
 
     for warning in w:
         print(warning.message)
@@ -3877,6 +3925,7 @@ calculation is complete?</dd>
             #   df_input_processed in the line above. Some kind of check.names
             #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
+            verbose=self.verbose,
         )
     for warning in w:
         print(warning.message)
@@ -4062,7 +4111,10 @@ calculation is complete?</dd>
 
     if delete_generated_folders:
         self._delete_rxn_folders()
-
+    
+    if self.verbose &gt; 0:
+        print(&#34;Finished!&#34;)
+    
     return speciation</code></pre>
 </details>
 </dd>

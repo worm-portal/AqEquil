@@ -11,7 +11,6 @@ from subprocess import Popen
 import pkg_resources
 import pandas as pd
 import numpy as np
-from plotnine import * # convert to matplotlib
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -44,6 +43,9 @@ def load(filename, messages=True):
     
 
 def unique(seq):
+    """
+    Provide a sequence, get a list of non-repeating elements in the same order.
+    """
     seen = set()
     seen_add = seen.add
     return [x for x in seq if not (x in seen or seen_add(x))]
@@ -720,8 +722,10 @@ class AqEquil():
         Pandas dataframe reporting results of last speciation calculation
         performed by `speciate`.
     
-    messages : bool, default True
-        Print messages during calculations?
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
         
     """
 
@@ -733,7 +737,7 @@ class AqEquil():
         self.eq36co = eq36co
         self.df_input_processed = None
         self.out_dict = None
-        self.messages = True
+        self.verbose = 1
 
         os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
@@ -942,7 +946,7 @@ class AqEquil():
             os.rename("slist", "slist.txt")
 
         if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
-            if self.messages:
+            if self.verbose > 0:
                 print("Successfully created a data1."+db+" from data0."+db)
         else:
             msg = ("EQPT could not create data1."+db+" from "
@@ -973,8 +977,9 @@ class AqEquil():
 
         # get current working dir
         cwd = os.getcwd()
-
-        print('Calling EQ3 on ' + filename_3i + ' using ' + db)
+        
+        if self.verbose > 0:
+            print('Using ' + db + ' to speciate ' + filename_3i[:-3])
         os.chdir(path_3i)  # step into 3i folder
         args = ['/bin/csh', self.eq36co+'/runeq3', db, filename_3i]
 
@@ -990,27 +995,31 @@ class AqEquil():
             # rename output
             os.rename(path_3i + '/output', path_3i + "/" + filename_3o)
         except:
-            print('Error: EQ3 failed to produce output for ' + filename_3i)
+            if self.verbose > 0:
+                print('Error: EQ3 failed to produce output for ' + filename_3i)
 
         try:
             # move output
             shutil.move(path_3i + "/" + filename_3o,
                         path_3o + "/" + filename_3o)
         except:
-            print('Error: Could not move', filename_3o, "to", path_3o)
+            if self.verbose > 0:
+                print('Error: Could not move', filename_3o, "to", path_3o)
 
         try:
             # rename pickup
             os.rename(path_3i + '/pickup', path_3i + "/" + filename_3p)
         except:
-            print('Error: EQ3 failed to produce a pickup file for ' + filename_3i)
+            if self.verbose > 0:
+                print('Error: EQ3 failed to produce a pickup file for ' + filename_3i)
 
         try:
             # move pickup
             shutil.move(path_3i + "/" + filename_3p,
                         path_3p + "/" + filename_3p)
         except:
-            print('Error: Could not move', filename_3p, "to", path_3p)
+            if self.verbose > 0:
+                print('Error: Could not move', filename_3p, "to", path_3p)
 
     def __mk_check_del_directory(self, path):
         
@@ -1065,7 +1074,7 @@ class AqEquil():
 
     def speciate(self,
                  input_filename,
-                 db="jus",
+                 db="wrm",
                  redox_flag=0,
                  redox_aux="Fe+3",
                  default_logfO2=-6,
@@ -1140,7 +1149,7 @@ class AqEquil():
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : three letter str, default "jus"
+        db : three letter str, default "wrm"
             Three letter file extension for the desired thermodynamic database.
             If `custom_db` is False, this database must be named data1.xyz
             (where xyz is your desired three letter extension) and located
@@ -1306,6 +1315,8 @@ class AqEquil():
         
         """
         
+        self.verbose = verbose
+        
         # check input sample file for errors
         self._check_sample_input_file(input_filename, exclude, db, custom_db)
         
@@ -1365,7 +1376,7 @@ class AqEquil():
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
-                                                 verbose=verbose)
+                                                 verbose=self.verbose)
 
         for warning in w:
             print(warning.message)
@@ -1421,6 +1432,7 @@ class AqEquil():
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                verbose=self.verbose,
             )
         for warning in w:
             print(warning.message)
@@ -1606,8 +1618,12 @@ class AqEquil():
 
         if delete_generated_folders:
             self._delete_rxn_folders()
-
+        
+        if self.verbose > 0:
+            print("Finished!")
+        
         return speciation
+
 
     def create_data0(self,
                      filename,
@@ -1685,8 +1701,10 @@ class AqEquil():
             calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         """
-
-        if verbose >= 1:
+        
+        self.verbose = verbose
+        
+        if self.verbose >= 1:
             print("Creating data0.{}...".format(db))
         
         if sum([T >= 10000 for T in grid_temps]):
@@ -1731,12 +1749,12 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=verbose,
+                                   verbose=self.verbose,
                                    basis_prefs=basis_prefs,
                                    basis_pref_names=basis_pref_names)
     
         for warning in w:
             print(warning.message)
         
-        if verbose >= 1:
+        if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
