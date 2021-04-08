@@ -68,15 +68,6 @@ def load(filename, messages=True):
         if messages:
             print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
         return speciation
-    
-
-def unique(seq):
-    &#34;&#34;&#34;
-    Provide a sequence, get a list of non-repeating elements in the same order.
-    &#34;&#34;&#34;
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]
 
 
 def convert_to_RVector(value, force_Rvec=True):
@@ -154,7 +145,16 @@ class Speciation(object):
 
     def __getitem__(self, item):
          return getattr(self, item)
-        
+    
+    @staticmethod
+    def __unique(seq):
+        &#34;&#34;&#34;
+        Provide a sequence, get a list of non-repeating elements in the same order.
+        &#34;&#34;&#34;
+        seen = set()
+        seen_add = seen.add
+        return [x for x in seq if not (x in seen or seen_add(x))]
+
     def save(self, filename, messages=True):
         &#34;&#34;&#34;
         Save the speciation as a &#39;.speciation&#39; file to your current working
@@ -191,8 +191,8 @@ class Speciation(object):
             &#34;Molality&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
             &#34;molality&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
             &#34;molal&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
-            &#34;log_activity&#34; : (&#34;log activity&#34;, &#34;log(mol/kg)&#34;),
-            &#34;Log activity&#34; : (&#34;log activity&#34;, &#34;log(mol/kg)&#34;),
+            &#34;log_activity&#34; : (&#34;log activity&#34;, &#34;&#34;),
+            &#34;Log activity&#34; : (&#34;log activity&#34;, &#34;&#34;),
             &#34;mg/kg.sol&#34; : (&#34;&#34;, &#34;mg solute per kg solution&#34;),
             &#34;Alk., eq/kg.H2O&#34; : (&#34;alkalinity&#34;, &#34;eq/kg&#34;),
             &#34;Alk., eq/L&#34; : (&#34;alkalinity&#34;, &#34;eq/L&#34;),
@@ -200,9 +200,9 @@ class Speciation(object):
             &#34;Alk., mg/L CaCO3&#34; : (&#34;alkalinity&#34;, &#34;mg/L CaCO3&#34;),
             &#34;Alk., mg/L HCO3-&#34; : (&#34;alkalinity&#34;, &#34;mg/L HCO3-&#34;),
             &#34;pX&#34; : (&#34;-(log activity)&#34;, &#34;-log(mol/kg)&#34;),
-            &#34;activity&#34; : (&#34;activity&#34;, &#34;mol/kg&#34;),
-            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;&#34;),
-            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;&#34;),
+            &#34;activity&#34; : (&#34;activity&#34;, &#34;&#34;),
+            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;log(kg/mol)&#34;),
+            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;kg/mol&#34;),
             &#34;affinity_kcal&#34; : (&#34;affinity&#34;, &#34;kcal/mol&#34;),
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
@@ -285,6 +285,12 @@ class Speciation(object):
         save_as : str, optional
             Provide a filename to save this figure as a PNG.
         &#34;&#34;&#34;
+        
+        if sample_name not in self.report.index:
+            msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
+                   &#34;names in the speciation report. Sample names include &#34;
+                   &#34;{}&#34;.format(list(self.report.index)))
+            raise Exception(msg)
         
         fig = plt.figure()
         ax = fig.add_axes([0,0,1,1])
@@ -398,7 +404,7 @@ class Speciation(object):
             except:
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
-                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
             unit_type, unit = self.__get_unit_info(subheader)
             
@@ -406,7 +412,7 @@ class Speciation(object):
                 y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
-                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
             
             if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
@@ -467,7 +473,10 @@ class Speciation(object):
                                   textcoords = &#39;offset points&#39;)
         
         if len(y) &gt; 1:
-            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            else:
+                ylabel = unit_type
             if show_legend:
                 ax.legend(labels=y, loc=legend_loc)
         else:
@@ -476,7 +485,10 @@ class Speciation(object):
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
         
         if yrange != None:
             plt.ylim(yrange[0], yrange[1])
@@ -545,7 +557,7 @@ class Speciation(object):
             x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
-                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
             raise Exception(msg)
         
         try:
@@ -553,7 +565,7 @@ class Speciation(object):
         except:
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
-                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
             raise Exception(msg)
         xunit_type, xunit = self.__get_unit_info(xsubheader)
         
@@ -569,7 +581,7 @@ class Speciation(object):
             except:
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
-                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
             unit_type, unit = self.__get_unit_info(subheader)
             
@@ -577,7 +589,7 @@ class Speciation(object):
                 y_plot = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
-                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
                 
             if i == 0:
@@ -611,7 +623,10 @@ class Speciation(object):
             plt.scatter(x_plot, y_plot, marker=&#39;o&#39;, color=color)
 
         if len(y) &gt; 1:
-            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            else:
+                ylabel = unit_type
             if show_legend:
                 ax.legend(labels=y, loc=legend_loc)
         else:
@@ -620,14 +635,20 @@ class Speciation(object):
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
         
         if x == &#39;pH&#39;:
             xlabel = &#39;pH&#39;
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            if xunit != &#34;&#34;:
+                xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            else:
+                xlabel = &#34;{} {}&#34;.format(x, xunit_type)
         
         if xrange != None:
             plt.xlim(xrange[0], xrange[1])
@@ -649,7 +670,7 @@ class Speciation(object):
         plt.show()
     
     
-    def plot_mass_contribution(self, basis, width=0.9,
+    def plot_mass_contribution(self, basis, sort_by=None, ascending=True, width=0.9,
                                      legend_loc=(1.02, 0.5)):
         
         &#34;&#34;&#34;
@@ -661,6 +682,15 @@ class Speciation(object):
         basis : str
             Name of the basis species.
             
+        sort_by : str, optional
+            Name of the variable used to sort samples. Variable names must be
+            taken from the speciation report column names. No sorting is done by
+            default.
+        
+        ascending : bool, default True
+            Should sorting be in ascending order? Descending if False. Ignored
+            unless `sort_by` is defined.
+        
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
         
@@ -680,20 +710,38 @@ class Speciation(object):
         if basis not in set(self.mass_contribution[&#39;basis&#39;]):
             msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                    &#34;among available basis species: &#34;
-                   &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;]))))+&#34;&#34;)
+                   &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
             raise Exception(msg)
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
+        if sort_by != None:
+            if sort_by in self.report.columns.get_level_values(0):
+                sort_col = self.lookup(sort_by)
+                sort_by_unit = sort_col.columns.get_level_values(1)[0]
+                sort_index = sort_col.sort_values([(sort_by, sort_by_unit)], ascending=ascending).index
+                
+                df_list = []
+                for i in sort_index:
+                    df_list.append(df_sp[df_sp[&#39;sample&#39;]==i])
+
+                df_sp = pd.concat(df_list)
+                
+            else:
+                msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
+                       &#34;speciation report. Available variables include &#34;
+                       &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
+                raise Exception(msg)
+        
         df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
         
-        unique_species = unique(df_sp[&#34;species&#34;])
+        unique_species = self.__unique(df_sp[&#34;species&#34;])
         
         if &#34;Other&#34; in unique_species:
 
             unique_species.append(unique_species.pop(unique_species.index(&#34;Other&#34;)))
         
-        labels = unique(df_sp[&#34;sample&#34;])
+        labels = self.__unique(df_sp[&#34;sample&#34;])
 
         fig, ax = plt.subplots()
 
@@ -820,12 +868,17 @@ class AqEquil():
         df_in.columns = df_in.iloc[0] # set column names
         df_in = df_in.drop(df_in.index[0], axis=0) # drop column name row
         df_in_headercheck = copy.deepcopy(df_in.iloc[:,1:]) # drop first column. Deepcopy slice because drop() doesn&#39;t work well with unnamed columns.
-                                          
-        try:
-            df_in_headercheck = df_in_headercheck.drop(exclude, axis=1) # drop excluded columns
-        except:
-            err_bad_exclude = &#34;err_bad_exclude&#34;
-            err_list.append(err_bad_exclude)
+        
+        # drop excluded headers
+        for exc in exclude:
+            if exc == df_in.columns[0]: # skip if &#39;sample&#39; column is excluded
+                continue
+            try:
+                df_in_headercheck = df_in_headercheck.drop(exc, axis=1) # drop excluded columns
+            except:
+                err_bad_exclude = (&#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
+                                   &#34;This header could not be found in {}&#34;.format(input_filename)+&#34;&#34;)
+                err_list.append(err_bad_exclude)
         
         # get row list
         row_list = list(df_in.iloc[1:, 0])
@@ -1893,24 +1946,6 @@ True will always return an R vector.</dd>
         return speciation</code></pre>
 </details>
 </dd>
-<dt id="AqEquil.AqSpeciation.unique"><code class="name flex">
-<span>def <span class="ident">unique</span></span>(<span>seq)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Provide a sequence, get a list of non-repeating elements in the same order.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def unique(seq):
-    &#34;&#34;&#34;
-    Provide a sequence, get a list of non-repeating elements in the same order.
-    &#34;&#34;&#34;
-    seen = set()
-    seen_add = seen.add
-    return [x for x in seq if not (x in seen or seen_add(x))]</code></pre>
-</details>
-</dd>
 </dl>
 </section>
 <section>
@@ -2051,12 +2086,17 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         df_in.columns = df_in.iloc[0] # set column names
         df_in = df_in.drop(df_in.index[0], axis=0) # drop column name row
         df_in_headercheck = copy.deepcopy(df_in.iloc[:,1:]) # drop first column. Deepcopy slice because drop() doesn&#39;t work well with unnamed columns.
-                                          
-        try:
-            df_in_headercheck = df_in_headercheck.drop(exclude, axis=1) # drop excluded columns
-        except:
-            err_bad_exclude = &#34;err_bad_exclude&#34;
-            err_list.append(err_bad_exclude)
+        
+        # drop excluded headers
+        for exc in exclude:
+            if exc == df_in.columns[0]: # skip if &#39;sample&#39; column is excluded
+                continue
+            try:
+                df_in_headercheck = df_in_headercheck.drop(exc, axis=1) # drop excluded columns
+            except:
+                err_bad_exclude = (&#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
+                                   &#34;This header could not be found in {}&#34;.format(input_filename)+&#34;&#34;)
+                err_list.append(err_bad_exclude)
         
         # get row list
         row_list = list(df_in.iloc[1:, 0])
@@ -4186,7 +4226,16 @@ speciation report.</dd>
 
     def __getitem__(self, item):
          return getattr(self, item)
-        
+    
+    @staticmethod
+    def __unique(seq):
+        &#34;&#34;&#34;
+        Provide a sequence, get a list of non-repeating elements in the same order.
+        &#34;&#34;&#34;
+        seen = set()
+        seen_add = seen.add
+        return [x for x in seq if not (x in seen or seen_add(x))]
+
     def save(self, filename, messages=True):
         &#34;&#34;&#34;
         Save the speciation as a &#39;.speciation&#39; file to your current working
@@ -4223,8 +4272,8 @@ speciation report.</dd>
             &#34;Molality&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
             &#34;molality&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
             &#34;molal&#34; : (&#34;molality&#34;, &#34;mol/kg&#34;),
-            &#34;log_activity&#34; : (&#34;log activity&#34;, &#34;log(mol/kg)&#34;),
-            &#34;Log activity&#34; : (&#34;log activity&#34;, &#34;log(mol/kg)&#34;),
+            &#34;log_activity&#34; : (&#34;log activity&#34;, &#34;&#34;),
+            &#34;Log activity&#34; : (&#34;log activity&#34;, &#34;&#34;),
             &#34;mg/kg.sol&#34; : (&#34;&#34;, &#34;mg solute per kg solution&#34;),
             &#34;Alk., eq/kg.H2O&#34; : (&#34;alkalinity&#34;, &#34;eq/kg&#34;),
             &#34;Alk., eq/L&#34; : (&#34;alkalinity&#34;, &#34;eq/L&#34;),
@@ -4232,9 +4281,9 @@ speciation report.</dd>
             &#34;Alk., mg/L CaCO3&#34; : (&#34;alkalinity&#34;, &#34;mg/L CaCO3&#34;),
             &#34;Alk., mg/L HCO3-&#34; : (&#34;alkalinity&#34;, &#34;mg/L HCO3-&#34;),
             &#34;pX&#34; : (&#34;-(log activity)&#34;, &#34;-log(mol/kg)&#34;),
-            &#34;activity&#34; : (&#34;activity&#34;, &#34;mol/kg&#34;),
-            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;&#34;),
-            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;&#34;),
+            &#34;activity&#34; : (&#34;activity&#34;, &#34;&#34;),
+            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;log(kg/mol)&#34;),
+            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;kg/mol&#34;),
             &#34;affinity_kcal&#34; : (&#34;affinity&#34;, &#34;kcal/mol&#34;),
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
@@ -4317,6 +4366,12 @@ speciation report.</dd>
         save_as : str, optional
             Provide a filename to save this figure as a PNG.
         &#34;&#34;&#34;
+        
+        if sample_name not in self.report.index:
+            msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
+                   &#34;names in the speciation report. Sample names include &#34;
+                   &#34;{}&#34;.format(list(self.report.index)))
+            raise Exception(msg)
         
         fig = plt.figure()
         ax = fig.add_axes([0,0,1,1])
@@ -4430,7 +4485,7 @@ speciation report.</dd>
             except:
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
-                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
             unit_type, unit = self.__get_unit_info(subheader)
             
@@ -4438,7 +4493,7 @@ speciation report.</dd>
                 y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
-                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
             
             if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
@@ -4499,7 +4554,10 @@ speciation report.</dd>
                                   textcoords = &#39;offset points&#39;)
         
         if len(y) &gt; 1:
-            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            else:
+                ylabel = unit_type
             if show_legend:
                 ax.legend(labels=y, loc=legend_loc)
         else:
@@ -4508,7 +4566,10 @@ speciation report.</dd>
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
         
         if yrange != None:
             plt.ylim(yrange[0], yrange[1])
@@ -4577,7 +4638,7 @@ speciation report.</dd>
             x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
-                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
             raise Exception(msg)
         
         try:
@@ -4585,7 +4646,7 @@ speciation report.</dd>
         except:
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
-                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
             raise Exception(msg)
         xunit_type, xunit = self.__get_unit_info(xsubheader)
         
@@ -4601,7 +4662,7 @@ speciation report.</dd>
             except:
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
-                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                      &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
             unit_type, unit = self.__get_unit_info(subheader)
             
@@ -4609,7 +4670,7 @@ speciation report.</dd>
                 y_plot = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
-                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                       &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
                 
             if i == 0:
@@ -4643,7 +4704,10 @@ speciation report.</dd>
             plt.scatter(x_plot, y_plot, marker=&#39;o&#39;, color=color)
 
         if len(y) &gt; 1:
-            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+            else:
+                ylabel = unit_type
             if show_legend:
                 ax.legend(labels=y, loc=legend_loc)
         else:
@@ -4652,14 +4716,20 @@ speciation report.</dd>
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
         
         if x == &#39;pH&#39;:
             xlabel = &#39;pH&#39;
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            if xunit != &#34;&#34;:
+                xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            else:
+                xlabel = &#34;{} {}&#34;.format(x, xunit_type)
         
         if xrange != None:
             plt.xlim(xrange[0], xrange[1])
@@ -4681,7 +4751,7 @@ speciation report.</dd>
         plt.show()
     
     
-    def plot_mass_contribution(self, basis, width=0.9,
+    def plot_mass_contribution(self, basis, sort_by=None, ascending=True, width=0.9,
                                      legend_loc=(1.02, 0.5)):
         
         &#34;&#34;&#34;
@@ -4693,6 +4763,15 @@ speciation report.</dd>
         basis : str
             Name of the basis species.
             
+        sort_by : str, optional
+            Name of the variable used to sort samples. Variable names must be
+            taken from the speciation report column names. No sorting is done by
+            default.
+        
+        ascending : bool, default True
+            Should sorting be in ascending order? Descending if False. Ignored
+            unless `sort_by` is defined.
+        
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
         
@@ -4712,20 +4791,38 @@ speciation report.</dd>
         if basis not in set(self.mass_contribution[&#39;basis&#39;]):
             msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                    &#34;among available basis species: &#34;
-                   &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;]))))+&#34;&#34;)
+                   &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
             raise Exception(msg)
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
+        if sort_by != None:
+            if sort_by in self.report.columns.get_level_values(0):
+                sort_col = self.lookup(sort_by)
+                sort_by_unit = sort_col.columns.get_level_values(1)[0]
+                sort_index = sort_col.sort_values([(sort_by, sort_by_unit)], ascending=ascending).index
+                
+                df_list = []
+                for i in sort_index:
+                    df_list.append(df_sp[df_sp[&#39;sample&#39;]==i])
+
+                df_sp = pd.concat(df_list)
+                
+            else:
+                msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
+                       &#34;speciation report. Available variables include &#34;
+                       &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
+                raise Exception(msg)
+        
         df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
         
-        unique_species = unique(df_sp[&#34;species&#34;])
+        unique_species = self.__unique(df_sp[&#34;species&#34;])
         
         if &#34;Other&#34; in unique_species:
 
             unique_species.append(unique_species.pop(unique_species.index(&#34;Other&#34;)))
         
-        labels = unique(df_sp[&#34;sample&#34;])
+        labels = self.__unique(df_sp[&#34;sample&#34;])
 
         fig, ax = plt.subplots()
 
@@ -4850,7 +4947,7 @@ background. A list of named colors can be found here:
         except:
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
-                  &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                  &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
             raise Exception(msg)
         unit_type, unit = self.__get_unit_info(subheader)
         
@@ -4858,7 +4955,7 @@ background. A list of named colors can be found here:
             y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
-                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
             raise Exception(msg)
         
         if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
@@ -4919,7 +5016,10 @@ background. A list of named colors can be found here:
                               textcoords = &#39;offset points&#39;)
     
     if len(y) &gt; 1:
-        ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+        if unit != &#34;&#34;:
+            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+        else:
+            ylabel = unit_type
         if show_legend:
             ax.legend(labels=y, loc=legend_loc)
     else:
@@ -4928,7 +5028,10 @@ background. A list of named colors can be found here:
         elif &#39;Temperature&#39; in y:
             ylabel = &#39;Temperature [°C]&#39;
         else:
-            ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+            else:
+                ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
     
     if yrange != None:
         plt.ylim(yrange[0], yrange[1])
@@ -4988,7 +5091,7 @@ background. A list of named colors can be found here:
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mass_contribution"><code class="name flex">
-<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, width=0.9, legend_loc=(1.02, 0.5))</span>
+<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, sort_by=None, ascending=True, width=0.9, legend_loc=(1.02, 0.5))</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot basis species contributions to mass balance of aqueous species
@@ -4997,6 +5100,13 @@ across all samples.</p>
 <dl>
 <dt><strong><code>basis</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of the basis species.</dd>
+<dt><strong><code>sort_by</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Name of the variable used to sort samples. Variable names must be
+taken from the speciation report column names. No sorting is done by
+default.</dd>
+<dt><strong><code>ascending</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Should sorting be in ascending order? Descending if False. Ignored
+unless <code>sort_by</code> is defined.</dd>
 <dt><strong><code>width</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
 <dd>Width of bars. No space between bars if width=1.0.</dd>
 <dt><strong><code>legend_loc</code></strong> :&ensp;<code>str</code> or <code>pair</code> of <code>float</code>, default <code>(1.02, 0.5)</code></dt>
@@ -5007,7 +5117,7 @@ across all samples.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_mass_contribution(self, basis, width=0.9,
+<pre><code class="python">def plot_mass_contribution(self, basis, sort_by=None, ascending=True, width=0.9,
                                  legend_loc=(1.02, 0.5)):
     
     &#34;&#34;&#34;
@@ -5019,6 +5129,15 @@ across all samples.</p>
     basis : str
         Name of the basis species.
         
+    sort_by : str, optional
+        Name of the variable used to sort samples. Variable names must be
+        taken from the speciation report column names. No sorting is done by
+        default.
+    
+    ascending : bool, default True
+        Should sorting be in ascending order? Descending if False. Ignored
+        unless `sort_by` is defined.
+    
     width : float, default 0.9
         Width of bars. No space between bars if width=1.0.
     
@@ -5038,20 +5157,38 @@ across all samples.</p>
     if basis not in set(self.mass_contribution[&#39;basis&#39;]):
         msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                &#34;among available basis species: &#34;
-               &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;]))))+&#34;&#34;)
+               &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
         raise Exception(msg)
         
     df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
     
+    if sort_by != None:
+        if sort_by in self.report.columns.get_level_values(0):
+            sort_col = self.lookup(sort_by)
+            sort_by_unit = sort_col.columns.get_level_values(1)[0]
+            sort_index = sort_col.sort_values([(sort_by, sort_by_unit)], ascending=ascending).index
+            
+            df_list = []
+            for i in sort_index:
+                df_list.append(df_sp[df_sp[&#39;sample&#39;]==i])
+
+            df_sp = pd.concat(df_list)
+            
+        else:
+            msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
+                   &#34;speciation report. Available variables include &#34;
+                   &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
+            raise Exception(msg)
+    
     df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
     
-    unique_species = unique(df_sp[&#34;species&#34;])
+    unique_species = self.__unique(df_sp[&#34;species&#34;])
     
     if &#34;Other&#34; in unique_species:
 
         unique_species.append(unique_species.pop(unique_species.index(&#34;Other&#34;)))
     
-    labels = unique(df_sp[&#34;sample&#34;])
+    labels = self.__unique(df_sp[&#34;sample&#34;])
 
     fig, ax = plt.subplots()
 
@@ -5137,6 +5274,12 @@ background. A list of named colors can be found here:
     save_as : str, optional
         Provide a filename to save this figure as a PNG.
     &#34;&#34;&#34;
+    
+    if sample_name not in self.report.index:
+        msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
+               &#34;names in the speciation report. Sample names include &#34;
+               &#34;{}&#34;.format(list(self.report.index)))
+        raise Exception(msg)
     
     fig = plt.figure()
     ax = fig.add_axes([0,0,1,1])
@@ -5310,7 +5453,7 @@ background. A list of named colors can be found here:
         x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
     except:
         msg = (&#34;One or more the values belonging to &#34;
-               &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0])+&#34;&#34;)
+               &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
         raise Exception(msg)
     
     try:
@@ -5318,7 +5461,7 @@ background. A list of named colors can be found here:
     except:
         msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                &#34;report. Available variables include &#34;
-               &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+               &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
         raise Exception(msg)
     xunit_type, xunit = self.__get_unit_info(xsubheader)
     
@@ -5334,7 +5477,7 @@ background. A list of named colors can be found here:
         except:
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
-                  &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0))))+&#34;&#34;)
+                  &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
             raise Exception(msg)
         unit_type, unit = self.__get_unit_info(subheader)
         
@@ -5342,7 +5485,7 @@ background. A list of named colors can be found here:
             y_plot = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
-                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0])+&#34;&#34;)
+                   &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
             raise Exception(msg)
             
         if i == 0:
@@ -5376,7 +5519,10 @@ background. A list of named colors can be found here:
         plt.scatter(x_plot, y_plot, marker=&#39;o&#39;, color=color)
 
     if len(y) &gt; 1:
-        ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+        if unit != &#34;&#34;:
+            ylabel = &#34;{} [{}]&#34;.format(unit_type, unit)
+        else:
+            ylabel = unit_type
         if show_legend:
             ax.legend(labels=y, loc=legend_loc)
     else:
@@ -5385,14 +5531,20 @@ background. A list of named colors can be found here:
         elif &#39;Temperature&#39; in y:
             ylabel = &#39;Temperature [°C]&#39;
         else:
-            ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+            else:
+                ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
     
     if x == &#39;pH&#39;:
         xlabel = &#39;pH&#39;
     elif x == &#39;Temperature&#39;:
         xlabel = &#39;Temperature [°C]&#39;
     else:
-        xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+        if xunit != &#34;&#34;:
+            xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+        else:
+            xlabel = &#34;{} {}&#34;.format(x, xunit_type)
     
     if xrange != None:
         plt.xlim(xrange[0], xrange[1])
@@ -5434,7 +5586,6 @@ background. A list of named colors can be found here:
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.convert_to_RVector" href="#AqEquil.AqSpeciation.convert_to_RVector">convert_to_RVector</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.load" href="#AqEquil.AqSpeciation.load">load</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.unique" href="#AqEquil.AqSpeciation.unique">unique</a></code></li>
 </ul>
 </li>
 <li><h3><a href="#header-classes">Classes</a></h3>
