@@ -105,7 +105,7 @@ vmessage <- function(m, vlevel, verbose){
 # e.g., "H2O" becomes "H2O    " if nspaces=7.
 # Spaces can be added before the string by specifying spaces_after=FALSE
 fillspace <- function(str, nspaces, spaces_after=TRUE){
-
+    
   ifelse(spaces_after,
          paste0(str, paste(rep(" ", nspaces-nchar(str)), collapse="")),
          paste0(paste(rep(" ", nspaces-nchar(str)), collapse=""), str))
@@ -346,7 +346,7 @@ spec_diss <- function(sp, smallest_elem_vec, sp_formula_makeup, HOZ_balancers){
       
 ###### END OF OPTION A
       
-###### OPTION B. This chunk is fast but needs testing.
+###### OPTION B. This chunk is fast but needs more testing.
       
   if(identical(basis_elem, character(0))){
     calculate <- TRUE
@@ -416,26 +416,35 @@ create_data0 <- function(supp_file,
       nit_temp <- data0_params[i, "neutral_ion_type"]
       names(nit_temp) <- data0_params[i, "name"]
       neutral_ion_type_vec <- c(neutral_ion_type_vec, nit_temp)
-
-      # get dissociation reaction
-      if(data0_params[i, "tag"] != "basis"){
-          dissrxn <- dissrxns[[data0_params[i, "name"]]]
-          dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
-          species_name <- data0_params[i, "name"] # get the name of the dissociating species
-          dissrxn_temp <- dissrxn[3:length(dissrxn)] # ignore the "-1" and diss. spec. name
-          dissrxn_names <- dissrxn_temp[c(FALSE, TRUE)] # get names of reactants and products
-          dissrxn_coefs <- dissrxn_temp[c(TRUE, FALSE)] # get coeffs of reactants and products
-          dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
-          names(dissrxn_coefs) <- dissrxn_names # set vector names to react and prod names
-          dissociation_list[[species_name]] <- dissrxn_coefs # assign to dissociation list
+      
+      # look up dissociation reaction
+      dissrxn_in_suppfile <- data0_params[i, "dissrxn"]
+      species_name <- data0_params[i, "name"]
+      if(dissrxn_in_suppfile != ""){
+        dissrxn <- dissrxn_in_suppfile
+      }else if(dissrxn_in_suppfile == ""){
+        # use auto-balanced dissociation reaction if no dissociation reaction is found for non-basis
+        dissrxn <- dissrxns[[species_name]]
+      }else{
+        print("Error: dissociation reaction could not be generated for:")
+        print(data0_params[i, "name"])
       }
-
+    
+      if(data0_params[i, "tag"] != "basis"){
+        dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
+        dissrxn_temp <- dissrxn[3:length(dissrxn)] # ignore the "-1" and diss. spec. name
+        dissrxn_names <- dissrxn_temp[c(FALSE, TRUE)] # get names of reactants and products
+        dissrxn_coefs <- dissrxn_temp[c(TRUE, FALSE)] # get coeffs of reactants and products
+        dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
+        names(dissrxn_coefs) <- dissrxn_names # set vector names to react and prod names
+        dissociation_list[[species_name]] <- dissrxn_coefs # assign to dissociation list
+      }
+    
       # look up tag
       tag_temp <- data0_params[i, "tag"]
       names(tag_temp) <- data0_params[i, "name"]
       tag_vec <- c(tag_vec, tag_temp)
   }
-
   
 
   if(!is.null(supp_file_ss)){

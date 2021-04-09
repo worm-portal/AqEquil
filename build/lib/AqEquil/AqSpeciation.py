@@ -179,6 +179,7 @@ class Speciation(object):
             "%" : ("", "%"),
             "Eh_volts" : ("Eh", "volts"),
             "eq/kg.H2O" : ("charge", "eq/kg"),
+            "logfO2" : ("", ""),
         }
         
         out = unit_name_dict.get(subheader)
@@ -884,7 +885,7 @@ class AqEquil():
                 end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
                 for species in list(set(df_in_headercheck.columns)):
-                    if species not in db_species and species != 'Temperature':
+                    if species not in db_species and species not in ['Temperature', 'logfO2']:
                         err_species_not_in_db = ("The species '{}'".format(species) + " "
                             "was not found in {}".format(data0_path) + ". "
                             "If the column contains data that should not be "
@@ -908,7 +909,8 @@ class AqEquil():
                             "Alk., eq/L", "Alk., eq/kg.sol", "Alk., mg/L CaCO3",
                             "Alk., mg/L HCO3-", "Log activity", "Log act combo",
                             "Log mean act", "pX", "pH", "pHCl", "pmH", "pmX",
-                            "Hetero. equil.", "Homo. equil.", "Make non-basis"]
+                            "Hetero. equil.", "Homo. equil.", "Make non-basis",
+                            "logfO2"]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = ("The subheader '{}'".format(subheader) + " "
@@ -1502,7 +1504,7 @@ class AqEquil():
         # handle headers and subheaders of input section
         headers = [col.split("_")[0] for col in list(df_input.columns)]
         headers = ["pH" if header == "H+" else header for header in headers]
-        headers = [header+"_(input)" if header not in ["Temperature", "pH"]+exclude else header for header in headers]
+        headers = [header+"_(input)" if header not in ["Temperature", "pH", "logfO2"]+exclude else header for header in headers]
         subheaders = [subheader[1] if len(subheader) > 1 else "" for subheader in [
             col.split("_") for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(

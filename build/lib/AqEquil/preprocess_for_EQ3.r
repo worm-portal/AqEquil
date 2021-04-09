@@ -79,7 +79,7 @@ preprocess <- function(input_filename,
                     "Alk., eq/kg.sol", "Alk., mg/L CaCO3", "Alk., mg/L HCO3-",
                     "Log activity", "Log act combo", "Log mean act", "pX",
                     "pH", "pHCl", "pmH", "pmX", "Hetero. equil.",
-                    "Homo. equil.", "Make non-basis")
+                    "Homo. equil.", "Make non-basis", "logfO2")
 
     # Read input -------------------------------------------------------------------
     vprint("Reading input file...", verbose=verbose)
@@ -129,7 +129,7 @@ preprocess <- function(input_filename,
     df[, num_cols] <- mutate_all(df[, num_cols], function(x) as.numeric(as.character(x)))
 
     # convert these special columns to numeric even if excluded from aqueous block
-    special_numeric <- c("rho_", "Pressure_", "redox_", "Temperature_", "pe_", "Eh_")               
+    special_numeric <- c("rho_", "Pressure_", "redox_", "Temperature_", "pe_", "Eh_", "logfO2_")               
 
     for(col in special_numeric){
       if(TRUE %in% grepl(col, colnames(df))){
@@ -140,7 +140,7 @@ preprocess <- function(input_filename,
 
     # Handle exclusions -----------------------------------------------------------
     # add columns to exclusion list
-    exclude <- c(exclude, "", "Sample", "rho", "Pressure", "redox", "Temperature", "pe", "Eh")                             
+    exclude <- c(exclude, "", "Sample", "rho", "Pressure", "redox", "Temperature", "pe", "Eh", "logfO2")                             
 
     # Calculate density of water (rho) ---------------------------------------------
     vprint("Calculating density of water (rho)...", verbose=verbose)
@@ -563,7 +563,7 @@ preprocess <- function(input_filename,
                vprint(paste("Error creating .3i file:", species_unit,
                "is not a recognized aqueous block jflag. Try checking",
                "capitalization and spelling to match one of the following:",
-               EQ3_jflags), verbose=verbose)
+               paste(EQ3_jflags, collapse=" ")), verbose=verbose)
              }
            }
            species_value <- format(sprintf("%.5E", as.numeric(species_value)), width=12, justify="right")
@@ -692,10 +692,10 @@ preprocess <- function(input_filename,
     "|  [ ] ( 1) Include all species                                                |",
     "|------------------------------------------------------------------------------|",
     "|iopr(5) - Print a Table of Aqueous Species/H+ Activity Ratios:                |",
-    "|  [ ] ( 0) Don't print                                                        |",
+    "|  [x] ( 0) Don't print                                                        |",
     "|  [ ] ( 1) Print cation/H+ activity ratios only                               |",
     "|  [ ] ( 2) Print cation/H+ and anion/H+ activity ratios                       |",
-    "|  [x] ( 3) Print ion/H+ activity ratios and neutral species activities        |",
+    "|  [ ] ( 3) Print ion/H+ activity ratios and neutral species activities        |",
     "|------------------------------------------------------------------------------|",
     "|iopr(6) - Print a Table of Aqueous Mass Balance Percentages:                  |",
     "|  [ ] (-1) Don't print                                                        |",

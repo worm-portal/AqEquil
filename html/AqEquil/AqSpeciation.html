@@ -207,6 +207,7 @@ class Speciation(object):
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
+            &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
         }
         
         out = unit_name_dict.get(subheader)
@@ -912,7 +913,7 @@ class AqEquil():
                 end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
                 for species in list(set(df_in_headercheck.columns)):
-                    if species not in db_species and species != &#39;Temperature&#39;:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -936,7 +937,8 @@ class AqEquil():
                             &#34;Alk., eq/L&#34;, &#34;Alk., eq/kg.sol&#34;, &#34;Alk., mg/L CaCO3&#34;,
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
-                            &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;]
+                            &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
+                            &#34;logfO2&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -1530,7 +1532,7 @@ class AqEquil():
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;]+exclude else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -2130,7 +2132,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
                 for species in list(set(df_in_headercheck.columns)):
-                    if species not in db_species and species != &#39;Temperature&#39;:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -2154,7 +2156,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;Alk., eq/L&#34;, &#34;Alk., eq/kg.sol&#34;, &#34;Alk., mg/L CaCO3&#34;,
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
-                            &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;]
+                            &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
+                            &#34;logfO2&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -2748,7 +2751,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;]+exclude else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -3982,7 +3985,7 @@ calculation is complete?</dd>
     # handle headers and subheaders of input section
     headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
     headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-    headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;]+exclude else header for header in headers]
+    headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;pH&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
     subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
         col.split(&#34;_&#34;) for col in list(df_input.columns)]]
     multicolumns = pd.MultiIndex.from_arrays(
@@ -4288,6 +4291,7 @@ speciation report.</dd>
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
+            &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
         }
         
         out = unit_name_dict.get(subheader)
