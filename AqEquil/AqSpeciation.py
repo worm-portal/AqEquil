@@ -265,18 +265,21 @@ class Speciation(object):
                    "{}".format(list(self.report.index)))
             raise Exception(msg)
         
-        fig = plt.figure()
-        ax = fig.add_axes([0,0,1,1])
-        plt.xticks(rotation = 45, ha='right')
+
         
-        if 'mineral_sat' in self.sample_data[sample_name].keys():
+        if self.sample_data[sample_name].get('mineral_sat', None) != None:
             mineral_data = self.sample_data[sample_name]['mineral_sat'][mineral_sat_type].astype(float).sort_values(ascending=False)
             x = mineral_data.index
         else:
-            msg = ("This sample does not contain mineral saturation state data."
-                   "To generate this data, ensure that get_mineral_sat=True when"
-                   "running speciate().")
+            msg = ("This sample does not have mineral saturation state data."
+                   "To generate this data, ensure get_mineral_sat=True when "
+                   "running speciate(), or ensure this sample has "
+                   "mineral-forming basis species.")
             raise Exception(msg)
+            
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
+        plt.xticks(rotation = 45, ha='right')
         
         pos_sat = [m if m >= 0 else float("nan") for m in mineral_data] # possibly: special list for m==0
         neg_sat = [m if m < 0 else float("nan") for m in mineral_data]
@@ -432,15 +435,20 @@ class Speciation(object):
         max_bar_height = 0
         for bars in barlist:
             for p in bars.patches:
-                max_bar_height = max([max_bar_height, np.nanmax(abs(p.get_height()))])
+                max_bar_height = np.nanmax([max_bar_height, abs(p.get_height())])
                 
         for i,bars in enumerate(barlist):
             for p in bars.patches:
                 if show_trace and abs(p.get_height())/max_bar_height <= 0.009:
+                    if len(y) != 1:
+                        color = m.to_rgba(i)
+                    else:
+                        color = "black"
+                
                     plt.annotate("*",
                                   (p.get_x() + p.get_width() / 2., p.get_height()),
                                   ha = 'center', va = 'center', xytext = (0, 10),
-                                  color=m.to_rgba(i),
+                                  color=color,
                                   weight='bold',
                                   fontsize=18,
                                   textcoords = 'offset points')
@@ -643,8 +651,10 @@ class Speciation(object):
         plt.show()
     
     
-    def plot_mass_contribution(self, basis, sort_by=None, ascending=True, width=0.9,
-                                     legend_loc=(1.02, 0.5)):
+    def plot_mass_contribution(self, basis, sort_by=None, ascending=True,
+                                     sort_y_by=None, width=0.9,
+                                     legend_loc=(1.02, 0.5),
+                                     save_as=None):
         
         """
         Plot basis species contributions to mass balance of aqueous species
@@ -661,8 +671,12 @@ class Speciation(object):
             default.
         
         ascending : bool, default True
-            Should sorting be in ascending order? Descending if False. Ignored
-            unless `sort_by` is defined.
+            Should sample sorting be in ascending order? Descending if False.
+            Ignored unless `sort_by` is defined.
+        
+        sort_y_by : list of str, optional
+            List of species names in the order that they should be stacked, from
+            the bottom of the plot to the top.
         
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
@@ -670,6 +684,9 @@ class Speciation(object):
         legend_loc : str or pair of float, default (1.02, 0.5)
             Location of the legend on the plot. See
             https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        
+        save_as : str, optional
+            Provide a filename to save this figure as a PNG.
         """
         
         try:
@@ -716,10 +733,35 @@ class Speciation(object):
         
         labels = self.__unique(df_sp["sample"])
 
-        fig, ax = plt.subplots()
-
         bottom = np.array([0]*len(labels))
 
+        if sort_y_by != None:
+            if isinstance(sort_y_by, list):
+                if len(unique_species) == len(sort_y_by):
+                    if len([s for s in unique_species if s in sort_y_by]) == len(unique_species) and len([s for s in sort_y_by if s in unique_species]) == len(unique_species):
+                        unique_species = sort_y_by
+                    else:
+                        valid_needed = [s for s in unique_species if s not in sort_y_by]
+                        invalid = [s for s in sort_y_by if s not in unique_species]
+                        msg = ("sort_y_by is missing the following species: "
+                               "{}".format(valid_needed)+" and was provided "
+                               "these invalid species: {}".format(invalid))
+                        raise Exception(msg)
+                        
+                elif len(sort_y_by) < len(unique_species):
+                    msg = ("sort_y_by must have of all of the "
+                           "following species: {}".format(unique_species)+". "
+                           "You are missing {}".format([s for s in unique_species if s not in sort_y_by]))
+                    raise Exception(msg)
+                else:
+                    msg = ("sort_y_by can only have the "
+                           "following species: {}".format(unique_species)+".")
+                    raise Exception(msg)
+            else:
+                raise Exception("sort_y_by must be a list of species names.")
+                
+        fig, ax = plt.subplots()
+        
         for i,sp in enumerate(unique_species):
             percents = []
             for sample in labels:
@@ -735,9 +777,15 @@ class Speciation(object):
         ax.set_ylabel('%')
         ax.set_title('Species accounting for mass balance of '+basis)
         plt.xticks(rotation = 45, ha='right')
-
         ax.legend(loc=legend_loc)
         
+        if save_as != None:
+            if ".png" not in save_as[:-4]:
+                save_as = save_as+".png"
+            
+            plt.savefig(save_as, dpi=300, bbox_inches="tight")
+            print("Saved figure as {}".format(save_as))
+            
         plt.show()
 
 
@@ -1645,6 +1693,9 @@ class AqEquil():
             if get_mineral_sat:
                 dict_sample_data.update(
                     {"mineral_sat": pandas2ri.ri2py_dataframe(sample.rx2('mineral_sat')).apply(pd.to_numeric, errors='coerce')})
+                # replace sample mineral_sat entry with None if there is no mineral saturation data.
+                if(len(dict_sample_data['mineral_sat'].index) == 1 and dict_sample_data['mineral_sat'].index[0] == 'None'):
+                    dict_sample_data['mineral_sat'] = None
 
             if get_redox:
                 dict_sample_data.update(
