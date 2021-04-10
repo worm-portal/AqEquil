@@ -295,7 +295,7 @@ class Speciation(object):
         
 
         
-        if self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None) != None:
+        if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
             x = mineral_data.index
         else:
@@ -4436,7 +4436,7 @@ speciation report.</dd>
         
 
         
-        if self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None) != None:
+        if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
             x = mineral_data.index
         else:
@@ -5442,7 +5442,7 @@ background. A list of named colors can be found here:
     
 
     
-    if self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None) != None:
+    if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
         mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
         x = mineral_data.index
     else:

@@ -267,7 +267,7 @@ class Speciation(object):
         
 
         
-        if self.sample_data[sample_name].get('mineral_sat', None) != None:
+        if isinstance(self.sample_data[sample_name].get('mineral_sat', None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name]['mineral_sat'][mineral_sat_type].astype(float).sort_values(ascending=False)
             x = mineral_data.index
         else:
