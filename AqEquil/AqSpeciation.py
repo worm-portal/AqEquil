@@ -382,7 +382,11 @@ class Speciation(object):
                        "report. Available variables include "
                       "{}".format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
-            unit_type, unit = self.__get_unit_info(subheader)
+            try:
+                unit_type, unit = self.__get_unit_info(subheader)
+            except:
+                unit_type = ""
+                unit = ""
             
             try:
                 y_vals = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
@@ -523,9 +527,6 @@ class Speciation(object):
         save_as : str, optional
             Provide a filename to save this figure as a PNG.
         """
-        
-        fig = plt.figure()
-        ax = fig.add_axes([0,0,1,1])
 
         if not isinstance(y, list):
             y = [y]
@@ -534,12 +535,6 @@ class Speciation(object):
             raise Exception("x must be a string.")
         
         x_col = self.lookup(x)
-        try:
-            x_plot = [float(x0[0]) if x0[0] != 'NA' else float("nan") for x0 in x_col.values.tolist()]
-        except:
-            msg = ("One or more the values belonging to "
-                   "'{}' are non-numeric and cannot be plotted.".format(x_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
         
         try:
             xsubheader = x_col.columns.get_level_values(1)[0]
@@ -548,11 +543,26 @@ class Speciation(object):
                    "report. Available variables include "
                    "{}".format(list(set(self.report.columns.get_level_values(0)))))
             raise Exception(msg)
-        xunit_type, xunit = self.__get_unit_info(xsubheader)
+            
+        try:
+            x_plot = [float(x0[0]) if x0[0] != 'NA' else float("nan") for x0 in x_col.values.tolist()]
+        except:
+            msg = ("One or more the values belonging to "
+                   "'{}' are non-numeric and cannot be plotted.".format(x_col.columns.get_level_values(0)[0]))
+            raise Exception(msg)
+        
+        try:
+            xunit_type, xunit = self.__get_unit_info(xsubheader)
+        except:
+            xunit_type = ""
+            xunit = ""
         
         norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
         cmap = cm.__getattribute__(colormap)
         m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        
+        fig = plt.figure()
+        ax = fig.add_axes([0,0,1,1])
         
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
@@ -564,7 +574,11 @@ class Speciation(object):
                        "report. Available variables include "
                       "{}".format(list(set(self.report.columns.get_level_values(0)))))
                 raise Exception(msg)
-            unit_type, unit = self.__get_unit_info(subheader)
+            try:
+                unit_type, unit = self.__get_unit_info(subheader)
+            except:
+                unit_type = ""
+                unit = ""
             
             try:
                 y_plot = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
