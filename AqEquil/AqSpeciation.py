@@ -788,7 +788,7 @@ class Speciation(object):
             ax.bar(labels, percents, width, bottom=bottom, label=sp)
             bottom = bottom + np.array(percents)
 
-        ax.set_ylabel('%')
+        ax.set_ylabel('mole %')
         ax.set_title('Species accounting for mass balance of '+basis)
         plt.xticks(rotation = 45, ha='right')
         ax.legend(loc=legend_loc)
@@ -1076,6 +1076,7 @@ class AqEquil():
         os.environ['EQ36DA'] = self.eq36da  # reset default EQ3 db path
 
     def runeq3(self, filename_3i, db,
+               samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd()):
@@ -1090,13 +1091,25 @@ class AqEquil():
         
         db : str
             Three letter code of database.
+        
+        path_3i : path str, default current working directory
+            Path of .3i input files.
+            
+        path_3o : path str, default current working directory
+            Path of .3o output files.
+        
+        path_3p : path str, default current working directory
+            Path of .3p pickup files.
         """
 
         # get current working dir
         cwd = os.getcwd()
         
+        if samplename == None:
+            samplename = filename_3i[:-3]
+        
         if self.verbose > 0:
-            print('Using ' + db + ' to speciate ' + filename_3i[:-3])
+            print('Using ' + db + ' to speciate ' + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = ['/bin/csh', self.eq36co+'/runeq3', db, filename_3i]
 
@@ -1512,8 +1525,10 @@ class AqEquil():
         pickup_dir = cwd + "/rxn_3p/"
         
         for file in files_3i:
-            self.runeq3(filename_3i=file, db=db, path_3i=input_dir,
-                        path_3o=output_dir, path_3p=pickup_dir)
+            samplename = self.df_input_processed.loc[file[:-3], "Sample"]
+            self.runeq3(filename_3i=file, db=db, samplename=samplename,
+                        path_3i=input_dir, path_3o=output_dir,
+                        path_3p=pickup_dir)
 
         if custom_db:
             os.environ['EQ36DA'] = self.eq36da

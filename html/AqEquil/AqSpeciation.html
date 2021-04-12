@@ -816,7 +816,7 @@ class Speciation(object):
             ax.bar(labels, percents, width, bottom=bottom, label=sp)
             bottom = bottom + np.array(percents)
 
-        ax.set_ylabel(&#39;%&#39;)
+        ax.set_ylabel(&#39;mole %&#39;)
         ax.set_title(&#39;Species accounting for mass balance of &#39;+basis)
         plt.xticks(rotation = 45, ha=&#39;right&#39;)
         ax.legend(loc=legend_loc)
@@ -1104,6 +1104,7 @@ class AqEquil():
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ3 db path
 
     def runeq3(self, filename_3i, db,
+               samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd()):
@@ -1118,13 +1119,25 @@ class AqEquil():
         
         db : str
             Three letter code of database.
+        
+        path_3i : path str, default current working directory
+            Path of .3i input files.
+            
+        path_3o : path str, default current working directory
+            Path of .3o output files.
+        
+        path_3p : path str, default current working directory
+            Path of .3p pickup files.
         &#34;&#34;&#34;
 
         # get current working dir
         cwd = os.getcwd()
         
+        if samplename == None:
+            samplename = filename_3i[:-3]
+        
         if self.verbose &gt; 0:
-            print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -1540,8 +1553,10 @@ class AqEquil():
         pickup_dir = cwd + &#34;/rxn_3p/&#34;
         
         for file in files_3i:
-            self.runeq3(filename_3i=file, db=db, path_3i=input_dir,
-                        path_3o=output_dir, path_3p=pickup_dir)
+            samplename = self.df_input_processed.loc[file[:-3], &#34;Sample&#34;]
+            self.runeq3(filename_3i=file, db=db, samplename=samplename,
+                        path_3i=input_dir, path_3o=output_dir,
+                        path_3p=pickup_dir)
 
         if custom_db:
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
@@ -2326,6 +2341,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ3 db path
 
     def runeq3(self, filename_3i, db,
+               samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd()):
@@ -2340,13 +2356,25 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         db : str
             Three letter code of database.
+        
+        path_3i : path str, default current working directory
+            Path of .3i input files.
+            
+        path_3o : path str, default current working directory
+            Path of .3o output files.
+        
+        path_3p : path str, default current working directory
+            Path of .3p pickup files.
         &#34;&#34;&#34;
 
         # get current working dir
         cwd = os.getcwd()
         
+        if samplename == None:
+            samplename = filename_3i[:-3]
+        
         if self.verbose &gt; 0:
-            print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -2762,8 +2790,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         pickup_dir = cwd + &#34;/rxn_3p/&#34;
         
         for file in files_3i:
-            self.runeq3(filename_3i=file, db=db, path_3i=input_dir,
-                        path_3o=output_dir, path_3p=pickup_dir)
+            samplename = self.df_input_processed.loc[file[:-3], &#34;Sample&#34;]
+            self.runeq3(filename_3i=file, db=db, samplename=samplename,
+                        path_3i=input_dir, path_3o=output_dir,
+                        path_3p=pickup_dir)
 
         if custom_db:
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
@@ -3321,7 +3351,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, path_3i='C:\\Users\\gmboy\\Desktop\\aqequil', path_3o='C:\\Users\\gmboy\\Desktop\\aqequil', path_3p='C:\\Users\\gmboy\\Desktop\\aqequil')</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='C:\\Users\\gmboy\\Desktop\\aqequil', path_3o='C:\\Users\\gmboy\\Desktop\\aqequil', path_3p='C:\\Users\\gmboy\\Desktop\\aqequil')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -3331,12 +3361,19 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <dd>Name of 3i input file.</dd>
 <dt><strong><code>db</code></strong> :&ensp;<code>str</code></dt>
 <dd>Three letter code of database.</dd>
+<dt><strong><code>path_3i</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .3i input files.</dd>
+<dt><strong><code>path_3o</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .3o output files.</dd>
+<dt><strong><code>path_3p</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .3p pickup files.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def runeq3(self, filename_3i, db,
+           samplename=None,
            path_3i=os.getcwd(),
            path_3o=os.getcwd(),
            path_3p=os.getcwd()):
@@ -3351,13 +3388,25 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
     db : str
         Three letter code of database.
+    
+    path_3i : path str, default current working directory
+        Path of .3i input files.
+        
+    path_3o : path str, default current working directory
+        Path of .3o output files.
+    
+    path_3p : path str, default current working directory
+        Path of .3p pickup files.
     &#34;&#34;&#34;
 
     # get current working dir
     cwd = os.getcwd()
     
+    if samplename == None:
+        samplename = filename_3i[:-3]
+    
     if self.verbose &gt; 0:
-        print(&#39;Using &#39; + db + &#39; to speciate &#39; + filename_3i[:-3])
+        print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
     os.chdir(path_3i)  # step into 3i folder
     args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
 
@@ -3999,8 +4048,10 @@ calculation is complete?</dd>
     pickup_dir = cwd + &#34;/rxn_3p/&#34;
     
     for file in files_3i:
-        self.runeq3(filename_3i=file, db=db, path_3i=input_dir,
-                    path_3o=output_dir, path_3p=pickup_dir)
+        samplename = self.df_input_processed.loc[file[:-3], &#34;Sample&#34;]
+        self.runeq3(filename_3i=file, db=db, samplename=samplename,
+                    path_3i=input_dir, path_3o=output_dir,
+                    path_3p=pickup_dir)
 
     if custom_db:
         os.environ[&#39;EQ36DA&#39;] = self.eq36da
@@ -4971,7 +5022,7 @@ speciation report.</dd>
             ax.bar(labels, percents, width, bottom=bottom, label=sp)
             bottom = bottom + np.array(percents)
 
-        ax.set_ylabel(&#39;%&#39;)
+        ax.set_ylabel(&#39;mole %&#39;)
         ax.set_title(&#39;Species accounting for mass balance of &#39;+basis)
         plt.xticks(rotation = 45, ha=&#39;right&#39;)
         ax.legend(loc=legend_loc)
@@ -5391,7 +5442,7 @@ the bottom of the plot to the top.</dd>
         ax.bar(labels, percents, width, bottom=bottom, label=sp)
         bottom = bottom + np.array(percents)
 
-    ax.set_ylabel(&#39;%&#39;)
+    ax.set_ylabel(&#39;mole %&#39;)
     ax.set_title(&#39;Species accounting for mass balance of &#39;+basis)
     plt.xticks(rotation = 45, ha=&#39;right&#39;)
     ax.legend(loc=legend_loc)
