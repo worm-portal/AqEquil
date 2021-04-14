@@ -881,7 +881,8 @@ class AqEquil():
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
             
-    def _check_sample_input_file(self, input_filename, exclude, db, custom_db):
+    def _check_sample_input_file(self, input_filename, exclude, db, custom_db,
+                                       charge_balance_on, suppress_missing):
         
         &#34;&#34;&#34;
         Check for problems in sample input file.
@@ -974,8 +975,21 @@ class AqEquil():
                 start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
                 end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                if charge_balance_on == &#39;pH&#39;:
+                    err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
+                        &#34;charge_balance_on=&#39;H+&#39;&#34;)
+                    err_list.append(err_charge_balance_on_pH)
+                elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                    err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
+                        &#34;on {}.&#34;.format(charge_balance_on))
+                    err_list.append(err_charge_balance_invalid_type)
+                elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
+                    err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
+                        &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
+                        &#34; was not found among the headers of the sample input file.&#34;)
+                    err_list.append(err_charge_balance_invalid_sp)
                 for species in list(set(df_in_headercheck.columns)):
-                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;]:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -984,6 +998,12 @@ class AqEquil():
                             &#34;help(AqEquil.AqEquil.speciate) &#34;
                             &#34;for more information about &#39;exclude&#39;.&#34;)
                         err_list.append(err_species_not_in_db)
+                    elif species == &#39;pH&#39;:
+                        err_species_pH = (&#34;Please rename the &#39;pH&#39; column in &#34;
+                            &#34;the sample input file to &#39;H+&#39; with the subheader &#34;
+                            &#34;unit &#39;pH&#39;.&#34;)
+                        err_list.append(err_species_pH)
+                    
         else:
             err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
@@ -1167,17 +1187,20 @@ class AqEquil():
         try:
             # rename pickup
             os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
+            move_pickup = True
         except:
             if self.verbose &gt; 0:
                 print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
-
-        try:
-            # move pickup
-            shutil.move(path_3i + &#34;/&#34; + filename_3p,
-                        path_3p + &#34;/&#34; + filename_3p)
-        except:
-            if self.verbose &gt; 0:
-                print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
+            move_pickup = False
+        
+        if move_pickup:
+            try:
+                # move pickup
+                shutil.move(path_3i + &#34;/&#34; + filename_3p,
+                            path_3p + &#34;/&#34; + filename_3p)
+            except:
+                if self.verbose &gt; 0:
+                    print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
     def __mk_check_del_directory(self, path):
         
@@ -1476,7 +1499,8 @@ class AqEquil():
         self.verbose = verbose
         
         # check input sample file for errors
-        self._check_sample_input_file(input_filename, exclude, db, custom_db)
+        self._check_sample_input_file(input_filename, exclude, db, custom_db,
+                                      charge_balance_on, suppress_missing)
         
         # handle batch_3o naming
         if batch_3o_filename != None:
@@ -2118,7 +2142,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
             
-    def _check_sample_input_file(self, input_filename, exclude, db, custom_db):
+    def _check_sample_input_file(self, input_filename, exclude, db, custom_db,
+                                       charge_balance_on, suppress_missing):
         
         &#34;&#34;&#34;
         Check for problems in sample input file.
@@ -2211,8 +2236,21 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
                 end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                 db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                if charge_balance_on == &#39;pH&#39;:
+                    err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
+                        &#34;charge_balance_on=&#39;H+&#39;&#34;)
+                    err_list.append(err_charge_balance_on_pH)
+                elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                    err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
+                        &#34;on {}.&#34;.format(charge_balance_on))
+                    err_list.append(err_charge_balance_invalid_type)
+                elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
+                    err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
+                        &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
+                        &#34; was not found among the headers of the sample input file.&#34;)
+                    err_list.append(err_charge_balance_invalid_sp)
                 for species in list(set(df_in_headercheck.columns)):
-                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;]:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -2221,6 +2259,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;help(AqEquil.AqEquil.speciate) &#34;
                             &#34;for more information about &#39;exclude&#39;.&#34;)
                         err_list.append(err_species_not_in_db)
+                    elif species == &#39;pH&#39;:
+                        err_species_pH = (&#34;Please rename the &#39;pH&#39; column in &#34;
+                            &#34;the sample input file to &#39;H+&#39; with the subheader &#34;
+                            &#34;unit &#39;pH&#39;.&#34;)
+                        err_list.append(err_species_pH)
+                    
         else:
             err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
@@ -2404,17 +2448,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         try:
             # rename pickup
             os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
+            move_pickup = True
         except:
             if self.verbose &gt; 0:
                 print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
-
-        try:
-            # move pickup
-            shutil.move(path_3i + &#34;/&#34; + filename_3p,
-                        path_3p + &#34;/&#34; + filename_3p)
-        except:
-            if self.verbose &gt; 0:
-                print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
+            move_pickup = False
+        
+        if move_pickup:
+            try:
+                # move pickup
+                shutil.move(path_3i + &#34;/&#34; + filename_3p,
+                            path_3p + &#34;/&#34; + filename_3p)
+            except:
+                if self.verbose &gt; 0:
+                    print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
     def __mk_check_del_directory(self, path):
         
@@ -2713,7 +2760,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.verbose = verbose
         
         # check input sample file for errors
-        self._check_sample_input_file(input_filename, exclude, db, custom_db)
+        self._check_sample_input_file(input_filename, exclude, db, custom_db,
+                                      charge_balance_on, suppress_missing)
         
         # handle batch_3o naming
         if batch_3o_filename != None:
@@ -3436,17 +3484,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     try:
         # rename pickup
         os.rename(path_3i + &#39;/pickup&#39;, path_3i + &#34;/&#34; + filename_3p)
+        move_pickup = True
     except:
         if self.verbose &gt; 0:
             print(&#39;Error: EQ3 failed to produce a pickup file for &#39; + filename_3i)
-
-    try:
-        # move pickup
-        shutil.move(path_3i + &#34;/&#34; + filename_3p,
-                    path_3p + &#34;/&#34; + filename_3p)
-    except:
-        if self.verbose &gt; 0:
-            print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)</code></pre>
+        move_pickup = False
+    
+    if move_pickup:
+        try:
+            # move pickup
+            shutil.move(path_3i + &#34;/&#34; + filename_3p,
+                        path_3p + &#34;/&#34; + filename_3p)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeqpt"><code class="name flex">
@@ -3971,7 +4022,8 @@ calculation is complete?</dd>
     self.verbose = verbose
     
     # check input sample file for errors
-    self._check_sample_input_file(input_filename, exclude, db, custom_db)
+    self._check_sample_input_file(input_filename, exclude, db, custom_db,
+                                  charge_balance_on, suppress_missing)
     
     # handle batch_3o naming
     if batch_3o_filename != None:

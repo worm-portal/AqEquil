@@ -424,8 +424,7 @@ preprocess <- function(input_filename,
       eq3.cb_block <- paste(
       "\n|Electrical balancing option (iebal3):                                         |",
       "|  [ ] ( 0) No balancing is done                                               |",
-      "|  [x] ( 1) Balance on species |", format(charge_balance_on, width=24), "| (uebal)              |",
-      sep="\n")
+      paste0("|  [x] ( 1) Balance on species |", format(charge_balance_on, width=24), "| (uebal)              |"), sep="\n")
     }
 
     # Handle input file directory --------------------------------------------------
