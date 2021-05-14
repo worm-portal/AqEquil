@@ -155,6 +155,7 @@ class Speciation(object):
         seen_add = seen.add
         return [x for x in seq if not (x in seen or seen_add(x))]
 
+    
     def save(self, filename, messages=True):
         &#34;&#34;&#34;
         Save the speciation as a &#39;.speciation&#39; file to your current working
@@ -208,6 +209,7 @@ class Speciation(object):
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
             &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
+            &#34;cal/kg.H2O&#34; : (&#34;energy supply&#34;, &#34;cal/kg H2O&#34;),
         }
         
         out = unit_name_dict.get(subheader)
@@ -237,9 +239,12 @@ class Speciation(object):
         return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
     
-    def __convert_aq_units_to_log_friendly(self, species):
+    def __convert_aq_units_to_log_friendly(self, species, rows):
 
         col_data = self.lookup(species)
+        
+        col_data = col_data.loc[rows]
+        
         if col_data.columns.get_level_values(1) == &#39;log_activity&#39;:
             y = [10**float(s[0]) if s[0] != &#39;NA&#39; else float(&#34;nan&#34;) for s in col_data.values.tolist()]
             out_unit = &#39;activity&#39;
@@ -346,7 +351,7 @@ class Speciation(object):
     
 
     def barplot(self, y, yrange=None, show_trace=True,
-                show_legend=True, legend_loc=&#34;best&#34;,
+                show_legend=True, show_missing=True, legend_loc=&#34;best&#34;,
                 colormap=&#34;viridis&#34;, bg_color=&#34;white&#34;, save_as=None):
         
         &#34;&#34;&#34;
@@ -367,6 +372,9 @@ class Speciation(object):
             
         show_legend : bool, default True
             Show a legend if there is more than one variable?
+        
+        show_missing : bool, default True
+            Show samples that do not have bars?
         
         legend_loc : str or pair of float, default &#34;best&#34;
             Location of the legend on the plot. See
@@ -392,7 +400,12 @@ class Speciation(object):
         if not isinstance(y, list):
             y = [y]
         
-        x = self.lookup(y[0]).index # names of samples
+        y_cols = self.lookup(y)
+        
+        if not show_missing:
+            y_cols = y_cols.dropna(how=&#39;all&#39;)
+        
+        x = y_cols.index # names of samples
         
         norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
         cmap = cm.__getattribute__(colormap)
@@ -401,7 +414,7 @@ class Speciation(object):
         
         barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
         for i, yi in enumerate(y):
-            y_col = self.lookup(yi)
+            y_col = y_cols.iloc[:, y_cols.columns.get_level_values(0)==yi]
             
             try:
                 subheader = y_col.columns.get_level_values(1)[0]
@@ -425,13 +438,13 @@ class Speciation(object):
             
             if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;]:
-                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi)
+                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
                     unit_type, unit = self.__get_unit_info(out_unit)
                 else:
                     y_plot = y_vals
             else:
                 y_plot = y_vals
-                
+            
             if i == 0:
                 subheader_previous = subheader
                 unit_previous = unit
@@ -459,7 +472,7 @@ class Speciation(object):
                 color = m.to_rgba(i)
             else:
                 color = &#34;black&#34;
-                
+            
             bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
             
             barlist.append(bars)
@@ -880,24 +893,93 @@ class AqEquil():
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
-            
+    
+    
+    @staticmethod
+    def __file_exists(filename, ext=&#39;.csv&#39;):
+        &#34;&#34;&#34;
+        Check that a file exists and that it has the correct extension.
+        Returns True if so, raises exception if not.
+        &#34;&#34;&#34;
+        
+        ext_dict = {
+            &#34;.csv&#34; : &#34;comma separated values (.csv)&#34;,
+            &#34;.txt&#34; : &#34;standard text (.txt)&#34;,
+            &#34;.rds&#34; : &#34;R Data (.rds)&#34;,
+        }
+        
+        if ext in filename[-4:]:
+            if os.path.exists(filename) and os.path.isfile(filename):
+                return True
+            else:
+                err = &#34;Cannot locate input file {}.&#34;.format(filename)
+                raise Exception(err)
+        else:
+            err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
+                &#34;must be in {} format.&#34;.format(ext_dict[ext]))
+            raise Exception(err)
+        
+        return False
+    
+    
+    def _check_database_file(self, filename):
+        
+        &#34;&#34;&#34;
+        Check for problems in the thermodynamic database CSV.
+        &#34;&#34;&#34;
+        
+        # is the file a csv?
+        self.__file_exists(filename)
+        
+        thermo_df = pd.read_csv(filename)
+        
+        # does this file have the proper headers?
+        required_headers = [&#34;name&#34;, &#34;abbrv&#34;, &#34;formula&#34;, &#34;state&#34;,
+                            &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;, &#34;E_units&#34;,
+                            &#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;, &#34;V&#34;,
+                            &#34;a1.a&#34;, &#34;a2.b&#34;, &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;, &#34;c2.f&#34;,
+                            &#34;omega.lambda&#34;, &#34;z.T&#34;,
+                            &#34;azero&#34;, &#34;neutral_ion_type&#34;,
+                            &#34;dissrxn&#34;, &#34;tag&#34;, &#34;formula_ox&#34;]
+        
+        missing_headers = []
+        for header in required_headers:
+            if header not in thermo_df.columns:
+                missing_headers.append(header)
+        if len(missing_headers) &gt; 0:
+            msg = (&#34;The thermodynamic database file &#39;{}&#39;&#34;.format(filename)+&#34; &#34;
+                   &#34;is missing one or more required columns: &#34;
+                   &#34;{}&#34;.format(&#34;, &#34;.join(missing_headers))+&#34;. &#34;
+                   &#34;Are these headers spelled correctly in the file?&#34;)
+            raise Exception(msg)
+        
+        # does Cl-, O2(g), and O2 exist in the file?
+        required_species = [&#34;Cl-&#34;, &#34;O2&#34;, &#34;O2(g)&#34;]
+        missing_species = []
+        for species in required_species:
+            if species not in list(thermo_df[&#34;name&#34;]):
+                missing_species.append(species)
+        if len(missing_species) &gt; 0:
+            msg = (&#34;The thermodynamic database file &#39;{}&#39;&#34;.format(filename)+&#34; &#34;
+                   &#34;is missing required species:&#34;
+                   &#34;{}&#34;.format(missing_species)+&#34;. Default thermodynamic values&#34;
+                   &#34; will be used.&#34;)
+            warnings.warn(msg)
+        
+        return
+
+    
     def _check_sample_input_file(self, input_filename, exclude, db, custom_db,
                                        charge_balance_on, suppress_missing):
-        
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
         
-        if &#39;.csv&#39; in input_filename[-4:]:
-            if os.path.exists(input_filename) and os.path.isfile(input_filename):
-                df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
-            else:
-                err = &#34;Cannot locate input file {}.&#34;.format(input_filename)
-                raise Exception(err)
+        # does the input file exist? Is it a CSV?
+        if self.__file_exists(input_filename):
+            df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
         else:
-            err = (&#34;Input file {}&#34;.format(input_filename) + &#34; &#34;
-                &#34;must be in comma separated values (.csv) format.&#34;)
-            raise Exception(err)
+            raise Exception(&#34;_check_sample_input() error!&#34;)
         
         # are there any samples?
         if df_in.shape[0] &lt;= 2:
@@ -1456,8 +1538,8 @@ class AqEquil():
             separate user-supplied file?
         
         rxn_filename : str, optional
-            Name of file containing reactions used to calculate affinities and
-            energy supplies. Ignored if `get_affinity_energy` is False.
+            Name of .txt file containing reactions used to calculate affinities
+            and energy supplies. Ignored if `get_affinity_energy` is False.
         
         not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
             List containing names of species that are not considered limiting
@@ -1526,20 +1608,11 @@ class AqEquil():
 
         if get_affinity_energy:
             if rxn_filename == None:
-                wrn = (&#34;A reaction file was not specified. Affinities and &#34;
-                    &#34;energy supplies will not be calculated.&#34;)
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = &#34;&#34;
-            elif os.path.exists(rxn_filename) and os.path.isfile(rxn_filename):
+                err = (&#34;A get_affinity_energy was set to True but a reaction &#34;
+                       &#34;file was not specified.&#34;)
+                raise Exception(err)
+            elif self.__file_exists(rxn_filename, &#39;.txt&#39;):
                 pass
-            else:
-                wrn = (&#34;Reaction file {} was not found. Affinities and &#34;
-                    &#34;energy supplies will not be &#34;
-                    &#34;calculated.&#34;.format(rxn_filename))
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = &#34;&#34;
         else:
             rxn_filename = &#34;&#34;
 
@@ -1814,8 +1887,7 @@ class AqEquil():
 
     def create_data0(self,
                      filename,
-                     supp_file,
-                     supp_file_ss=None,
+                     filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      db=&#34;wrm&#34;,
@@ -1824,7 +1896,6 @@ class AqEquil():
                                  200.0000, 250.0000, 300.0000, 350.0000],
                      grid_press=&#34;Psat&#34;,
                      infer_formula_ox=False,
-                     basis_prefs={},
                      generate_template=True,
                      template_name=None,
                      verbose=1):
@@ -1836,10 +1907,7 @@ class AqEquil():
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
-        supp_file : str
-            Path of file containing data0-specific parameters.
-            
-        supp_file_ss : str, optional
+        filename_ss : str, optional
             Name of file containing solid solution parameters.
         
         data0_formula_ox_name : str, optional
@@ -1889,6 +1957,12 @@ class AqEquil():
             0 for silent.
         &#34;&#34;&#34;
         
+        # Check that thermodynamic database input files exist and are formatted
+        # correctly.
+        self._check_database_file(filename)
+        if filename_ss != None:
+            self.__file_exists(filename_ss)
+        
         self.verbose = verbose
         
         if self.verbose &gt;= 1:
@@ -1906,13 +1980,9 @@ class AqEquil():
         grid_temps = convert_to_RVector(grid_temps)
         grid_press = convert_to_RVector(grid_press)
         suppress_redox = convert_to_RVector(suppress_redox)
-        bp_values = list(basis_prefs.values())
-        bp_keys = list(basis_prefs.keys())
-        basis_prefs = convert_to_RVector(bp_values)
-        basis_pref_names = convert_to_RVector(bp_keys)
         
-        if supp_file_ss == None:
-            supp_file_ss = ro.r(&#34;NULL&#34;)
+        if filename_ss == None:
+            filename_ss = ro.r(&#34;NULL&#34;)
         if data0_formula_ox_name == None:
             data0_formula_ox_name = ro.r(&#34;NULL&#34;)
         if template_name == None:
@@ -1924,8 +1994,7 @@ class AqEquil():
                 __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
             ro.r(r_create_data0)
             ro.r.main_create_data0(filename=filename,
-                                   supp_file=supp_file,
-                                   supp_file_ss=supp_file_ss,
+                                   filename_ss=filename_ss,
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
@@ -1936,9 +2005,7 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=self.verbose,
-                                   basis_prefs=basis_prefs,
-                                   basis_pref_names=basis_pref_names)
+                                   verbose=self.verbose)
     
         for warning in w:
             print(warning.message)
@@ -2141,24 +2208,93 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
-            
+    
+    
+    @staticmethod
+    def __file_exists(filename, ext=&#39;.csv&#39;):
+        &#34;&#34;&#34;
+        Check that a file exists and that it has the correct extension.
+        Returns True if so, raises exception if not.
+        &#34;&#34;&#34;
+        
+        ext_dict = {
+            &#34;.csv&#34; : &#34;comma separated values (.csv)&#34;,
+            &#34;.txt&#34; : &#34;standard text (.txt)&#34;,
+            &#34;.rds&#34; : &#34;R Data (.rds)&#34;,
+        }
+        
+        if ext in filename[-4:]:
+            if os.path.exists(filename) and os.path.isfile(filename):
+                return True
+            else:
+                err = &#34;Cannot locate input file {}.&#34;.format(filename)
+                raise Exception(err)
+        else:
+            err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
+                &#34;must be in {} format.&#34;.format(ext_dict[ext]))
+            raise Exception(err)
+        
+        return False
+    
+    
+    def _check_database_file(self, filename):
+        
+        &#34;&#34;&#34;
+        Check for problems in the thermodynamic database CSV.
+        &#34;&#34;&#34;
+        
+        # is the file a csv?
+        self.__file_exists(filename)
+        
+        thermo_df = pd.read_csv(filename)
+        
+        # does this file have the proper headers?
+        required_headers = [&#34;name&#34;, &#34;abbrv&#34;, &#34;formula&#34;, &#34;state&#34;,
+                            &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;, &#34;E_units&#34;,
+                            &#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;, &#34;V&#34;,
+                            &#34;a1.a&#34;, &#34;a2.b&#34;, &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;, &#34;c2.f&#34;,
+                            &#34;omega.lambda&#34;, &#34;z.T&#34;,
+                            &#34;azero&#34;, &#34;neutral_ion_type&#34;,
+                            &#34;dissrxn&#34;, &#34;tag&#34;, &#34;formula_ox&#34;]
+        
+        missing_headers = []
+        for header in required_headers:
+            if header not in thermo_df.columns:
+                missing_headers.append(header)
+        if len(missing_headers) &gt; 0:
+            msg = (&#34;The thermodynamic database file &#39;{}&#39;&#34;.format(filename)+&#34; &#34;
+                   &#34;is missing one or more required columns: &#34;
+                   &#34;{}&#34;.format(&#34;, &#34;.join(missing_headers))+&#34;. &#34;
+                   &#34;Are these headers spelled correctly in the file?&#34;)
+            raise Exception(msg)
+        
+        # does Cl-, O2(g), and O2 exist in the file?
+        required_species = [&#34;Cl-&#34;, &#34;O2&#34;, &#34;O2(g)&#34;]
+        missing_species = []
+        for species in required_species:
+            if species not in list(thermo_df[&#34;name&#34;]):
+                missing_species.append(species)
+        if len(missing_species) &gt; 0:
+            msg = (&#34;The thermodynamic database file &#39;{}&#39;&#34;.format(filename)+&#34; &#34;
+                   &#34;is missing required species:&#34;
+                   &#34;{}&#34;.format(missing_species)+&#34;. Default thermodynamic values&#34;
+                   &#34; will be used.&#34;)
+            warnings.warn(msg)
+        
+        return
+
+    
     def _check_sample_input_file(self, input_filename, exclude, db, custom_db,
                                        charge_balance_on, suppress_missing):
-        
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
         
-        if &#39;.csv&#39; in input_filename[-4:]:
-            if os.path.exists(input_filename) and os.path.isfile(input_filename):
-                df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
-            else:
-                err = &#34;Cannot locate input file {}.&#34;.format(input_filename)
-                raise Exception(err)
+        # does the input file exist? Is it a CSV?
+        if self.__file_exists(input_filename):
+            df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
         else:
-            err = (&#34;Input file {}&#34;.format(input_filename) + &#34; &#34;
-                &#34;must be in comma separated values (.csv) format.&#34;)
-            raise Exception(err)
+            raise Exception(&#34;_check_sample_input() error!&#34;)
         
         # are there any samples?
         if df_in.shape[0] &lt;= 2:
@@ -2717,8 +2853,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             separate user-supplied file?
         
         rxn_filename : str, optional
-            Name of file containing reactions used to calculate affinities and
-            energy supplies. Ignored if `get_affinity_energy` is False.
+            Name of .txt file containing reactions used to calculate affinities
+            and energy supplies. Ignored if `get_affinity_energy` is False.
         
         not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
             List containing names of species that are not considered limiting
@@ -2787,20 +2923,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_affinity_energy:
             if rxn_filename == None:
-                wrn = (&#34;A reaction file was not specified. Affinities and &#34;
-                    &#34;energy supplies will not be calculated.&#34;)
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = &#34;&#34;
-            elif os.path.exists(rxn_filename) and os.path.isfile(rxn_filename):
+                err = (&#34;A get_affinity_energy was set to True but a reaction &#34;
+                       &#34;file was not specified.&#34;)
+                raise Exception(err)
+            elif self.__file_exists(rxn_filename, &#39;.txt&#39;):
                 pass
-            else:
-                wrn = (&#34;Reaction file {} was not found. Affinities and &#34;
-                    &#34;energy supplies will not be &#34;
-                    &#34;calculated.&#34;.format(rxn_filename))
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = &#34;&#34;
         else:
             rxn_filename = &#34;&#34;
 
@@ -3075,8 +3202,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     def create_data0(self,
                      filename,
-                     supp_file,
-                     supp_file_ss=None,
+                     filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      db=&#34;wrm&#34;,
@@ -3085,7 +3211,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                  200.0000, 250.0000, 300.0000, 350.0000],
                      grid_press=&#34;Psat&#34;,
                      infer_formula_ox=False,
-                     basis_prefs={},
                      generate_template=True,
                      template_name=None,
                      verbose=1):
@@ -3097,10 +3222,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
-        supp_file : str
-            Path of file containing data0-specific parameters.
-            
-        supp_file_ss : str, optional
+        filename_ss : str, optional
             Name of file containing solid solution parameters.
         
         data0_formula_ox_name : str, optional
@@ -3150,6 +3272,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         &#34;&#34;&#34;
         
+        # Check that thermodynamic database input files exist and are formatted
+        # correctly.
+        self._check_database_file(filename)
+        if filename_ss != None:
+            self.__file_exists(filename_ss)
+        
         self.verbose = verbose
         
         if self.verbose &gt;= 1:
@@ -3167,13 +3295,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         grid_temps = convert_to_RVector(grid_temps)
         grid_press = convert_to_RVector(grid_press)
         suppress_redox = convert_to_RVector(suppress_redox)
-        bp_values = list(basis_prefs.values())
-        bp_keys = list(basis_prefs.keys())
-        basis_prefs = convert_to_RVector(bp_values)
-        basis_pref_names = convert_to_RVector(bp_keys)
         
-        if supp_file_ss == None:
-            supp_file_ss = ro.r(&#34;NULL&#34;)
+        if filename_ss == None:
+            filename_ss = ro.r(&#34;NULL&#34;)
         if data0_formula_ox_name == None:
             data0_formula_ox_name = ro.r(&#34;NULL&#34;)
         if template_name == None:
@@ -3185,8 +3309,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
             ro.r(r_create_data0)
             ro.r.main_create_data0(filename=filename,
-                                   supp_file=supp_file,
-                                   supp_file_ss=supp_file_ss,
+                                   filename_ss=filename_ss,
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
@@ -3197,9 +3320,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=self.verbose,
-                                   basis_prefs=basis_prefs,
-                                   basis_pref_names=basis_pref_names)
+                                   verbose=self.verbose)
     
         for warning in w:
             print(warning.message)
@@ -3210,7 +3331,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
-<span>def <span class="ident">create_data0</span></span>(<span>self, filename, supp_file, supp_file_ss=None, data0_formula_ox_name=None, suppress_redox=[], db='wrm', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, basis_prefs={}, generate_template=True, template_name=None, verbose=1)</span>
+<span>def <span class="ident">create_data0</span></span>(<span>self, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], db='wrm', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a data0 file from a custom thermodynamic dataset.</p>
@@ -3218,9 +3339,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <dl>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of csv file containing thermodynamic data in the OBIGT format.</dd>
-<dt><strong><code>supp_file</code></strong> :&ensp;<code>str</code></dt>
-<dd>Path of file containing data0-specific parameters.</dd>
-<dt><strong><code>supp_file_ss</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dt><strong><code>filename_ss</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of file containing solid solution parameters.</dd>
 <dt><strong><code>data0_formula_ox_name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of supplementary file containing data0 parameters and inferred
@@ -3265,8 +3384,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </summary>
 <pre><code class="python">def create_data0(self,
                  filename,
-                 supp_file,
-                 supp_file_ss=None,
+                 filename_ss=None,
                  data0_formula_ox_name=None,
                  suppress_redox=[],
                  db=&#34;wrm&#34;,
@@ -3275,7 +3393,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                              200.0000, 250.0000, 300.0000, 350.0000],
                  grid_press=&#34;Psat&#34;,
                  infer_formula_ox=False,
-                 basis_prefs={},
                  generate_template=True,
                  template_name=None,
                  verbose=1):
@@ -3287,10 +3404,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     filename : str
         Name of csv file containing thermodynamic data in the OBIGT format.
         
-    supp_file : str
-        Path of file containing data0-specific parameters.
-        
-    supp_file_ss : str, optional
+    filename_ss : str, optional
         Name of file containing solid solution parameters.
     
     data0_formula_ox_name : str, optional
@@ -3340,6 +3454,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         0 for silent.
     &#34;&#34;&#34;
     
+    # Check that thermodynamic database input files exist and are formatted
+    # correctly.
+    self._check_database_file(filename)
+    if filename_ss != None:
+        self.__file_exists(filename_ss)
+    
     self.verbose = verbose
     
     if self.verbose &gt;= 1:
@@ -3357,13 +3477,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     grid_temps = convert_to_RVector(grid_temps)
     grid_press = convert_to_RVector(grid_press)
     suppress_redox = convert_to_RVector(suppress_redox)
-    bp_values = list(basis_prefs.values())
-    bp_keys = list(basis_prefs.keys())
-    basis_prefs = convert_to_RVector(bp_values)
-    basis_pref_names = convert_to_RVector(bp_keys)
     
-    if supp_file_ss == None:
-        supp_file_ss = ro.r(&#34;NULL&#34;)
+    if filename_ss == None:
+        filename_ss = ro.r(&#34;NULL&#34;)
     if data0_formula_ox_name == None:
         data0_formula_ox_name = ro.r(&#34;NULL&#34;)
     if template_name == None:
@@ -3375,8 +3491,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
         ro.r(r_create_data0)
         ro.r.main_create_data0(filename=filename,
-                               supp_file=supp_file,
-                               supp_file_ss=supp_file_ss,
+                               filename_ss=filename_ss,
                                grid_temps=grid_temps,
                                grid_press=grid_press,
                                db=db,
@@ -3387,9 +3502,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                infer_formula_ox=infer_formula_ox,
                                generate_template=generate_template,
                                template_name=template_name,
-                               verbose=self.verbose,
-                               basis_prefs=basis_prefs,
-                               basis_pref_names=basis_pref_names)
+                               verbose=self.verbose)
 
     for warning in w:
         print(warning.message)
@@ -3740,8 +3853,8 @@ solids. Can be "logQoverK" or "affinity". Ignored if
 <dd>Calculate affinities and energy supplies of reactions listed in a
 separate user-supplied file?</dd>
 <dt><strong><code>rxn_filename</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>Name of file containing reactions used to calculate affinities and
-energy supplies. Ignored if <code>get_affinity_energy</code> is False.</dd>
+<dd>Name of .txt file containing reactions used to calculate affinities
+and energy supplies. Ignored if <code>get_affinity_energy</code> is False.</dd>
 <dt><strong><code>not_limiting</code></strong> :&ensp;<code>list</code>, default <code>["H+", "OH-", "H2O"]</code></dt>
 <dd>List containing names of species that are not considered limiting
 when calculating energy supplies. Ignored if <code>get_affinity_energy</code>
@@ -3979,8 +4092,8 @@ calculation is complete?</dd>
         separate user-supplied file?
     
     rxn_filename : str, optional
-        Name of file containing reactions used to calculate affinities and
-        energy supplies. Ignored if `get_affinity_energy` is False.
+        Name of .txt file containing reactions used to calculate affinities
+        and energy supplies. Ignored if `get_affinity_energy` is False.
     
     not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
         List containing names of species that are not considered limiting
@@ -4049,20 +4162,11 @@ calculation is complete?</dd>
 
     if get_affinity_energy:
         if rxn_filename == None:
-            wrn = (&#34;A reaction file was not specified. Affinities and &#34;
-                &#34;energy supplies will not be calculated.&#34;)
-            warnings.warn(wrn)
-            get_affinity_energy = False
-            rxn_filename = &#34;&#34;
-        elif os.path.exists(rxn_filename) and os.path.isfile(rxn_filename):
+            err = (&#34;A get_affinity_energy was set to True but a reaction &#34;
+                   &#34;file was not specified.&#34;)
+            raise Exception(err)
+        elif self.__file_exists(rxn_filename, &#39;.txt&#39;):
             pass
-        else:
-            wrn = (&#34;Reaction file {} was not found. Affinities and &#34;
-                &#34;energy supplies will not be &#34;
-                &#34;calculated.&#34;.format(rxn_filename))
-            warnings.warn(wrn)
-            get_affinity_energy = False
-            rxn_filename = &#34;&#34;
     else:
         rxn_filename = &#34;&#34;
 
@@ -4413,6 +4517,7 @@ speciation report.</dd>
         seen_add = seen.add
         return [x for x in seq if not (x in seen or seen_add(x))]
 
+    
     def save(self, filename, messages=True):
         &#34;&#34;&#34;
         Save the speciation as a &#39;.speciation&#39; file to your current working
@@ -4466,6 +4571,7 @@ speciation report.</dd>
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
             &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
+            &#34;cal/kg.H2O&#34; : (&#34;energy supply&#34;, &#34;cal/kg H2O&#34;),
         }
         
         out = unit_name_dict.get(subheader)
@@ -4495,9 +4601,12 @@ speciation report.</dd>
         return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
     
-    def __convert_aq_units_to_log_friendly(self, species):
+    def __convert_aq_units_to_log_friendly(self, species, rows):
 
         col_data = self.lookup(species)
+        
+        col_data = col_data.loc[rows]
+        
         if col_data.columns.get_level_values(1) == &#39;log_activity&#39;:
             y = [10**float(s[0]) if s[0] != &#39;NA&#39; else float(&#34;nan&#34;) for s in col_data.values.tolist()]
             out_unit = &#39;activity&#39;
@@ -4604,7 +4713,7 @@ speciation report.</dd>
     
 
     def barplot(self, y, yrange=None, show_trace=True,
-                show_legend=True, legend_loc=&#34;best&#34;,
+                show_legend=True, show_missing=True, legend_loc=&#34;best&#34;,
                 colormap=&#34;viridis&#34;, bg_color=&#34;white&#34;, save_as=None):
         
         &#34;&#34;&#34;
@@ -4625,6 +4734,9 @@ speciation report.</dd>
             
         show_legend : bool, default True
             Show a legend if there is more than one variable?
+        
+        show_missing : bool, default True
+            Show samples that do not have bars?
         
         legend_loc : str or pair of float, default &#34;best&#34;
             Location of the legend on the plot. See
@@ -4650,7 +4762,12 @@ speciation report.</dd>
         if not isinstance(y, list):
             y = [y]
         
-        x = self.lookup(y[0]).index # names of samples
+        y_cols = self.lookup(y)
+        
+        if not show_missing:
+            y_cols = y_cols.dropna(how=&#39;all&#39;)
+        
+        x = y_cols.index # names of samples
         
         norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
         cmap = cm.__getattribute__(colormap)
@@ -4659,7 +4776,7 @@ speciation report.</dd>
         
         barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
         for i, yi in enumerate(y):
-            y_col = self.lookup(yi)
+            y_col = y_cols.iloc[:, y_cols.columns.get_level_values(0)==yi]
             
             try:
                 subheader = y_col.columns.get_level_values(1)[0]
@@ -4683,13 +4800,13 @@ speciation report.</dd>
             
             if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;]:
-                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi)
+                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
                     unit_type, unit = self.__get_unit_info(out_unit)
                 else:
                     y_plot = y_vals
             else:
                 y_plot = y_vals
-                
+            
             if i == 0:
                 subheader_previous = subheader
                 unit_previous = unit
@@ -4717,7 +4834,7 @@ speciation report.</dd>
                 color = m.to_rgba(i)
             else:
                 color = &#34;black&#34;
-                
+            
             bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
             
             barlist.append(bars)
@@ -5091,7 +5208,7 @@ speciation report.</dd>
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.Speciation.barplot"><code class="name flex">
-<span>def <span class="ident">barplot</span></span>(<span>self, y, yrange=None, show_trace=True, show_legend=True, legend_loc='best', colormap='viridis', bg_color='white', save_as=None)</span>
+<span>def <span class="ident">barplot</span></span>(<span>self, y, yrange=None, show_trace=True, show_legend=True, show_missing=True, legend_loc='best', colormap='viridis', bg_color='white', save_as=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show a bar plot to vizualize one or more variables across all samples.</p>
@@ -5107,6 +5224,8 @@ are columns in the speciation report.</dd>
 to see clearly?</dd>
 <dt><strong><code>show_legend</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Show a legend if there is more than one variable?</dd>
+<dt><strong><code>show_missing</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Show samples that do not have bars?</dd>
 <dt><strong><code>legend_loc</code></strong> :&ensp;<code>str</code> or <code>pair</code> of <code>float</code>, default <code>"best"</code></dt>
 <dd>Location of the legend on the plot. See
 <a href="https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend">https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend</a></dd>
@@ -5125,7 +5244,7 @@ background. A list of named colors can be found here:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def barplot(self, y, yrange=None, show_trace=True,
-            show_legend=True, legend_loc=&#34;best&#34;,
+            show_legend=True, show_missing=True, legend_loc=&#34;best&#34;,
             colormap=&#34;viridis&#34;, bg_color=&#34;white&#34;, save_as=None):
     
     &#34;&#34;&#34;
@@ -5146,6 +5265,9 @@ background. A list of named colors can be found here:
         
     show_legend : bool, default True
         Show a legend if there is more than one variable?
+    
+    show_missing : bool, default True
+        Show samples that do not have bars?
     
     legend_loc : str or pair of float, default &#34;best&#34;
         Location of the legend on the plot. See
@@ -5171,7 +5293,12 @@ background. A list of named colors can be found here:
     if not isinstance(y, list):
         y = [y]
     
-    x = self.lookup(y[0]).index # names of samples
+    y_cols = self.lookup(y)
+    
+    if not show_missing:
+        y_cols = y_cols.dropna(how=&#39;all&#39;)
+    
+    x = y_cols.index # names of samples
     
     norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
     cmap = cm.__getattribute__(colormap)
@@ -5180,7 +5307,7 @@ background. A list of named colors can be found here:
     
     barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
     for i, yi in enumerate(y):
-        y_col = self.lookup(yi)
+        y_col = y_cols.iloc[:, y_cols.columns.get_level_values(0)==yi]
         
         try:
             subheader = y_col.columns.get_level_values(1)[0]
@@ -5204,13 +5331,13 @@ background. A list of named colors can be found here:
         
         if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
             if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;]:
-                y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi)
+                y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
                 unit_type, unit = self.__get_unit_info(out_unit)
             else:
                 y_plot = y_vals
         else:
             y_plot = y_vals
-            
+        
         if i == 0:
             subheader_previous = subheader
             unit_previous = unit
@@ -5238,7 +5365,7 @@ background. A list of named colors can be found here:
             color = m.to_rgba(i)
         else:
             color = &#34;black&#34;
-            
+        
         bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
         
         barlist.append(bars)

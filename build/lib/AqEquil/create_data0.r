@@ -237,18 +237,27 @@ calc_bdot <- function(T){
 # # (Not all elements have to be specified)
 # basis_pref <- c("C"="HCO3-", "N"="NH4+")
 # HOZ_balancers <- c("H+", "O2", "H2O") # might be data0-specific (e.g., "O2(g)")
+# thermo_df has to be the entire thermo datasheet.
+#   Needed to determine whether aux species are better than strict basis depending on ox state.
+#   If NULL, just uses strict basis species, or what it determines to be strict basis.
 
-get_dissrxn <- function(sp_name, basis_pref=c(), HOZ_balancers=c("H+", "O2", "H2O"), db_idx=c()){
-    
-  # get a vector of elements that make up the species
-  basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (sp_name)
+get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c(),
+                        HOZ_balancers=c("H+", "O2", "H2O"),
+                        thermo_df=NULL, verbose=2){
   
-  if (length(db_idx) == 0){
-    sp <- thermo()$OBIGT
-  } else {
-    sp <- thermo()$OBIGT[db_idx, ]
+  if(length(sp_name) > 0){
+    # get a vector of elements that make up the (non-basis) species
+    basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (rownames(thermo_df))
+    basis_elem <- c(basis_elem, names(basis_pref))
+  }else{
+    # if there are no species, define basis list in dissrxns and exit the function
+    dissrxns <- list(basis_list = basis_pref)
+    return(dissrxns)
   }
-  sp_formula <- sp$formula
+  basis_elem <- unique(basis_elem)
+
+  sp <- thermo_df
+  sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
   names(sp_formula_makeup) <- sp$name
 
@@ -264,7 +273,7 @@ get_dissrxn <- function(sp_name, basis_pref=c(), HOZ_balancers=c("H+", "O2", "H2
       next
     }
 
-    # get index of species that fulfill requirements of EQ3's definition of a basis species
+    # get index of species that fulfill requirements of EQ3's definition of a basis species for this element
     idx <- unlist(lapply(lapply(sp_formula_makeup, names), match_basis_comp, elem=elem))
 
     # provide a vector of potential basis species for this element
@@ -272,10 +281,10 @@ get_dissrxn <- function(sp_name, basis_pref=c(), HOZ_balancers=c("H+", "O2", "H2
     names(basis_list[[elem]]) <- sp$name[idx]
 
     # get formula makeup of potential basis species
-    this <- lapply(unlist(lapply(lapply(lapply(basis_list[[elem]], FUN=info), FUN=info), `[`, "formula")), makeup)
+    frm_mkup <- lapply(unlist(lapply(lapply(lapply(basis_list[[elem]], FUN=info), FUN=info), `[`, "formula")), makeup)
         
     # if possible, narrow down this list to basis species with a matching element abundance of 1
-    abund1 <- unlist(lapply(this, function(x) x[elem]==1))
+    abund1 <- unlist(lapply(frm_mkup, function(x) x[elem]==1))
     if(sum(abund1 != 0)){
       # assign narrowed list of matches to basis list
       basis_list[[elem]] <-  unlist(basis_list[[elem]][abund1])
@@ -292,8 +301,7 @@ get_dissrxn <- function(sp_name, basis_pref=c(), HOZ_balancers=c("H+", "O2", "H2
   # further narrow down the list of potential basis species by grabbing the basis species
   # with the fewest elements+charge from available basis species. In the end there should
   # only be one basis species assigned to each element.
-
-  smallest_elem_vec <- c()
+  simplest_basis <- c()
   for(elem in basis_elem){
     form <- lapply(info(info(basis_list[[elem]]))$formula, makeup)
     sums <- unlist(lapply(lapply(form, abs), sum))
@@ -301,102 +309,198 @@ get_dissrxn <- function(sp_name, basis_pref=c(), HOZ_balancers=c("H+", "O2", "H2
     if(length(idx) > 1){
       idx <- idx[1]
     }
-    smallest_elem_vec[elem] <- basis_list[[elem]][idx]
+    simplest_basis[elem] <- basis_list[[elem]][idx]
   }
 
-  dissrxns <- lapply(sp_name, spec_diss, smallest_elem_vec, sp_formula_makeup, HOZ_balancers)
+  dissrxns <- lapply(sp_name, spec_diss, simplest_basis, sp_formula_makeup,
+                     HOZ_balancers, redox_elem_states, aux_pref, thermo_df, verbose)
   names(dissrxns) <- sp_name
-  dissrxns[["basis_list"]] <- smallest_elem_vec
+  dissrxns[["basis_list"]] <- simplest_basis
   return(dissrxns)
 
 }
-
+                            
 # supply a species name, get a dissrxn.
 # (meant to lapply this over all species names)
-spec_diss <- function(sp, smallest_elem_vec, sp_formula_makeup, HOZ_balancers){
+spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
+                      redox_elem_states, aux_pref, thermo_df=NULL, verbose=2){
+ 
+
   # determine a balanced dissociation reaction into basis species
 
   # get the elemental composition
-  comp <- makeup(info(info(sp), check.it=F)$formula)
+  comp <- makeup(thermo_df[thermo_df["name"]==sp, "formula_modded"])
 
   # get the elements that are not H, O, Z (charge)
   basis_elem <- setdiff(names(comp), c("H", "O", "Z"))
+    
+  # Instantiate a list of chosen basis species and their coeffs in the dissrxns.
+  # Start with strict basis species only. E.g., if SO4-2 is a strict basis species:
+  # Pb(HS)3-, chosen_basis$Pb is Pb+2:1 and chosen_basis$S is SO4-2:3
+  # In the code below, auxiliary basis species can be chosen instead:
+  # Pb(HS)3-, chosen_basis$Pb is Pb+2:1 and chosen_basis$S is HS-:3
+  chosen_basis <- list()
+    
+  # Check whether an auxiliary basis species given in thermo_df would work
+  # better than a strict basis species.
+    
+  if(!is.null(thermo_df)){
+      
+    sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"]
+      
+    for(elem in basis_elem){
+        
+      sp_formula_ox_split <- strsplit(sp_formula_ox, " ")
+    
+#       print(paste("species:", sp))
+#       print(paste("elem:", elem))
+#       print(paste("formula ox:", sp_formula_ox))
+#       print("formula ox split:")
+#       print(sp_formula_ox_split)
+#       print(paste("elem ox with coeff:", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])]))
+#       print(paste("elem ox no coeff:", gsub("^[[:digit:]]+", "", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])])))
+        
+      sp_ox_elem <- makeup(gsub("^[[:digit:]]+", "", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])]))
+      sp_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]], perl=T)], perl=T))
+      sp_num_elem <- ifelse(is.na(sp_num_elem), 1, sp_num_elem)
+      names(sp_num_elem) <- rep(simplest_basis[[elem]], length(sp_num_elem))
+      n_elem_in_basis <- sp_formula_makeup[[simplest_basis[elem]]][elem]
+      chosen_basis[[elem]] <- sp_num_elem/n_elem_in_basis
+        
+      if(elem %in% names(simplest_basis) && elem %in% names(aux_pref)){
+        # get oxidation states of this element available in strict and aux basis species
+        strict_df = thermo_df %>%
+          filter(name == simplest_basis[elem]) %>%
+          select(formula_ox_modded)
+        aux_df = thermo_df %>%
+          filter(name %in% aux_pref[names(aux_pref)==elem]) %>%
+          filter(name != sp) %>% # prevents an aux species from dissociating into itself
+          select(formula_ox_modded)
+        basis_df <- rbind(strict_df, aux_df)
+        basis_df["ave_ox_state_of_elem"] <- 0
+        basis_formula_ox_split <- lapply(basis_df["formula_ox_modded"], strsplit, " ")$formula_ox_modded
+          
+        idx <- 1
+        for(line in basis_formula_ox_split){
+          basis_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", line[grepl(paste0(elem,"([^a-z]|$)"), line, perl=T)], perl=T))
+          basis_num_elem <- ifelse(is.na(basis_num_elem), 1, basis_num_elem)
+          basis_ox_elem <- makeup(gsub("^[[:digit:]]+", "", line[grepl(paste0(elem,"([^a-z]|$)"), line, perl=T)]))
+          if(length(basis_num_elem) > 1){
+            basis_oxstates <- c()
+            basis_total_atoms <- c()
+            for(i in 1:length(basis_num_elem)){
+              if(!("Z" %in% names(basis_ox_elem[[i]]))){
+                basis_ox_elem[[i]]["Z"] <- 0
+              }
+              basis_oxstates <- c(basis_oxstates, basis_ox_elem[[i]]["Z"]*basis_num_elem[i])
+              basis_total_atoms <- c(basis_total_atoms, basis_num_elem[i])
+            }
+            basis_ave_ox_state_of_elem <- sum(basis_oxstates)/sum(basis_total_atoms)
+          }else{
+            if(!("Z" %in% names(basis_ox_elem))){
+              basis_ave_ox_state_of_elem <- 0
+            }else{
+              basis_ave_ox_state_of_elem <- basis_ox_elem["Z"]
+            }
 
-  # set basis species in CHNOSZ so that a dissociation reaction can be balanced by subcrt()
-  basis(unique(c(smallest_elem_vec[basis_elem], HOZ_balancers)))
-      
-  # loop through each element in the composition of this species. Divide by the coefficient of that element in its basis species.
-  # e.g. If the species is S3-2 and the basis species for S is S2-, ensure the coefficient for S2- in the dissrxn is 3/2.
-  for(elem in names(comp[basis_elem])){
-    if(!(elem %in% c("Cl", "H", "O"))){
-      n <- sp_formula_makeup[[smallest_elem_vec[[elem]]]][elem]
-    }else{
-      n <- 1
+          }
+          basis_df[idx, "ave_ox_state_of_elem"] <- basis_ave_ox_state_of_elem
+          idx <- idx + 1
+        }
+          
+        # get the oxidation state of the element in the non-basis species
+        sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"]
+        
+        # For each oxidation state of this element in the non-basis species,
+        # pick the closest strict or aux basis species.
+        if(is.list(sp_ox_elem)){
+          # When there is more than one instance of this element in the non-basis species,
+          # find the basis species with the closest oxidation states and assign.
+          chosen_basis_species_vec <- c()
+          basis_ave_ox_states <- unlist(basis_df["ave_ox_state_of_elem"]) 
+        
+          names(basis_ave_ox_states) <- row.names(basis_df)
+          for(i in 1:length(sp_ox_elem)){
+            if(!("Z" %in% names(sp_ox_elem[[i]]))){
+              sp_ox_elem[[i]]["Z"] <- 0
+            }
+            chosen_basis_species_vec <- c(chosen_basis_species_vec, names(which.min(abs(basis_ave_ox_states-sp_ox_elem[[i]]["Z"])))[1])
+          }
+          
+          basis_num_elems <- c()
+          for(basis in chosen_basis_species_vec){
+            n_elem_in_basis <- sp_formula_makeup[[basis]][elem]
+            basis_num_elems <- c(basis_num_elems, n_elem_in_basis)
+          }
+          names(sp_num_elem) <- chosen_basis_species_vec
+          chosen_basis[[elem]] <- sp_num_elem/basis_num_elems
+          
+            
+        }else{
+          # Find the basis species with the closest oxidation state to the
+          # element inside the non-basis species and assign.
+          if(!("Z" %in% names(sp_ox_elem))){
+            sp_ox_elem["Z"] <- 0
+          }
+          basis_ave_ox_states <- unlist(basis_df["ave_ox_state_of_elem"])
+          names(basis_ave_ox_states) <- row.names(basis_df)
+          
+          # if there is more than one basis species matching the oxidation state of
+          # this element in the non-basis species, just pick the first one, thus the [1].
+          # Maybe there is a better way to decide but I'm going with this for now.
+          chosen_basis_name <- names(which.min(abs(basis_ave_ox_states-sp_ox_elem["Z"])))[1]
+          
+          n_elem_in_basis <- sp_formula_makeup[[chosen_basis_name]][elem]
+            
+          names(sp_num_elem) <- chosen_basis_name
+            
+          chosen_basis[[elem]] <- sp_num_elem/n_elem_in_basis
+            
+        }
+        
+      }
+        
+      # sum together basis species coeffs sharing a name (e.g., c(HS-:1, HS-:1) is summed to c(HS-:2))
+      chosen_basis[[elem]] <- tapply(unlist(chosen_basis[[elem]]), names(unlist(chosen_basis[[elem]])), sum)
     }
-    comp[elem] <- comp[elem]/n
   }
+   
+#   print("Chosen basis")
+#   print(chosen_basis)
+    
+  # set basis species in CHNOSZ so that a dissociation reaction can be autobalanced
+  basis(unique(c(simplest_basis[basis_elem], HOZ_balancers)))
 
-###### OPTION A. this portion works, but is slow. Uncomment A and comment B.
-      
-#     rxn_block <- subcrt(c(this_species, smallest_elem_vec[basis_elem]), c(-1, comp[basis_elem]))$reaction
-#     spec_names <-  unlist(rxn_block$name)
-#     spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
-#     sp_dissrxn <-  unlist(rxn_block$coeff)
-#     names(sp_dissrxn) <- spec_names
-      
-###### END OF OPTION A
-      
-###### OPTION B. This chunk is fast but needs more testing.
-      
-  if(identical(basis_elem, character(0))){
-    calculate <- TRUE
-  }else{
-    calculate <- sp != smallest_elem_vec[basis_elem]
-  }
-  if (calculate){
-    if(identical(basis_elem, character(0))){
-      isp <- suppressMessages(info(sp))
-      rxn_coeffs <- c(-1)
-    }else{
-      isp <- info(c(sp, smallest_elem_vec[basis_elem]))
-      rxn_coeffs <- c(-1, comp[basis_elem])
-    }
-      
-    autobalance <- subcrt_bal(isp, rxn_coeffs)
-    spec_names <- thermo()$OBIGT[autobalance$newspecies, "name"]
-    spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
-    sp_dissrxn <- autobalance$newcoeff
-    names(sp_dissrxn) <- spec_names
-  }else{
-    sp_dissrxn <- c(-1, 1)
-    names(sp_dissrxn) <- c(sp, smallest_elem_vec[basis_elem])
-  }
-      
-###### END OF OPTION B
+  basis_to_include <- unlist(lapply(chosen_basis, names))
+  coeffs_to_include <- unlist(lapply(chosen_basis, `[`))
+
+  isp <- suppressMessages(info(c(sp, basis_to_include)))
+
+  autobalance <- subcrt_bal(isp, c(-1, coeffs_to_include))
+  spec_names <- thermo()$OBIGT[autobalance$newspecies, "name"]
+  spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
+  sp_dissrxn <- autobalance$newcoeff
+  names(sp_dissrxn) <- spec_names
     
   sp_dissrxn <- paste(c(rbind(sprintf("%.4f", round(sp_dissrxn, 4)), names(sp_dissrxn))), collapse=" ")
-
+    
   return(sp_dissrxn)
 }
 
 ######################################## create_data0 function
 
 # main function
-create_data0 <- function(supp_file,
-                         supp_file_ss=NULL,
+create_data0 <- function(thermo_df,
+                         filename_ss=NULL,
                          grid_temps,
                          grid_press,
                          db,
                          template,
                          dissrxns,
-                         modified_custom_obigt,
                          db_idx,
-                         basis_pref=list(),
+                         basis_pref=c(),
                          exceed_Ttr=FALSE,
                          verbose){
-
-  # read the supplementary data file
-  data0_params <- read.csv(supp_file, stringsAsFactors=FALSE)
 
   # initialize lists and vectors
   azero_vec <- c()
@@ -404,33 +508,36 @@ create_data0 <- function(supp_file,
   dissociation_list <- list()
   tag_vec <- c()
       
-  for(i in 1:nrow(data0_params)){
-      # for each row in the supplementary file...
+  for(i in 1:nrow(thermo_df)){
+      # for each row in the data file...
 
       # look up azero bdot param
-      azero_temp <- data0_params[i, "azero"]
-      names(azero_temp) <- data0_params[i, "name"]
+      azero_temp <- thermo_df[i, "azero"]
+      names(azero_temp) <- thermo_df[i, "name"]
       azero_vec <- c(azero_vec, azero_temp)
 
       # look up neutral ion type
-      nit_temp <- data0_params[i, "neutral_ion_type"]
-      names(nit_temp) <- data0_params[i, "name"]
+      nit_temp <- thermo_df[i, "neutral_ion_type"]
+      names(nit_temp) <- thermo_df[i, "name"]
       neutral_ion_type_vec <- c(neutral_ion_type_vec, nit_temp)
       
       # look up dissociation reaction
-      dissrxn_in_suppfile <- data0_params[i, "dissrxn"]
-      species_name <- data0_params[i, "name"]
-      if(dissrxn_in_suppfile != ""){
-        dissrxn <- dissrxn_in_suppfile
-      }else if(dissrxn_in_suppfile == ""){
+      dissrxn_in_datafile <- thermo_df[i, "dissrxn"]
+      species_name <- thermo_df[i, "name"]
+      
+      if(dissrxn_in_datafile != "" && is.null(dissrxns[[species_name]])){
+        dissrxn <- dissrxn_in_datafile
+      }else if(!(is.null(dissrxns[[species_name]]))){
         # use auto-balanced dissociation reaction if no dissociation reaction is found for non-basis
         dissrxn <- dissrxns[[species_name]]
+      }else if(thermo_df[i, "tag"] == "basis"){
+        # pass
       }else{
         print("Error: dissociation reaction could not be generated for:")
-        print(data0_params[i, "name"])
+        print(thermo_df[i, "name"])
       }
     
-      if(data0_params[i, "tag"] != "basis"){
+      if(thermo_df[i, "tag"] != "basis"){
         dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
         dissrxn_temp <- dissrxn[3:length(dissrxn)] # ignore the "-1" and diss. spec. name
         dissrxn_names <- dissrxn_temp[c(FALSE, TRUE)] # get names of reactants and products
@@ -441,14 +548,14 @@ create_data0 <- function(supp_file,
       }
     
       # look up tag
-      tag_temp <- data0_params[i, "tag"]
-      names(tag_temp) <- data0_params[i, "name"]
+      tag_temp <- thermo_df[i, "tag"]
+      names(tag_temp) <- thermo_df[i, "name"]
       tag_vec <- c(tag_vec, tag_temp)
   }
   
 
-  if(!is.null(supp_file_ss)){
-    ss_params <- read.csv(supp_file_ss, stringsAsFactors=FALSE)
+  if(!is.null(filename_ss)){
+    ss_params <- read.csv(filename_ss, stringsAsFactors=FALSE)
   }else{
     ss_params <- data.frame()
   }
@@ -456,7 +563,7 @@ create_data0 <- function(supp_file,
   # initialize vector of name differences between OBIGT and SLOP
   CHNOSZ_data0_name_diff <- c()
 
-  add_obigt_df <- modified_custom_obigt
+  add_obigt_df <- thermo_df
 
   # check if temperature grid has the necessary 8 entries
   if(length(grid_temps) != 8){
@@ -490,25 +597,26 @@ create_data0 <- function(supp_file,
 
     entry <- suppressMessages(info(idx))
     name <- entry$name
-    date <- entry$date
-    date <- strtrim(date, 9) # truncates date if greater than 9 letters
-    elem <- makeup(idx) # get elemental composition
 
-    if (name == "O2(g)"){
+    if (name == "O2(g)" | name == "O2"){
       vmessage("O2(g) is included as a basis species by default. Moving to the next species...", 2, verbose)
       next
     }
+      
+    date <- entry$date
+    date <- strtrim(date, 9) # truncates date if greater than 9 letters
+    elem <- makeup(idx) # get elemental composition
 
     aux_basis <- FALSE
     if(name %in% lapply(dissrxns[["basis_list"]], `[[`, 1)){
       # if this species is marked as a preferred basis species, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(data0_params[which(data0_params["name"]==name), "tag"] == "basis"){
+    }else if(thermo_df[which(thermo_df["name"]==name), "tag"] == "basis"){
       # if this is marked as a basis in the data0 supplemental file, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(data0_params[which(data0_params["name"]==name), "tag"] == "aux"){
+    }else if(thermo_df[which(thermo_df["name"]==name), "tag"] == "aux"){
       # if this species is an auxiliary basis species, flag and continue with aqueous formatting
       aux_basis <- TRUE
     }
@@ -588,8 +696,10 @@ create_data0 <- function(supp_file,
         if(!is.na(to_check)){
           logK_grid <- suppressMessages(subcrt(c(tolower(species_name_list[1]), species_name_list[2:length(species_name_list)]), species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
         }
-      } else {
-          logK_grid <- suppressMessages(subcrt(species_name_list, species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
+      } else if(thermo_df[entry$name, "tag"] != "basis"){
+        logK_grid <- suppressMessages(subcrt(species_name_list, species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
+      }else{
+        logK_grid <- rep(0, 8)
       }
       # if CHNOSZ can't perform a calculation, assign a logK grid of zeros
       }, error=function(e){
@@ -717,12 +827,12 @@ create_data0 <- function(supp_file,
     
   # handle basis species
   basis_entry_template <- "+--------------------------------------------------------------------\n%s\n    date last revised =  %s\n keys   = basis            active\n     charge  =   %s\n     %s element(s):\n%s"
-
+    
   for(basis in lapply(dissrxns[["basis_list"]], `[[`, 1)){
 
     # go to the next basis species if it is among these hard-coded by EQ3:
     # (these are already in the data0.min template used to build all data0 files)
-    if(basis == "O2(g)" | basis == "H2O" | basis == "Cl-" | basis == "H+"){
+    if(basis == "O2(g)" | basis == "H2O" | basis == "Cl-" | basis == "H+" | basis == "water"){
       next
     }
 
@@ -732,7 +842,7 @@ create_data0 <- function(supp_file,
     })
 
     # get the basis species formula
-    basis_formula <- add_obigt_df[which(add_obigt_df[, "name"] == basis), "formula"]
+    basis_formula <- add_obigt_df[which(add_obigt_df[, "name"] == basis), "formula_modded"]
 
     # get the elemental makeup of the basis species
     elem_list_basis <- makeup(basis_formula)
@@ -786,6 +896,7 @@ create_data0 <- function(supp_file,
 
   # loop through elements that need to be added to the data0 template
   for(elem in elem_addme){
+      
     weight <- trimws(format(round(mass(elem), 5), nsmall=5))
 
     # format a line for the new element
@@ -809,7 +920,7 @@ create_data0 <- function(supp_file,
   vmessage("Handling solid solutions...", 2, verbose)
 
   # handle solid solutions
-  if(!is.null(supp_file_ss)){
+  if(!is.null(filename_ss)){
     for(i in 1:nrow(ss_params)){
 
       entry <- ss_params[i, ]
@@ -927,7 +1038,10 @@ create_data0 <- function(supp_file,
   # format basis and non-basis species for bdot parameter section
   bdot_formatted <- c()
   for(i in 1:length(azero_vec)){
-
+      if(add_obigt_df[i, "name"] == "Cl-" | add_obigt_df[i, "name"] == "O2"){
+        next
+      }
+      
       if(add_obigt_df[i, "state"] == "aq"){
         spec_name <- names(azero_vec)[i]
         spec_azero <- as.character(format(round(azero_vec[i], 4), nsmall = 4))
@@ -1054,8 +1168,7 @@ create_data0 <- function(supp_file,
 ######################################## Main function
                             
 main_create_data0 <- function(filename,
-                              supp_file,
-                              supp_file_ss,
+                              filename_ss,
                               grid_temps,
                               grid_press,
                               db,
@@ -1066,18 +1179,21 @@ main_create_data0 <- function(filename,
                               infer_formula_ox,
                               generate_template,
                               template_name,
-                              verbose,
-                              basis_prefs,
-                              basis_pref_names){
-
+                              verbose){
+  
+  # specify molecules to balance H, O, and charge (Z)
+  HOZ_balancers <- c("H+", "O2(g)", "H2O") # might be dataset-specific (e.g., "O2(g)")
+  
   # load thermodynamic data
-  data0_params <- read.csv(supp_file, stringsAsFactors=F)
-  rownames(data0_params) <- data0_params$name
-
-
+  thermo_df <- read.csv(filename, stringsAsFactors=F)
+  rownames(thermo_df) <- thermo_df$name
+    
+  # TODO: ensure that Cl- (and perhaps other hard-coded species) are in thermo_df
+  # and return an error if not.
+    
   # get all unique oxidation states of elements in the entire dataset
   elem_ox <- c()
-  for(entry in data0_params$formula_ox){
+  for(entry in thermo_df$formula_ox){
     entry <- strsplit(entry, " ")[[1]]
     for(elem in entry){
       e <- unlist(strsplit(elem, "[0-9](?=[A-Z])", perl=T))
@@ -1087,10 +1203,10 @@ main_create_data0 <- function(filename,
   }
   elem_ox <- unique(elem_ox)
 
-  # generate a formatted list of elements, oxidation states, and their EQ3 element names
+  # create pseudoelement names
   redox_elem_states <- list()
   for(elem in suppress_redox){
-    # check for multiple oxidation states for this element in data0_params$formula_ox
+    # check for multiple oxidation states for this element in thermo_df$formula_ox
     elem_ox_match <- unlist(lapply(lapply(makeup(elem_ox), FUN=names), `[`, 1)) # remove 'Z' in makeup()
     redox_entry <- c()
 
@@ -1102,7 +1218,7 @@ main_create_data0 <- function(filename,
         if(is.na(mag)){
           mag <- "i"
         }
-        redox_entry[match] <- paste0(elem, mag)
+        redox_entry[match] <- paste0(elem, mag, "p")
       }else if(grepl("\\-", match)){
         mag <- tolower(as.roman(as.numeric(strsplit(match, "\\-")[[1]][2])))
         if(is.na(mag)){
@@ -1128,7 +1244,6 @@ main_create_data0 <- function(filename,
     for(elem_ox in names(redox_elem_states[[elem]])){
       old <- thermo()$element
       elem_entry <- filter(thermo()$element, element==elem)[1, ] # todo: more elegant solution for getting one matching entry, e.g. in the case of matching Cl
-      warning(paste(elem_entry))
       Xprops <- data.frame(element=unname(redox_elem_states[[elem]][elem_ox]),
                           state=elem_entry[, "state"],
                           source=paste("redox suppression workaround for", elem_ox),
@@ -1136,26 +1251,17 @@ main_create_data0 <- function(filename,
                           s=elem_entry[, "s"],
                           n=elem_entry[, "n"])
       new <- rbind(old, Xprops)
-      thermo(element=new)
+      suppressMessages(thermo(element=new))
     }
   }
-
-  # load thermodynamic data
-  custom_obigt <- read.csv(filename, stringsAsFactors=F)
-  rownames(custom_obigt) <- custom_obigt$name
-
-
-  # check that data0 supp and obigt file have same number of rows and same order.
-  stopifnot(nrow(data0_params)==nrow(custom_obigt) && data0_params["name"]==custom_obigt["name"])
-
 
   known_species <- to_vec(for(i in 1:length(known_oxstates)) paste0(names(known_oxstates)[i], known_oxstates[i]))
 
 
   if(infer_formula_ox){
 
-    makeup_list <- makeup(custom_obigt$formula)
-    names(makeup_list) <- custom_obigt$name
+    makeup_list <- makeup(thermo_df$formula)
+    names(makeup_list) <- thermo_df$name
 
     result <- lapply(makeup_list, FUN=get_oxstate)
 
@@ -1175,25 +1281,27 @@ main_create_data0 <- function(filename,
         out <- to_vec(for(x in elem_other) if(makeup_list[[entry]][x] != 1) paste0(makeup_list[[entry]][x], x, known_oxstates[x]) else(paste0(x, known_oxstates[x])))
         inferred_formula_ox[[entry]] <- paste(out_elem, paste(out, collapse=" "))
 
-        data0_params[entry, "formula_ox"] <- inferred_formula_ox[[entry]]
+        thermo_df[entry, "formula_ox"] <- inferred_formula_ox[[entry]]
       } else if (entry %in% known_species){
-        data0_params[entry, "formula_ox"] <- entry
+        thermo_df[entry, "formula_ox"] <- entry
       }
     }
-    write.csv(data0_params, data0_formula_ox_name, row.names=F, na="")
+    write.csv(thermo_df, data0_formula_ox_name, row.names=F, na="")
   }
-
-  modified_custom_obigt <- custom_obigt
-
+                      
+  thermo_df["formula_modded"] <- thermo_df["formula"]
+  thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]
+                      
+  # create pseudoelements and assign to molecular formulae
   if(length(suppress_redox) > 0){
 
     # loop through species
-    for(idx in 1:nrow(custom_obigt)){
+    for(idx in 1:nrow(thermo_df)){
 
-      species_name <- custom_obigt[idx, "name"]
+      species_name <- thermo_df[idx, "name"]
 
       # get makeup and charge of this species
-      this_makeup <- makeup(custom_obigt[idx, "formula"])
+      this_makeup <- makeup(thermo_df[idx, "formula"])
       elems <- names(this_makeup)
       charge <- this_makeup["Z"]
       if(is.na(charge)){
@@ -1205,9 +1313,11 @@ main_create_data0 <- function(filename,
       for(elem in elems){
         
         if(elem %in% names(redox_elem_states)){
+            
+          sp_formula_ox <- thermo_df[species_name, "formula_ox"]
 
-          # get oxidation state info from obigt data0 add-on file
-          formula_ox <- strsplit(data0_params[species_name, "formula_ox"], " ")
+          # get oxidation state info
+          formula_ox <- strsplit(sp_formula_ox, " ")
           names(formula_ox) <- species_name
 
           # assign abundances to each ox elem
@@ -1224,48 +1334,154 @@ main_create_data0 <- function(filename,
             e <- e[length(e)]
 
             this_formula[e] <- this_coeff
+            
           }
+        
+          # create a modified formula_ox column in the modified_thermo_df if there
+          # is redox suppression, such that "Fe+2 2Cl-" becomes "Feii+2 2Cl-"
+          this_formula_modded <- this_formula
+          for(ox_elem in names(redox_elem_states)){
+            for(ox_state in names(this_formula)){
+              if(grepl(paste0(ox_elem,"([^a-z]|$)"), ox_state)){
+                  
+                # handle positive oxidation states
+                splitname <- strsplit(ox_state, "\\+")[[1]]
+                if(length(splitname) > 1){
+                  ox_charge <- "+"
+                }else{
+                  # handle negative oxidation states
+                  splitname <- strsplit(ox_state, "\\-")[[1]]
+                  if(length(splitname) > 1){
+                    ox_charge <- "-"
+                  }else{
+                    ox_charge <- ""
+                  }
+                }
+                
+                if(length(splitname) != 1){
+                  ox_charge_magnitude <- as.numeric(splitname[2])
+                }else{
+                  ox_charge_magnitude <- 0
+                }
+
+                pseudoelem_ox_charge <- redox_elem_states[[ox_elem]][ox_state]
+                if(ox_charge_magnitude !=0){
+                  pseudoelem_ox_charge <- paste0(pseudoelem_ox_charge, ox_charge, ox_charge_magnitude)
+                }
+                
+                this_formula_names <- names(this_formula_modded)
+                this_formula_names[this_formula_names == ox_state] <- pseudoelem_ox_charge
+                names(this_formula_modded) <- this_formula_names
+                
+              }
+            }
+          }
+            
+          to_collapse <- c()
+          for(x in names(this_formula_modded)){
+            formula_ox_vec <- c(rbind(this_formula_modded[x], x))
+            this_formula_ox_modded <- paste(formula_ox_vec[formula_ox_vec!="1"], collapse="")
+            to_collapse <- c(to_collapse, this_formula_ox_modded)
+          }
+          this_formula_ox_modded <- paste(to_collapse, collapse=" ")
+
+          thermo_df[species_name, "formula_ox_modded"] <- this_formula_ox_modded
+            
         }
       }
-
+        
       modified_formula <- c()
+      previous_elems <- c()
       for(name in names(this_formula)){
         elem <- names(which(sapply(lapply(redox_elem_states, FUN=names), FUN=function(x) name %in% x)))
         if(!identical(elem, character(0))){
           modified_formula[redox_elem_states[[elem]][name]] <- this_formula[name]
         }else{
           e_makeup <- names(makeup(name))
-          modified_formula[e_makeup[!(e_makeup %in% c("Z"))]] <- this_formula[name]
+          elem <- e_makeup[!(e_makeup %in% c("Z"))]
+          if(elem %in% previous_elems){
+            modified_formula[elem] <- modified_formula[elem] + this_formula[name]
+          }else{
+            modified_formula[elem] <- this_formula[name]
+          }
         }
+        previous_elems <- c(previous_elems, elem)
       }
-
+                                   
       formula_vec <- c(rbind(names(modified_formula), modified_formula))
       formula <- paste(formula_vec[formula_vec!="1"], collapse="")
-
+                                   
       if(formula==""){
-        formula <- custom_obigt[idx, "formula"]
+        formula <- thermo_df[idx, "formula_modded"]
       }else{
         formula <- paste0(formula, format_charge(charge))
       }
-      modified_custom_obigt[species_name, "formula"] <- formula
+                                   
+      thermo_df[species_name, "formula_modded"] <- formula
     }
   }
-                                   
-  modified_custom_obigt %>% mutate_if(is.factor, as.character) -> modified_custom_obigt
 
+                                   
+  thermo_df %>% mutate_if(is.factor, as.character) -> thermo_df
+                                   
   # include modified file in CHNOSZ database
+  to_mod_OBIGT <- thermo_df[c("name", "abbrv", "formula_modded",
+                              "state", "ref1", "ref2", "date",
+                              "E_units", "G", "H", "S", "Cp",
+                              "V", "a1.a", "a2.b", "a3.c",
+                              "a4.d", "c1.e", "c2.f",
+                              "omega.lambda", "z.T")]
+                                   
+  names(to_mod_OBIGT) <- c("name", "abbrv", "formula",
+                            "state", "ref1", "ref2", "date",
+                            "E_units", "G", "H", "S", "Cp",
+                            "V", "a1.a", "a2.b", "a3.c",
+                            "a4.d", "c1.e", "c2.f",
+                            "omega.lambda", "z.T")
+                                   
   suppressMessages({
-    db_idx <- mod.OBIGT(modified_custom_obigt) # produces a message
-    j_df <- modified_custom_obigt %>% left_join(data0_params, join_by=name) # produces a message
+    db_idx <- mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
   })
 
-  j_df_basis <- filter(j_df, tag=="basis")
+                                   
+  # begin handling basis preferences
+  basis_df <- thermo_df %>%
+    filter(tag=="basis")
+  aux_df <- thermo_df %>%
+    filter(tag=="aux")
+  
 
-  basis_elem <- unlist(lapply(lapply(lapply(j_df_basis$formula, makeup), names), function(x) x[!(x %in% c("Z", "O", "H"))]))
 
-  basis_pref <- unlist(j_df_basis["name"])
-  names(basis_pref) <- basis_elem
-
+  basis_pref <- basis_df[, "name"]
+  names(basis_pref) <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
+  aux_pref <- unlist(aux_df[, "name"])
+  aux_pref_names <- lapply(lapply(lapply(aux_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
+  
+  # Remove aux basis species from the preferred list if they contain more than
+  # one element besides O and H.
+  #     E.g., remove CN-, OCN-, etc.
+  keep <- c()
+  for(i in 1:length(aux_pref)){
+    if(length(aux_pref_names[[i]])==1){
+      keep <- c(keep, i)
+    }
+  }
+  aux_pref <- aux_pref[keep]
+  aux_pref_names <- aux_pref_names[keep]
+    
+  # Also remove aux basis species from the preferred list if they have more than
+  # one atom of the same element.
+  #     E.g., remove S2-2, S2O3-2, etc.
+  keep <- c()
+  for(i in 1:length(aux_pref)){
+    if(makeup(thermo_df[thermo_df["name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
+      keep <- c(keep, i)
+    }
+  }
+  aux_pref <- aux_pref[keep]
+  aux_pref_names <- aux_pref_names[keep]
+    
+  names(aux_pref) <- aux_pref_names
 
   # EQ3 has Cl-, H2O, and O2(g) hard-coded as basis species for the
   # elements Cl, H, and O, respectively.
@@ -1280,27 +1496,108 @@ main_create_data0 <- function(filename,
   # basis_pref["Fez"] <- "iron"
   # basis_pref["Siin"] <- "HS-"
   # basis_pref["Svi"] <- "SO4-2"
-  for(i in 1:length(basis_pref_names)){
-    basis_pref[basis_pref_names[i]] <- basis_prefs[i]
+                                   
+  # Ensure that each element has a representative strict basis species.
+  # If not, assign one from aux species.
+  # If that fails, assign one from a valid non-basis species.
+  # First check that each element has only one valid basis species.
+  #   1. get a vector of ALL elements except for O and H
+  all_elements <- lapply(lapply(lapply(thermo_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
+  all_elements <- unique(unlist(all_elements))
+  #   2. check that all elements are represented by basis species
+  elem_need_basis <- setdiff(all_elements, names(basis_pref))
+  #   3. check auxiliary basis species to see if any can be used as strict basis for unrepresented elements
+  #      and assign to basis_prefs. Remove from aux basis prefs.
+  if(length(elem_need_basis) > 0){
+    for(elem in elem_need_basis){
+      if(elem %in% names(aux_pref)){
+        valid_aux <- aux_pref[names(aux_pref) == elem]
+        
+        basis_pref <- c(basis_pref, valid_aux[1]) # add valid aux to basis prefs. The [1] just selects the first valid aux species if there are multiple. Selection method can probably be improved.
+        aux_pref <- aux_pref[aux_pref != valid_aux]
+        
+        thermo_df[valid_aux, "tag"] <- "basis"
+
+      }else{
+        # Pick a basis species from valid non-basis...
+        # The dissociation reaction generator will do this automatically.
+      }
+    }
   }
 
-  # specify molecules to balance H, O, and charge (Z)
-  HOZ_balancers <- c("H+", "O2(g)", "H2O") # might be data0-specific (e.g., "O2(g)")
-
+  # get names of species that need dissrxns:
+  #  1. non-basis species in the datafile lacking a dissociation reaction
+  #  2. non-basis species with incorrect or unbalanced dissociation reactions.
+  #     Note: unbalanced dissociation reactions can occur when suppressing redox on element(s).
+  #     (e.g., chalcopyrite, CuFeS2, which contains Fe+3, might be written to dissociate into Fe+2.
+  #     This creates an unbalanced reaction if iron oxidation states are all different pseudoelements)
+  
+  # for each dissrxn, determine if unbalanced. If so, flag a thermo_df 'need_dissrxn' column.
+  thermo_df[, "regenerate_dissrxn"] <- F
+  for(species in rownames(thermo_df)){
+    
+    tag <- thermo_df[species, "tag"]
+    if(tag != "basis"){
+      dissrxn <- thermo_df[species, "dissrxn"]
+      dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
+      dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
+      dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
+      dissrxn_coefs <- dissrxn[c(TRUE, FALSE)] # get coeffs of reactants and products
+      dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
+      tryCatch({
+        subcrt_bal(dissrxn_ispecies, dissrxn_coefs)
+      }, error=function(e){
+        thermo_df[species, "regenerate_dissrxn"] <<- T # assign global variable with <<- because this is within the error function
+      })
+    }
+  }
+                                
+                                   
+  df_needs_dissrxns <- thermo_df %>%
+    filter(tag != "basis") %>%
+    filter(regenerate_dissrxn == T)
+      
+  if(nrow(df_needs_dissrxns) > 0){
+    if(length(suppress_redox) == 0){
+      needs_dissrxns_message <- paste("Balanced dissociation reactions are missing for species:",
+                                      paste(unlist(df_needs_dissrxns["name"]), collapse=", "))
+    }else{
+      needs_dissrxns_message <- paste("Balanced and/or redox-suppressed dissociation reactions are missing for species:",
+                                      paste(unlist(df_needs_dissrxns["name"]), collapse=", "))
+    }
+      
+    vmessage(needs_dissrxns_message, 1, verbose)
+    vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
+  }
+                                   
   # generate dissociation reactions
-  dissrxns <- suppressMessages(get_dissrxn(sp_name=unlist(j_df["name"]),
+  dissrxns <- suppressMessages(get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,
+                                           aux_pref=aux_pref,
                                            HOZ_balancers=HOZ_balancers,
-                                           db_idx=db_idx))
+                                           thermo_df=thermo_df,
+                                           verbose=verbose,
+                                           redox_elem_states=redox_elem_states))
+                                   
+  # Produce a warning message about which dissrxns were (re)generated and what they are.
+  if(nrow(df_needs_dissrxns) > 0){
+    names <- df_needs_dissrxns[["name"]]
+    generated_dissrxns <- dissrxns[names]
+    nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4))
+    basis_idx <- !nonbasis_idx
+    nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
+    basis_names <- names(basis_idx)[basis_idx]
+    vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
+    vmessage(paste("Species that have been converted into strict basis:", paste(basis_names, collapse=", ")), 1, verbose)
+  }
 
-  create_data0(supp_file,
-               supp_file_ss,
+  create_data0(thermo_df,
+               filename_ss,
                grid_temps,
                grid_press,
                db,
                template,
                dissrxns,
-               modified_custom_obigt,
                db_idx,
                basis_pref,
                exceed_Ttr,

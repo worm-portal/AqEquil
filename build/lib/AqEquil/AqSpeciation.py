@@ -127,6 +127,7 @@ class Speciation(object):
         seen_add = seen.add
         return [x for x in seq if not (x in seen or seen_add(x))]
 
+    
     def save(self, filename, messages=True):
         """
         Save the speciation as a '.speciation' file to your current working
@@ -180,6 +181,7 @@ class Speciation(object):
             "Eh_volts" : ("Eh", "volts"),
             "eq/kg.H2O" : ("charge", "eq/kg"),
             "logfO2" : ("", ""),
+            "cal/kg.H2O" : ("energy supply", "cal/kg H2O"),
         }
         
         out = unit_name_dict.get(subheader)
@@ -209,9 +211,12 @@ class Speciation(object):
         return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
     
-    def __convert_aq_units_to_log_friendly(self, species):
+    def __convert_aq_units_to_log_friendly(self, species, rows):
 
         col_data = self.lookup(species)
+        
+        col_data = col_data.loc[rows]
+        
         if col_data.columns.get_level_values(1) == 'log_activity':
             y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
             out_unit = 'activity'
@@ -318,7 +323,7 @@ class Speciation(object):
     
 
     def barplot(self, y, yrange=None, show_trace=True,
-                show_legend=True, legend_loc="best",
+                show_legend=True, show_missing=True, legend_loc="best",
                 colormap="viridis", bg_color="white", save_as=None):
         
         """
@@ -339,6 +344,9 @@ class Speciation(object):
             
         show_legend : bool, default True
             Show a legend if there is more than one variable?
+        
+        show_missing : bool, default True
+            Show samples that do not have bars?
         
         legend_loc : str or pair of float, default "best"
             Location of the legend on the plot. See
@@ -364,7 +372,12 @@ class Speciation(object):
         if not isinstance(y, list):
             y = [y]
         
-        x = self.lookup(y[0]).index # names of samples
+        y_cols = self.lookup(y)
+        
+        if not show_missing:
+            y_cols = y_cols.dropna(how='all')
+        
+        x = y_cols.index # names of samples
         
         norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
         cmap = cm.__getattribute__(colormap)
@@ -373,7 +386,7 @@ class Speciation(object):
         
         barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
         for i, yi in enumerate(y):
-            y_col = self.lookup(yi)
+            y_col = y_cols.iloc[:, y_cols.columns.get_level_values(0)==yi]
             
             try:
                 subheader = y_col.columns.get_level_values(1)[0]
@@ -397,13 +410,13 @@ class Speciation(object):
             
             if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in ["log_activity", "log_molality", "log_gamma"]:
-                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi)
+                    y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
                     unit_type, unit = self.__get_unit_info(out_unit)
                 else:
                     y_plot = y_vals
             else:
                 y_plot = y_vals
-                
+            
             if i == 0:
                 subheader_previous = subheader
                 unit_previous = unit
@@ -431,7 +444,7 @@ class Speciation(object):
                 color = m.to_rgba(i)
             else:
                 color = "black"
-                
+            
             bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
             
             barlist.append(bars)
@@ -852,24 +865,93 @@ class AqEquil():
 
         os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
-            
+    
+    
+    @staticmethod
+    def __file_exists(filename, ext='.csv'):
+        """
+        Check that a file exists and that it has the correct extension.
+        Returns True if so, raises exception if not.
+        """
+        
+        ext_dict = {
+            ".csv" : "comma separated values (.csv)",
+            ".txt" : "standard text (.txt)",
+            ".rds" : "R Data (.rds)",
+        }
+        
+        if ext in filename[-4:]:
+            if os.path.exists(filename) and os.path.isfile(filename):
+                return True
+            else:
+                err = "Cannot locate input file {}.".format(filename)
+                raise Exception(err)
+        else:
+            err = ("Input file {}".format(filename) + " "
+                "must be in {} format.".format(ext_dict[ext]))
+            raise Exception(err)
+        
+        return False
+    
+    
+    def _check_database_file(self, filename):
+        
+        """
+        Check for problems in the thermodynamic database CSV.
+        """
+        
+        # is the file a csv?
+        self.__file_exists(filename)
+        
+        thermo_df = pd.read_csv(filename)
+        
+        # does this file have the proper headers?
+        required_headers = ["name", "abbrv", "formula", "state",
+                            "ref1", "ref2", "date", "E_units",
+                            "G", "H", "S", "Cp", "V",
+                            "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f",
+                            "omega.lambda", "z.T",
+                            "azero", "neutral_ion_type",
+                            "dissrxn", "tag", "formula_ox"]
+        
+        missing_headers = []
+        for header in required_headers:
+            if header not in thermo_df.columns:
+                missing_headers.append(header)
+        if len(missing_headers) > 0:
+            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+                   "is missing one or more required columns: "
+                   "{}".format(", ".join(missing_headers))+". "
+                   "Are these headers spelled correctly in the file?")
+            raise Exception(msg)
+        
+        # does Cl-, O2(g), and O2 exist in the file?
+        required_species = ["Cl-", "O2", "O2(g)"]
+        missing_species = []
+        for species in required_species:
+            if species not in list(thermo_df["name"]):
+                missing_species.append(species)
+        if len(missing_species) > 0:
+            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+                   "is missing required species:"
+                   "{}".format(missing_species)+". Default thermodynamic values"
+                   " will be used.")
+            warnings.warn(msg)
+        
+        return
+
+    
     def _check_sample_input_file(self, input_filename, exclude, db, custom_db,
                                        charge_balance_on, suppress_missing):
-        
         """
         Check for problems in sample input file.
         """
         
-        if '.csv' in input_filename[-4:]:
-            if os.path.exists(input_filename) and os.path.isfile(input_filename):
-                df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
-            else:
-                err = "Cannot locate input file {}.".format(input_filename)
-                raise Exception(err)
+        # does the input file exist? Is it a CSV?
+        if self.__file_exists(input_filename):
+            df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
         else:
-            err = ("Input file {}".format(input_filename) + " "
-                "must be in comma separated values (.csv) format.")
-            raise Exception(err)
+            raise Exception("_check_sample_input() error!")
         
         # are there any samples?
         if df_in.shape[0] <= 2:
@@ -1428,8 +1510,8 @@ class AqEquil():
             separate user-supplied file?
         
         rxn_filename : str, optional
-            Name of file containing reactions used to calculate affinities and
-            energy supplies. Ignored if `get_affinity_energy` is False.
+            Name of .txt file containing reactions used to calculate affinities
+            and energy supplies. Ignored if `get_affinity_energy` is False.
         
         not_limiting : list, default ["H+", "OH-", "H2O"]
             List containing names of species that are not considered limiting
@@ -1498,20 +1580,11 @@ class AqEquil():
 
         if get_affinity_energy:
             if rxn_filename == None:
-                wrn = ("A reaction file was not specified. Affinities and "
-                    "energy supplies will not be calculated.")
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = ""
-            elif os.path.exists(rxn_filename) and os.path.isfile(rxn_filename):
+                err = ("A get_affinity_energy was set to True but a reaction "
+                       "file was not specified.")
+                raise Exception(err)
+            elif self.__file_exists(rxn_filename, '.txt'):
                 pass
-            else:
-                wrn = ("Reaction file {} was not found. Affinities and "
-                    "energy supplies will not be "
-                    "calculated.".format(rxn_filename))
-                warnings.warn(wrn)
-                get_affinity_energy = False
-                rxn_filename = ""
         else:
             rxn_filename = ""
 
@@ -1786,8 +1859,7 @@ class AqEquil():
 
     def create_data0(self,
                      filename,
-                     supp_file,
-                     supp_file_ss=None,
+                     filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      db="wrm",
@@ -1796,7 +1868,6 @@ class AqEquil():
                                  200.0000, 250.0000, 300.0000, 350.0000],
                      grid_press="Psat",
                      infer_formula_ox=False,
-                     basis_prefs={},
                      generate_template=True,
                      template_name=None,
                      verbose=1):
@@ -1808,10 +1879,7 @@ class AqEquil():
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
-        supp_file : str
-            Path of file containing data0-specific parameters.
-            
-        supp_file_ss : str, optional
+        filename_ss : str, optional
             Name of file containing solid solution parameters.
         
         data0_formula_ox_name : str, optional
@@ -1861,6 +1929,12 @@ class AqEquil():
             0 for silent.
         """
         
+        # Check that thermodynamic database input files exist and are formatted
+        # correctly.
+        self._check_database_file(filename)
+        if filename_ss != None:
+            self.__file_exists(filename_ss)
+        
         self.verbose = verbose
         
         if self.verbose >= 1:
@@ -1878,13 +1952,9 @@ class AqEquil():
         grid_temps = convert_to_RVector(grid_temps)
         grid_press = convert_to_RVector(grid_press)
         suppress_redox = convert_to_RVector(suppress_redox)
-        bp_values = list(basis_prefs.values())
-        bp_keys = list(basis_prefs.keys())
-        basis_prefs = convert_to_RVector(bp_values)
-        basis_pref_names = convert_to_RVector(bp_keys)
         
-        if supp_file_ss == None:
-            supp_file_ss = ro.r("NULL")
+        if filename_ss == None:
+            filename_ss = ro.r("NULL")
         if data0_formula_ox_name == None:
             data0_formula_ox_name = ro.r("NULL")
         if template_name == None:
@@ -1896,8 +1966,7 @@ class AqEquil():
                 __name__, 'create_data0.r').decode("utf-8")
             ro.r(r_create_data0)
             ro.r.main_create_data0(filename=filename,
-                                   supp_file=supp_file,
-                                   supp_file_ss=supp_file_ss,
+                                   filename_ss=filename_ss,
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
@@ -1908,9 +1977,7 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
-                                   verbose=self.verbose,
-                                   basis_prefs=basis_prefs,
-                                   basis_pref_names=basis_pref_names)
+                                   verbose=self.verbose)
     
         for warning in w:
             print(warning.message)
