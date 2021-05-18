@@ -182,6 +182,7 @@ class Speciation(object):
             "eq/kg.H2O" : ("charge", "eq/kg"),
             "logfO2" : ("", ""),
             "cal/kg.H2O" : ("energy supply", "cal/kg H2O"),
+            "Log ion-H+ activity ratio" : ("Log ion-H+ activity ratio", ""),
         }
         
         out = unit_name_dict.get(subheader)
@@ -189,7 +190,7 @@ class Speciation(object):
         return out[0], out[1]
     
     
-    def lookup(self, col):
+    def lookup(self, col=None):
         
         """
         Look up desired columns in the speciation report.
@@ -197,19 +198,34 @@ class Speciation(object):
         Parameters
         ----------
         col : str or list of str
-            Column name (or a list of column names) to look up.
+            Leave blank to get a list of section names in the report:
+            ```speciation.lookup()```
+            Provide the name of a section to look up the names of columns in
+            that section of the report:
+            ```speciation.lookup("aq_distribution")```
+            Provide a column name (or a list of column names) to retrieve the
+            column from the report:
+            ```speciation.lookup(["Temperature", "O2"])```
             
         Returns
         ----------
-        Pandas dataframe
-            The speciation report with only the desired columns.
+        Pandas dataframe or list of str
+            If a column name (or list of column names) is provided, returns the
+            speciation report with only the desired column(s). Otherwise returns
+            a list of section names (if no arguments are provided), or a list of
+            columns in a section (if a section name is provided).
         """
+        
+        if col==None:
+            return list(self.report_divs.names)
+        
+        if col in list(self.report_divs.names):
+            return list(self.report_divs.rx2(col))
         
         if isinstance(col, str):
             col = [col]
         
         return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
-
     
     def __convert_aq_units_to_log_friendly(self, species, rows):
 
@@ -1306,6 +1322,7 @@ class AqEquil():
             shutil.rmtree('rxn_3o')
         if os.path.exists('rxn_3p') and os.path.isdir('rxn_3p'):
             shutil.rmtree('rxn_3p')
+            
 
     def speciate(self,
                  input_filename,
@@ -1327,6 +1344,7 @@ class AqEquil():
                  mineral_sat_type="affinity",
                  get_redox=True,
                  redox_type="Eh",
+                 get_ion_activity_ratios=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
@@ -1504,7 +1522,10 @@ class AqEquil():
         redox_type : str, default "Eh"
             Desired units of measurement for reported redox potentials. Can be
             "Eh", "pe", "logfO2", or "Ah". Ignored if `get_redox` is False.
-            
+        
+        get_ion_activity_ratios : bool, default True
+            Calculate ion/H+ activity ratios and neutral species activities?
+        
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
             separate user-supplied file?
@@ -1653,6 +1674,7 @@ class AqEquil():
                 get_redox=get_redox,
                 redox_type=redox_type,
                 get_charge_balance=get_charge_balance,
+                get_ion_activity_ratios=get_ion_activity_ratios,
                 get_affinity_energy=get_affinity_energy,
                 not_limiting=convert_to_RVector(not_limiting),
                 batch_3o_filename=batch_3o_filename,
@@ -1759,6 +1781,19 @@ class AqEquil():
                 [headers, subheaders], names=['Sample', ''])
             df_charge_balance.columns = multicolumns
             df_join = df_join.join(df_charge_balance)
+            
+        if get_ion_activity_ratios:
+            ion_activity_ratio_cols = list(report_divs.rx2('ion_activity_ratios'))
+            df_ion_activity_ratios = df_report.loc[:, ion_activity_ratio_cols]
+            df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors='coerce')
+            
+            # handle headers of df_ion_activity_ratios section
+            headers = df_ion_activity_ratios.columns
+            subheaders = ["Log ion-H+ activity ratio"]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=['Sample', ''])
+            df_ion_activity_ratios.columns = multicolumns
+            df_join = df_join.join(df_ion_activity_ratios)
 
         if get_affinity_energy:
             affinity_cols = list(report_divs.rx2('affinity'))
@@ -1829,7 +1864,14 @@ class AqEquil():
 
             if get_charge_balance:
                 dict_sample_data.update({"charge_balance": df_charge_balance.loc[sample.rx2('name')[0], :]})
-
+            
+            if get_ion_activity_ratios:
+                try:
+                    dict_sample_data.update(
+                        {"ion_activity_ratios": pandas2ri.ri2py_dataframe(sample.rx2('ion_activity_ratios'))})
+                except:
+                    dict_sample_data['ion_activity_ratios'] = None
+            
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": pandas2ri.ri2py_dataframe(
                     sample.rx2('affinity_energy_raw')).apply(pd.to_numeric, errors='coerce')})
@@ -1938,7 +1980,7 @@ class AqEquil():
         self.verbose = verbose
         
         if self.verbose >= 1:
-            print("Creating data0.{}...".format(db))
+            print("Creating data0.{}...".format(db), flush=True)
         
         if sum([T >= 10000 for T in grid_temps]):
             raise Exception("Grid temperatures must be below 10000 °C.")

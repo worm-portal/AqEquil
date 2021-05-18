@@ -1259,7 +1259,7 @@ main_create_data0 <- function(filename,
 
 
   if(infer_formula_ox){
-
+      
     makeup_list <- makeup(thermo_df$formula)
     names(makeup_list) <- thermo_df$name
 
@@ -1291,7 +1291,7 @@ main_create_data0 <- function(filename,
                       
   thermo_df["formula_modded"] <- thermo_df["formula"]
   thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]
-                      
+
   # create pseudoelements and assign to molecular formulae
   if(length(suppress_redox) > 0){
 
@@ -1449,8 +1449,6 @@ main_create_data0 <- function(filename,
     filter(tag=="basis")
   aux_df <- thermo_df %>%
     filter(tag=="aux")
-  
-
 
   basis_pref <- basis_df[, "name"]
   names(basis_pref) <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))

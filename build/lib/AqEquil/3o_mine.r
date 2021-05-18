@@ -26,6 +26,7 @@ mine_3o <- function(this_file,
                     get_mineral_sat=T,
                     get_redox=T,
                     get_charge_balance=T,
+                    get_ion_activity_ratios=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
@@ -306,6 +307,36 @@ mine_3o <- function(this_file,
   
     sample_3o[["charge_balance"]] <- c(IS, IS_stoich, elec_block, cbal_block)
   } # end charge balance extraction
+
+    
+  if(get_ion_activity_ratios){
+    ion_ratio_block <- isolate_block(extractme, "^.*--- Ion-H\\+ Activity Ratios ---\n\n", "\n\n.*$")
+    ion_ratio_block_split <- strsplit(ion_ratio_block, "\n")[[1]]
+    ion_ratio_block_split <- strsplit(ion_ratio_block_split, "=")
+    ion_ratio_logs <- trimspace(lapply(ion_ratio_block_split, `[[`, 1))
+    ion_ratio_values <- suppressWarnings(as.numeric(lapply(ion_ratio_block_split, `[[`, 2)))
+      
+    which_to_divide <- grepl("/", ion_ratio_logs) # which of these ratios divide by H+ (instead of multiply?)
+    hydrogen_exponents <- unlist(lapply(lapply(strsplit(gsub("^Log \\( a\\(", "", gsub(" \\)$", "", ion_ratio_logs)), "\\)xx "), `[[`, 2), as.numeric))
+    ion <- unlist(lapply(strsplit(gsub("^Log \\( a\\(", "", gsub(" \\)$", "", ion_ratio_logs)), "\\) [x|/] a\\("), `[[`, 1))
+    ion_times <- lapply(strsplit(gsub("^Log \\( a\\(", "", gsub(" \\)$", "", ion_ratio_logs)), "\\) x a\\(")[!which_to_divide], `[[`, 1)
+    ion_divide <- lapply(strsplit(gsub("^Log \\( a\\(", "", gsub(" \\)$", "", ion_ratio_logs)), "\\) / a\\(")[which_to_divide], `[[`, 1)
+  
+    names(ion_ratio_values)[!which_to_divide] <- paste0("Log(", ion_times, " x H+**", hydrogen_exponents[!which_to_divide], ")")
+    names(ion_ratio_values)[which_to_divide]  <- paste0("Log(", ion_divide, " / H+**", hydrogen_exponents[which_to_divide], ")")
+    
+    ion_ratio_values[is.na(ion_ratio_values)] <- "NA"
+
+    df <- data.frame("values"=ion_ratio_values,
+               "H_exponent"=hydrogen_exponents,
+               "divide"=which_to_divide,
+               "ion"=ion)
+
+    df <- transform(transform(df, values = as.character(values)), values=as.numeric(values))
+    df <- transform(df, ion = as.character(ion))
+    sample_3o[["ion_activity_ratios"]] <- df
+  }
+    
     
   ### begin energy mining
   if(get_affinity_energy){
@@ -627,7 +658,8 @@ create_report_df <- function(data, category, out_type){
 # function to compile a report
 compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
                            redox_type, get_aq_dist, get_mineral_sat, get_redox,
-                           get_charge_balance, get_affinity_energy, input_processed_df,
+                           get_charge_balance, get_ion_activity_ratios,
+                           get_affinity_energy, input_processed_df,
                            df_input_processed_names){
     
   report_list <- list()
@@ -663,6 +695,12 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report_list[["divs"]][["charge_balance"]] <- names(charge_balance)[2:length(charge_balance)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(charge_balance, by=c("Sample"="sample"))
   }
+
+  if(get_ion_activity_ratios){
+    ion_activity_ratios <- create_report_df(data=data, category='ion_activity_ratios', out_type=1)
+    report_list[["divs"]][["ion_activity_ratios"]] <- names(ion_activity_ratios)[2:length(ion_activity_ratios)] # start at 2 to exclude "sample" column
+    report <- report %>% inner_join(ion_activity_ratios, by=c("Sample"="sample"))
+  }
   
   if(get_affinity_energy){
     affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
@@ -695,6 +733,7 @@ main_3o_mine <- function(files_3o,
                          get_mineral_sat,
                          get_redox,
                          get_charge_balance,
+                         get_ion_activity_ratios,
                          get_affinity_energy,
                          not_limiting,
                          mass_contribution_other,
@@ -777,6 +816,7 @@ main_3o_mine <- function(files_3o,
                              get_mineral_sat,
                              get_redox,
                              get_charge_balance,
+                             get_ion_activity_ratios,
                              get_affinity_energy,
                              df_input_processed,
                              df_input_processed_names)
