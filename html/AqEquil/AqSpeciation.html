@@ -244,11 +244,12 @@ class Speciation(object):
             columns in a section (if a section name is provided).
         &#34;&#34;&#34;
         
-        if col==None:
+        if col==None and self.report_divs.named:
             return list(self.report_divs.names)
         
-        if col in list(self.report_divs.names):
-            return list(self.report_divs.rx2(col))
+        if self.report_divs.named:
+            if col in list(self.report_divs.names):
+                return list(self.report_divs.rx2(col))
         
         if isinstance(col, str):
             col = [col]
@@ -1162,6 +1163,7 @@ class AqEquil():
         if os.path.exists(&#34;slist.txt&#34;) and os.path.isfile(&#34;slist.txt&#34;):
             os.remove(&#34;slist.txt&#34;)
 
+            
     def runeqpt(self, db, extra_eqpt_output=False):
         
         &#34;&#34;&#34;
@@ -1219,8 +1221,9 @@ class AqEquil():
         if not extra_eqpt_output:
             self.__clear_eqpt_extra_output()
 
-        os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ3 db path
+        os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path
 
+        
     def runeq3(self, filename_3i, db,
                samplename=None,
                path_3i=os.getcwd(),
@@ -1300,6 +1303,87 @@ class AqEquil():
                 if self.verbose &gt; 0:
                     print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
+                    
+    def runeq6(self, filename_6i, db,
+               samplename=None,
+               path_6i=os.getcwd(),
+               path_6o=os.getcwd(),
+               path_6p=os.getcwd()):
+        
+        &#34;&#34;&#34;
+        Call EQ6 on a .6i input file.
+        
+        Parameters
+        ----------
+        filename_6i : str
+            Name of 6i input file.
+        
+        db : str
+            Three letter code of database.
+        
+        path_6i : path str, default current working directory
+            Path of .6i input files.
+            
+        path_6o : path str, default current working directory
+            Path of .6o output files.
+        
+        path_6p : path str, default current working directory
+            Path of .6p pickup files.
+        &#34;&#34;&#34;
+
+        # get current working dir
+        cwd = os.getcwd()
+        
+        if samplename == None:
+            samplename = filename_6i[:-3]
+        
+        if self.verbose &gt; 0:
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
+        os.chdir(path_6i)  # step into 6i folder
+        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+
+        self.__run_script_and_wait(args) # run EQ6
+
+        # restore working dir
+        os.chdir(cwd)
+
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+
+        try:
+            # rename output
+            os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+
+        try:
+            # move output
+            shutil.move(path_6i + &#34;/&#34; + filename_6o,
+                        path_6o + &#34;/&#34; + filename_6o)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_6o, &#34;to&#34;, path_6o)
+
+        try:
+            # rename pickup
+            os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+            move_pickup = True
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+            move_pickup = False
+        
+        if move_pickup:
+            try:
+                # move pickup
+                shutil.move(path_6i + &#34;/&#34; + filename_6p,
+                            path_6p + &#34;/&#34; + filename_6p)
+            except:
+                if self.verbose &gt; 0:
+                    print(&#39;Error: Could not move&#39;, filename_6p, &#34;to&#34;, path_6p)
+                    
+                    
     def __mk_check_del_directory(self, path):
         
         &#34;&#34;&#34;
@@ -1313,6 +1397,7 @@ class AqEquil():
             shutil.rmtree(path)
             os.makedirs(path)
 
+            
     def __read_inputs(self, file_type, location):
         
         &#34;&#34;&#34;
@@ -1329,6 +1414,7 @@ class AqEquil():
                         file_list.append(os.path.join(root, file))
         return file_name, file_list
 
+    
     def __run_script_and_wait(self, args):
         
         &#34;&#34;&#34;
@@ -1338,10 +1424,11 @@ class AqEquil():
         with open(os.devnull, &#39;w&#39;) as fp:  # devnull supresses written output
             Popen(args, stdout=fp).wait()
 
+            
     def _delete_rxn_folders(self):
         
         &#34;&#34;&#34;
-        Deletes folders storing raw EQ3 input and output.
+        Deletes folders storing raw EQ3/6 input and output.
         &#34;&#34;&#34;
         
         if os.path.exists(&#39;rxn_3i&#39;) and os.path.isdir(&#39;rxn_3i&#39;):
@@ -1350,6 +1437,12 @@ class AqEquil():
             shutil.rmtree(&#39;rxn_3o&#39;)
         if os.path.exists(&#39;rxn_3p&#39;) and os.path.isdir(&#39;rxn_3p&#39;):
             shutil.rmtree(&#39;rxn_3p&#39;)
+        if os.path.exists(&#39;rxn_6i&#39;) and os.path.isdir(&#39;rxn_6i&#39;):
+            shutil.rmtree(&#39;rxn_6i&#39;)
+        if os.path.exists(&#39;rxn_6o&#39;) and os.path.isdir(&#39;rxn_6o&#39;):
+            shutil.rmtree(&#39;rxn_6o&#39;)
+        if os.path.exists(&#39;rxn_6p&#39;) and os.path.isdir(&#39;rxn_6p&#39;):
+            shutil.rmtree(&#39;rxn_6p&#39;)
             
 
     def speciate(self,
@@ -1637,7 +1730,7 @@ class AqEquil():
         else:
             rxn_filename = &#34;&#34;
 
-        # preprocess for eq3 using R scripts
+        # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
             r_prescript = pkg_resources.resource_string(
@@ -2503,6 +2596,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if os.path.exists(&#34;slist.txt&#34;) and os.path.isfile(&#34;slist.txt&#34;):
             os.remove(&#34;slist.txt&#34;)
 
+            
     def runeqpt(self, db, extra_eqpt_output=False):
         
         &#34;&#34;&#34;
@@ -2560,8 +2654,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if not extra_eqpt_output:
             self.__clear_eqpt_extra_output()
 
-        os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ3 db path
+        os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path
 
+        
     def runeq3(self, filename_3i, db,
                samplename=None,
                path_3i=os.getcwd(),
@@ -2641,6 +2736,87 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 if self.verbose &gt; 0:
                     print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)
 
+                    
+    def runeq6(self, filename_6i, db,
+               samplename=None,
+               path_6i=os.getcwd(),
+               path_6o=os.getcwd(),
+               path_6p=os.getcwd()):
+        
+        &#34;&#34;&#34;
+        Call EQ6 on a .6i input file.
+        
+        Parameters
+        ----------
+        filename_6i : str
+            Name of 6i input file.
+        
+        db : str
+            Three letter code of database.
+        
+        path_6i : path str, default current working directory
+            Path of .6i input files.
+            
+        path_6o : path str, default current working directory
+            Path of .6o output files.
+        
+        path_6p : path str, default current working directory
+            Path of .6p pickup files.
+        &#34;&#34;&#34;
+
+        # get current working dir
+        cwd = os.getcwd()
+        
+        if samplename == None:
+            samplename = filename_6i[:-3]
+        
+        if self.verbose &gt; 0:
+            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
+        os.chdir(path_6i)  # step into 6i folder
+        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+
+        self.__run_script_and_wait(args) # run EQ6
+
+        # restore working dir
+        os.chdir(cwd)
+
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+
+        try:
+            # rename output
+            os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+
+        try:
+            # move output
+            shutil.move(path_6i + &#34;/&#34; + filename_6o,
+                        path_6o + &#34;/&#34; + filename_6o)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_6o, &#34;to&#34;, path_6o)
+
+        try:
+            # rename pickup
+            os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+            move_pickup = True
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+            move_pickup = False
+        
+        if move_pickup:
+            try:
+                # move pickup
+                shutil.move(path_6i + &#34;/&#34; + filename_6p,
+                            path_6p + &#34;/&#34; + filename_6p)
+            except:
+                if self.verbose &gt; 0:
+                    print(&#39;Error: Could not move&#39;, filename_6p, &#34;to&#34;, path_6p)
+                    
+                    
     def __mk_check_del_directory(self, path):
         
         &#34;&#34;&#34;
@@ -2654,6 +2830,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             shutil.rmtree(path)
             os.makedirs(path)
 
+            
     def __read_inputs(self, file_type, location):
         
         &#34;&#34;&#34;
@@ -2670,6 +2847,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                         file_list.append(os.path.join(root, file))
         return file_name, file_list
 
+    
     def __run_script_and_wait(self, args):
         
         &#34;&#34;&#34;
@@ -2679,10 +2857,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         with open(os.devnull, &#39;w&#39;) as fp:  # devnull supresses written output
             Popen(args, stdout=fp).wait()
 
+            
     def _delete_rxn_folders(self):
         
         &#34;&#34;&#34;
-        Deletes folders storing raw EQ3 input and output.
+        Deletes folders storing raw EQ3/6 input and output.
         &#34;&#34;&#34;
         
         if os.path.exists(&#39;rxn_3i&#39;) and os.path.isdir(&#39;rxn_3i&#39;):
@@ -2691,6 +2870,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             shutil.rmtree(&#39;rxn_3o&#39;)
         if os.path.exists(&#39;rxn_3p&#39;) and os.path.isdir(&#39;rxn_3p&#39;):
             shutil.rmtree(&#39;rxn_3p&#39;)
+        if os.path.exists(&#39;rxn_6i&#39;) and os.path.isdir(&#39;rxn_6i&#39;):
+            shutil.rmtree(&#39;rxn_6i&#39;)
+        if os.path.exists(&#39;rxn_6o&#39;) and os.path.isdir(&#39;rxn_6o&#39;):
+            shutil.rmtree(&#39;rxn_6o&#39;)
+        if os.path.exists(&#39;rxn_6p&#39;) and os.path.isdir(&#39;rxn_6p&#39;):
+            shutil.rmtree(&#39;rxn_6p&#39;)
             
 
     def speciate(self,
@@ -2978,7 +3163,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         else:
             rxn_filename = &#34;&#34;
 
-        # preprocess for eq3 using R scripts
+        # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
             r_prescript = pkg_resources.resource_string(
@@ -3681,6 +3866,108 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 print(&#39;Error: Could not move&#39;, filename_3p, &#34;to&#34;, path_3p)</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='C:\\Users\\gmboy\\Desktop\\aqequil', path_6o='C:\\Users\\gmboy\\Desktop\\aqequil', path_6p='C:\\Users\\gmboy\\Desktop\\aqequil')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Call EQ6 on a .6i input file.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>filename_6i</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of 6i input file.</dd>
+<dt><strong><code>db</code></strong> :&ensp;<code>str</code></dt>
+<dd>Three letter code of database.</dd>
+<dt><strong><code>path_6i</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .6i input files.</dd>
+<dt><strong><code>path_6o</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .6o output files.</dd>
+<dt><strong><code>path_6p</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
+<dd>Path of .6p pickup files.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def runeq6(self, filename_6i, db,
+           samplename=None,
+           path_6i=os.getcwd(),
+           path_6o=os.getcwd(),
+           path_6p=os.getcwd()):
+    
+    &#34;&#34;&#34;
+    Call EQ6 on a .6i input file.
+    
+    Parameters
+    ----------
+    filename_6i : str
+        Name of 6i input file.
+    
+    db : str
+        Three letter code of database.
+    
+    path_6i : path str, default current working directory
+        Path of .6i input files.
+        
+    path_6o : path str, default current working directory
+        Path of .6o output files.
+    
+    path_6p : path str, default current working directory
+        Path of .6p pickup files.
+    &#34;&#34;&#34;
+
+    # get current working dir
+    cwd = os.getcwd()
+    
+    if samplename == None:
+        samplename = filename_6i[:-3]
+    
+    if self.verbose &gt; 0:
+        print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
+    os.chdir(path_6i)  # step into 6i folder
+    args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+
+    self.__run_script_and_wait(args) # run EQ6
+
+    # restore working dir
+    os.chdir(cwd)
+
+    filename_6o = filename_6i[:-1] + &#39;o&#39;
+    filename_6p = filename_6i[:-1] + &#39;p&#39;
+
+    try:
+        # rename output
+        os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+    except:
+        if self.verbose &gt; 0:
+            print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+
+    try:
+        # move output
+        shutil.move(path_6i + &#34;/&#34; + filename_6o,
+                    path_6o + &#34;/&#34; + filename_6o)
+    except:
+        if self.verbose &gt; 0:
+            print(&#39;Error: Could not move&#39;, filename_6o, &#34;to&#34;, path_6o)
+
+    try:
+        # rename pickup
+        os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+        move_pickup = True
+    except:
+        if self.verbose &gt; 0:
+            print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+        move_pickup = False
+    
+    if move_pickup:
+        try:
+            # move pickup
+            shutil.move(path_6i + &#34;/&#34; + filename_6p,
+                        path_6p + &#34;/&#34; + filename_6p)
+        except:
+            if self.verbose &gt; 0:
+                print(&#39;Error: Could not move&#39;, filename_6p, &#34;to&#34;, path_6p)</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeqpt"><code class="name flex">
 <span>def <span class="ident">runeqpt</span></span>(<span>self, db, extra_eqpt_output=False)</span>
 </code></dt>
@@ -3755,7 +4042,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
     if not extra_eqpt_output:
         self.__clear_eqpt_extra_output()
 
-    os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ3 db path</code></pre>
+    os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
@@ -4244,7 +4531,7 @@ calculation is complete?</dd>
     else:
         rxn_filename = &#34;&#34;
 
-    # preprocess for eq3 using R scripts
+    # preprocess for EQ3 using R scripts
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter(&#34;always&#34;)
         r_prescript = pkg_resources.resource_string(
@@ -4701,11 +4988,12 @@ speciation report.</dd>
             columns in a section (if a section name is provided).
         &#34;&#34;&#34;
         
-        if col==None:
+        if col==None and self.report_divs.named:
             return list(self.report_divs.names)
         
-        if col in list(self.report_divs.names):
-            return list(self.report_divs.rx2(col))
+        if self.report_divs.named:
+            if col in list(self.report_divs.names):
+                return list(self.report_divs.rx2(col))
         
         if isinstance(col, str):
             col = [col]
@@ -5591,11 +5879,12 @@ columns in a section (if a section name is provided).</dd>
         columns in a section (if a section name is provided).
     &#34;&#34;&#34;
     
-    if col==None:
+    if col==None and self.report_divs.named:
         return list(self.report_divs.names)
     
-    if col in list(self.report_divs.names):
-        return list(self.report_divs.rx2(col))
+    if self.report_divs.named:
+        if col in list(self.report_divs.names):
+            return list(self.report_divs.rx2(col))
     
     if isinstance(col, str):
         col = [col]
@@ -6166,6 +6455,7 @@ background. A list of named colors can be found here:
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq3" href="#AqEquil.AqSpeciation.AqEquil.runeq3">runeq3</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq6" href="#AqEquil.AqSpeciation.AqEquil.runeq6">runeq6</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeqpt" href="#AqEquil.AqSpeciation.AqEquil.runeqpt">runeqpt</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.speciate" href="#AqEquil.AqSpeciation.AqEquil.speciate">speciate</a></code></li>
 </ul>
