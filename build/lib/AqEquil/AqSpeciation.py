@@ -1091,7 +1091,7 @@ class AqEquil():
                             "Alk., mg/L HCO3-", "Log activity", "Log act combo",
                             "Log mean act", "pX", "pH", "pHCl", "pmH", "pmX",
                             "Hetero. equil.", "Homo. equil.", "Make non-basis",
-                            "logfO2"]
+                            "logfO2", "Mineral"]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = ("The subheader '{}'".format(subheader) + " "

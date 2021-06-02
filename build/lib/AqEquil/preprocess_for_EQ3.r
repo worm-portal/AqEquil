@@ -94,11 +94,14 @@ preprocess <- function(input_filename,
     # delete blank columns if they exist
     # df <- df[, names(df) != ""]
 
-    num_cols <- names(df[!(names(df) %in% exclude)])
+    
+    df_numeric <- df[!(names(df) %in% exclude)]
+    df_numeric <- df_numeric[, df_numeric[1, ] != "Hetero. equil."]
+    num_cols <- names(df_numeric)
     num_cols <- match(num_cols, colnames(df))
     num_cols <- num_cols[num_cols != 1]
-
-
+    
+    
     # Fix headers ------------------------------------------------------------------
     vprint("Handling headers...", verbose=verbose)
 
@@ -565,11 +568,28 @@ preprocess <- function(input_filename,
                paste(EQ3_jflags, collapse=" ")), verbose=verbose)
              }
            }
+           if(species_unit == "Hetero. equil."){
+             species_value_split <- strsplit(species_value, " ")[[1]]
+             if(length(species_value_split) == 2){
+               # for gases
+               species_value <- species_value_split[1]
+               hetero_equil_species <- species_value_split[2]
+             }else{
+               # for minerals
+               hetero_equil_species <- species_value
+               species_value <- 0
+             }
+             
+           }
            species_value <- format(sprintf("%.5E", as.numeric(species_value)), width=12, justify="right")
            this_aq_line <- paste0("\n|",
                                   format(species_name, width=48), "|",
                                   species_value,  "|",
                                   format(species_unit, width=16),   "|")
+           # handle additional line for 'Hetero. equil.' jflag
+           if(species_unit == "Hetero. equil."){
+             this_aq_line <- paste0(this_aq_line, "\n", "|->|", format(hetero_equil_species, width=45), "| ", format("(ucospi(n))", width=28), "|")
+           }
            aqueous_lines <- c(aqueous_lines, this_aq_line)
           }
         }
