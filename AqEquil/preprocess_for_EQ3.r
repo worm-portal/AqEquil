@@ -192,15 +192,19 @@ preprocess <- function(input_filename,
 
       # use gaseous O2 in aqueous species block
       if(redox_flag == -3){
-        #redox_col_index <- grep("O2,g", names(df))
-        redox_col_index <- grep("O2,g", names(df), fixed = T, value = T)
-        redox_col_index <- redox_col_index[substring(redox_col_index, 1, nchar("O2,g")) == "O2,g"]
+        redox_col_index <- grep("O2(g)", names(df), fixed = T, value = T)
+        redox_col_index <- redox_col_index[substring(redox_col_index, 1, nchar("O2(g)")) == "O2(g)"]
+        unit <- strsplit(redox_col_index, "_")[[1]][2]
         if(length(redox_col_index) > 0){
           if(!is.na(df[row, redox_col_index])){
-            this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
-            this_redox_unit <- "using O2,g in aqueous species block"
+            if(unit == "Hetero. equil."){
+              this_redox_value <- unit
+            }else{
+              this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
+            }
+            this_redox_unit <- "using O2(g) in aqueous species block"
           } else {
-            vprint(paste0("Warning: non-numeric 'O2,g' value in sample ",
+            vprint(paste0("Warning: non-numeric 'O2(g)' value in sample ",
                            df[row, "Sample"], ". Resorting to using ",
                            "Log fO2 (log bars) with a value of ", default_logfO2),
                            verbose=verbose)
@@ -211,7 +215,7 @@ preprocess <- function(input_filename,
           }
         } else {
           if(!warned_about_redox_column){
-            vprint(paste("Warning: no 'O2,g' column found. Resorting to using",
+            vprint(paste("Warning: no 'O2(g)' column found. Resorting to using",
                          "Log fO2 (log bars) with a value of", default_logfO2),
                          verbose=verbose)
             warned_about_redox_column <- TRUE
@@ -315,7 +319,7 @@ preprocess <- function(input_filename,
             if(!is.na(df[row, redox_col_index])){
               header_name <- names(df)[redox_col_index]
               this_header_unit <- header_unit(header_name)
-              if(this_header_unit %in% acceptable_units){
+              if(this_header_unit %in% c(acceptable_units, EQ3_jflags)){
                 O2_molal <- uc_molal(value=df[row, redox_col_index],
                                      chemical="O2", unit=this_header_unit)
                 if(is.na(temp_degC[row]) | is.na(pressure_bar[row])){
@@ -341,8 +345,7 @@ preprocess <- function(input_filename,
                   assigned <- TRUE
                 }
               } else {
-                vprint(paste("Warning: column found for aqueous O2, but units are not ppb, ppm",
-                               "mg/L, or molality. Resorting to using Log fO2",
+                vprint(paste("Warning: column found for aqueous O2, but units are not recognized. Resorting to using Log fO2",
                                "(log bars) with a value of", default_logfO2, "for all samples."),
                        verbose=verbose)
                 this_redox_flag <- 0

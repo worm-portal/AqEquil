@@ -215,7 +215,7 @@ mine_3o <- function(this_file,
     }
     rownames(df) <- df$mineral
     df$mineral <- NULL
-    
+      
     # add mineral saturation block to this sample data
     sample_3o[["mineral_sat"]] <- df
   } # end 'mineral saturation affinity' extraction

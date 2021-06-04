@@ -683,23 +683,14 @@ create_data0 <- function(thermo_df,
     species_name_list <- c(name, species_name_list)
     species_val_list <- c(-1, species_val_list)
     n_species <- length(species_name_list)
- 
+      
     # format the logK reaction block of this species' data0 entry
     # This is done within a tryCatch() in case this fails.
+    logK_grid <- rep(0, 8)
     tryCatch({
       # the subcrt() calculation for each P-T in the grid
-      if(entry$state == "cr"){
-        # temporary fix for CHNOSZ not recognizing uppercase mineral names
-        # when considering its thermo properties above its transition state.
-        # Long term fix: have lowercase names be the WORM default.
-        to_check <- suppressMessages(info(tolower(species_name_list[1])))
-        if(!is.na(to_check)){
-          logK_grid <- suppressMessages(subcrt(c(tolower(species_name_list[1]), species_name_list[2:length(species_name_list)]), species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
-        }
-      } else if(thermo_df[entry$name, "tag"] != "basis"){
+      if(thermo_df[entry$name, "tag"] != "basis"){
         logK_grid <- suppressMessages(subcrt(species_name_list, species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
-      }else{
-        logK_grid <- rep(0, 8)
       }
       # if CHNOSZ can't perform a calculation, assign a logK grid of zeros
       }, error=function(e){

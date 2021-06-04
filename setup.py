@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="AqEquil",
-    version="0.2.8",
+    version="0.2.10",
     author="Grayson Boyer",
     author_email="gmboyer@asu.edu",
     description="Python tools for aqueous chemical speciation.",

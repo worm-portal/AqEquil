@@ -1119,7 +1119,7 @@ class AqEquil():
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -1816,7 +1816,7 @@ class AqEquil():
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report.loc[:, input_cols]
+        df_input = df_report[input_cols]
 
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -1832,7 +1832,7 @@ class AqEquil():
 
         if get_aq_dist:
             aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
-            df_aq_distribution = df_report.loc[:, aq_distribution_cols]
+            df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of aq_distribution section
@@ -1845,7 +1845,7 @@ class AqEquil():
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
-            df_mineral_sat = df_report.loc[:, mineral_sat_cols]
+            df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_mineral_sat section
@@ -1866,7 +1866,7 @@ class AqEquil():
 
         if get_redox:
             redox_cols = list(report_divs.rx2(&#39;redox&#39;))
-            df_redox = df_report.loc[:, redox_cols]
+            df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_redox section
@@ -1891,7 +1891,7 @@ class AqEquil():
 
         if get_charge_balance:
             charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
-            df_charge_balance = df_report.loc[:, charge_balance_cols]
+            df_charge_balance = df_report[charge_balance_cols]
             df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_charge_balance section
@@ -1905,7 +1905,7 @@ class AqEquil():
             
         if get_ion_activity_ratios:
             ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
-            df_ion_activity_ratios = df_report.loc[:, ion_activity_ratio_cols]
+            df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
             df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
             
             # handle headers of df_ion_activity_ratios section
@@ -1919,8 +1919,8 @@ class AqEquil():
         if get_affinity_energy:
             affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
             energy_cols = list(report_divs.rx2(&#39;energy&#39;))
-            df_affinity = df_report.loc[:, affinity_cols]
-            df_energy = df_report.loc[:, energy_cols]
+            df_affinity = df_report[affinity_cols]
+            df_energy = df_report[energy_cols]
             df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
             df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -2552,7 +2552,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -3249,7 +3249,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report.loc[:, input_cols]
+        df_input = df_report[input_cols]
 
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -3265,7 +3265,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_aq_dist:
             aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
-            df_aq_distribution = df_report.loc[:, aq_distribution_cols]
+            df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of aq_distribution section
@@ -3278,7 +3278,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
-            df_mineral_sat = df_report.loc[:, mineral_sat_cols]
+            df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_mineral_sat section
@@ -3299,7 +3299,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_redox:
             redox_cols = list(report_divs.rx2(&#39;redox&#39;))
-            df_redox = df_report.loc[:, redox_cols]
+            df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_redox section
@@ -3324,7 +3324,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_charge_balance:
             charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
-            df_charge_balance = df_report.loc[:, charge_balance_cols]
+            df_charge_balance = df_report[charge_balance_cols]
             df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
             # handle headers of df_charge_balance section
@@ -3338,7 +3338,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
         if get_ion_activity_ratios:
             ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
-            df_ion_activity_ratios = df_report.loc[:, ion_activity_ratio_cols]
+            df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
             df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
             
             # handle headers of df_ion_activity_ratios section
@@ -3352,8 +3352,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if get_affinity_energy:
             affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
             energy_cols = list(report_divs.rx2(&#39;energy&#39;))
-            df_affinity = df_report.loc[:, affinity_cols]
-            df_energy = df_report.loc[:, energy_cols]
+            df_affinity = df_report[affinity_cols]
+            df_energy = df_report[energy_cols]
             df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
             df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -4617,7 +4617,7 @@ calculation is complete?</dd>
     report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
     input_cols = list(report_divs.rx2(&#39;input&#39;))
-    df_input = df_report.loc[:, input_cols]
+    df_input = df_report[input_cols]
 
     # handle headers and subheaders of input section
     headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -4633,7 +4633,7 @@ calculation is complete?</dd>
 
     if get_aq_dist:
         aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
-        df_aq_distribution = df_report.loc[:, aq_distribution_cols]
+        df_aq_distribution = df_report[aq_distribution_cols]
         df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
         # handle headers of aq_distribution section
@@ -4646,7 +4646,7 @@ calculation is complete?</dd>
 
     if get_mineral_sat:
         mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
-        df_mineral_sat = df_report.loc[:, mineral_sat_cols]
+        df_mineral_sat = df_report[mineral_sat_cols]
         df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
         # handle headers of df_mineral_sat section
@@ -4667,7 +4667,7 @@ calculation is complete?</dd>
 
     if get_redox:
         redox_cols = list(report_divs.rx2(&#39;redox&#39;))
-        df_redox = df_report.loc[:, redox_cols]
+        df_redox = df_report[redox_cols]
         df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
         # handle headers of df_redox section
@@ -4692,7 +4692,7 @@ calculation is complete?</dd>
 
     if get_charge_balance:
         charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
-        df_charge_balance = df_report.loc[:, charge_balance_cols]
+        df_charge_balance = df_report[charge_balance_cols]
         df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
         # handle headers of df_charge_balance section
@@ -4706,7 +4706,7 @@ calculation is complete?</dd>
         
     if get_ion_activity_ratios:
         ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
-        df_ion_activity_ratios = df_report.loc[:, ion_activity_ratio_cols]
+        df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
         df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
         
         # handle headers of df_ion_activity_ratios section
@@ -4720,8 +4720,8 @@ calculation is complete?</dd>
     if get_affinity_energy:
         affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
         energy_cols = list(report_divs.rx2(&#39;energy&#39;))
-        df_affinity = df_report.loc[:, affinity_cols]
-        df_energy = df_report.loc[:, energy_cols]
+        df_affinity = df_report[affinity_cols]
+        df_energy = df_report[energy_cols]
         df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
         df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
