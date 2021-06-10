@@ -183,6 +183,8 @@ class Speciation(object):
             "logfO2" : ("", ""),
             "cal/kg.H2O" : ("energy supply", "cal/kg H2O"),
             "Log ion-H+ activity ratio" : ("Log ion-H+ activity ratio", ""),
+            "log_fugacity" : ("log fugacity", "log(bar)"),
+            "fugacity" : ("fugacity", "bar"),
         }
         
         out = unit_name_dict.get(subheader)
@@ -243,6 +245,9 @@ class Speciation(object):
         elif col_data.columns.get_level_values(1) == 'log_gamma':
             y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
             out_unit = 'gamma'
+        elif col_data.columns.get_level_values(1) == 'log_fugacity':
+            y = [10**float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
+            out_unit = 'fugacity'
         else:
             y = [float(s[0]) if s[0] != 'NA' else float("nan") for s in col_data.values.tolist()]
             out_unit = col_data.columns.get_level_values(1)[0]
@@ -339,7 +344,7 @@ class Speciation(object):
         plt.show()
     
 
-    def barplot(self, y, yrange=None, show_trace=True,
+    def barplot(self, y, yrange=None, convert_log=True, show_trace=True,
                 show_legend=True, show_missing=True, legend_loc="best",
                 colormap="viridis", bg_color="white", save_as=None):
         
@@ -354,6 +359,11 @@ class Speciation(object):
        
         yrange : list of numeric, optional
             Sets the lower and upper limits of the y axis.
+            
+        convert_log : bool, default True
+            Convert units "log_activity", "log_molality", "log_gamma", and
+            "log_fugacity" to "activity", "molality", "gamma", and "fugacity",
+            respectively?
         
         show_trace : bool, default True
             Show asterisks for columns with numerical values but are too short
@@ -425,8 +435,8 @@ class Speciation(object):
                        "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
             
-            if [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
-                if subheader in ["log_activity", "log_molality", "log_gamma"]:
+            if convert_log and [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
+                if subheader in ["log_activity", "log_molality", "log_gamma", "log_fugacity"]:
                     y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
                     unit_type, unit = self.__get_unit_info(out_unit)
                 else:
@@ -1438,6 +1448,7 @@ class AqEquil():
                  get_redox=True,
                  redox_type="Eh",
                  get_ion_activity_ratios=True,
+                 get_fugacity=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
@@ -1619,6 +1630,9 @@ class AqEquil():
         get_ion_activity_ratios : bool, default True
             Calculate ion/H+ activity ratios and neutral species activities?
         
+        get_fugacity : bool, default True
+            Calculate gas fugacities?
+        
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
             separate user-supplied file?
@@ -1768,6 +1782,7 @@ class AqEquil():
                 redox_type=redox_type,
                 get_charge_balance=get_charge_balance,
                 get_ion_activity_ratios=get_ion_activity_ratios,
+                get_fugacity=get_fugacity,
                 get_affinity_energy=get_affinity_energy,
                 not_limiting=convert_to_RVector(not_limiting),
                 batch_3o_filename=batch_3o_filename,
@@ -1793,7 +1808,8 @@ class AqEquil():
         # handle headers and subheaders of input section
         headers = [col.split("_")[0] for col in list(df_input.columns)]
         headers = ["pH" if header == "H+" else header for header in headers]
-        headers = [header+"_(input)" if header not in ["Temperature", "pH", "logfO2"]+exclude else header for header in headers]
+        headers = [header+"_(input)" if header not in ["Temperature", "logfO2"]+exclude else header for header in headers]
+        report_divs[0] = convert_to_RVector(headers) # modify headers in the 'input' section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) > 1 else "" for subheader in [
             col.split("_") for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -1807,12 +1823,21 @@ class AqEquil():
             df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors='coerce')
 
+            # create a pH column from H+
+            df_aq_distribution["pH"] = -df_aq_distribution["H+"]
+            
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
-            subheaders = [aq_dist_type]*len(headers)
+            subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
+            subheaders = subheaders + ["pH"]
             multicolumns = pd.MultiIndex.from_arrays(
                 [headers, subheaders], names=['Sample', ''])
             df_aq_distribution.columns = multicolumns
+            
+            # ensure final pH column is included in report_divs aq_distribution section
+            aq_dist_indx = report_divs.names.index("aq_distribution")
+            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+            
             df_join = df_join.join(df_aq_distribution)
 
         if get_mineral_sat:
@@ -1887,7 +1912,20 @@ class AqEquil():
                 [headers, subheaders], names=['Sample', ''])
             df_ion_activity_ratios.columns = multicolumns
             df_join = df_join.join(df_ion_activity_ratios)
-
+            
+        if get_fugacity:
+            fugacity_cols = list(report_divs.rx2('fugacity'))
+            df_fugacity = df_report[fugacity_cols]
+            df_fugacity = df_fugacity.apply(pd.to_numeric, errors='coerce')
+            
+            # handle headers of fugacity section
+            headers = df_fugacity.columns
+            subheaders = ["log_fugacity"]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=['Sample', ''])
+            df_fugacity.columns = multicolumns
+            df_join = df_join.join(df_fugacity)
+            
         if get_affinity_energy:
             affinity_cols = list(report_divs.rx2('affinity'))
             energy_cols = list(report_divs.rx2('energy'))
@@ -1964,6 +2002,15 @@ class AqEquil():
                         {"ion_activity_ratios": pandas2ri.ri2py_dataframe(sample.rx2('ion_activity_ratios'))})
                 except:
                     dict_sample_data['ion_activity_ratios'] = None
+            
+            if get_fugacity:
+                dict_sample_data.update(
+                    {"fugacity": pandas2ri.ri2py_dataframe(sample.rx2('fugacity')).apply(pd.to_numeric, errors='coerce')})
+                # replace sample fugacity entry with None if there is no fugacity data.
+                if(len(dict_sample_data['fugacity'].index) == 1 and dict_sample_data['fugacity'].index[0] == 'None'):
+                    dict_sample_data['fugacity'] = None
+                else:
+                    dict_sample_data["fugacity"]["fugacity"] = 10**dict_sample_data["fugacity"]["log_fugacity"]
             
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": pandas2ri.ri2py_dataframe(

@@ -1,8 +1,6 @@
-# last updated January 31, 2021
-
 library(dplyr)
 library(CHNOSZ)
-
+library(stringr)
 
 
 ### helper functions
@@ -27,6 +25,7 @@ mine_3o <- function(this_file,
                     get_redox=T,
                     get_charge_balance=T,
                     get_ion_activity_ratios=T,
+                    get_fugacity=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
@@ -116,14 +115,14 @@ mine_3o <- function(this_file,
 
     }
     
-    # add a final row for water
+    # add a row for water
     df <- rbind(df, data.frame(species="H2O",
-                            molality=sample_3o[["H2O_molality"]],
-                            log_molality=sample_3o[["H2O_log_molality"]],
-                            log_gamma=1,
-                            log_activity=sample_3o[["logact_H2O"]],
-                            stringsAsFactors=FALSE))
-    
+                    molality=sample_3o[["H2O_molality"]],
+                    log_molality=sample_3o[["H2O_log_molality"]],
+                    log_gamma=1,
+                    log_activity=sample_3o[["logact_H2O"]],
+                    stringsAsFactors=FALSE))
+      
     # set rownames of aqueous species block as species names
     rownames(df) <- df$species
     df$species <- NULL
@@ -337,6 +336,17 @@ mine_3o <- function(this_file,
     sample_3o[["ion_activity_ratios"]] <- df
   }
     
+  ### begin fugacity mining
+  if(get_fugacity){
+    fugacity_block <- isolate_block(extractme, "^.*--- Fugacities ---\n\n", "\n\n\n.*$")
+    str <- str_squish(strsplit(fugacity_block, "\n")[[1]])
+    str <- str[3:length(str)]
+    split_str <- strsplit(str, " ")
+    df <- data.frame(gas=unlist(lapply(split_str, `[[`, 1)),
+                     log_fugacity=as.numeric(unlist(lapply(split_str, `[[`, 2))),
+                     stringsAsFactors=F, row.names=1)
+    sample_3o[["fugacity"]] <- df
+  }
     
   ### begin energy mining
   if(get_affinity_energy){
@@ -639,9 +649,11 @@ melt_mass_contribution <- function(batch_3o, other=F, verbose=1){
 
 # function to create report versions of data categories (aq distributions, etc.)
 create_report_df <- function(data, category, out_type){
+
   df_cat <- lapply(data, `[[`, category)
 
   all_species <- unique(unlist(lapply(lapply(df_cat, FUN=t), FUN=colnames)))
+    
   df <- read.csv(text=paste(all_species, collapse="\t"), check.names=FALSE, sep="\t", stringsAsFactors=FALSE)
 
   for(i in 1:length(df_cat)){
@@ -658,7 +670,7 @@ create_report_df <- function(data, category, out_type){
 # function to compile a report
 compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
                            redox_type, get_aq_dist, get_mineral_sat, get_redox,
-                           get_charge_balance, get_ion_activity_ratios,
+                           get_charge_balance, get_ion_activity_ratios, get_fugacity,
                            get_affinity_energy, input_processed_df,
                            df_input_processed_names){
     
@@ -701,6 +713,12 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report_list[["divs"]][["ion_activity_ratios"]] <- names(ion_activity_ratios)[2:length(ion_activity_ratios)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(ion_activity_ratios, by=c("Sample"="sample"))
   }
+
+  if(get_fugacity){
+    fugacities <- create_report_df(data=data, category='fugacity', out_type=1)
+    report_list[["divs"]][["fugacity"]] <- names(fugacities)[2:length(fugacities)] # start at 2 to exclude "sample" column
+    report <- report %>% inner_join(fugacities, by=c("Sample"="sample"))
+  }
   
   if(get_affinity_energy){
     affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
@@ -734,6 +752,7 @@ main_3o_mine <- function(files_3o,
                          get_redox,
                          get_charge_balance,
                          get_ion_activity_ratios,
+                         get_fugacity,
                          get_affinity_energy,
                          not_limiting,
                          mass_contribution_other,
@@ -775,6 +794,8 @@ main_3o_mine <- function(files_3o,
                            get_mineral_sat=get_mineral_sat,
                            get_redox=get_redox,
                            get_charge_balance=get_charge_balance,
+                           get_ion_activity_ratios=get_ion_activity_ratios,
+                           get_fugacity=get_fugacity,
                            get_affinity_energy=get_affinity_energy,
                            not_limiting=not_limiting,
                            mass_contribution_other=mass_contribution_other,
@@ -817,6 +838,7 @@ main_3o_mine <- function(files_3o,
                              get_redox,
                              get_charge_balance,
                              get_ion_activity_ratios,
+                             get_fugacity,
                              get_affinity_energy,
                              df_input_processed,
                              df_input_processed_names)
