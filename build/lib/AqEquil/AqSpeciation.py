@@ -728,9 +728,10 @@ class Speciation(object):
             Should sample sorting be in ascending order? Descending if False.
             Ignored unless `sort_by` is defined.
         
-        sort_y_by : list of str, optional
+        sort_y_by : list of str or 'alphabetical', optional
             List of species names in the order that they should be stacked, from
-            the bottom of the plot to the top.
+            the bottom of the plot to the top. 'alphabetical' will sort species
+            alphabetically.
         
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
@@ -811,8 +812,16 @@ class Speciation(object):
                     msg = ("sort_y_by can only have the "
                            "following species: {}".format(unique_species)+".")
                     raise Exception(msg)
+            elif sort_y_by == "alphabetical":
+                if "Other" in unique_species:
+                    unique_species_no_other = [sp for sp in unique_species if sp != "Other"]
+                    unique_species_no_other = sorted(unique_species_no_other)
+                    unique_species = unique_species_no_other + ["Other"]
+                else:
+                    unique_species = sorted(unique_species)
             else:
-                raise Exception("sort_y_by must be a list of species names.")
+                raise Exception("sort_y_by must be either None, 'alphabetical', "
+                                "or a list of species names.")
                 
         fig, ax = plt.subplots()
         
@@ -1844,21 +1853,29 @@ class AqEquil():
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2('mass_contribution'))
         df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2('report'))
-        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2('input'))
+        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2('input'))
         report_divs = batch_3o.rx2('report_divs')
 
         input_cols = list(report_divs.rx2('input'))
-        df_input = df_report[input_cols]
-
+        df_input = df_report[input_cols].copy()
+        
+        # add a pressure column to df_input
+        df_input["Pressure"] = pd.Series(dtype='float')
+        sample_data = batch_3o.rx2('sample_data')
+        for sample in sample_data:
+            df_input.loc[str(sample.rx2('name')[0]), "Pressure"] = float(sample.rx2('pressure')[0])
+        report_divs[0] = convert_to_RVector(input_cols + ["Pressure"])
+            
         # handle headers and subheaders of input section
         headers = [col.split("_")[0] for col in list(df_input.columns)]
         headers = ["pH" if header == "H+" else header for header in headers]
-        headers = [header+"_(input)" if header not in ["Temperature", "logfO2"]+exclude else header for header in headers]
+        headers = [header+"_(input)" if header not in ["Temperature", "logfO2", "Pressure"]+exclude else header for header in headers]
         report_divs[0] = convert_to_RVector(headers) # modify headers in the 'input' section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) > 1 else "" for subheader in [
             col.split("_") for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=['Sample', ''])
+        
         df_input.columns = multicolumns
 
         df_join = df_input

@@ -756,9 +756,10 @@ class Speciation(object):
             Should sample sorting be in ascending order? Descending if False.
             Ignored unless `sort_by` is defined.
         
-        sort_y_by : list of str, optional
+        sort_y_by : list of str or &#39;alphabetical&#39;, optional
             List of species names in the order that they should be stacked, from
-            the bottom of the plot to the top.
+            the bottom of the plot to the top. &#39;alphabetical&#39; will sort species
+            alphabetically.
         
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
@@ -839,8 +840,16 @@ class Speciation(object):
                     msg = (&#34;sort_y_by can only have the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
                     raise Exception(msg)
+            elif sort_y_by == &#34;alphabetical&#34;:
+                if &#34;Other&#34; in unique_species:
+                    unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
+                    unique_species_no_other = sorted(unique_species_no_other)
+                    unique_species = unique_species_no_other + [&#34;Other&#34;]
+                else:
+                    unique_species = sorted(unique_species)
             else:
-                raise Exception(&#34;sort_y_by must be a list of species names.&#34;)
+                raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                                &#34;or a list of species names.&#34;)
                 
         fig, ax = plt.subplots()
         
@@ -1872,21 +1881,29 @@ class AqEquil():
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
         df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report[input_cols]
-
+        df_input = df_report[input_cols].copy()
+        
+        # add a pressure column to df_input
+        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+        for sample in sample_data:
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
         report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        
         df_input.columns = multicolumns
 
         df_join = df_input
@@ -3461,21 +3478,29 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
         df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report[input_cols]
-
+        df_input = df_report[input_cols].copy()
+        
+        # add a pressure column to df_input
+        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+        for sample in sample_data:
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
         report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        
         df_input.columns = multicolumns
 
         df_join = df_input
@@ -5061,21 +5086,29 @@ calculation is complete?</dd>
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
         df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report[input_cols]
-
+        df_input = df_report[input_cols].copy()
+        
+        # add a pressure column to df_input
+        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+        for sample in sample_data:
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
         report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        
         df_input.columns = multicolumns
 
         df_join = df_input
@@ -5983,9 +6016,10 @@ speciation report.</dd>
             Should sample sorting be in ascending order? Descending if False.
             Ignored unless `sort_by` is defined.
         
-        sort_y_by : list of str, optional
+        sort_y_by : list of str or &#39;alphabetical&#39;, optional
             List of species names in the order that they should be stacked, from
-            the bottom of the plot to the top.
+            the bottom of the plot to the top. &#39;alphabetical&#39; will sort species
+            alphabetically.
         
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
@@ -6066,8 +6100,16 @@ speciation report.</dd>
                     msg = (&#34;sort_y_by can only have the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
                     raise Exception(msg)
+            elif sort_y_by == &#34;alphabetical&#34;:
+                if &#34;Other&#34; in unique_species:
+                    unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
+                    unique_species_no_other = sorted(unique_species_no_other)
+                    unique_species = unique_species_no_other + [&#34;Other&#34;]
+                else:
+                    unique_species = sorted(unique_species)
             else:
-                raise Exception(&#34;sort_y_by must be a list of species names.&#34;)
+                raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                                &#34;or a list of species names.&#34;)
                 
         fig, ax = plt.subplots()
         
@@ -6411,9 +6453,10 @@ default.</dd>
 <dt><strong><code>ascending</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Should sample sorting be in ascending order? Descending if False.
 Ignored unless <code>sort_by</code> is defined.</dd>
-<dt><strong><code>sort_y_by</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dt><strong><code>sort_y_by</code></strong> :&ensp;<code>list</code> of <code>str</code> or <code>'alphabetical'</code>, optional</dt>
 <dd>List of species names in the order that they should be stacked, from
-the bottom of the plot to the top.</dd>
+the bottom of the plot to the top. 'alphabetical' will sort species
+alphabetically.</dd>
 <dt><strong><code>width</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
 <dd>Width of bars. No space between bars if width=1.0.</dd>
 <dt><strong><code>legend_loc</code></strong> :&ensp;<code>str</code> or <code>pair</code> of <code>float</code>, default <code>(1.02, 0.5)</code></dt>
@@ -6449,9 +6492,10 @@ the bottom of the plot to the top.</dd>
         Should sample sorting be in ascending order? Descending if False.
         Ignored unless `sort_by` is defined.
     
-    sort_y_by : list of str, optional
+    sort_y_by : list of str or &#39;alphabetical&#39;, optional
         List of species names in the order that they should be stacked, from
-        the bottom of the plot to the top.
+        the bottom of the plot to the top. &#39;alphabetical&#39; will sort species
+        alphabetically.
     
     width : float, default 0.9
         Width of bars. No space between bars if width=1.0.
@@ -6532,8 +6576,16 @@ the bottom of the plot to the top.</dd>
                 msg = (&#34;sort_y_by can only have the &#34;
                        &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
                 raise Exception(msg)
+        elif sort_y_by == &#34;alphabetical&#34;:
+            if &#34;Other&#34; in unique_species:
+                unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
+                unique_species_no_other = sorted(unique_species_no_other)
+                unique_species = unique_species_no_other + [&#34;Other&#34;]
+            else:
+                unique_species = sorted(unique_species)
         else:
-            raise Exception(&#34;sort_y_by must be a list of species names.&#34;)
+            raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                            &#34;or a list of species names.&#34;)
             
     fig, ax = plt.subplots()
     

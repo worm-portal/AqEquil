@@ -42,7 +42,7 @@ mine_3o <- function(this_file,
 
   # get sample name
   this_name <- trimspace(isolate_block(extractme, begin_str="^.*\\|Sample:\\s+", end_str="\\|\\n\\|.*$"))
-  
+
   if(verbose > 1){
     print(paste0("Processing EQ3 output for ", this_name))
   }
