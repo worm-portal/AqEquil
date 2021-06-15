@@ -64,10 +64,14 @@ header_species <- function(header){
 preprocess <- function(input_filename,
                        exclude,
                        redox_flag,
+                       redox_aux,
                        default_logfO2,
                        charge_balance_on,
                        suppress_missing,
                        suppress,
+                       water_model,
+                       grid_temps,
+                       grid_press,
                        verbose=2){
     # Start the timer:
     ptm <- proc.time()
@@ -145,9 +149,12 @@ preprocess <- function(input_filename,
     # add columns to exclusion list
     exclude <- c(exclude, "", "Sample", "rho", "Pressure", "redox", "Temperature", "pe", "Eh", "logfO2")                             
 
+    # Set water model --------------------------------------------------------------                          
+    suppressMessages(water(water_model))
+                                 
     # Calculate density of water (rho) ---------------------------------------------
     vprint("Calculating density of water (rho)...", verbose=verbose)
-
+                                 
     # find temperature (in degK)
     if("Temperature_degC" %in% names(df)){
       temp_degC <- df[, "Temperature_degC"]
@@ -159,16 +166,33 @@ preprocess <- function(input_filename,
       stop("Error: need a column for 'Temperature' with units in 'degC' or 'degK'")
     }
 
-    # find pressure (in bar)
-    if("Pressure_bar" %in% names(df)){
-      pressure_bar <- df[, "Pressure_bar"]
-    } else {
-      vprint(paste("No column called 'Pressure' with unit 'bar' found.",
-                    "Using a pressure of 1 bar for each sample."), verbose=verbose)
-      psat_press <- water("Psat", T=temp_degK)[[1]]
-      pressure_bar <- psat_press
+    grid_temps <- as.numeric(grid_temps)
+    grid_press <- as.numeric(grid_press)
+    
+    ### interpolate pressure
+                                 
+    # third order polynomial for the first T-P range
+    poly_coeffs_1 <- lm(grid_press[1:4] ~ poly(grid_temps[1:4], 3, raw=T))$coefficients
+    
+    # fourth order polynomial for the second T-P range
+    poly_coeffs_2 <- lm(grid_press[4:8] ~ poly(grid_temps[4:8], 4, raw=T))$coefficients
+    
+    f1 <- function(T) {
+      return(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)
     }
-
+    
+    f2 <- function(T) {
+      return(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3 + poly_coeffs_2[5]*T^4)
+    }
+                                 
+    if(grid_temps[1] <= temp_degC && temp_degC <= grid_temps[4]){
+      pressure_bar <- f1(temp_degC)
+    }else if (grid_temps[4] <= temp_degC && temp_degC <= grid_temps[8]){
+      pressure_bar <- f2(temp_degC)
+    }else{
+      stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))
+    }
+        
     # calculate rho and append
     df <- mutate(df, rho=water("rho", T=temp_degK, P=pressure_bar)[[1]])
     df$rho <- df$rho/1000 #convert rho to g/cm3
@@ -193,8 +217,12 @@ preprocess <- function(input_filename,
       # use gaseous O2 in aqueous species block
       if(redox_flag == -3){
         redox_col_index <- grep("O2(g)", names(df), fixed = T, value = T)
-        redox_col_index <- redox_col_index[substring(redox_col_index, 1, nchar("O2(g)")) == "O2(g)"]
-        unit <- strsplit(redox_col_index, "_")[[1]][2]
+        tryCatch({
+          redox_col_index <- redox_col_index[substring(redox_col_index, 1, nchar("O2(g)")) == "O2(g)"]
+          unit <- strsplit(redox_col_index, "_")[[1]][2]
+        }, error=function(e){
+          redox_col_index = 0
+        })
         if(length(redox_col_index) > 0){
           if(!is.na(df[row, redox_col_index])){
             if(unit == "Hetero. equil."){
@@ -230,7 +258,7 @@ preprocess <- function(input_filename,
       # specify pe in pe units
       if(redox_flag == -2){
         redox_col_index <- grep("^pe_", names(df))
-        if(length(redox_col_index) > 0){
+        if(!(identical(redox_col_index, integer(0)) | identical(redox_col_index, character(0)))){
           if(!is.na(df[row, redox_col_index])){
             this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
             this_redox_unit <- "pe, pe units"
@@ -261,7 +289,7 @@ preprocess <- function(input_filename,
       # specify Eh in volts
       if(redox_flag == -1){
         redox_col_index <- grep("Eh_volts", names(df))
-        if(length(redox_col_index) > 0){
+        if(!(identical(redox_col_index, integer(0)) | identical(redox_col_index, character(0)))){
           if(!is.na(df[row, redox_col_index])){
             this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
             this_redox_unit <- "Eh, volts"
@@ -292,7 +320,7 @@ preprocess <- function(input_filename,
 
       if(redox_flag == 0 && assigned == FALSE){
         redox_col_index <- grep("logfO2", names(df))
-        if(length(redox_col_index) > 0){
+        if(!(identical(redox_col_index, integer(0)) | identical(redox_col_index, character(0)))){
           if(!is.na(df[row, redox_col_index])){
             this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
             this_redox_unit <- "Log fO2 (log bars) [from logfO2 column]"
@@ -487,9 +515,9 @@ preprocess <- function(input_filename,
       eq3.header3 <-              paste("| (tempc)                                |",
     "|------------------------------------------------------------------------------|",
     "|Pressure option (jpres3):                                                     |",
-    "|  [ ] ( 0) Data file reference curve value                                    |",
+    "|  [x] ( 0) Data file reference curve value                                    |",
     "|  [ ] ( 1) 1.013-bar/steam-saturation curve value                             |",
-    paste0("|  [x] ( 2) Value (bars) | ", sprintf("%.5E", pressure_bar[row]), "| (press)                                |"),
+    "|  [ ] ( 2) Value (bars) | 1.00000E+00| (press)                                |",
     "|------------------------------------------------------------------------------|",
     "|Density (g/cm3)         | ", sep="\n")
 

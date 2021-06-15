@@ -1458,7 +1458,7 @@ class AqEquil():
     def speciate(self,
                  input_filename,
                  db=&#34;wrm&#34;,
-                 redox_flag=0,
+                 redox_flag=&#34;logfO2&#34;,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
                  exclude=[],
@@ -1543,37 +1543,28 @@ class AqEquil():
             data1 files are already compiled by EQPT, while data0 files will be
             automatically compiled for you if `custom_db` is True.
         
-        redox_flag : int, default 0
-            Values corresponding to redox options in the EQ3/6 v8.0 software.
-            For more information see the &#39;Redox Option&#39; section of the EQ3/6
-            version 8.0 software user&#39;s manual. Set sample redox state with the
-            following options:
+        redox_flag : str, default &#34;O2(g)&#34;
+            Determines which column in the sample input file sets the overall
+            redox state of the samples. Options for redox_flag include &#39;O2(g)&#39;,
+            &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, and &#39;redox aux&#39;. The code will search your
+            sample spreadsheet file (see `filename`) for a column corresponding
+            to the option you chose:
             
-            * -3 for O2(g)
-            * -2 for pe (in pe units)
-            * -1 for Eh (volts)
-            *  0 for logfO2 (log bars), or dissolved O2 (see below)
-            *  1 for defining a redox couple (see `redox_aux`)
-             
-            Note that if you are importing water chemistry data from a
-            spreadsheet, a column must be supplied with data that corresponds to
-            the redox option you chose. The column name is important:
-            
-            * -3 must have a column named: O2(g)
-            * -2 must have a column named: pe
-            * -1 must have a column named: Eh
-            *  0 must have a column named: logfO2
-            *  1 must have a column corresponding to the auxilliary basis species
-              selected to form a redox couple with its linked species (see
-              `redox_aux`). For example, the redox couple Fe+2/Fe+3 would need
-              a column named: Fe+3
+            * &#39;O2(g)&#39; with a valid subheader for a gas
+            * &#39;pe&#39; with subheader pe
+            * &#39;Eh&#39; with subheader volts
+            * &#39;logfO2&#39; with subheader logfO2
+            * &#39;redox aux&#39; will search for a column corresponding to the
+              auxilliary basis species selected to form a redox couple with its
+              linked strict basis species (see `redox_aux`). For example, the
+              redox couple Fe+2/Fe+3 would require a column named Fe+3
             
             If an appropriate header or redox data cannot be found to define
             redox state, `default_logfO2` is used to set sample logfO2.
             
             There is a special case where dissolved oxygen can be used to impose
-            sample redox state if `redox_flag` is set to 0 and a column named
-            logfO2 does not appear in the sample data sheet. If there is a
+            sample redox state if `redox_flag` is set to logfO2 and a column named
+            logfO2 does not appear in your sample spreadsheet. If there is a
             column corresponding to dissolved oxygen measurements, logfO2 is
             calculated from the equilibrium reaction O2(aq) = O2(g) at the
             temperature and pressure of the sample using the revised Helgeson-
@@ -1712,6 +1703,20 @@ class AqEquil():
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
+            redox_flag = -3
+        elif redox_flag == &#34;pe&#34; or redox_flag == -2:
+            redox_flag = -2
+        elif redox_flag == &#34;Eh&#34; or redox_flag == -1:
+            redox_flag = -1
+        elif redox_flag == &#34;logfO2&#34; or redox_flag == 0:
+            redox_flag = 0
+        elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
+            redox_flag = 1
+        else:
+            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+                            &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
+            
         # handle batch_3o naming
         if batch_3o_filename != None:
             if &#34;.rds&#34; in batch_3o_filename[-4:]:
@@ -1733,6 +1738,42 @@ class AqEquil():
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ[&#39;EQ36DA&#39;] = os.getcwd()
+            
+            data0_path = &#34;data0.&#34; + db
+            
+        else:
+            data0_path = self.eq36da + &#34;/data0.&#34; + db
+            
+        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            with open(data0_path) as data0:
+                data0_lines = data0.readlines()
+                start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
+                end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
+                grid_temp = db_grids[0] + &#34; &#34; + db_grids[1]
+                grid_press = db_grids[2] + &#34; &#34; + db_grids[3]
+                grid_temp = grid_temp.split(&#34; &#34;)
+                grid_press = grid_press.split(&#34; &#34;)
+                try:
+                    water_model = data0_lines[1].split(&#34;model: &#34;)[1] # extract water model from the second line of data0 file
+                    water_model = water_model.replace(&#34;\n&#34;, &#34;&#34;)
+                except:
+                    water_model = &#34;SUPCRT92&#34;
+#                     print(&#34;Water model could not be referenced from {}&#34;.format(data0_path)+&#34;&#34;
+#                           &#34;. Defaulting to SUPCRT92 water model...&#34;)
+                
+                if(water_model not in [&#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, &#34;DEW&#34;]):
+                    water_model = &#34;SUPCRT92&#34; # the default for EQ3/6
+                    print(&#34;Water model given in {}&#34;.format(data0_path)+&#34; was not &#34;
+                          &#34;recognized. Defaulting to SUPCRT92 water model...&#34;)
+            
+        else: # if a data0 file can&#39;t be found, assume default water model, 0-350 C and PSAT
+            water_model = &#34;SUPCRT92&#34;
+            grid_temp = [&#34;0.0100&#34;, &#34;50.0000&#34;, &#34;100.0000&#34;, &#34;150.0000&#34;,
+                         &#34;200.0000&#34;, &#34;250.0000&#34;, &#34;300.0000&#34;, &#34;350.0000&#34;]
+            grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
+                          &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
 
         if get_affinity_energy:
             if rxn_filename == None:
@@ -1743,7 +1784,7 @@ class AqEquil():
                 pass
         else:
             rxn_filename = &#34;&#34;
-
+            
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
@@ -1754,11 +1795,15 @@ class AqEquil():
                                                  exclude=convert_to_RVector(
                                                      exclude),
                                                  redox_flag=redox_flag,
+                                                 redox_aux=redox_aux,
                                                  default_logfO2=default_logfO2,
                                                  charge_balance_on=charge_balance_on,
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 water_model=water_model,
+                                                 grid_temp=convert_to_RVector(grid_temp),
+                                                 grid_press=convert_to_RVector(grid_press),
                                                  verbose=self.verbose)
 
         for warning in w:
@@ -2050,6 +2095,9 @@ class AqEquil():
                 {sample_data.names[i]: dict_sample_data})
 
         out_dict.update({&#34;batch_3o&#34;: batch_3o})
+        
+        out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
+        
         speciation = Speciation(out_dict)
 
         if report_filename != None:
@@ -2068,11 +2116,12 @@ class AqEquil():
 
 
     def create_data0(self,
+                     db,
                      filename,
                      filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
-                     db=&#34;wrm&#34;,
+                     water_model=&#34;SUPCRT92&#34;,
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -2080,12 +2129,16 @@ class AqEquil():
                      infer_formula_ox=False,
                      generate_template=True,
                      template_name=None,
+                     template_type=&#34;strict&#34;,
                      verbose=1):
         &#34;&#34;&#34;
         Create a data0 file from a custom thermodynamic dataset.
         
         Parameters
         ----------
+        db : str
+            Desired three letter code of data0 output.
+            
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
@@ -2100,9 +2153,11 @@ class AqEquil():
         suppress_redox : list of str, default []
             Suppress equilibrium between oxidation states of listed elements
             (Cl, H, and O cannot be included).
-        
-        db : str, default &#34;wrm&#34;
-            Desired three letter code of data0 output.
+
+        water_model : str, default &#34;SUPCRT92&#34;
+            This is an experimental feature that is not yet fully supported.
+            Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
+            These models are described here: http://chnosz.net/manual/water.html
 
         exceed_Ttr : bool, default True
             Calculate Gibbs energies of mineral phases and other species
@@ -2126,12 +2181,21 @@ class AqEquil():
         
         generate_template : bool, default True
             Generate a CSV sample input template customized to this data0?
+            Columns include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and all strict
+            basis species.
         
         template_name : str, optional
             Name of the sample input template file generated. If no name is
             supplied, defaults to &#39;sample_template_xyz.csv&#39;, where &#39;xyz&#39; is
             the three letter code given to `db`. Ignored if `generate_template`
             is False.
+        
+        template_type : str, either &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;
+            Determines which columns are written to the sample template.
+            - &#39;strict&#39; includes strict basis species
+            - &#39;all basis&#39; includes strict and auxiliary basis species
+            - &#39;all species&#39; includes all species in the thermodynamic database
+            Ignored if `generate_template` is False.
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -2150,12 +2214,62 @@ class AqEquil():
         if self.verbose &gt;= 1:
             print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
         
+        if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
+            raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+        if isinstance(grid_press, list):
+            if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
+                raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+        
         if sum([T &gt;= 10000 for T in grid_temps]):
             raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
         
         if isinstance(grid_press, list):
-            if sum([T &gt;= 10000 for T in grid_temps]):
+            if sum([P &gt;= 10000 for P in grid_press]):
                 raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+            
+        if water_model == &#34;SUPCRT92&#34;:
+            min_T = 0
+            max_T = 2250
+            min_P = 1
+            max_P = 30000
+        elif water_model == &#34;IAPWS95&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 10000
+        elif water_model == &#34;DEW&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 60000
+        else:
+            raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+                            &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
+        
+        # check that T and P are above minimum values
+        if sum([T &lt;= min_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
+                  &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
+                  &#34;temperature range for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &lt; min_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
+                      &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+        
+        # check that T and P are below maximum values
+        if sum([T &gt; max_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
+                  &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
+                  &#34;temperature for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &gt; max_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
+                      &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+            
+        if water_model != &#34;SUPCRT92&#34;:
+            print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
         
         template = pkg_resources.resource_string(
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
@@ -2169,6 +2283,9 @@ class AqEquil():
             data0_formula_ox_name = ro.r(&#34;NULL&#34;)
         if template_name == None:
             template_name = &#34;sample_template_{}.csv&#34;.format(db)
+        if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
+            raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+                            &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
@@ -2180,6 +2297,7 @@ class AqEquil():
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
+                                   water_model=water_model,
                                    template=template,
                                    exceed_Ttr=exceed_Ttr,
                                    data0_formula_ox_name=data0_formula_ox_name,
@@ -2187,6 +2305,7 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
+                                   template_type=template_type,
                                    verbose=self.verbose)
     
         for warning in w:
@@ -2928,7 +3047,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     def speciate(self,
                  input_filename,
                  db=&#34;wrm&#34;,
-                 redox_flag=0,
+                 redox_flag=&#34;logfO2&#34;,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
                  exclude=[],
@@ -3013,37 +3132,28 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             data1 files are already compiled by EQPT, while data0 files will be
             automatically compiled for you if `custom_db` is True.
         
-        redox_flag : int, default 0
-            Values corresponding to redox options in the EQ3/6 v8.0 software.
-            For more information see the &#39;Redox Option&#39; section of the EQ3/6
-            version 8.0 software user&#39;s manual. Set sample redox state with the
-            following options:
+        redox_flag : str, default &#34;O2(g)&#34;
+            Determines which column in the sample input file sets the overall
+            redox state of the samples. Options for redox_flag include &#39;O2(g)&#39;,
+            &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, and &#39;redox aux&#39;. The code will search your
+            sample spreadsheet file (see `filename`) for a column corresponding
+            to the option you chose:
             
-            * -3 for O2(g)
-            * -2 for pe (in pe units)
-            * -1 for Eh (volts)
-            *  0 for logfO2 (log bars), or dissolved O2 (see below)
-            *  1 for defining a redox couple (see `redox_aux`)
-             
-            Note that if you are importing water chemistry data from a
-            spreadsheet, a column must be supplied with data that corresponds to
-            the redox option you chose. The column name is important:
-            
-            * -3 must have a column named: O2(g)
-            * -2 must have a column named: pe
-            * -1 must have a column named: Eh
-            *  0 must have a column named: logfO2
-            *  1 must have a column corresponding to the auxilliary basis species
-              selected to form a redox couple with its linked species (see
-              `redox_aux`). For example, the redox couple Fe+2/Fe+3 would need
-              a column named: Fe+3
+            * &#39;O2(g)&#39; with a valid subheader for a gas
+            * &#39;pe&#39; with subheader pe
+            * &#39;Eh&#39; with subheader volts
+            * &#39;logfO2&#39; with subheader logfO2
+            * &#39;redox aux&#39; will search for a column corresponding to the
+              auxilliary basis species selected to form a redox couple with its
+              linked strict basis species (see `redox_aux`). For example, the
+              redox couple Fe+2/Fe+3 would require a column named Fe+3
             
             If an appropriate header or redox data cannot be found to define
             redox state, `default_logfO2` is used to set sample logfO2.
             
             There is a special case where dissolved oxygen can be used to impose
-            sample redox state if `redox_flag` is set to 0 and a column named
-            logfO2 does not appear in the sample data sheet. If there is a
+            sample redox state if `redox_flag` is set to logfO2 and a column named
+            logfO2 does not appear in your sample spreadsheet. If there is a
             column corresponding to dissolved oxygen measurements, logfO2 is
             calculated from the equilibrium reaction O2(aq) = O2(g) at the
             temperature and pressure of the sample using the revised Helgeson-
@@ -3182,6 +3292,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
+            redox_flag = -3
+        elif redox_flag == &#34;pe&#34; or redox_flag == -2:
+            redox_flag = -2
+        elif redox_flag == &#34;Eh&#34; or redox_flag == -1:
+            redox_flag = -1
+        elif redox_flag == &#34;logfO2&#34; or redox_flag == 0:
+            redox_flag = 0
+        elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
+            redox_flag = 1
+        else:
+            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+                            &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
+            
         # handle batch_3o naming
         if batch_3o_filename != None:
             if &#34;.rds&#34; in batch_3o_filename[-4:]:
@@ -3203,6 +3327,42 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ[&#39;EQ36DA&#39;] = os.getcwd()
+            
+            data0_path = &#34;data0.&#34; + db
+            
+        else:
+            data0_path = self.eq36da + &#34;/data0.&#34; + db
+            
+        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            with open(data0_path) as data0:
+                data0_lines = data0.readlines()
+                start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
+                end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
+                grid_temp = db_grids[0] + &#34; &#34; + db_grids[1]
+                grid_press = db_grids[2] + &#34; &#34; + db_grids[3]
+                grid_temp = grid_temp.split(&#34; &#34;)
+                grid_press = grid_press.split(&#34; &#34;)
+                try:
+                    water_model = data0_lines[1].split(&#34;model: &#34;)[1] # extract water model from the second line of data0 file
+                    water_model = water_model.replace(&#34;\n&#34;, &#34;&#34;)
+                except:
+                    water_model = &#34;SUPCRT92&#34;
+#                     print(&#34;Water model could not be referenced from {}&#34;.format(data0_path)+&#34;&#34;
+#                           &#34;. Defaulting to SUPCRT92 water model...&#34;)
+                
+                if(water_model not in [&#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, &#34;DEW&#34;]):
+                    water_model = &#34;SUPCRT92&#34; # the default for EQ3/6
+                    print(&#34;Water model given in {}&#34;.format(data0_path)+&#34; was not &#34;
+                          &#34;recognized. Defaulting to SUPCRT92 water model...&#34;)
+            
+        else: # if a data0 file can&#39;t be found, assume default water model, 0-350 C and PSAT
+            water_model = &#34;SUPCRT92&#34;
+            grid_temp = [&#34;0.0100&#34;, &#34;50.0000&#34;, &#34;100.0000&#34;, &#34;150.0000&#34;,
+                         &#34;200.0000&#34;, &#34;250.0000&#34;, &#34;300.0000&#34;, &#34;350.0000&#34;]
+            grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
+                          &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
 
         if get_affinity_energy:
             if rxn_filename == None:
@@ -3213,7 +3373,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 pass
         else:
             rxn_filename = &#34;&#34;
-
+            
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
@@ -3224,11 +3384,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                                  exclude=convert_to_RVector(
                                                      exclude),
                                                  redox_flag=redox_flag,
+                                                 redox_aux=redox_aux,
                                                  default_logfO2=default_logfO2,
                                                  charge_balance_on=charge_balance_on,
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 water_model=water_model,
+                                                 grid_temp=convert_to_RVector(grid_temp),
+                                                 grid_press=convert_to_RVector(grid_press),
                                                  verbose=self.verbose)
 
         for warning in w:
@@ -3520,6 +3684,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 {sample_data.names[i]: dict_sample_data})
 
         out_dict.update({&#34;batch_3o&#34;: batch_3o})
+        
+        out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
+        
         speciation = Speciation(out_dict)
 
         if report_filename != None:
@@ -3538,11 +3705,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
 
     def create_data0(self,
+                     db,
                      filename,
                      filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
-                     db=&#34;wrm&#34;,
+                     water_model=&#34;SUPCRT92&#34;,
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -3550,12 +3718,16 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                      infer_formula_ox=False,
                      generate_template=True,
                      template_name=None,
+                     template_type=&#34;strict&#34;,
                      verbose=1):
         &#34;&#34;&#34;
         Create a data0 file from a custom thermodynamic dataset.
         
         Parameters
         ----------
+        db : str
+            Desired three letter code of data0 output.
+            
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
@@ -3570,9 +3742,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         suppress_redox : list of str, default []
             Suppress equilibrium between oxidation states of listed elements
             (Cl, H, and O cannot be included).
-        
-        db : str, default &#34;wrm&#34;
-            Desired three letter code of data0 output.
+
+        water_model : str, default &#34;SUPCRT92&#34;
+            This is an experimental feature that is not yet fully supported.
+            Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
+            These models are described here: http://chnosz.net/manual/water.html
 
         exceed_Ttr : bool, default True
             Calculate Gibbs energies of mineral phases and other species
@@ -3596,12 +3770,21 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         generate_template : bool, default True
             Generate a CSV sample input template customized to this data0?
+            Columns include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and all strict
+            basis species.
         
         template_name : str, optional
             Name of the sample input template file generated. If no name is
             supplied, defaults to &#39;sample_template_xyz.csv&#39;, where &#39;xyz&#39; is
             the three letter code given to `db`. Ignored if `generate_template`
             is False.
+        
+        template_type : str, either &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;
+            Determines which columns are written to the sample template.
+            - &#39;strict&#39; includes strict basis species
+            - &#39;all basis&#39; includes strict and auxiliary basis species
+            - &#39;all species&#39; includes all species in the thermodynamic database
+            Ignored if `generate_template` is False.
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -3620,12 +3803,62 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if self.verbose &gt;= 1:
             print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
         
+        if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
+            raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+        if isinstance(grid_press, list):
+            if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
+                raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+        
         if sum([T &gt;= 10000 for T in grid_temps]):
             raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
         
         if isinstance(grid_press, list):
-            if sum([T &gt;= 10000 for T in grid_temps]):
+            if sum([P &gt;= 10000 for P in grid_press]):
                 raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+            
+        if water_model == &#34;SUPCRT92&#34;:
+            min_T = 0
+            max_T = 2250
+            min_P = 1
+            max_P = 30000
+        elif water_model == &#34;IAPWS95&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 10000
+        elif water_model == &#34;DEW&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 60000
+        else:
+            raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+                            &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
+        
+        # check that T and P are above minimum values
+        if sum([T &lt;= min_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
+                  &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
+                  &#34;temperature range for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &lt; min_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
+                      &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+        
+        # check that T and P are below maximum values
+        if sum([T &gt; max_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
+                  &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
+                  &#34;temperature for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &gt; max_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
+                      &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+            
+        if water_model != &#34;SUPCRT92&#34;:
+            print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
         
         template = pkg_resources.resource_string(
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
@@ -3639,6 +3872,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             data0_formula_ox_name = ro.r(&#34;NULL&#34;)
         if template_name == None:
             template_name = &#34;sample_template_{}.csv&#34;.format(db)
+        if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
+            raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+                            &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter(&#34;always&#34;)
@@ -3650,6 +3886,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
+                                   water_model=water_model,
                                    template=template,
                                    exceed_Ttr=exceed_Ttr,
                                    data0_formula_ox_name=data0_formula_ox_name,
@@ -3657,6 +3894,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
+                                   template_type=template_type,
                                    verbose=self.verbose)
     
         for warning in w:
@@ -3668,12 +3906,14 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
-<span>def <span class="ident">create_data0</span></span>(<span>self, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], db='wrm', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, verbose=1)</span>
+<span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a data0 file from a custom thermodynamic dataset.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
+<dt><strong><code>db</code></strong> :&ensp;<code>str</code></dt>
+<dd>Desired three letter code of data0 output.</dd>
 <dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
 <dd>Name of csv file containing thermodynamic data in the OBIGT format.</dd>
 <dt><strong><code>filename_ss</code></strong> :&ensp;<code>str</code>, optional</dt>
@@ -3685,8 +3925,10 @@ See <code>infer_formula_ox</code> for more detail.</dd>
 <dt><strong><code>suppress_redox</code></strong> :&ensp;<code>list</code> of <code>str</code>, default <code>[]</code></dt>
 <dd>Suppress equilibrium between oxidation states of listed elements
 (Cl, H, and O cannot be included).</dd>
-<dt><strong><code>db</code></strong> :&ensp;<code>str</code>, default <code>"wrm"</code></dt>
-<dd>Desired three letter code of data0 output.</dd>
+<dt><strong><code>water_model</code></strong> :&ensp;<code>str</code>, default <code>"SUPCRT92"</code></dt>
+<dd>This is an experimental feature that is not yet fully supported.
+Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
+These models are described here: <a href="http://chnosz.net/manual/water.html">http://chnosz.net/manual/water.html</a></dd>
 <dt><strong><code>exceed_Ttr</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Calculate Gibbs energies of mineral phases and other species
 beyond their transition temperatures?</dd>
@@ -3704,12 +3946,20 @@ blank entries in formula_ox because the redox states of two
 elements, Dy and S, would have to be estimated together; S has many
 oxidation states and Dy's oxidation states are not hard-coded.</dd>
 <dt><strong><code>generate_template</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Generate a CSV sample input template customized to this data0?</dd>
+<dd>Generate a CSV sample input template customized to this data0?
+Columns include 'Sample', 'Temperature', 'logfO2', and all strict
+basis species.</dd>
 <dt><strong><code>template_name</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of the sample input template file generated. If no name is
 supplied, defaults to 'sample_template_xyz.csv', where 'xyz' is
 the three letter code given to <code>db</code>. Ignored if <code>generate_template</code>
 is False.</dd>
+<dt><strong><code>template_type</code></strong> :&ensp;<code>str, either 'strict', 'all basis',</code> or <code>'all species'</code></dt>
+<dd>Determines which columns are written to the sample template.
+- 'strict' includes strict basis species
+- 'all basis' includes strict and auxiliary basis species
+- 'all species' includes all species in the thermodynamic database
+Ignored if <code>generate_template</code> is False.</dd>
 <dt><strong><code>verbose</code></strong> :&ensp;<code>int, 0, 1,</code> or <code>2</code>, default <code>1</code></dt>
 <dd>Level determining how many messages are returned during a
 calculation. 2 for all messages, 1 for errors or warnings only,
@@ -3720,11 +3970,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def create_data0(self,
+                 db,
                  filename,
                  filename_ss=None,
                  data0_formula_ox_name=None,
                  suppress_redox=[],
-                 db=&#34;wrm&#34;,
+                 water_model=&#34;SUPCRT92&#34;,
                  exceed_Ttr=True,
                  grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                              200.0000, 250.0000, 300.0000, 350.0000],
@@ -3732,12 +3983,16 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  infer_formula_ox=False,
                  generate_template=True,
                  template_name=None,
+                 template_type=&#34;strict&#34;,
                  verbose=1):
     &#34;&#34;&#34;
     Create a data0 file from a custom thermodynamic dataset.
     
     Parameters
     ----------
+    db : str
+        Desired three letter code of data0 output.
+        
     filename : str
         Name of csv file containing thermodynamic data in the OBIGT format.
         
@@ -3752,9 +4007,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     suppress_redox : list of str, default []
         Suppress equilibrium between oxidation states of listed elements
         (Cl, H, and O cannot be included).
-    
-    db : str, default &#34;wrm&#34;
-        Desired three letter code of data0 output.
+
+    water_model : str, default &#34;SUPCRT92&#34;
+        This is an experimental feature that is not yet fully supported.
+        Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
+        These models are described here: http://chnosz.net/manual/water.html
 
     exceed_Ttr : bool, default True
         Calculate Gibbs energies of mineral phases and other species
@@ -3778,12 +4035,21 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
     generate_template : bool, default True
         Generate a CSV sample input template customized to this data0?
+        Columns include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and all strict
+        basis species.
     
     template_name : str, optional
         Name of the sample input template file generated. If no name is
         supplied, defaults to &#39;sample_template_xyz.csv&#39;, where &#39;xyz&#39; is
         the three letter code given to `db`. Ignored if `generate_template`
         is False.
+    
+    template_type : str, either &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;
+        Determines which columns are written to the sample template.
+        - &#39;strict&#39; includes strict basis species
+        - &#39;all basis&#39; includes strict and auxiliary basis species
+        - &#39;all species&#39; includes all species in the thermodynamic database
+        Ignored if `generate_template` is False.
     
     verbose : int, 0, 1, or 2, default 1
         Level determining how many messages are returned during a
@@ -3802,12 +4068,62 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     if self.verbose &gt;= 1:
         print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
     
+    if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
+        raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+    if isinstance(grid_press, list):
+        if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
+            raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+    
     if sum([T &gt;= 10000 for T in grid_temps]):
         raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
     
     if isinstance(grid_press, list):
-        if sum([T &gt;= 10000 for T in grid_temps]):
+        if sum([P &gt;= 10000 for P in grid_press]):
             raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+        
+    if water_model == &#34;SUPCRT92&#34;:
+        min_T = 0
+        max_T = 2250
+        min_P = 1
+        max_P = 30000
+    elif water_model == &#34;IAPWS95&#34;:
+        min_T = 0
+        max_T = 1000
+        min_P = 1
+        max_P = 10000
+    elif water_model == &#34;DEW&#34;:
+        min_T = 0
+        max_T = 1000
+        min_P = 1
+        max_P = 60000
+    else:
+        raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+                        &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
+    
+    # check that T and P are above minimum values
+    if sum([T &lt;= min_T for T in grid_temps]):
+        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
+              &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
+              &#34;temperature range for the {} water model.&#34;.format(water_model))
+    if isinstance(grid_press, list):
+        if sum([P &lt; min_P for P in grid_press]):
+            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
+                  &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
+                  &#34;pressure for the {} water model.&#34;.format(water_model))
+    
+    # check that T and P are below maximum values
+    if sum([T &gt; max_T for T in grid_temps]):
+        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
+              &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
+              &#34;temperature for the {} water model.&#34;.format(water_model))
+    if isinstance(grid_press, list):
+        if sum([P &gt; max_P for P in grid_press]):
+            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
+                  &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
+                  &#34;pressure for the {} water model.&#34;.format(water_model))
+        
+    if water_model != &#34;SUPCRT92&#34;:
+        print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
     
     template = pkg_resources.resource_string(
         __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
@@ -3821,6 +4137,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         data0_formula_ox_name = ro.r(&#34;NULL&#34;)
     if template_name == None:
         template_name = &#34;sample_template_{}.csv&#34;.format(db)
+    if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
+        raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+                        &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter(&#34;always&#34;)
@@ -3832,6 +4151,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                grid_temps=grid_temps,
                                grid_press=grid_press,
                                db=db,
+                               water_model=water_model,
                                template=template,
                                exceed_Ttr=exceed_Ttr,
                                data0_formula_ox_name=data0_formula_ox_name,
@@ -3839,6 +4159,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                infer_formula_ox=infer_formula_ox,
                                generate_template=generate_template,
                                template_name=template_name,
+                               template_type=template_type,
                                verbose=self.verbose)
 
     for warning in w:
@@ -4130,7 +4451,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag=0, redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -4192,37 +4513,28 @@ in the EQ3/6 'EQ36DA' path. Otherwise, the database must be named
 data0.xyz and located in your current working directory. Note that
 data1 files are already compiled by EQPT, while data0 files will be
 automatically compiled for you if <code>custom_db</code> is True.</dd>
-<dt><strong><code>redox_flag</code></strong> :&ensp;<code>int</code>, default <code>0</code></dt>
+<dt><strong><code>redox_flag</code></strong> :&ensp;<code>str</code>, default <code>"O2(g)"</code></dt>
 <dd>
-<p>Values corresponding to redox options in the EQ3/6 v8.0 software.
-For more information see the 'Redox Option' section of the EQ3/6
-version 8.0 software user's manual. Set sample redox state with the
-following options:</p>
+<p>Determines which column in the sample input file sets the overall
+redox state of the samples. Options for redox_flag include 'O2(g)',
+'pe', 'Eh', 'logfO2', and 'redox aux'. The code will search your
+sample spreadsheet file (see <code>filename</code>) for a column corresponding
+to the option you chose:</p>
 <ul>
-<li>-3 for O2(g)</li>
-<li>-2 for pe (in pe units)</li>
-<li>-1 for Eh (volts)</li>
-<li>0 for logfO2 (log bars), or dissolved O2 (see below)</li>
-<li>1 for defining a redox couple (see <code>redox_aux</code>)</li>
-</ul>
-<p>Note that if you are importing water chemistry data from a
-spreadsheet, a column must be supplied with data that corresponds to
-the redox option you chose. The column name is important:</p>
-<ul>
-<li>-3 must have a column named: O2(g)</li>
-<li>-2 must have a column named: pe</li>
-<li>-1 must have a column named: Eh</li>
-<li>0 must have a column named: logfO2</li>
-<li>1 must have a column corresponding to the auxilliary basis species
-selected to form a redox couple with its linked species (see
-<code>redox_aux</code>). For example, the redox couple Fe+2/Fe+3 would need
-a column named: Fe+3</li>
+<li>'O2(g)' with a valid subheader for a gas</li>
+<li>'pe' with subheader pe</li>
+<li>'Eh' with subheader volts</li>
+<li>'logfO2' with subheader logfO2</li>
+<li>'redox aux' will search for a column corresponding to the
+auxilliary basis species selected to form a redox couple with its
+linked strict basis species (see <code>redox_aux</code>). For example, the
+redox couple Fe+2/Fe+3 would require a column named Fe+3</li>
 </ul>
 <p>If an appropriate header or redox data cannot be found to define
 redox state, <code>default_logfO2</code> is used to set sample logfO2.</p>
 <p>There is a special case where dissolved oxygen can be used to impose
-sample redox state if <code>redox_flag</code> is set to 0 and a column named
-logfO2 does not appear in the sample data sheet. If there is a
+sample redox state if <code>redox_flag</code> is set to logfO2 and a column named
+logfO2 does not appear in your sample spreadsheet. If there is a
 column corresponding to dissolved oxygen measurements, logfO2 is
 calculated from the equilibrium reaction O2(aq) = O2(g) at the
 temperature and pressure of the sample using the revised Helgeson-
@@ -4332,616 +4644,664 @@ calculation is complete?</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def speciate(self,
-             input_filename,
-             db=&#34;wrm&#34;,
-             redox_flag=0,
-             redox_aux=&#34;Fe+3&#34;,
-             default_logfO2=-6,
-             exclude=[],
-             suppress=[],
-             charge_balance_on=&#34;none&#34;,
-             suppress_missing=True,
-             verbose=1,
-             report_filename=None,
-             get_aq_dist=True,
-             aq_dist_type=&#34;log_activity&#34;,
-             get_mass_contribution=True,
-             mass_contribution_other=True,
-             get_mineral_sat=True,
-             mineral_sat_type=&#34;affinity&#34;,
-             get_redox=True,
-             redox_type=&#34;Eh&#34;,
-             get_ion_activity_ratios=True,
-             get_fugacity=True,
-             get_affinity_energy=False,
-             rxn_filename=None,
-             not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
-             get_charge_balance=True,
-             custom_db=False,
-             extra_eqpt_output=False,
-             batch_3o_filename=None,
-             delete_generated_folders=False):
-    
-    &#34;&#34;&#34;
-    Calculate the equilibrium distribution of chemical species in solution.
-    Additionally, calculate chemical affinities and energy supplies for
-    user-specified reactions.
-    
-    Parameters
-    ----------
-    input_filename : str
-        User-supplied utf8-encoded comma separated value (csv) file
-        containing sample data intended for speciation. The file must
-        follow this format:
+<pre><code class="python">    def speciate(self,
+                 input_filename,
+                 db=&#34;wrm&#34;,
+                 redox_flag=&#34;logfO2&#34;,
+                 redox_aux=&#34;Fe+3&#34;,
+                 default_logfO2=-6,
+                 exclude=[],
+                 suppress=[],
+                 charge_balance_on=&#34;none&#34;,
+                 suppress_missing=True,
+                 verbose=1,
+                 report_filename=None,
+                 get_aq_dist=True,
+                 aq_dist_type=&#34;log_activity&#34;,
+                 get_mass_contribution=True,
+                 mass_contribution_other=True,
+                 get_mineral_sat=True,
+                 mineral_sat_type=&#34;affinity&#34;,
+                 get_redox=True,
+                 redox_type=&#34;Eh&#34;,
+                 get_ion_activity_ratios=True,
+                 get_fugacity=True,
+                 get_affinity_energy=False,
+                 rxn_filename=None,
+                 not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
+                 get_charge_balance=True,
+                 custom_db=False,
+                 extra_eqpt_output=False,
+                 batch_3o_filename=None,
+                 delete_generated_folders=False):
         
-        - the first row is a header row that must contain the names of the
-          species to be included in the speciation calculation. There
-          cannot be duplicate headers.
-        - the second row must contain subheaders for each species in the
-          header row. These subheaders must be taken from the following:
-          
-                degC
-                ppm
-                ppb
-                Suppressed
-                Molality
-                Molarity
-                mg/L
-                mg/kg.sol
-                Alk., eq/kg.H2O
-                Alk., eq/L
-                Alk., eq/kg.sol
-                Alk., mg/L CaCO3
-                Alk., mg/L HCO3-
-                Log activity
-                Log act combo
-                Log mean act
-                pX
-                pH
-                pHCl
-                pmH
-                pmX
-                Hetero. equil.
-                Homo. equil.
-                Make non-basis
+        &#34;&#34;&#34;
+        Calculate the equilibrium distribution of chemical species in solution.
+        Additionally, calculate chemical affinities and energy supplies for
+        user-specified reactions.
+        
+        Parameters
+        ----------
+        input_filename : str
+            User-supplied utf8-encoded comma separated value (csv) file
+            containing sample data intended for speciation. The file must
+            follow this format:
+            
+            - the first row is a header row that must contain the names of the
+              species to be included in the speciation calculation. There
+              cannot be duplicate headers.
+            - the second row must contain subheaders for each species in the
+              header row. These subheaders must be taken from the following:
+              
+                    degC
+                    ppm
+                    ppb
+                    Suppressed
+                    Molality
+                    Molarity
+                    mg/L
+                    mg/kg.sol
+                    Alk., eq/kg.H2O
+                    Alk., eq/L
+                    Alk., eq/kg.sol
+                    Alk., mg/L CaCO3
+                    Alk., mg/L HCO3-
+                    Log activity
+                    Log act combo
+                    Log mean act
+                    pX
+                    pH
+                    pHCl
+                    pmH
+                    pmX
+                    Hetero. equil.
+                    Homo. equil.
+                    Make non-basis
+                    
+            - &#39;Temperature&#39; must be included as a header, with &#39;degC&#39; as its
+              subheader.
+            - The first column must contain sample names. There cannot be
+              duplicate sample names.
+        
+        db : three letter str, default &#34;wrm&#34;
+            Three letter file extension for the desired thermodynamic database.
+            If `custom_db` is False, this database must be named data1.xyz
+            (where xyz is your desired three letter extension) and located
+            in the EQ3/6 &#39;EQ36DA&#39; path. Otherwise, the database must be named
+            data0.xyz and located in your current working directory. Note that
+            data1 files are already compiled by EQPT, while data0 files will be
+            automatically compiled for you if `custom_db` is True.
+        
+        redox_flag : str, default &#34;O2(g)&#34;
+            Determines which column in the sample input file sets the overall
+            redox state of the samples. Options for redox_flag include &#39;O2(g)&#39;,
+            &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, and &#39;redox aux&#39;. The code will search your
+            sample spreadsheet file (see `filename`) for a column corresponding
+            to the option you chose:
+            
+            * &#39;O2(g)&#39; with a valid subheader for a gas
+            * &#39;pe&#39; with subheader pe
+            * &#39;Eh&#39; with subheader volts
+            * &#39;logfO2&#39; with subheader logfO2
+            * &#39;redox aux&#39; will search for a column corresponding to the
+              auxilliary basis species selected to form a redox couple with its
+              linked strict basis species (see `redox_aux`). For example, the
+              redox couple Fe+2/Fe+3 would require a column named Fe+3
+            
+            If an appropriate header or redox data cannot be found to define
+            redox state, `default_logfO2` is used to set sample logfO2.
+            
+            There is a special case where dissolved oxygen can be used to impose
+            sample redox state if `redox_flag` is set to logfO2 and a column named
+            logfO2 does not appear in your sample spreadsheet. If there is a
+            column corresponding to dissolved oxygen measurements, logfO2 is
+            calculated from the equilibrium reaction O2(aq) = O2(g) at the
+            temperature and pressure of the sample using the revised Helgeson-
+            Kirkham-Flowers (HKF) equation of state (JC Tanger IV and HC
+            Helgeson, Am. J. Sci., 1988, 288, 19).
+        
+        redox_aux : default &#34;Fe+3&#34;, optional
+            Ignored unless `redox_flag` equals 1. Name of the auxilliary species
+            whose reaction links it to a basis species (or another auxilliary
+            species) such that they form a redox couple that controls sample
+            fO2. For instance, Fe+3 is linked to Fe+2 in many supporting data
+            files, so selecting `redox_flag` = 1 and `redox_aux` = &#34;Fe+3&#34; will
+            set sample fO2 based on the Fe+2/Fe+3 redox couple.
+        
+        default_logfO2 : float, default -6
+            Default value for sample logfO2 in case redox data cannot be found
+            in the user-supplied sample spreadsheet.
+        
+        exclude : list of str, default []
+            Names of columns in the user-supplied sample spreadsheet that should
+            not be considered aqueous species. Useful for excluding columns
+            containing sample metatadata, such as &#34;Year&#34; and &#34;Location&#34;.
+            
+        suppress : list of str, default []
+            Names of chemical species that will be prevented from forming in the
+            speciation calculation.
+            
+        charge_balance_on : str, default &#34;none&#34;
+            If &#34;none&#34;, will not balance electrical charge between cations and
+            anions in the speciation calculation. If a name of a species is
+            supplied instead, the activity of that species will be allowed to
+            change until charge balance is obtained. For example,
+            charge_balance_on = &#34;H+&#34; will calculate what pH a sample must have
+            to have zero net charge.
+        
+        suppress_missing : bool, default True
+            Suppress the formation of an aqueous species if it is missing a
+            value in the user-supplied sample spreadsheet?
+        
+        verbose : int, 0, 1, or 2, default 1
+            Level determining how many messages are returned during a
+            calculation. 2 for all messages, 1 for errors or warnings only,
+            0 for silent.
+            
+        report_filename : str, optional
+            Name of the comma separated values (csv) report file generated when
+            the calculation is complete. If this argument is not defined, a
+            report file is not generated.
+            
+        get_aq_dist : bool, default True
+            Calculate distributions of aqueous species?
+        
+        aq_dist_type : str, default &#34;log_activity&#34;
+            Desired units of measurement for reported distributions of aqueous
+            species. Can be &#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, or
+            &#34;log_activity&#34;. Ignored if `get_aq_dist` is False.
+        
+        get_mass_contribution : bool, default True
+            Calculate basis species contributions to mass balance of aqueous
+            species?
+        
+        mass_contribution_other : bool, default True
+            Include an &#34;other&#34; species for the sake of summing percents of basis
+            species contributions to 100%? Ignored if `get_mass_contribution` is
+            False.
+        
+        get_mineral_sat : bool, default True
+            Calculate saturation states of pure solids?
+        
+        mineral_sat_type : str, default &#34;affinity&#34;
+            Desired units of measurement for reported saturation states of pure
+            solids. Can be &#34;logQoverK&#34; or &#34;affinity&#34;. Ignored if
+            `get_mineral_sat` is False.
+        
+        get_redox : bool, default True
+            Calculate potentials of redox couples?
+            
+        redox_type : str, default &#34;Eh&#34;
+            Desired units of measurement for reported redox potentials. Can be
+            &#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, or &#34;Ah&#34;. Ignored if `get_redox` is False.
+        
+        get_ion_activity_ratios : bool, default True
+            Calculate ion/H+ activity ratios and neutral species activities?
+        
+        get_fugacity : bool, default True
+            Calculate gas fugacities?
+        
+        get_affinity_energy : bool, default False
+            Calculate affinities and energy supplies of reactions listed in a
+            separate user-supplied file?
+        
+        rxn_filename : str, optional
+            Name of .txt file containing reactions used to calculate affinities
+            and energy supplies. Ignored if `get_affinity_energy` is False.
+        
+        not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
+            List containing names of species that are not considered limiting
+            when calculating energy supplies. Ignored if `get_affinity_energy`
+            is False.
+        
+        get_charge_balance : bool, default True
+            Calculate charge balance and ionic strength?
+            
+        custom_db : bool, default False
+            Is the database defined by `db` a custom user-supplied database? If
+            this is set to True, searches for a data0.xyz file in the current
+            working directory, where &#39;xyz&#39; corresponds to the three letter code
+            assigned to `db`. This data0 file is automatically converted into a
+            machine-readable file called data1 by software called EQPT. This
+            data1 file is then used in speciation calculations.
+        
+        extra_eqpt_output : bool, default False
+            Keep additional output files created by EQPT (see `custom_db`)?
+            Ignored if `custom_db` is False.
+        
+        batch_3o_filename : str, optional
+            Name of rds (R object) file exported after the speciation
+            calculation? No file will be generated if this argument is not
+            defined.
+            
+        delete_generated_folders : bool, default False
+            Delete the &#39;rxn_3i&#39;, &#39;rxn_3o&#39;, and &#39;rxn_3p&#39; folders containing raw
+            EQ3NR input, output, and pickup files once the speciation
+            calculation is complete?
+        
+        Returns
+        -------
+        speciation : object of class Speciation
+            Contains the results of the speciation calculation.
+        
+        &#34;&#34;&#34;
+        
+        self.verbose = verbose
+        
+        # check input sample file for errors
+        self._check_sample_input_file(input_filename, exclude, db, custom_db,
+                                      charge_balance_on, suppress_missing)
+        
+        if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
+            redox_flag = -3
+        elif redox_flag == &#34;pe&#34; or redox_flag == -2:
+            redox_flag = -2
+        elif redox_flag == &#34;Eh&#34; or redox_flag == -1:
+            redox_flag = -1
+        elif redox_flag == &#34;logfO2&#34; or redox_flag == 0:
+            redox_flag = 0
+        elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
+            redox_flag = 1
+        else:
+            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+                            &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
+            
+        # handle batch_3o naming
+        if batch_3o_filename != None:
+            if &#34;.rds&#34; in batch_3o_filename[-4:]:
+                batch_3o_filename = batch_3o_filename
+            else:
+                batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(db)
+        else:
+            batch_3o_filename = ro.r(&#34;NULL&#34;)
+
+        if custom_db:
+            # EQ3/6 cannot handle spaces in the &#39;EQ36DA&#39; path name.
+            if &#34; &#34; in os.getcwd():
+                msg = (&#34;Error: the path to the custom database &#34;
+                    &#34;cannot contain spaces. The current path &#34;
+                    &#34;is: [ &#34; + os.getcwd() + &#34; ]. Remove or &#34;
+                    &#34;replace spaces in folder names for this &#34;
+                    &#34;feature. Example: [ &#34; + os.getcwd().replace(&#34; &#34;, &#34;-&#34;) + &#34; ].&#34;)
+                raise Exception(msg)
+
+            self.runeqpt(db, extra_eqpt_output)
+            os.environ[&#39;EQ36DA&#39;] = os.getcwd()
+            
+            data0_path = &#34;data0.&#34; + db
+            
+        else:
+            data0_path = self.eq36da + &#34;/data0.&#34; + db
+            
+        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            with open(data0_path) as data0:
+                data0_lines = data0.readlines()
+                start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
+                end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
+                grid_temp = db_grids[0] + &#34; &#34; + db_grids[1]
+                grid_press = db_grids[2] + &#34; &#34; + db_grids[3]
+                grid_temp = grid_temp.split(&#34; &#34;)
+                grid_press = grid_press.split(&#34; &#34;)
+                try:
+                    water_model = data0_lines[1].split(&#34;model: &#34;)[1] # extract water model from the second line of data0 file
+                    water_model = water_model.replace(&#34;\n&#34;, &#34;&#34;)
+                except:
+                    water_model = &#34;SUPCRT92&#34;
+#                     print(&#34;Water model could not be referenced from {}&#34;.format(data0_path)+&#34;&#34;
+#                           &#34;. Defaulting to SUPCRT92 water model...&#34;)
                 
-        - &#39;Temperature&#39; must be included as a header, with &#39;degC&#39; as its
-          subheader.
-        - The first column must contain sample names. There cannot be
-          duplicate sample names.
-    
-    db : three letter str, default &#34;wrm&#34;
-        Three letter file extension for the desired thermodynamic database.
-        If `custom_db` is False, this database must be named data1.xyz
-        (where xyz is your desired three letter extension) and located
-        in the EQ3/6 &#39;EQ36DA&#39; path. Otherwise, the database must be named
-        data0.xyz and located in your current working directory. Note that
-        data1 files are already compiled by EQPT, while data0 files will be
-        automatically compiled for you if `custom_db` is True.
-    
-    redox_flag : int, default 0
-        Values corresponding to redox options in the EQ3/6 v8.0 software.
-        For more information see the &#39;Redox Option&#39; section of the EQ3/6
-        version 8.0 software user&#39;s manual. Set sample redox state with the
-        following options:
-        
-        * -3 for O2(g)
-        * -2 for pe (in pe units)
-        * -1 for Eh (volts)
-        *  0 for logfO2 (log bars), or dissolved O2 (see below)
-        *  1 for defining a redox couple (see `redox_aux`)
-         
-        Note that if you are importing water chemistry data from a
-        spreadsheet, a column must be supplied with data that corresponds to
-        the redox option you chose. The column name is important:
-        
-        * -3 must have a column named: O2(g)
-        * -2 must have a column named: pe
-        * -1 must have a column named: Eh
-        *  0 must have a column named: logfO2
-        *  1 must have a column corresponding to the auxilliary basis species
-          selected to form a redox couple with its linked species (see
-          `redox_aux`). For example, the redox couple Fe+2/Fe+3 would need
-          a column named: Fe+3
-        
-        If an appropriate header or redox data cannot be found to define
-        redox state, `default_logfO2` is used to set sample logfO2.
-        
-        There is a special case where dissolved oxygen can be used to impose
-        sample redox state if `redox_flag` is set to 0 and a column named
-        logfO2 does not appear in the sample data sheet. If there is a
-        column corresponding to dissolved oxygen measurements, logfO2 is
-        calculated from the equilibrium reaction O2(aq) = O2(g) at the
-        temperature and pressure of the sample using the revised Helgeson-
-        Kirkham-Flowers (HKF) equation of state (JC Tanger IV and HC
-        Helgeson, Am. J. Sci., 1988, 288, 19).
-    
-    redox_aux : default &#34;Fe+3&#34;, optional
-        Ignored unless `redox_flag` equals 1. Name of the auxilliary species
-        whose reaction links it to a basis species (or another auxilliary
-        species) such that they form a redox couple that controls sample
-        fO2. For instance, Fe+3 is linked to Fe+2 in many supporting data
-        files, so selecting `redox_flag` = 1 and `redox_aux` = &#34;Fe+3&#34; will
-        set sample fO2 based on the Fe+2/Fe+3 redox couple.
-    
-    default_logfO2 : float, default -6
-        Default value for sample logfO2 in case redox data cannot be found
-        in the user-supplied sample spreadsheet.
-    
-    exclude : list of str, default []
-        Names of columns in the user-supplied sample spreadsheet that should
-        not be considered aqueous species. Useful for excluding columns
-        containing sample metatadata, such as &#34;Year&#34; and &#34;Location&#34;.
-        
-    suppress : list of str, default []
-        Names of chemical species that will be prevented from forming in the
-        speciation calculation.
-        
-    charge_balance_on : str, default &#34;none&#34;
-        If &#34;none&#34;, will not balance electrical charge between cations and
-        anions in the speciation calculation. If a name of a species is
-        supplied instead, the activity of that species will be allowed to
-        change until charge balance is obtained. For example,
-        charge_balance_on = &#34;H+&#34; will calculate what pH a sample must have
-        to have zero net charge.
-    
-    suppress_missing : bool, default True
-        Suppress the formation of an aqueous species if it is missing a
-        value in the user-supplied sample spreadsheet?
-    
-    verbose : int, 0, 1, or 2, default 1
-        Level determining how many messages are returned during a
-        calculation. 2 for all messages, 1 for errors or warnings only,
-        0 for silent.
-        
-    report_filename : str, optional
-        Name of the comma separated values (csv) report file generated when
-        the calculation is complete. If this argument is not defined, a
-        report file is not generated.
-        
-    get_aq_dist : bool, default True
-        Calculate distributions of aqueous species?
-    
-    aq_dist_type : str, default &#34;log_activity&#34;
-        Desired units of measurement for reported distributions of aqueous
-        species. Can be &#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, or
-        &#34;log_activity&#34;. Ignored if `get_aq_dist` is False.
-    
-    get_mass_contribution : bool, default True
-        Calculate basis species contributions to mass balance of aqueous
-        species?
-    
-    mass_contribution_other : bool, default True
-        Include an &#34;other&#34; species for the sake of summing percents of basis
-        species contributions to 100%? Ignored if `get_mass_contribution` is
-        False.
-    
-    get_mineral_sat : bool, default True
-        Calculate saturation states of pure solids?
-    
-    mineral_sat_type : str, default &#34;affinity&#34;
-        Desired units of measurement for reported saturation states of pure
-        solids. Can be &#34;logQoverK&#34; or &#34;affinity&#34;. Ignored if
-        `get_mineral_sat` is False.
-    
-    get_redox : bool, default True
-        Calculate potentials of redox couples?
-        
-    redox_type : str, default &#34;Eh&#34;
-        Desired units of measurement for reported redox potentials. Can be
-        &#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, or &#34;Ah&#34;. Ignored if `get_redox` is False.
-    
-    get_ion_activity_ratios : bool, default True
-        Calculate ion/H+ activity ratios and neutral species activities?
-    
-    get_fugacity : bool, default True
-        Calculate gas fugacities?
-    
-    get_affinity_energy : bool, default False
-        Calculate affinities and energy supplies of reactions listed in a
-        separate user-supplied file?
-    
-    rxn_filename : str, optional
-        Name of .txt file containing reactions used to calculate affinities
-        and energy supplies. Ignored if `get_affinity_energy` is False.
-    
-    not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
-        List containing names of species that are not considered limiting
-        when calculating energy supplies. Ignored if `get_affinity_energy`
-        is False.
-    
-    get_charge_balance : bool, default True
-        Calculate charge balance and ionic strength?
-        
-    custom_db : bool, default False
-        Is the database defined by `db` a custom user-supplied database? If
-        this is set to True, searches for a data0.xyz file in the current
-        working directory, where &#39;xyz&#39; corresponds to the three letter code
-        assigned to `db`. This data0 file is automatically converted into a
-        machine-readable file called data1 by software called EQPT. This
-        data1 file is then used in speciation calculations.
-    
-    extra_eqpt_output : bool, default False
-        Keep additional output files created by EQPT (see `custom_db`)?
-        Ignored if `custom_db` is False.
-    
-    batch_3o_filename : str, optional
-        Name of rds (R object) file exported after the speciation
-        calculation? No file will be generated if this argument is not
-        defined.
-        
-    delete_generated_folders : bool, default False
-        Delete the &#39;rxn_3i&#39;, &#39;rxn_3o&#39;, and &#39;rxn_3p&#39; folders containing raw
-        EQ3NR input, output, and pickup files once the speciation
-        calculation is complete?
-    
-    Returns
-    -------
-    speciation : object of class Speciation
-        Contains the results of the speciation calculation.
-    
-    &#34;&#34;&#34;
-    
-    self.verbose = verbose
-    
-    # check input sample file for errors
-    self._check_sample_input_file(input_filename, exclude, db, custom_db,
-                                  charge_balance_on, suppress_missing)
-    
-    # handle batch_3o naming
-    if batch_3o_filename != None:
-        if &#34;.rds&#34; in batch_3o_filename[-4:]:
-            batch_3o_filename = batch_3o_filename
+                if(water_model not in [&#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, &#34;DEW&#34;]):
+                    water_model = &#34;SUPCRT92&#34; # the default for EQ3/6
+                    print(&#34;Water model given in {}&#34;.format(data0_path)+&#34; was not &#34;
+                          &#34;recognized. Defaulting to SUPCRT92 water model...&#34;)
+            
+        else: # if a data0 file can&#39;t be found, assume default water model, 0-350 C and PSAT
+            water_model = &#34;SUPCRT92&#34;
+            grid_temp = [&#34;0.0100&#34;, &#34;50.0000&#34;, &#34;100.0000&#34;, &#34;150.0000&#34;,
+                         &#34;200.0000&#34;, &#34;250.0000&#34;, &#34;300.0000&#34;, &#34;350.0000&#34;]
+            grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
+                          &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
+
+        if get_affinity_energy:
+            if rxn_filename == None:
+                err = (&#34;A get_affinity_energy was set to True but a reaction &#34;
+                       &#34;file was not specified.&#34;)
+                raise Exception(err)
+            elif self.__file_exists(rxn_filename, &#39;.txt&#39;):
+                pass
         else:
-            batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(db)
-    else:
-        batch_3o_filename = ro.r(&#34;NULL&#34;)
+            rxn_filename = &#34;&#34;
+            
+        # preprocess for EQ3 using R scripts
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter(&#34;always&#34;)
+            r_prescript = pkg_resources.resource_string(
+                __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
+            ro.r(r_prescript)
+            df_input_processed = ro.r.preprocess(input_filename=input_filename,
+                                                 exclude=convert_to_RVector(
+                                                     exclude),
+                                                 redox_flag=redox_flag,
+                                                 redox_aux=redox_aux,
+                                                 default_logfO2=default_logfO2,
+                                                 charge_balance_on=charge_balance_on,
+                                                 suppress_missing=suppress_missing,
+                                                 suppress=convert_to_RVector(
+                                                     suppress),
+                                                 water_model=water_model,
+                                                 grid_temp=convert_to_RVector(grid_temp),
+                                                 grid_press=convert_to_RVector(grid_press),
+                                                 verbose=self.verbose)
 
-    if custom_db:
-        # EQ3/6 cannot handle spaces in the &#39;EQ36DA&#39; path name.
-        if &#34; &#34; in os.getcwd():
-            msg = (&#34;Error: the path to the custom database &#34;
-                &#34;cannot contain spaces. The current path &#34;
-                &#34;is: [ &#34; + os.getcwd() + &#34; ]. Remove or &#34;
-                &#34;replace spaces in folder names for this &#34;
-                &#34;feature. Example: [ &#34; + os.getcwd().replace(&#34; &#34;, &#34;-&#34;) + &#34; ].&#34;)
-            raise Exception(msg)
+        for warning in w:
+            print(warning.message)
 
-        self.runeqpt(db, extra_eqpt_output)
-        os.environ[&#39;EQ36DA&#39;] = os.getcwd()
+        self.df_input_processed = pandas2ri.ri2py_dataframe(df_input_processed)
 
-    if get_affinity_energy:
-        if rxn_filename == None:
-            err = (&#34;A get_affinity_energy was set to True but a reaction &#34;
-                   &#34;file was not specified.&#34;)
-            raise Exception(err)
-        elif self.__file_exists(rxn_filename, &#39;.txt&#39;):
-            pass
-    else:
-        rxn_filename = &#34;&#34;
+        # run EQ3 on each input file
+        cwd = os.getcwd()
 
-    # preprocess for EQ3 using R scripts
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter(&#34;always&#34;)
-        r_prescript = pkg_resources.resource_string(
-            __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
-        ro.r(r_prescript)
-        df_input_processed = ro.r.preprocess(input_filename=input_filename,
-                                             exclude=convert_to_RVector(
-                                                 exclude),
-                                             redox_flag=redox_flag,
-                                             default_logfO2=default_logfO2,
-                                             charge_balance_on=charge_balance_on,
-                                             suppress_missing=suppress_missing,
-                                             suppress=convert_to_RVector(
-                                                 suppress),
-                                             verbose=self.verbose)
+        self.__mk_check_del_directory(&#39;rxn_3o&#39;)
+        self.__mk_check_del_directory(&#39;rxn_3p&#39;)
+        files_3i, files_3i_paths = self.__read_inputs(&#39;3i&#39;, &#39;rxn_3i&#39;)
 
-    for warning in w:
-        print(warning.message)
-
-    self.df_input_processed = pandas2ri.ri2py_dataframe(df_input_processed)
-
-    # run EQ3 on each input file
-    cwd = os.getcwd()
-
-    self.__mk_check_del_directory(&#39;rxn_3o&#39;)
-    self.__mk_check_del_directory(&#39;rxn_3p&#39;)
-    files_3i, files_3i_paths = self.__read_inputs(&#39;3i&#39;, &#39;rxn_3i&#39;)
-
-    input_dir = cwd + &#34;/rxn_3i/&#34;
-    output_dir = cwd + &#34;/rxn_3o/&#34;
-    pickup_dir = cwd + &#34;/rxn_3p/&#34;
-    
-    for file in files_3i:
-        samplename = self.df_input_processed.loc[file[:-3], &#34;Sample&#34;]
-        self.runeq3(filename_3i=file, db=db, samplename=samplename,
-                    path_3i=input_dir, path_3o=output_dir,
-                    path_3p=pickup_dir)
-
-    if custom_db:
-        os.environ[&#39;EQ36DA&#39;] = self.eq36da
-
-    files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
-    
-    df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
-    
-    # mine output
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter(&#34;always&#34;)
-        r_3o_mine = pkg_resources.resource_string(
-            __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
-        ro.r(r_3o_mine)
-        batch_3o = ro.r.main_3o_mine(
-            files_3o=convert_to_RVector(files_3o),
-            input_filename=input_filename,
-            rxn_filename=rxn_filename,
-            get_aq_dist=get_aq_dist,
-            aq_dist_type=aq_dist_type,
-            get_mass_contribution=get_mass_contribution,
-            mass_contribution_other=mass_contribution_other,
-            get_mineral_sat=get_mineral_sat,
-            mineral_sat_type=mineral_sat_type,
-            get_redox=get_redox,
-            redox_type=redox_type,
-            get_charge_balance=get_charge_balance,
-            get_ion_activity_ratios=get_ion_activity_ratios,
-            get_fugacity=get_fugacity,
-            get_affinity_energy=get_affinity_energy,
-            not_limiting=convert_to_RVector(not_limiting),
-            batch_3o_filename=batch_3o_filename,
-            df_input_processed=pandas2ri.py2ri(self.df_input_processed),
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
-            df_input_processed_names=df_input_processed_names,
-            verbose=self.verbose,
-        )
-    for warning in w:
-        print(warning.message)
-    
-    if get_mass_contribution:
-        mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
-    df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-    df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
-    report_divs = batch_3o.rx2(&#39;report_divs&#39;)
-
-    input_cols = list(report_divs.rx2(&#39;input&#39;))
-    df_input = df_report[input_cols]
-
-    # handle headers and subheaders of input section
-    headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
-    headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-    headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
-    report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
-    subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
-        col.split(&#34;_&#34;) for col in list(df_input.columns)]]
-    multicolumns = pd.MultiIndex.from_arrays(
-        [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-    df_input.columns = multicolumns
-
-    df_join = df_input
-
-    if get_aq_dist:
-        aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
-        df_aq_distribution = df_report[aq_distribution_cols]
-        df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-        # create a pH column from H+
-        df_aq_distribution[&#34;pH&#34;] = -df_aq_distribution[&#34;H+&#34;]
+        input_dir = cwd + &#34;/rxn_3i/&#34;
+        output_dir = cwd + &#34;/rxn_3o/&#34;
+        pickup_dir = cwd + &#34;/rxn_3p/&#34;
         
-        # handle headers of aq_distribution section
-        headers = df_aq_distribution.columns
-        subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
-        subheaders = subheaders + [&#34;pH&#34;]
+        for file in files_3i:
+            samplename = self.df_input_processed.loc[file[:-3], &#34;Sample&#34;]
+            self.runeq3(filename_3i=file, db=db, samplename=samplename,
+                        path_3i=input_dir, path_3o=output_dir,
+                        path_3p=pickup_dir)
+
+        if custom_db:
+            os.environ[&#39;EQ36DA&#39;] = self.eq36da
+
+        files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
+        
+        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+        
+        # mine output
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter(&#34;always&#34;)
+            r_3o_mine = pkg_resources.resource_string(
+                __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
+            ro.r(r_3o_mine)
+            batch_3o = ro.r.main_3o_mine(
+                files_3o=convert_to_RVector(files_3o),
+                input_filename=input_filename,
+                rxn_filename=rxn_filename,
+                get_aq_dist=get_aq_dist,
+                aq_dist_type=aq_dist_type,
+                get_mass_contribution=get_mass_contribution,
+                mass_contribution_other=mass_contribution_other,
+                get_mineral_sat=get_mineral_sat,
+                mineral_sat_type=mineral_sat_type,
+                get_redox=get_redox,
+                redox_type=redox_type,
+                get_charge_balance=get_charge_balance,
+                get_ion_activity_ratios=get_ion_activity_ratios,
+                get_fugacity=get_fugacity,
+                get_affinity_energy=get_affinity_energy,
+                not_limiting=convert_to_RVector(not_limiting),
+                batch_3o_filename=batch_3o_filename,
+                df_input_processed=pandas2ri.py2ri(self.df_input_processed),
+                # Needed for keeping symbols in column names after porting
+                #   df_input_processed in the line above. Some kind of check.names
+                #   option for pandas2ri.py2ri would be nice. Workaround:
+                df_input_processed_names=df_input_processed_names,
+                verbose=self.verbose,
+            )
+        for warning in w:
+            print(warning.message)
+        
+        if get_mass_contribution:
+            mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
+        df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
+        df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+        report_divs = batch_3o.rx2(&#39;report_divs&#39;)
+
+        input_cols = list(report_divs.rx2(&#39;input&#39;))
+        df_input = df_report[input_cols]
+
+        # handle headers and subheaders of input section
+        headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
+        headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
+        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;]+exclude else header for header in headers]
+        report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
+        subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
+            col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_aq_distribution.columns = multicolumns
-        
-        # ensure final pH column is included in report_divs aq_distribution section
-        aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
-        report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
-        
-        df_join = df_join.join(df_aq_distribution)
+        df_input.columns = multicolumns
 
-    if get_mineral_sat:
-        mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
-        df_mineral_sat = df_report[mineral_sat_cols]
-        df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-        # handle headers of df_mineral_sat section
-        if mineral_sat_type == &#34;affinity&#34;:
-            mineral_sat_unit = &#34;affinity_kcal&#34;
-        elif mineral_sat_type == &#34;logQoverK&#34;:
-            mineral_sat_unit = &#34;logQ/K&#34;
-        else:
-            raise Exception(
-                &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
-
-        headers = df_mineral_sat.columns
-        subheaders = [mineral_sat_unit]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_mineral_sat.columns = multicolumns
-        df_join = df_join.join(df_mineral_sat)
-
-    if get_redox:
-        redox_cols = list(report_divs.rx2(&#39;redox&#39;))
-        df_redox = df_report[redox_cols]
-        df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-        # handle headers of df_redox section
-        if redox_type == &#34;Eh&#34;:
-            redox_unit = &#34;Eh_volts&#34;
-        elif redox_type == &#34;pe&#34;:
-            redox_unit = &#34;pe&#34;
-        elif redox_type == &#34;logfO2&#34;:
-            redox_unit = &#34;logfO2&#34;
-        elif redox_type == &#34;Ah&#34;:
-            redox_unit = &#34;Ah_kcal&#34;
-        else:
-            raise Exception(
-                &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
-
-        headers = df_redox.columns
-        subheaders = [redox_unit]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_redox.columns = multicolumns
-        df_join = df_join.join(df_redox)
-
-    if get_charge_balance:
-        charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
-        df_charge_balance = df_report[charge_balance_cols]
-        df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-        # handle headers of df_charge_balance section
-        headers = df_charge_balance.columns
-        subheaders = [&#34;%&#34;]*2 + [&#39;eq/kg.H2O&#39;, &#39;molality&#39;] + \
-            [&#39;eq/kg.H2O&#39;]*4 + [&#39;molality&#39;]
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_charge_balance.columns = multicolumns
-        df_join = df_join.join(df_charge_balance)
-        
-    if get_ion_activity_ratios:
-        ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
-        df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
-        df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-        
-        # handle headers of df_ion_activity_ratios section
-        headers = df_ion_activity_ratios.columns
-        subheaders = [&#34;Log ion-H+ activity ratio&#34;]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_ion_activity_ratios.columns = multicolumns
-        df_join = df_join.join(df_ion_activity_ratios)
-        
-    if get_fugacity:
-        fugacity_cols = list(report_divs.rx2(&#39;fugacity&#39;))
-        df_fugacity = df_report[fugacity_cols]
-        df_fugacity = df_fugacity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-        
-        # handle headers of fugacity section
-        headers = df_fugacity.columns
-        subheaders = [&#34;log_fugacity&#34;]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_fugacity.columns = multicolumns
-        df_join = df_join.join(df_fugacity)
-        
-    if get_affinity_energy:
-        affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
-        energy_cols = list(report_divs.rx2(&#39;energy&#39;))
-        df_affinity = df_report[affinity_cols]
-        df_energy = df_report[energy_cols]
-        df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-        df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-        # handle headers of df_affinity section
-        headers = df_affinity.columns
-        subheaders = [&#39;cal/mol e-&#39;]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_affinity.columns = multicolumns
-
-        # handle headers of df_energy section
-        headers = df_energy.columns
-        subheaders = [&#39;cal/kg.H2O&#39;]*len(headers)
-        multicolumns = pd.MultiIndex.from_arrays(
-            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-        df_energy.columns = multicolumns
-        df_join = df_join.join(df_affinity)
-        df_join = df_join.join(df_energy)
-
-    out_dict = {&#39;sample_data&#39;: {},
-                &#39;report&#39;: df_join,
-                &#39;input&#39;: df_input, &#39;report_divs&#39;: report_divs}
-    
-    if get_mass_contribution:
-        out_dict[&#39;mass_contribution&#39;] = mass_contribution
-
-    sample_data = batch_3o.rx2(&#39;sample_data&#39;)
-
-    # assemble sample data
-    for i, sample in enumerate(sample_data):
-        dict_sample_data = {
-            &#34;filename&#34;: str(sample.rx2(&#39;filename&#39;)[0]),
-            &#34;name&#34;: str(sample.rx2(&#39;name&#39;)[0]),
-            &#34;temperature&#34;: float(sample.rx2(&#39;temperature&#39;)[0]),
-            &#34;pressure&#34;: float(sample.rx2(&#39;pressure&#39;)[0]),
-            &#34;logact_H2O&#34;: float(sample.rx2(&#39;logact_H2O&#39;)[0]),
-            &#34;H2O_density&#34;: float(sample.rx2(&#39;H2O_density&#39;)[0]),
-            &#34;H2O_molality&#34;: float(sample.rx2(&#39;H2O_molality&#39;)[0]),
-            &#34;H2O_log_molality&#34;: float(sample.rx2(&#39;H2O_log_molality&#39;)[0]),
-            }
+        df_join = df_input
 
         if get_aq_dist:
-            sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2(&#39;aq_distribution&#39;))
-            sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-            dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
+            aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
+            df_aq_distribution = df_report[aq_distribution_cols]
+            df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
-        if get_mass_contribution:
-            sample_mass_contribution = mass_contribution[mass_contribution[&#34;sample&#34;] == sample.rx2(&#39;name&#39;)[0]]
-            dict_sample_data.update(
-                {&#34;mass_contribution&#34;: sample_mass_contribution})
+            # create a pH column from H+
+            df_aq_distribution[&#34;pH&#34;] = -df_aq_distribution[&#34;H+&#34;]
+            
+            # handle headers of aq_distribution section
+            headers = df_aq_distribution.columns
+            subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
+            subheaders = subheaders + [&#34;pH&#34;]
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_aq_distribution.columns = multicolumns
+            
+            # ensure final pH column is included in report_divs aq_distribution section
+            aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
+            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+            
+            df_join = df_join.join(df_aq_distribution)
 
         if get_mineral_sat:
-            dict_sample_data.update(
-                {&#34;mineral_sat&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-            # replace sample mineral_sat entry with None if there is no mineral saturation data.
-            if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
-                dict_sample_data[&#39;mineral_sat&#39;] = None
+            mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
+            df_mineral_sat = df_report[mineral_sat_cols]
+            df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+            # handle headers of df_mineral_sat section
+            if mineral_sat_type == &#34;affinity&#34;:
+                mineral_sat_unit = &#34;affinity_kcal&#34;
+            elif mineral_sat_type == &#34;logQoverK&#34;:
+                mineral_sat_unit = &#34;logQ/K&#34;
+            else:
+                raise Exception(
+                    &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
+
+            headers = df_mineral_sat.columns
+            subheaders = [mineral_sat_unit]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_mineral_sat.columns = multicolumns
+            df_join = df_join.join(df_mineral_sat)
 
         if get_redox:
-            dict_sample_data.update(
-                {&#34;redox&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+            redox_cols = list(report_divs.rx2(&#39;redox&#39;))
+            df_redox = df_report[redox_cols]
+            df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+            # handle headers of df_redox section
+            if redox_type == &#34;Eh&#34;:
+                redox_unit = &#34;Eh_volts&#34;
+            elif redox_type == &#34;pe&#34;:
+                redox_unit = &#34;pe&#34;
+            elif redox_type == &#34;logfO2&#34;:
+                redox_unit = &#34;logfO2&#34;
+            elif redox_type == &#34;Ah&#34;:
+                redox_unit = &#34;Ah_kcal&#34;
+            else:
+                raise Exception(
+                    &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+
+            headers = df_redox.columns
+            subheaders = [redox_unit]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_redox.columns = multicolumns
+            df_join = df_join.join(df_redox)
 
         if get_charge_balance:
-            dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
-        
+            charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
+            df_charge_balance = df_report[charge_balance_cols]
+            df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+            # handle headers of df_charge_balance section
+            headers = df_charge_balance.columns
+            subheaders = [&#34;%&#34;]*2 + [&#39;eq/kg.H2O&#39;, &#39;molality&#39;] + \
+                [&#39;eq/kg.H2O&#39;]*4 + [&#39;molality&#39;]
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_charge_balance.columns = multicolumns
+            df_join = df_join.join(df_charge_balance)
+            
         if get_ion_activity_ratios:
-            try:
-                dict_sample_data.update(
-                    {&#34;ion_activity_ratios&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;ion_activity_ratios&#39;))})
-            except:
-                dict_sample_data[&#39;ion_activity_ratios&#39;] = None
-        
+            ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
+            df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
+            df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+            
+            # handle headers of df_ion_activity_ratios section
+            headers = df_ion_activity_ratios.columns
+            subheaders = [&#34;Log ion-H+ activity ratio&#34;]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_ion_activity_ratios.columns = multicolumns
+            df_join = df_join.join(df_ion_activity_ratios)
+            
         if get_fugacity:
-            dict_sample_data.update(
-                {&#34;fugacity&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-            # replace sample fugacity entry with None if there is no fugacity data.
-            if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
-                dict_sample_data[&#39;fugacity&#39;] = None
-            else:
-                dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
-        
+            fugacity_cols = list(report_divs.rx2(&#39;fugacity&#39;))
+            df_fugacity = df_report[fugacity_cols]
+            df_fugacity = df_fugacity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+            
+            # handle headers of fugacity section
+            headers = df_fugacity.columns
+            subheaders = [&#34;log_fugacity&#34;]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_fugacity.columns = multicolumns
+            df_join = df_join.join(df_fugacity)
+            
         if get_affinity_energy:
-            dict_sample_data.update({&#34;affinity_energy_raw&#34;: pandas2ri.ri2py_dataframe(
-                sample.rx2(&#39;affinity_energy_raw&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-            dict_sample_data.update(
-                {&#34;affinity_energy&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+            affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
+            energy_cols = list(report_divs.rx2(&#39;energy&#39;))
+            df_affinity = df_report[affinity_cols]
+            df_energy = df_report[energy_cols]
+            df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+            df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
-        out_dict[&#34;sample_data&#34;].update(
-            {sample_data.names[i]: dict_sample_data})
+            # handle headers of df_affinity section
+            headers = df_affinity.columns
+            subheaders = [&#39;cal/mol e-&#39;]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_affinity.columns = multicolumns
 
-    out_dict.update({&#34;batch_3o&#34;: batch_3o})
-    speciation = Speciation(out_dict)
+            # handle headers of df_energy section
+            headers = df_energy.columns
+            subheaders = [&#39;cal/kg.H2O&#39;]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_energy.columns = multicolumns
+            df_join = df_join.join(df_affinity)
+            df_join = df_join.join(df_energy)
 
-    if report_filename != None:
-        if &#34;.csv&#34; in report_filename[-4:]:
-            out_dict[&#34;report&#34;].to_csv(report_filename)
-        else:
-            out_dict[&#34;report&#34;].to_csv(report_filename+&#34;.csv&#34;)
+        out_dict = {&#39;sample_data&#39;: {},
+                    &#39;report&#39;: df_join,
+                    &#39;input&#39;: df_input, &#39;report_divs&#39;: report_divs}
+        
+        if get_mass_contribution:
+            out_dict[&#39;mass_contribution&#39;] = mass_contribution
 
-    if delete_generated_folders:
-        self._delete_rxn_folders()
-    
-    if self.verbose &gt; 0:
-        print(&#34;Finished!&#34;)
-    
-    return speciation</code></pre>
+        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+
+        # assemble sample data
+        for i, sample in enumerate(sample_data):
+            dict_sample_data = {
+                &#34;filename&#34;: str(sample.rx2(&#39;filename&#39;)[0]),
+                &#34;name&#34;: str(sample.rx2(&#39;name&#39;)[0]),
+                &#34;temperature&#34;: float(sample.rx2(&#39;temperature&#39;)[0]),
+                &#34;pressure&#34;: float(sample.rx2(&#39;pressure&#39;)[0]),
+                &#34;logact_H2O&#34;: float(sample.rx2(&#39;logact_H2O&#39;)[0]),
+                &#34;H2O_density&#34;: float(sample.rx2(&#39;H2O_density&#39;)[0]),
+                &#34;H2O_molality&#34;: float(sample.rx2(&#39;H2O_molality&#39;)[0]),
+                &#34;H2O_log_molality&#34;: float(sample.rx2(&#39;H2O_log_molality&#39;)[0]),
+                }
+
+            if get_aq_dist:
+                sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2(&#39;aq_distribution&#39;))
+                sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+                dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
+
+            if get_mass_contribution:
+                sample_mass_contribution = mass_contribution[mass_contribution[&#34;sample&#34;] == sample.rx2(&#39;name&#39;)[0]]
+                dict_sample_data.update(
+                    {&#34;mass_contribution&#34;: sample_mass_contribution})
+
+            if get_mineral_sat:
+                dict_sample_data.update(
+                    {&#34;mineral_sat&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                # replace sample mineral_sat entry with None if there is no mineral saturation data.
+                if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
+                    dict_sample_data[&#39;mineral_sat&#39;] = None
+
+            if get_redox:
+                dict_sample_data.update(
+                    {&#34;redox&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+
+            if get_charge_balance:
+                dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
+            
+            if get_ion_activity_ratios:
+                try:
+                    dict_sample_data.update(
+                        {&#34;ion_activity_ratios&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;ion_activity_ratios&#39;))})
+                except:
+                    dict_sample_data[&#39;ion_activity_ratios&#39;] = None
+            
+            if get_fugacity:
+                dict_sample_data.update(
+                    {&#34;fugacity&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                # replace sample fugacity entry with None if there is no fugacity data.
+                if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
+                    dict_sample_data[&#39;fugacity&#39;] = None
+                else:
+                    dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
+            
+            if get_affinity_energy:
+                dict_sample_data.update({&#34;affinity_energy_raw&#34;: pandas2ri.ri2py_dataframe(
+                    sample.rx2(&#39;affinity_energy_raw&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                dict_sample_data.update(
+                    {&#34;affinity_energy&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+
+            out_dict[&#34;sample_data&#34;].update(
+                {sample_data.names[i]: dict_sample_data})
+
+        out_dict.update({&#34;batch_3o&#34;: batch_3o})
+        
+        out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
+        
+        speciation = Speciation(out_dict)
+
+        if report_filename != None:
+            if &#34;.csv&#34; in report_filename[-4:]:
+                out_dict[&#34;report&#34;].to_csv(report_filename)
+            else:
+                out_dict[&#34;report&#34;].to_csv(report_filename+&#34;.csv&#34;)
+
+        if delete_generated_folders:
+            self._delete_rxn_folders()
+        
+        if self.verbose &gt; 0:
+            print(&#34;Finished!&#34;)
+        
+        return speciation</code></pre>
 </details>
 </dd>
 </dl>

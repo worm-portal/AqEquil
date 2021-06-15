@@ -1430,7 +1430,7 @@ class AqEquil():
     def speciate(self,
                  input_filename,
                  db="wrm",
-                 redox_flag=0,
+                 redox_flag="logfO2",
                  redox_aux="Fe+3",
                  default_logfO2=-6,
                  exclude=[],
@@ -1515,37 +1515,28 @@ class AqEquil():
             data1 files are already compiled by EQPT, while data0 files will be
             automatically compiled for you if `custom_db` is True.
         
-        redox_flag : int, default 0
-            Values corresponding to redox options in the EQ3/6 v8.0 software.
-            For more information see the 'Redox Option' section of the EQ3/6
-            version 8.0 software user's manual. Set sample redox state with the
-            following options:
+        redox_flag : str, default "O2(g)"
+            Determines which column in the sample input file sets the overall
+            redox state of the samples. Options for redox_flag include 'O2(g)',
+            'pe', 'Eh', 'logfO2', and 'redox aux'. The code will search your
+            sample spreadsheet file (see `filename`) for a column corresponding
+            to the option you chose:
             
-            * -3 for O2(g)
-            * -2 for pe (in pe units)
-            * -1 for Eh (volts)
-            *  0 for logfO2 (log bars), or dissolved O2 (see below)
-            *  1 for defining a redox couple (see `redox_aux`)
-             
-            Note that if you are importing water chemistry data from a
-            spreadsheet, a column must be supplied with data that corresponds to
-            the redox option you chose. The column name is important:
-            
-            * -3 must have a column named: O2(g)
-            * -2 must have a column named: pe
-            * -1 must have a column named: Eh
-            *  0 must have a column named: logfO2
-            *  1 must have a column corresponding to the auxilliary basis species
-              selected to form a redox couple with its linked species (see
-              `redox_aux`). For example, the redox couple Fe+2/Fe+3 would need
-              a column named: Fe+3
+            * 'O2(g)' with a valid subheader for a gas
+            * 'pe' with subheader pe
+            * 'Eh' with subheader volts
+            * 'logfO2' with subheader logfO2
+            * 'redox aux' will search for a column corresponding to the
+              auxilliary basis species selected to form a redox couple with its
+              linked strict basis species (see `redox_aux`). For example, the
+              redox couple Fe+2/Fe+3 would require a column named Fe+3
             
             If an appropriate header or redox data cannot be found to define
             redox state, `default_logfO2` is used to set sample logfO2.
             
             There is a special case where dissolved oxygen can be used to impose
-            sample redox state if `redox_flag` is set to 0 and a column named
-            logfO2 does not appear in the sample data sheet. If there is a
+            sample redox state if `redox_flag` is set to logfO2 and a column named
+            logfO2 does not appear in your sample spreadsheet. If there is a
             column corresponding to dissolved oxygen measurements, logfO2 is
             calculated from the equilibrium reaction O2(aq) = O2(g) at the
             temperature and pressure of the sample using the revised Helgeson-
@@ -1684,6 +1675,20 @@ class AqEquil():
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if redox_flag == "O2(g)" or redox_flag == -3:
+            redox_flag = -3
+        elif redox_flag == "pe" or redox_flag == -2:
+            redox_flag = -2
+        elif redox_flag == "Eh" or redox_flag == -1:
+            redox_flag = -1
+        elif redox_flag == "logfO2" or redox_flag == 0:
+            redox_flag = 0
+        elif redox_flag == "redox aux" or redox_flag == 1:
+            redox_flag = 1
+        else:
+            raise Exception("Unrecognized redox flag. Valid options are 'O2(g)'"
+                            ", 'pe', 'Eh', 'logfO2', 'redox aux'")
+            
         # handle batch_3o naming
         if batch_3o_filename != None:
             if ".rds" in batch_3o_filename[-4:]:
@@ -1705,6 +1710,42 @@ class AqEquil():
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ['EQ36DA'] = os.getcwd()
+            
+            data0_path = "data0." + db
+            
+        else:
+            data0_path = self.eq36da + "/data0." + db
+            
+        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            with open(data0_path) as data0:
+                data0_lines = data0.readlines()
+                start_index = [i+1 for i, s in enumerate(data0_lines) if s == 'temperatures\n']
+                end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel a (adh)\n']
+                db_grids_unformatted = [i.split("pressures")[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                db_grids = [" ".join(i.split()) for i in db_grids_unformatted if i != '']
+                grid_temp = db_grids[0] + " " + db_grids[1]
+                grid_press = db_grids[2] + " " + db_grids[3]
+                grid_temp = grid_temp.split(" ")
+                grid_press = grid_press.split(" ")
+                try:
+                    water_model = data0_lines[1].split("model: ")[1] # extract water model from the second line of data0 file
+                    water_model = water_model.replace("\n", "")
+                except:
+                    water_model = "SUPCRT92"
+#                     print("Water model could not be referenced from {}".format(data0_path)+""
+#                           ". Defaulting to SUPCRT92 water model...")
+                
+                if(water_model not in ["SUPCRT92", "IAPWS95", "DEW"]):
+                    water_model = "SUPCRT92" # the default for EQ3/6
+                    print("Water model given in {}".format(data0_path)+" was not "
+                          "recognized. Defaulting to SUPCRT92 water model...")
+            
+        else: # if a data0 file can't be found, assume default water model, 0-350 C and PSAT
+            water_model = "SUPCRT92"
+            grid_temp = ["0.0100", "50.0000", "100.0000", "150.0000",
+                         "200.0000", "250.0000", "300.0000", "350.0000"]
+            grid_press = ["1.0000", "1.0000", "1.0132", "4.7572",
+                          "15.5365", "39.7365", "85.8378", "165.2113"]
 
         if get_affinity_energy:
             if rxn_filename == None:
@@ -1715,7 +1756,7 @@ class AqEquil():
                 pass
         else:
             rxn_filename = ""
-
+            
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -1726,11 +1767,15 @@ class AqEquil():
                                                  exclude=convert_to_RVector(
                                                      exclude),
                                                  redox_flag=redox_flag,
+                                                 redox_aux=redox_aux,
                                                  default_logfO2=default_logfO2,
                                                  charge_balance_on=charge_balance_on,
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 water_model=water_model,
+                                                 grid_temp=convert_to_RVector(grid_temp),
+                                                 grid_press=convert_to_RVector(grid_press),
                                                  verbose=self.verbose)
 
         for warning in w:
@@ -2022,6 +2067,9 @@ class AqEquil():
                 {sample_data.names[i]: dict_sample_data})
 
         out_dict.update({"batch_3o": batch_3o})
+        
+        out_dict.update({"water_model":water_model, "grid_temp":grid_temp, "grid_press":grid_press})
+        
         speciation = Speciation(out_dict)
 
         if report_filename != None:
@@ -2040,11 +2088,12 @@ class AqEquil():
 
 
     def create_data0(self,
+                     db,
                      filename,
                      filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
-                     db="wrm",
+                     water_model="SUPCRT92",
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -2052,12 +2101,16 @@ class AqEquil():
                      infer_formula_ox=False,
                      generate_template=True,
                      template_name=None,
+                     template_type="strict",
                      verbose=1):
         """
         Create a data0 file from a custom thermodynamic dataset.
         
         Parameters
         ----------
+        db : str
+            Desired three letter code of data0 output.
+            
         filename : str
             Name of csv file containing thermodynamic data in the OBIGT format.
             
@@ -2072,9 +2125,11 @@ class AqEquil():
         suppress_redox : list of str, default []
             Suppress equilibrium between oxidation states of listed elements
             (Cl, H, and O cannot be included).
-        
-        db : str, default "wrm"
-            Desired three letter code of data0 output.
+
+        water_model : str, default "SUPCRT92"
+            This is an experimental feature that is not yet fully supported.
+            Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
+            These models are described here: http://chnosz.net/manual/water.html
 
         exceed_Ttr : bool, default True
             Calculate Gibbs energies of mineral phases and other species
@@ -2098,12 +2153,21 @@ class AqEquil():
         
         generate_template : bool, default True
             Generate a CSV sample input template customized to this data0?
+            Columns include 'Sample', 'Temperature', 'logfO2', and all strict
+            basis species.
         
         template_name : str, optional
             Name of the sample input template file generated. If no name is
             supplied, defaults to 'sample_template_xyz.csv', where 'xyz' is
             the three letter code given to `db`. Ignored if `generate_template`
             is False.
+        
+        template_type : str, either 'strict', 'all basis', or 'all species'
+            Determines which columns are written to the sample template.
+            - 'strict' includes strict basis species
+            - 'all basis' includes strict and auxiliary basis species
+            - 'all species' includes all species in the thermodynamic database
+            Ignored if `generate_template` is False.
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -2122,12 +2186,62 @@ class AqEquil():
         if self.verbose >= 1:
             print("Creating data0.{}...".format(db), flush=True)
         
+        if len(grid_temps) > 8 or len(grid_temps) < 1:
+            raise Exception("'grid_temps' must have eight values.")
+        if isinstance(grid_press, list):
+            if len(grid_press) > 8 or len(grid_press) < 1:
+                raise Exception("'grid_press' must have eight values.")
+        
         if sum([T >= 10000 for T in grid_temps]):
             raise Exception("Grid temperatures must be below 10000 °C.")
         
         if isinstance(grid_press, list):
-            if sum([T >= 10000 for T in grid_temps]):
+            if sum([P >= 10000 for P in grid_press]):
                 raise Exception("Grid pressures must be below 10000 bars.")
+            
+        if water_model == "SUPCRT92":
+            min_T = 0
+            max_T = 2250
+            min_P = 1
+            max_P = 30000
+        elif water_model == "IAPWS95":
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 10000
+        elif water_model == "DEW":
+            min_T = 0
+            max_T = 1000
+            min_P = 1
+            max_P = 60000
+        else:
+            raise Exception("The water model '{}' ".format(water_model)+"is not "
+                            "recognized. Try 'SUPCRT92', 'IAPWS95', or 'DEW'.")
+        
+        # check that T and P are above minimum values
+        if sum([T <= min_T for T in grid_temps]):
+            print("WARNING: one or more temperatures in 'grid_temps' is below "
+                  "or equal to {} °C".format(min_T)+" and is outside the valid "
+                  "temperature range for the {} water model.".format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P < min_P for P in grid_press]):
+                print("WARNING: one or more pressures in 'grid_press' is below "
+                      "{} bar".format(min_P)+", the minimum valid "
+                      "pressure for the {} water model.".format(water_model))
+        
+        # check that T and P are below maximum values
+        if sum([T > max_T for T in grid_temps]):
+            print("WARNING: one or more temperatures in 'grid_temps' is above "
+                  "{} °C".format(max_T)+", the maximum valid "
+                  "temperature for the {} water model.".format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P > max_P for P in grid_press]):
+                print("WARNING: one or more pressures in 'grid_press' is above "
+                      "{} bar".format(max_P)+", the maximum valid "
+                      "pressure for the {} water model.".format(water_model))
+            
+        if water_model != "SUPCRT92":
+            print("WARNING: water models other than SUPCRT92 are not yet fully supported.")
         
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
@@ -2141,6 +2255,9 @@ class AqEquil():
             data0_formula_ox_name = ro.r("NULL")
         if template_name == None:
             template_name = "sample_template_{}.csv".format(db)
+        if template_type not in ['strict', 'all basis', 'all species']:
+            raise Exception("template_type {} ".format(template_type)+"is not"
+                            "recognized. Try 'strict', 'all basis', or 'all species'")
 
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
@@ -2152,6 +2269,7 @@ class AqEquil():
                                    grid_temps=grid_temps,
                                    grid_press=grid_press,
                                    db=db,
+                                   water_model=water_model,
                                    template=template,
                                    exceed_Ttr=exceed_Ttr,
                                    data0_formula_ox_name=data0_formula_ox_name,
@@ -2159,6 +2277,7 @@ class AqEquil():
                                    infer_formula_ox=infer_formula_ox,
                                    generate_template=generate_template,
                                    template_name=template_name,
+                                   template_type=template_type,
                                    verbose=self.verbose)
     
         for warning in w:

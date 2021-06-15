@@ -3,6 +3,7 @@ suppressMessages({
   library(CHNOSZ)
   library(dplyr)
   library(comprehenr)
+  library(stringr)
 })
 
 known_oxstates <- c("H"="+", "O"="-2", "F"="-",
@@ -92,6 +93,15 @@ subcrt_bal <- function(ispecies, coeff){
   }
 }
 
+# function to round up the last digit of a four-digit number
+# e.g., 52.6112 becomes 52.6113.
+# does not work if the last digit is 9... TODO
+# This function is useful for reporting rounded PSAT pressures that keeps water in the liquid phase
+roundup <- function(x, n){
+  endval <- as.numeric(str_sub(format(round(x, n), nsmall = n, scientific=F),start=-1))+1
+  firstvals <- substr(x, start = 1, stop = nchar(format(round(x, n), nsmall = n, scientific=F))-1)
+  return(paste0(firstvals, endval))
+}
 
 # print messages if 'verbose' setting >= vlevel of message.
 vmessage <- function(m, vlevel, verbose){
@@ -114,7 +124,7 @@ fillspace <- function(str, nspaces, spaces_after=TRUE){
 
 # function to specify how many decimals are printed
 # e.g. 12.433 becomes "12.4330" if k=4
-sd <- function(x, k) trimws(format(round(x, k), nsmall=k))
+sd <- function(x, k) trimws(format(round(x, k), nsmall=k, scientific=F))
 
 
 # trims away leading and trailing spaces and condenses multiple spaces between words
@@ -227,7 +237,6 @@ calc_bdot <- function(T){
   return(ifelse(T >= 300, 0, result))
 
 }
-
 
 ################################ get_dissrxn
 
@@ -495,6 +504,7 @@ create_data0 <- function(thermo_df,
                          grid_temps,
                          grid_press,
                          db,
+                         water_model,
                          template,
                          dissrxns,
                          db_idx,
@@ -565,26 +575,6 @@ create_data0 <- function(thermo_df,
 
   add_obigt_df <- thermo_df
 
-  # check if temperature grid has the necessary 8 entries
-  if(length(grid_temps) != 8){
-      vmessage("Error: temperature grid does not have 8 entries.", 1, verbose)
-      grid_temps <- c(0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000)
-      vmessage("Resorting to using a temperature grid of:", 1, verbose)
-      vmessage(paste0(grid_temps), 1, verbose)
-      grid_press <- "Psat" # "Psat" for liquid-vapor saturation curve from temperature grid
-      vmessage("and Psat pressure.", 1, verbose)
-  }
-
-  # round grid temperatures to four decimal places
-  grid_temps <- round(grid_temps, 4)
-
-  # calculate PSAT pressure if specified by user or if pressure grid
-  # has a number of values that does not equal temperature grid length.
-  if(tolower(grid_press) == "psat" | length(grid_press) != length(grid_temps)){
-      vmessage("Calculating pressure grid along liquid-vapor saturation curve...", 2, verbose)
-      grid_press <- water("Psat", T=grid_temps + 273.15)[[1]]
-  }
-
   # remove raw line indicators '\r' in data0.min template
   data0_template <- gsub("\r", "", template)
       
@@ -625,7 +615,7 @@ create_data0 <- function(thermo_df,
     if("Z" %in% names(elem)){
       charge <- elem["Z"]
       elem <- elem[which(names(elem) != "Z")]
-      formatted_charge <- format(round(charge, 1), nsmall = 1)
+      formatted_charge <- format(round(charge, 1), nsmall = 1, scientific=F)
     } else {
       formatted_charge <- "0.0"
     }
@@ -738,7 +728,7 @@ create_data0 <- function(thermo_df,
     spec_list <- c()
     for(i in 1:n_species){
       # get species value and name
-      species_val <- format(round(species_val_list[i], 4), nsmall=4)
+      species_val <- format(round(species_val_list[i], 4), nsmall=4, scientific=F)
       species_name <- species_name_list[i]
       # conditional formatting based on position
       if(i == 1 | i %% 2 != 0){ # first entry of a line
@@ -842,7 +832,7 @@ create_data0 <- function(thermo_df,
     if("Z" %in% names(elem_list_basis)){
       charge_basis <- elem_list_basis["Z"]
       elem_list_basis <- elem_list_basis[which(names(elem_list_basis) != "Z")]
-      formatted_charge_basis <- format(round(charge_basis, 1), nsmall = 1)
+      formatted_charge_basis <- format(round(charge_basis, 1), nsmall = 1, scientific=F)
     } else {
       formatted_charge_basis <- "0.0"
     }
@@ -850,7 +840,7 @@ create_data0 <- function(thermo_df,
     # begin formatting for data0 entry
     n_elem_basis <- length(elem_list_basis)
     elem_list_basis_names <- names(elem_list_basis)
-    elem_list_basis_coefs <- as.character(format(round(elem_list_basis, 4), nsmall = 4))
+    elem_list_basis_coefs <- as.character(format(round(elem_list_basis, 4), nsmall = 4, scientific=F))
     elem_list_basis_formatted <- ""
               
     for(i in 1:length(elem_list_basis_names)){
@@ -888,7 +878,7 @@ create_data0 <- function(thermo_df,
   # loop through elements that need to be added to the data0 template
   for(elem in elem_addme){
       
-    weight <- trimws(format(round(mass(elem), 5), nsmall=5))
+    weight <- trimws(format(round(mass(elem), 5), nsmall=5, scientific=F))
 
     # format a line for the new element
     elem_temp_lines <- c(elem_temp_lines,
@@ -945,7 +935,7 @@ create_data0 <- function(thermo_df,
       for(i in 1:n_species){
 
         # get species value and name
-        species_val <- format(round(species_val_list[i], 4), nsmall = 4)
+        species_val <- format(round(species_val_list[i], 4), nsmall = 4, scientific=F)
         species_name <- species_name_list[i]
 
         # conditional formatting based on position
@@ -1035,7 +1025,7 @@ create_data0 <- function(thermo_df,
       
       if(add_obigt_df[i, "state"] == "aq"){
         spec_name <- names(azero_vec)[i]
-        spec_azero <- as.character(format(round(azero_vec[i], 4), nsmall = 4))
+        spec_azero <- as.character(format(round(azero_vec[i], 4), nsmall = 4, scientific=F))
         neutral_ion_type <- neutral_ion_type_vec[i]
         bdot_entry <- paste(spec_name,
               paste(rep(" ", 36-(nchar(spec_name) + nchar(spec_azero))), collapse=''),
@@ -1058,12 +1048,12 @@ create_data0 <- function(thermo_df,
   B_DH_grid <- unlist(water("B_DH", T=273.15+grid_temps, P=grid_press)*10^-8)
 
   # format grid values
-  grid_temps_f <- as.character(format(round(grid_temps, 4), nsmall = 4))
-  grid_press_f <- as.character(format(round(grid_press, 4), nsmall = 4))
-  A_DH_grid_f <- as.character(format(round(A_DH_grid, 4), nsmall = 4))
-  B_DH_grid_f <- as.character(format(round(B_DH_grid, 4), nsmall = 4))
+  grid_temps_f <- as.character(format(round(grid_temps, 4), nsmall = 4, scientific=F))
+  grid_press_f <- as.character(format(round(grid_press, 4), nsmall = 4, scientific=F))
+  A_DH_grid_f <- as.character(format(round(A_DH_grid, 4), nsmall = 4, scientific=F))
+  B_DH_grid_f <- as.character(format(round(B_DH_grid, 4), nsmall = 4, scientific=F))
 
-  bdot_grid_f <- as.character(format(round(calc_bdot(grid_temps), 4), nsmall = 4))
+  bdot_grid_f <- as.character(format(round(calc_bdot(grid_temps), 4), nsmall = 4, scientific=F))
 
 
   # cco2 (coefficients for the drummond (1981) polynomial)
@@ -1117,8 +1107,8 @@ create_data0 <- function(thermo_df,
   temp_min_max_insertlines <- "\nTemperature limits \\(degC\\)\n.*\ntemperatures\n"
   t_min <- min(grid_temps)
   t_max <- max(grid_temps)
-  t_min_f <- as.character(format(round(t_min, 4), nsmall = 4))
-  t_max_f <- as.character(format(round(t_max, 4), nsmall = 4))
+  t_min_f <- as.character(format(round(t_min, 4), nsmall = 4, scientific=F))
+  t_max_f <- as.character(format(round(t_max, 4), nsmall = 4, scientific=F))
   t_min_max <- paste0(paste(rep(" ", 10-nchar(t_min_f)), collapse=""), t_min_f)
   t_min_max <- paste0(t_min_max, paste(rep(" ", 10-nchar(t_max_f)), collapse=""), t_max_f)
   t_min_max <- paste0("     ", t_min_max)
@@ -1148,9 +1138,9 @@ create_data0 <- function(thermo_df,
   data0_template <- sub(logkgrid_insertlines, paste0("\nlog k for eh reaction\n", logkgrid, logkgrid_end_insert), data0_template)
 
   # modify the data0 header lines
-  desc <- "data0.%s"
+  desc <- "data0.%s\nWater model: %s"
   min_desc <- "data0.min\nminimal working data0 file"
-  data0_template <- sub(min_desc, sprintf(desc, db), data0_template)
+  data0_template <- sub(min_desc, sprintf(desc, db, water_model), data0_template)
   vmessage("Finished.", 2, verbose)
   write(data0_template, paste0("data0.", db))
 }
@@ -1163,6 +1153,7 @@ main_create_data0 <- function(filename,
                               grid_temps,
                               grid_press,
                               db,
+                              water_model,
                               template,
                               exceed_Ttr,
                               data0_formula_ox_name,
@@ -1170,8 +1161,64 @@ main_create_data0 <- function(filename,
                               infer_formula_ox,
                               generate_template,
                               template_name,
+                              template_type,
                               verbose){
   
+  # set water model
+  suppressMessages(water(water_model))
+  
+  # round grid temperatures to four decimal places
+  grid_temps <- round(grid_temps, 4)
+    
+  # check that water is a liquid at each T-P point
+  if(length(grid_press) > 1){
+    TP_grid_errors <- c()
+    for(i in 1:length(grid_temps)){
+      psat_press <- water("Psat", T=grid_temps[i]+273.15)[[1]]
+      if(grid_press[i] < psat_press){
+        TP_grid_errors <- c(TP_grid_errors,
+                            paste("\n", grid_press[i], "bar is below liquid-vapor",
+                                  "saturation pressure", roundup(psat_press, 4),
+                                  "bar at", grid_temps[i], "degrees C."))
+      }
+    }
+    if(length(TP_grid_errors) > 0){
+      stop(paste(paste(TP_grid_errors, collapse="\n"),
+                 "\n\nIncrease the pressure at these temperature points in 'grid_P'",
+                 "to keep water in a liquid state."))
+    }
+  }
+    
+  # calculate PSAT pressure if specified by user or if pressure grid
+  # has a number of values that does not equal temperature grid length.
+  if(tolower(grid_press) == "psat"){
+      vmessage("Calculating pressure grid along liquid-vapor saturation curve...", 2, verbose)
+      grid_press <- water("Psat", T=grid_temps+273.15)[[1]]
+  }
+    
+  # check that pressure polynomials can be calculated with temperature grid
+  grid_temps <- as.numeric(grid_temps)
+  grid_press <- as.numeric(grid_press)
+
+  # third order polynomial for the first T-P range
+  poly_coeffs_1 <- lm(grid_press[1:4] ~ poly(grid_temps[1:4], 3, raw=T))$coefficients
+  
+  # fourth order polynomial for the second T-P range
+  poly_coeffs_2 <- lm(grid_press[4:8] ~ poly(grid_temps[4:8], 4, raw=T))$coefficients
+  
+  for(T in grid_temps[1:4]){
+    if(is.na(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)){
+      stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+                   for the first four values of the temperature grid: [", paste(grid_temps[1:4], collapse=", "), "]."))
+    }
+  }
+  for(T in grid_temps[4:8]){
+    if(is.na(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3)){
+      stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+                   for the last five values of the temperature grid: [", paste(grid_temps[4:8], collapse=", "), "]."))
+    }
+  }
+    
   # specify molecules to balance H, O, and charge (Z)
   HOZ_balancers <- c("H+", "O2(g)", "H2O") # might be dataset-specific (e.g., "O2(g)")
   
@@ -1585,6 +1632,7 @@ main_create_data0 <- function(filename,
                grid_temps,
                grid_press,
                db,
+               water_model,
                template,
                dissrxns,
                db_idx,
@@ -1594,9 +1642,21 @@ main_create_data0 <- function(filename,
 
   if(generate_template){
     # create a template for sample input
-    input_template <- data.frame(Sample=c("id"), `H+`=c("pH"), Temperature=c("degC"), O2=c("Molality"), check.names=F)
-    for(basis in dissrxns[["basis_list"]]){
-      input_template[[basis]] <- c("Molality")
+      
+    if(template_type == 'strict'){
+      species_names <- thermo_df %>% filter(tag == "basis")
+    }else if(template_type == 'all basis'){
+      species_names <- thermo_df %>% filter(tag == "basis" | tag == "aux")
+    }else{
+      species_names <- thermo_df
+    }
+
+    species_names <- sort(unlist(species_names[, "name"]))
+    input_template <- data.frame(Sample=c("id"), `H+`=c("pH"), Temperature=c("degC"), logfO2=c("logfO2"), check.names=F)
+    for(species in species_names){
+      if(!(species %in% c("O2(g)", "H2O", "water"))){
+        input_template[[species]] <- c("Molality")
+      }
     }
     write.csv(input_template, template_name, row.names=F)
   }
