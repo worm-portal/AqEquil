@@ -512,6 +512,7 @@ preprocess <- function(input_filename,
 
       eq3.temperature <- sprintf("%.5E", temp_degC[row])
 
+      if(as.numeric(pressure_bar) > 1){
       eq3.header3 <-              paste("| (tempc)                                |",
     "|------------------------------------------------------------------------------|",
     "|Pressure option (jpres3):                                                     |",
@@ -520,7 +521,17 @@ preprocess <- function(input_filename,
     "|  [ ] ( 2) Value (bars) | 1.00000E+00| (press)                                |",
     "|------------------------------------------------------------------------------|",
     "|Density (g/cm3)         | ", sep="\n")
-
+     }else{
+      eq3.header3 <-              paste("| (tempc)                                |",
+    "|------------------------------------------------------------------------------|",
+    "|Pressure option (jpres3):                                                     |",
+    "|  [ ] ( 0) Data file reference curve value                                    |",
+    "|  [ ] ( 1) 1.013-bar/steam-saturation curve value                             |",
+    "|  [x] ( 2) Value (bars) | 1.00000E+00| (press)                                |",
+    "|------------------------------------------------------------------------------|",
+    "|Density (g/cm3)         | ", sep="\n")
+     }
+        
       eq3.density <- sprintf("%.5E", df[row, "rho"])
 
       eq3.header4 <-               paste("| (rho)                                  |",
