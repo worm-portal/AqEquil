@@ -213,6 +213,7 @@ class Speciation(object):
             &#34;Log ion-H+ activity ratio&#34; : (&#34;Log ion-H+ activity ratio&#34;, &#34;&#34;),
             &#34;log_fugacity&#34; : (&#34;log fugacity&#34;, &#34;log(bar)&#34;),
             &#34;fugacity&#34; : (&#34;fugacity&#34;, &#34;bar&#34;),
+            &#34;bar&#34; : (&#34;&#34;, &#34;bar&#34;),
         }
         
         out = unit_name_dict.get(subheader)
@@ -1875,8 +1876,15 @@ class AqEquil():
                 df_input_processed_names=df_input_processed_names,
                 verbose=self.verbose,
             )
+
         for warning in w:
             print(warning.message)
+        
+        if len(batch_3o) == 0:
+            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+                            &#34;likely because errors occurred during &#34;
+                            &#34;the speciation calculation.&#34;)
+            return
         
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
@@ -1888,11 +1896,11 @@ class AqEquil():
         df_input = df_report[input_cols].copy()
         
         # add a pressure column to df_input
-        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        df_input[&#34;Pressure_bar&#34;] = pd.Series(dtype=&#39;float&#39;)
         sample_data = batch_3o.rx2(&#39;sample_data&#39;)
         for sample in sample_data:
-            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
             
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -3472,8 +3480,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 df_input_processed_names=df_input_processed_names,
                 verbose=self.verbose,
             )
+
         for warning in w:
             print(warning.message)
+        
+        if len(batch_3o) == 0:
+            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+                            &#34;likely because errors occurred during &#34;
+                            &#34;the speciation calculation.&#34;)
+            return
         
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
@@ -3485,11 +3500,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         df_input = df_report[input_cols].copy()
         
         # add a pressure column to df_input
-        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        df_input[&#34;Pressure_bar&#34;] = pd.Series(dtype=&#39;float&#39;)
         sample_data = batch_3o.rx2(&#39;sample_data&#39;)
         for sample in sample_data:
-            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
             
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -5080,8 +5095,15 @@ calculation is complete?</dd>
                 df_input_processed_names=df_input_processed_names,
                 verbose=self.verbose,
             )
+
         for warning in w:
             print(warning.message)
+        
+        if len(batch_3o) == 0:
+            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+                            &#34;likely because errors occurred during &#34;
+                            &#34;the speciation calculation.&#34;)
+            return
         
         if get_mass_contribution:
             mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
@@ -5093,11 +5115,11 @@ calculation is complete?</dd>
         df_input = df_report[input_cols].copy()
         
         # add a pressure column to df_input
-        df_input[&#34;Pressure&#34;] = pd.Series(dtype=&#39;float&#39;)
+        df_input[&#34;Pressure_bar&#34;] = pd.Series(dtype=&#39;float&#39;)
         sample_data = batch_3o.rx2(&#39;sample_data&#39;)
         for sample in sample_data:
-            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure&#34;])
+            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
             
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
@@ -5473,6 +5495,7 @@ speciation report.</dd>
             &#34;Log ion-H+ activity ratio&#34; : (&#34;Log ion-H+ activity ratio&#34;, &#34;&#34;),
             &#34;log_fugacity&#34; : (&#34;log fugacity&#34;, &#34;log(bar)&#34;),
             &#34;fugacity&#34; : (&#34;fugacity&#34;, &#34;bar&#34;),
+            &#34;bar&#34; : (&#34;&#34;, &#34;bar&#34;),
         }
         
         out = unit_name_dict.get(subheader)

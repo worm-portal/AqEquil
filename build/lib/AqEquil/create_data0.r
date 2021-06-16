@@ -588,7 +588,7 @@ create_data0 <- function(thermo_df,
     entry <- suppressMessages(info(idx))
     name <- entry$name
 
-    if (name == "O2(g)" | name == "O2"){
+    if (name == "O2(g)"){
       vmessage("O2(g) is included as a basis species by default. Moving to the next species...", 2, verbose)
       next
     }
@@ -802,7 +802,20 @@ create_data0 <- function(thermo_df,
       
     # append to aq, solid, gas, or liq portion of data0.min template
     output <- sprintf(template, formatted_name, date, keys, formatted_charge, volume, n_elements, element_list, n_species, species_list, name, logK_list)
-    data0_template <- sub(insertline_regex, paste0(output, "\n", insertline), data0_template)
+    
+    if(name == "O2"){
+      O2_entry <- "\\+-+\nO2\n.*=O2\n         2.6560    3.0310    3.1080    3.0350\n         2.8740    2.6490    2.3540    1.8830"
+      data0_template <- sub(O2_entry, paste0(output), data0_template)
+    }else if(name == "OH-"){
+      OH_entry <- "\\+-+\nOH-\n.*=OH-\n        14.9400   13.2710   12.2550   11.6310\n        11.2840   11.1670   11.3000   11.8280"
+      data0_template <- sub(OH_entry, paste0(output), data0_template)
+    }else if(name == "H2O(g)"){
+      steam_entry <- "\\+-+\nH2O\\(g\\)\n.*=H2O\\(g\\)\n         2.2990    0.9950   -0.0060   -0.6630\n        -1.1560   -1.5340   -1.8290   -2.0630"
+      data0_template <- sub(steam_entry, paste0(output), data0_template)
+    }else{
+      data0_template <- sub(insertline_regex, paste0(output, "\n", insertline), data0_template)
+    }
+      
     vmessage(paste0("'", name, "' processed successfully."), 2, verbose)
   }
     
@@ -1019,7 +1032,7 @@ create_data0 <- function(thermo_df,
   # format basis and non-basis species for bdot parameter section
   bdot_formatted <- c()
   for(i in 1:length(azero_vec)){
-      if(add_obigt_df[i, "name"] == "Cl-" | add_obigt_df[i, "name"] == "O2"){
+      if(add_obigt_df[i, "name"] == "Cl-" | add_obigt_df[i, "name"] == "O2" | add_obigt_df[i, "name"] == "OH-"){
         next
       }
       
@@ -1174,8 +1187,10 @@ main_create_data0 <- function(filename,
   if(length(grid_press) > 1){
     TP_grid_errors <- c()
     for(i in 1:length(grid_temps)){
-      psat_press <- water("Psat", T=grid_temps[i]+273.15)[[1]]
-      if(grid_press[i] < psat_press){
+      psat_press <- suppressMessages(water("Psat", T=grid_temps[i]+273.15)[[1]])
+      if(is.na(psat_press)){
+        #pass
+      }else if(grid_press[i] < psat_press){
         TP_grid_errors <- c(TP_grid_errors,
                             paste("\n", grid_press[i], "bar is below liquid-vapor",
                                   "saturation pressure", roundup(psat_press, 4),

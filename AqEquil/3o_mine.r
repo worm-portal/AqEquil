@@ -800,13 +800,13 @@ main_3o_mine <- function(files_3o,
                            not_limiting=not_limiting,
                            mass_contribution_other=mass_contribution_other,
                            verbose=verbose)
-
+        
       # if this file could be processed, add its data to the batch_3o object
       if(length(sample_3o)>1){
         batch_3o[["sample_data"]][[sample_3o[["name"]]]] <- sample_3o
       }
     }
-
+    
     setwd("../")
     
     if(verbose > 1){
@@ -815,7 +815,7 @@ main_3o_mine <- function(files_3o,
     
     # compile aqueous contribution data into a single melted dataframe and
     # append it to the batch_3o object.
-    if(get_mass_contribution){
+    if(get_mass_contribution && length(batch_3o)>0){
       if(verbose > 1){
         print("Now processing mass contribution data...")
       }
@@ -826,28 +826,33 @@ main_3o_mine <- function(files_3o,
         print("Finished processing mass contribution data...")
       }
     }
-
-    # create a report summarizing 3o data from all samples
-    report_list <- compile_report(data=batch_3o[["sample_data"]],
-                             csv_filename=csv_filename,
-                             aq_dist_type,
-                             mineral_sat_type,
-                             redox_type,
-                             get_aq_dist,
-                             get_mineral_sat,
-                             get_redox,
-                             get_charge_balance,
-                             get_ion_activity_ratios,
-                             get_fugacity,
-                             get_affinity_energy,
-                             df_input_processed,
-                             df_input_processed_names)
     
-    # add the report to the batch_3o object
-    report <- report_list[["report"]]
-    batch_3o[["report"]] <- report
-    batch_3o[["report_divs"]] <- report_list[["divs"]]
+    if(length(batch_3o)>0){
+      # create a report summarizing 3o data from all samples
+      report_list <- compile_report(data=batch_3o[["sample_data"]],
+                                    csv_filename=csv_filename,
+                                    aq_dist_type,
+                                    mineral_sat_type,
+                                    redox_type,
+                                    get_aq_dist,
+                                    get_mineral_sat,
+                                    get_redox,
+                                    get_charge_balance,
+                                    get_ion_activity_ratios,
+                                    get_fugacity,
+                                    get_affinity_energy,
+                                    df_input_processed,
+                                    df_input_processed_names)
+    
 
+      # add the report to the batch_3o object
+      report <- report_list[["report"]]
+      batch_3o[["report"]] <- report
+      batch_3o[["report_divs"]] <- report_list[["divs"]]
+    }else{
+      return(list())
+    }
+    
     # store user input file data
     batch_3o[["input"]] <- read.csv(input_filename, check.names=FALSE, stringsAsFactors=FALSE)
 
@@ -855,7 +860,7 @@ main_3o_mine <- function(files_3o,
     if(!is.null(batch_3o_filename)){
       saveRDS(batch_3o, file=batch_3o_filename)
     }
-
+        
     time_elapsed <- Sys.time() - start_time
     if(verbose > 1){
       print(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
