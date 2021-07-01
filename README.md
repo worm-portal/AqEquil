@@ -18,7 +18,7 @@ AqEquil has only been tested with Ubuntu LTS 20.04.
 
 This installation requires the Linux version of EQ3/6 v8.0a, which can downloaded [here](https://www-gs.llnl.gov/energy-homeland-security/geochemistry). Installation instructions are provided there.
 
-AqEquil must be installed into an environment with an R installation. See these instructions for installing R with Anaconda.
+AqEquil must be installed into an environment with an R installation. See [these instructions](https://docs.anaconda.com/anaconda/user-guide/tasks/using-r-language/) for installing R with Anaconda.
 
 Additionally, the CHNOSZ package must be installed in R (see instructions below).
 

@@ -44,19 +44,23 @@ mine_3o <- function(this_file,
   this_name <- trimspace(isolate_block(extractme, begin_str="^.*\\|Sample:\\s+", end_str="\\|\\n\\|.*$"))
 
   if(verbose > 1){
-    print(paste0("Processing EQ3 output for ", this_name))
+    writeLines(paste0("Processing EQ3 output for ", this_name))
   }
 
   # check if file experienced errors. If so, skip processing the file:
   if (grepl("Normal exit", extractme) == FALSE | grepl("\\* Error", extractme)){
     if(verbose > 0){
-      print(paste0("Could not process sample ", this_name, " because it experienced errors during speciation."))
+      writeLines(paste0("\nSample ", this_name, " experienced errors during speciation:"))
+
+      output_error <- str_extract_all(extractme, regex("\\* Error.*?\n\n", dotall=T))
+        
+      output_error <- lapply(output_error, function(x) gsub("\n", " ", x))
+      output_error <- lapply(output_error, str_squish)
+        
+      for(i in 1:length(output_error)){
+        writeLines(output_error[[i]])
+      }
       
-      output_error <- sub("^.*?\\* Error", "", extractme)
-      output_error <- gsub("No further input found.*$", "", output_error)
-      output_error <- gsub("\\n", " ", output_error)
-      output_error <- gsub("\\s+", " ", output_error)
-      print(paste("The output file for ", this_name, " reports error(s): ", output_error))
     }
     return(list())
   }
@@ -616,7 +620,7 @@ melt_mass_contribution <- function(batch_3o, other=F, verbose=1){
   # loop through each sample and basis species
   for(sample in names(mass_contributions)){
     if(verbose > 1){
-      print(paste0("Processing mass contribution of basis species in ", sample, "..."))
+      writeLines(paste0("Processing mass contribution of basis species in ", sample, "..."))
     }
     for(basis in names(mass_contributions[[sample]])){
       df <- mass_contributions[[sample]][[basis]]
@@ -781,7 +785,7 @@ main_3o_mine <- function(files_3o,
     batch_3o <- list()
     
     if(verbose > 1){
-      print("Now processing EQ3 output files...")
+      writeLines("Now processing EQ3 output files...")
     }
 
     # process each .3o file
@@ -810,20 +814,20 @@ main_3o_mine <- function(files_3o,
     setwd("../")
     
     if(verbose > 1){
-      print("Finished processing EQ3 output files...")
+      writeLines("Finished processing EQ3 output files...")
     }
     
     # compile aqueous contribution data into a single melted dataframe and
     # append it to the batch_3o object.
     if(get_mass_contribution && length(batch_3o)>0){
       if(verbose > 1){
-        print("Now processing mass contribution data...")
+        writeLines("Now processing mass contribution data...")
       }
       batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o,
                                                                 other=mass_contribution_other,
                                                                 verbose=verbose)
       if(verbose > 1){
-        print("Finished processing mass contribution data...")
+        writeLines("Finished processing mass contribution data...")
       }
     }
     
@@ -863,7 +867,7 @@ main_3o_mine <- function(files_3o,
         
     time_elapsed <- Sys.time() - start_time
     if(verbose > 1){
-      print(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
+      writeLines(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
     }
     
     return(batch_3o)

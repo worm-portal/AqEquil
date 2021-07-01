@@ -543,8 +543,8 @@ create_data0 <- function(thermo_df,
       }else if(thermo_df[i, "tag"] == "basis"){
         # pass
       }else{
-        print("Error: dissociation reaction could not be generated for:")
-        print(thermo_df[i, "name"])
+        message("Error: dissociation reaction could not be generated for:")
+        message(thermo_df[i, "name"])
       }
     
       if(thermo_df[i, "tag"] != "basis"){

@@ -1473,6 +1473,7 @@ class AqEquil():
                  default_logfO2=-6,
                  exclude=[],
                  suppress=[],
+                 alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
                  verbose=1,
@@ -1601,6 +1602,20 @@ class AqEquil():
         suppress : list of str, default []
             Names of chemical species that will be prevented from forming in the
             speciation calculation.
+        
+        alter_options : list, default []
+            A list of lists, e.g.,
+            [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
+            The first element of each interior list is the name of a species.
+            The second element is an option to alter the species, and can be:
+            - Suppress : suppress the formation of the species. (See also:
+            `suppress`).
+            - Replace : replace the species&#39; log K value with a desired value.
+            - AugmentLogK : augment the value of the species&#39; log K.
+            - AugmentG : augment the Gibbs free energy of the species by a
+            desired value, in kcal/mol.
+            The third element is a numeric value corresponding to the chosen
+            option. A third element is not required for Suppress.
             
         charge_balance_on : str, default &#34;none&#34;
             If &#34;none&#34;, will not balance electrical charge between cations and
@@ -1794,6 +1809,18 @@ class AqEquil():
                 pass
         else:
             rxn_filename = &#34;&#34;
+        
+        # handle Alter/Suppress options
+        # e.g. [[&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1], [&#34;CaOH+&#34;, &#34;Suppress&#34;]]
+        
+        alter_options_dict = {}
+        if len(alter_options) &gt; 0:
+            for ao in alter_options:
+                key = ao[0]
+                if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
+                    ao += [&#34;0&#34;]
+                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+        alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
@@ -1811,6 +1838,7 @@ class AqEquil():
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 alter_options=alter_options,
                                                  water_model=water_model,
                                                  grid_temp=convert_to_RVector(grid_temp),
                                                  grid_press=convert_to_RVector(grid_press),
@@ -3077,6 +3105,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  default_logfO2=-6,
                  exclude=[],
                  suppress=[],
+                 alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
                  verbose=1,
@@ -3205,6 +3234,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         suppress : list of str, default []
             Names of chemical species that will be prevented from forming in the
             speciation calculation.
+        
+        alter_options : list, default []
+            A list of lists, e.g.,
+            [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
+            The first element of each interior list is the name of a species.
+            The second element is an option to alter the species, and can be:
+            - Suppress : suppress the formation of the species. (See also:
+            `suppress`).
+            - Replace : replace the species&#39; log K value with a desired value.
+            - AugmentLogK : augment the value of the species&#39; log K.
+            - AugmentG : augment the Gibbs free energy of the species by a
+            desired value, in kcal/mol.
+            The third element is a numeric value corresponding to the chosen
+            option. A third element is not required for Suppress.
             
         charge_balance_on : str, default &#34;none&#34;
             If &#34;none&#34;, will not balance electrical charge between cations and
@@ -3398,6 +3441,18 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 pass
         else:
             rxn_filename = &#34;&#34;
+        
+        # handle Alter/Suppress options
+        # e.g. [[&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1], [&#34;CaOH+&#34;, &#34;Suppress&#34;]]
+        
+        alter_options_dict = {}
+        if len(alter_options) &gt; 0:
+            for ao in alter_options:
+                key = ao[0]
+                if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
+                    ao += [&#34;0&#34;]
+                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+        alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
@@ -3415,6 +3470,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 alter_options=alter_options,
                                                  water_model=water_model,
                                                  grid_temp=convert_to_RVector(grid_temp),
                                                  grid_press=convert_to_RVector(grid_press),
@@ -4491,7 +4547,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -4598,6 +4654,19 @@ containing sample metatadata, such as "Year" and "Location".</dd>
 <dt><strong><code>suppress</code></strong> :&ensp;<code>list</code> of <code>str</code>, default <code>[]</code></dt>
 <dd>Names of chemical species that will be prevented from forming in the
 speciation calculation.</dd>
+<dt><strong><code>alter_options</code></strong> :&ensp;<code>list</code>, default <code>[]</code></dt>
+<dd>A list of lists, e.g.,
+[["CaOH+", "Suppress"], ["CaCl+", "AugmentLogK", -1]]
+The first element of each interior list is the name of a species.
+The second element is an option to alter the species, and can be:
+- Suppress : suppress the formation of the species. (See also:
+<code>suppress</code>).
+- Replace : replace the species' log K value with a desired value.
+- AugmentLogK : augment the value of the species' log K.
+- AugmentG : augment the Gibbs free energy of the species by a
+desired value, in kcal/mol.
+The third element is a numeric value corresponding to the chosen
+option. A third element is not required for Suppress.</dd>
 <dt><strong><code>charge_balance_on</code></strong> :&ensp;<code>str</code>, default <code>"none"</code></dt>
 <dd>If "none", will not balance electrical charge between cations and
 anions in the speciation calculation. If a name of a species is
@@ -4692,6 +4761,7 @@ calculation is complete?</dd>
                  default_logfO2=-6,
                  exclude=[],
                  suppress=[],
+                 alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
                  verbose=1,
@@ -4820,6 +4890,20 @@ calculation is complete?</dd>
         suppress : list of str, default []
             Names of chemical species that will be prevented from forming in the
             speciation calculation.
+        
+        alter_options : list, default []
+            A list of lists, e.g.,
+            [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
+            The first element of each interior list is the name of a species.
+            The second element is an option to alter the species, and can be:
+            - Suppress : suppress the formation of the species. (See also:
+            `suppress`).
+            - Replace : replace the species&#39; log K value with a desired value.
+            - AugmentLogK : augment the value of the species&#39; log K.
+            - AugmentG : augment the Gibbs free energy of the species by a
+            desired value, in kcal/mol.
+            The third element is a numeric value corresponding to the chosen
+            option. A third element is not required for Suppress.
             
         charge_balance_on : str, default &#34;none&#34;
             If &#34;none&#34;, will not balance electrical charge between cations and
@@ -5013,6 +5097,18 @@ calculation is complete?</dd>
                 pass
         else:
             rxn_filename = &#34;&#34;
+        
+        # handle Alter/Suppress options
+        # e.g. [[&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1], [&#34;CaOH+&#34;, &#34;Suppress&#34;]]
+        
+        alter_options_dict = {}
+        if len(alter_options) &gt; 0:
+            for ao in alter_options:
+                key = ao[0]
+                if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
+                    ao += [&#34;0&#34;]
+                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+        alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
@@ -5030,6 +5126,7 @@ calculation is complete?</dd>
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 alter_options=alter_options,
                                                  water_model=water_model,
                                                  grid_temp=convert_to_RVector(grid_temp),
                                                  grid_press=convert_to_RVector(grid_press),

@@ -1,10 +1,3 @@
-# preprocess_for_EQ3 -----------------------------------------------------------
-# Summary: import, clean, and generate a batch of EQ3 input files from a
-#   user-supplied csv table of samples.
-# Author: Grayson Boyer (gmboyer@asu.edu)
-# Last updated March 17, 2021
-
-
 suppressMessages({
   library(CHNOSZ)
   library(dplyr)
@@ -69,6 +62,7 @@ preprocess <- function(input_filename,
                        charge_balance_on,
                        suppress_missing,
                        suppress,
+                       alter_options,
                        water_model,
                        grid_temps,
                        grid_press,
@@ -648,7 +642,7 @@ preprocess <- function(input_filename,
 
       aqueous_block <- paste(aqueous_lines, collapse="")
 
-      eq3.ender <- paste("\n|------------------------------------------------------------------------------|",
+      eq3.ender1 <- paste("\n|------------------------------------------------------------------------------|",
     "* Valid jflag strings (ujf3(jflgi(n))) are:                                    *",
     "*    Suppressed          Molality            Molarity                          *",
     "*    mg/L                mg/kg.sol           Alk., eq/kg.H2O                   *",
@@ -689,9 +683,26 @@ preprocess <- function(input_filename,
     "|------------------------------------------------------------------------------|",
     "|Species                                         |Option          |Alter value |",
     "| (uxmod(n))                                     |(ukxm(kxmod(n)))| (xlkmod(n))|",
-    "|------------------------------------------------------------------------------|",
-    "|None                                            |None            | 0.00000E+00|",
-    "|------------------------------------------------------------------------------|",
+    "|------------------------------------------------------------------------------|", sep="\n")
+        
+alter_block <- c()
+if(length(alter_options) > 0){
+  for(i in 1:length(alter_options)){
+    species <- names(alter_options)[i]
+    option <- alter_options[[i]]
+    if(length(option == 3)){
+      alter_line <- paste0("\n|",
+                           format(species, width=48), "| ",
+                           format(option[1], width=15), "|",
+                           format(sprintf("%.5E", as.numeric(option[2])), width=12, justify="right"), "|")
+    }
+    alter_block <- c(alter_block, alter_line)
+  }
+  alter_block <- paste(alter_block, collapse="")
+}else{
+  alter_block <- "\n|None                                            |None            | 0.00000E+00|"
+}
+eq3.ender2 <- paste("\n|------------------------------------------------------------------------------|",
     "* Valid alter/suppress strings (ukxm(kxmod(n))) are:                           *",
     "*    Suppress            Replace             AugmentLogK                       *",
     "*    AugmentG                                                                  *",
@@ -835,7 +846,8 @@ preprocess <- function(input_filename,
                           eq3.temperature, eq3.header3, eq3.density,
                           eq3.header4, eq3.cb_block, eq3.header5,
                           redox_block, eq3.header6, aqueous_block,
-                          eq3.ender, collapse = "")
+                          eq3.ender1, alter_block, eq3.ender2,
+                          collapse = "")
 
 
       write(this_file, eq3.filename, append=FALSE)

@@ -1445,6 +1445,7 @@ class AqEquil():
                  default_logfO2=-6,
                  exclude=[],
                  suppress=[],
+                 alter_options=[],
                  charge_balance_on="none",
                  suppress_missing=True,
                  verbose=1,
@@ -1573,6 +1574,20 @@ class AqEquil():
         suppress : list of str, default []
             Names of chemical species that will be prevented from forming in the
             speciation calculation.
+        
+        alter_options : list, default []
+            A list of lists, e.g.,
+            [["CaOH+", "Suppress"], ["CaCl+", "AugmentLogK", -1]]
+            The first element of each interior list is the name of a species.
+            The second element is an option to alter the species, and can be:
+            - Suppress : suppress the formation of the species. (See also:
+            `suppress`).
+            - Replace : replace the species' log K value with a desired value.
+            - AugmentLogK : augment the value of the species' log K.
+            - AugmentG : augment the Gibbs free energy of the species by a
+            desired value, in kcal/mol.
+            The third element is a numeric value corresponding to the chosen
+            option. A third element is not required for Suppress.
             
         charge_balance_on : str, default "none"
             If "none", will not balance electrical charge between cations and
@@ -1766,6 +1781,18 @@ class AqEquil():
                 pass
         else:
             rxn_filename = ""
+        
+        # handle Alter/Suppress options
+        # e.g. [["CaCl+", "AugmentLogK", -1], ["CaOH+", "Suppress"]]
+        
+        alter_options_dict = {}
+        if len(alter_options) > 0:
+            for ao in alter_options:
+                key = ao[0]
+                if ao[1] == "Suppress" and len(ao) == 2:
+                    ao += ["0"]
+                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+        alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
         with warnings.catch_warnings(record=True) as w:
@@ -1783,6 +1810,7 @@ class AqEquil():
                                                  suppress_missing=suppress_missing,
                                                  suppress=convert_to_RVector(
                                                      suppress),
+                                                 alter_options=alter_options,
                                                  water_model=water_model,
                                                  grid_temp=convert_to_RVector(grid_temp),
                                                  grid_press=convert_to_RVector(grid_press),
