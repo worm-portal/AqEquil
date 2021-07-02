@@ -52,7 +52,7 @@ mine_3o <- function(this_file,
     if(verbose > 0){
       writeLines(paste0("\nSample ", this_name, " experienced errors during speciation:"))
 
-      output_error <- str_extract_all(extractme, regex("\\* Error.*?\n\n", dotall=T))
+      output_error <- str_extract_all(extractme, regex("\\* Error.*?\n(\n|$)", dotall=T))
         
       output_error <- lapply(output_error, function(x) gsub("\n", " ", x))
       output_error <- lapply(output_error, str_squish)
