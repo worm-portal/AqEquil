@@ -1495,7 +1495,8 @@ class AqEquil():
                  custom_db=False,
                  extra_eqpt_output=False,
                  batch_3o_filename=None,
-                 delete_generated_folders=False):
+                 delete_generated_folders=False,
+                 custom_obigt=None):
         
         &#34;&#34;&#34;
         Calculate the equilibrium distribution of chemical species in solution.
@@ -1715,6 +1716,10 @@ class AqEquil():
             EQ3NR input, output, and pickup files once the speciation
             calculation is complete?
         
+        custom_obigt : str, optional unless `get_affinity_energy` is True
+            Path of custom database csv used to generate a custom data0 file.
+            Needed for affinity and energy calculations.
+        
         Returns
         -------
         speciation : object of class Speciation
@@ -1751,6 +1756,18 @@ class AqEquil():
         else:
             batch_3o_filename = ro.r(&#34;NULL&#34;)
 
+        # custom obigt used for energy calculations (temporary fix to allow
+        # custom data to be imported into CHNOSZ for energy calculations)
+        # TODO: remove this and have code find custom data automatically. It&#39;s a tricky problem!
+        if isinstance(custom_obigt, str):
+            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
+                pass
+            else:
+                err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
+                raise Exception(err)
+        else:
+            custom_obigt = ro.r(&#34;NULL&#34;)
+            
         if custom_db:
             # EQ3/6 cannot handle spaces in the &#39;EQ36DA&#39; path name.
             if &#34; &#34; in os.getcwd():
@@ -1902,6 +1919,7 @@ class AqEquil():
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                custom_obigt=custom_obigt,
                 verbose=self.verbose,
             )
 
@@ -3127,7 +3145,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  custom_db=False,
                  extra_eqpt_output=False,
                  batch_3o_filename=None,
-                 delete_generated_folders=False):
+                 delete_generated_folders=False,
+                 custom_obigt=None):
         
         &#34;&#34;&#34;
         Calculate the equilibrium distribution of chemical species in solution.
@@ -3347,6 +3366,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             EQ3NR input, output, and pickup files once the speciation
             calculation is complete?
         
+        custom_obigt : str, optional unless `get_affinity_energy` is True
+            Path of custom database csv used to generate a custom data0 file.
+            Needed for affinity and energy calculations.
+        
         Returns
         -------
         speciation : object of class Speciation
@@ -3383,6 +3406,18 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         else:
             batch_3o_filename = ro.r(&#34;NULL&#34;)
 
+        # custom obigt used for energy calculations (temporary fix to allow
+        # custom data to be imported into CHNOSZ for energy calculations)
+        # TODO: remove this and have code find custom data automatically. It&#39;s a tricky problem!
+        if isinstance(custom_obigt, str):
+            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
+                pass
+            else:
+                err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
+                raise Exception(err)
+        else:
+            custom_obigt = ro.r(&#34;NULL&#34;)
+            
         if custom_db:
             # EQ3/6 cannot handle spaces in the &#39;EQ36DA&#39; path name.
             if &#34; &#34; in os.getcwd():
@@ -3534,6 +3569,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                custom_obigt=custom_obigt,
                 verbose=self.verbose,
             )
 
@@ -4547,7 +4583,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False)</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False, custom_obigt=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -4743,6 +4779,9 @@ defined.</dd>
 <dd>Delete the 'rxn_3i', 'rxn_3o', and 'rxn_3p' folders containing raw
 EQ3NR input, output, and pickup files once the speciation
 calculation is complete?</dd>
+<dt><strong><code>custom_obigt</code></strong> :&ensp;<code>str</code>, optional <code>unless </code>get_affinity_energy<code> is True</code></dt>
+<dd>Path of custom database csv used to generate a custom data0 file.
+Needed for affinity and energy calculations.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -4783,7 +4822,8 @@ calculation is complete?</dd>
                  custom_db=False,
                  extra_eqpt_output=False,
                  batch_3o_filename=None,
-                 delete_generated_folders=False):
+                 delete_generated_folders=False,
+                 custom_obigt=None):
         
         &#34;&#34;&#34;
         Calculate the equilibrium distribution of chemical species in solution.
@@ -5003,6 +5043,10 @@ calculation is complete?</dd>
             EQ3NR input, output, and pickup files once the speciation
             calculation is complete?
         
+        custom_obigt : str, optional unless `get_affinity_energy` is True
+            Path of custom database csv used to generate a custom data0 file.
+            Needed for affinity and energy calculations.
+        
         Returns
         -------
         speciation : object of class Speciation
@@ -5039,6 +5083,18 @@ calculation is complete?</dd>
         else:
             batch_3o_filename = ro.r(&#34;NULL&#34;)
 
+        # custom obigt used for energy calculations (temporary fix to allow
+        # custom data to be imported into CHNOSZ for energy calculations)
+        # TODO: remove this and have code find custom data automatically. It&#39;s a tricky problem!
+        if isinstance(custom_obigt, str):
+            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
+                pass
+            else:
+                err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
+                raise Exception(err)
+        else:
+            custom_obigt = ro.r(&#34;NULL&#34;)
+            
         if custom_db:
             # EQ3/6 cannot handle spaces in the &#39;EQ36DA&#39; path name.
             if &#34; &#34; in os.getcwd():
@@ -5190,6 +5246,7 @@ calculation is complete?</dd>
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                custom_obigt=custom_obigt,
                 verbose=self.verbose,
             )
 

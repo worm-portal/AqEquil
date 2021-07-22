@@ -1467,7 +1467,8 @@ class AqEquil():
                  custom_db=False,
                  extra_eqpt_output=False,
                  batch_3o_filename=None,
-                 delete_generated_folders=False):
+                 delete_generated_folders=False,
+                 custom_obigt=None):
         
         """
         Calculate the equilibrium distribution of chemical species in solution.
@@ -1687,6 +1688,10 @@ class AqEquil():
             EQ3NR input, output, and pickup files once the speciation
             calculation is complete?
         
+        custom_obigt : str, optional unless `get_affinity_energy` is True
+            Path of custom database csv used to generate a custom data0 file.
+            Needed for affinity and energy calculations.
+        
         Returns
         -------
         speciation : object of class Speciation
@@ -1723,6 +1728,18 @@ class AqEquil():
         else:
             batch_3o_filename = ro.r("NULL")
 
+        # custom obigt used for energy calculations (temporary fix to allow
+        # custom data to be imported into CHNOSZ for energy calculations)
+        # TODO: remove this and have code find custom data automatically. It's a tricky problem!
+        if isinstance(custom_obigt, str):
+            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
+                pass
+            else:
+                err = ("Could not find custom_obigt file {}.".format(custom_obigt))
+                raise Exception(err)
+        else:
+            custom_obigt = ro.r("NULL")
+            
         if custom_db:
             # EQ3/6 cannot handle spaces in the 'EQ36DA' path name.
             if " " in os.getcwd():
@@ -1874,6 +1891,7 @@ class AqEquil():
                 #   df_input_processed in the line above. Some kind of check.names
                 #   option for pandas2ri.py2ri would be nice. Workaround:
                 df_input_processed_names=df_input_processed_names,
+                custom_obigt=custom_obigt,
                 verbose=self.verbose,
             )
 

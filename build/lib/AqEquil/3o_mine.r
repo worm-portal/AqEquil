@@ -30,11 +30,11 @@ mine_3o <- function(this_file,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
                     verbose=1){
+    
 
-  # allow user to add their custom obigt entries
-  if(exists("custom_obigt")){
-    add.OBIGT(custom_obigt)
-  }    
+    
+  # set directory to rxn_3o folder where .3o files are kept
+  setwd("rxn_3o")
     
   # read .3o file as a string
   fileName <- this_file
@@ -390,25 +390,25 @@ mine_3o <- function(this_file,
         
       stoichs <- as.numeric(full_rxn[c(TRUE, FALSE)])
       species_EQ3 <- full_rxn[c(FALSE, TRUE)]
-      species_CHNOSZ <- gsub(",AQ", "", species_EQ3) # this won't work for mineral names, gases, etc.!
-      species_CHNOSZ <- gsub("METHANE", "CH4", species_CHNOSZ) # temporary fix for methane
-      species_CHNOSZ <- gsub("SULFUR", "S", species_CHNOSZ) # temporary fix for sulfur
-      species_CHNOSZ <- gsub("Ca(CO3)", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
-      species_CHNOSZ <- gsub("Ca(CO3),AQ", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
+#       species_CHNOSZ <- gsub(",AQ", "", species_EQ3) # this won't work for mineral names, gases, etc.!
+#       species_CHNOSZ <- gsub("METHANE", "CH4", species_CHNOSZ) # temporary fix for methane
+#       species_CHNOSZ <- gsub("SULFUR", "S", species_CHNOSZ) # temporary fix for sulfur
+#       species_CHNOSZ <- gsub("Ca(CO3)", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
+#       species_CHNOSZ <- gsub("Ca(CO3),AQ", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
 
-      # new April 9, 2020
+      species_CHNOSZ <- species_EQ3 # assuming no differences between EQ3 and CHNOSZ naming
+        
       # substitute CHNOSZ's lowercase mineral names
       for(species in species_CHNOSZ){
+        
         lowercase_species <- tolower(species)
         if(lowercase_species %in% CHNOSZ_cr_names){
-          species_CHNOSZ <- gsub(species, lowercase_species, species_CHNOSZ)
-          
+          #species_CHNOSZ <- gsub(species, lowercase_species, species_CHNOSZ)
           # add the mineral to master_df and master_df_mol dataframes assuming an
           # activity of 1 (log activity 0)
           df[species, "log_activity"] <- 0
         }
       }
-   
       
       ### calculate Q using EQ3-speciated activities
       # get speciated activities from master_df
@@ -529,7 +529,7 @@ mine_3o <- function(this_file,
       # unit conversion
       affinity <- ((this_A*1000)/4.184)/electrons # in cal/mol e-
       energy_supply <- (this_energy*1000)/4.184 # in cal/kg
-    
+        
       # append results
       df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
                                          affinity=affinity,
@@ -544,13 +544,14 @@ mine_3o <- function(this_file,
 
     rownames(df_rxn) <- df_rxn$rxn
     df_rxn$rxn <- NULL
-    
+      
     # create a dataframe for storing results
     df_rxn_sum <- data.frame(affinity = numeric(0),
                          energy_supply = numeric(0),
                          electrons = numeric(0),
                          reaction = character(0),
                          stringsAsFactors = FALSE)
+    
     
     ### sum reaction clusters (a reaction and its subreactions)
     if(sum(grepl("_sub$", rownames(df_rxn))) > 0){
@@ -589,12 +590,16 @@ mine_3o <- function(this_file,
         
         }
       }
+    }else{
+      df_rxn_sum <- df_rxn
     }
     
     # append affinity and energy results to this sample's data
     sample_3o[["affinity_energy_raw"]] <- df_rxn
     sample_3o[["affinity_energy"]] <- df_rxn_sum
   } # end calculation of affinity and energy supply
+
+  setwd("../")
 
   return(sample_3o)
 
@@ -657,7 +662,7 @@ create_report_df <- function(data, category, out_type){
   df_cat <- lapply(data, `[[`, category)
 
   all_species <- unique(unlist(lapply(lapply(df_cat, FUN=t), FUN=colnames)))
-    
+
   df <- read.csv(text=paste(all_species, collapse="\t"), check.names=FALSE, sep="\t", stringsAsFactors=FALSE)
 
   for(i in 1:length(df_cat)){
@@ -679,14 +684,14 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
                            df_input_processed_names){
     
   report_list <- list()
-  
+    
   # open processed input file and initialize report with it
   report <- input_processed_df
   names(report) <- df_input_processed_names
   #report <- read.csv(csv_filename, check.names=FALSE, stringsAsFactors=FALSE)
    
   report_list[["divs"]][["input"]] <- names(report)[2:length(report)] # start at 2 to exclude "sample" column
-
+    
   # create report versions of EQ3 output blocks
   if(get_aq_dist){
     aq_distribution <- create_report_df(data=data, category='aq_distribution', out_type=aq_dist_type)
@@ -723,7 +728,7 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report_list[["divs"]][["fugacity"]] <- names(fugacities)[2:length(fugacities)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(fugacities, by=c("Sample"="sample"))
   }
-  
+
   if(get_affinity_energy){
     affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
     names(affinity)[2:length(names(affinity))] <- paste0(names(affinity)[2:length(names(affinity))], "_affinity")
@@ -736,7 +741,7 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
       inner_join(energy, by=c("Sample"="sample"))
   
   }
-  
+
   rownames(report) <- report$Sample
   report$Sample <- NULL
 
@@ -768,107 +773,110 @@ main_3o_mine <- function(files_3o,
                          batch_3o_filename,
                          df_input_processed,
                          df_input_processed_names,
+                         custom_obigt,
                          verbose){
     
-    start_time <- Sys.time()
+  start_time <- Sys.time()
 
-    rxn_table <- NULL
-    if(get_affinity_energy){
-      # read table of reactions
-      rxn_table <- readLines(rxn_filename)
-    }
-
-    # set directory to rxn_3o folder where .3o files are kept
-    setwd("rxn_3o")
-
-    # instantiate an empty object to store data from all 3o files
-    batch_3o <- list()
+  # allow user to add their custom data as an OBIGT
+  if(!is.null(custom_obigt)){
+    custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)
+    custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
+    suppressMessages(mod.OBIGT(custom_obigt, replace=T))
+  }
     
+  rxn_table <- NULL
+  if(get_affinity_energy){
+    # read table of reactions
+    rxn_table <- readLines(rxn_filename)
+  }
+
+  # instantiate an empty object to store data from all 3o files
+  batch_3o <- list()
+  
+  if(verbose > 1){
+    writeLines("Now processing EQ3 output files...")
+  }
+
+  # process each .3o file
+  for(file in files_3o){
+    # add this sample's aqueous data to list of all sample data
+    sample_3o <- mine_3o(file,
+                         rxn_table=rxn_table,
+                         get_aq_dist=get_aq_dist,
+                         get_mass_contribution=get_mass_contribution,
+                         get_mineral_sat=get_mineral_sat,
+                         get_redox=get_redox,
+                         get_charge_balance=get_charge_balance,
+                         get_ion_activity_ratios=get_ion_activity_ratios,
+                         get_fugacity=get_fugacity,
+                         get_affinity_energy=get_affinity_energy,
+                         not_limiting=not_limiting,
+                         mass_contribution_other=mass_contribution_other,
+                         verbose=verbose)
+ 
+    # if this file could be processed, add its data to the batch_3o object
+    if(length(sample_3o)>1){
+      batch_3o[["sample_data"]][[sample_3o[["name"]]]] <- sample_3o
+    }
+  }
+    
+  if(verbose > 1){
+    writeLines("Finished processing EQ3 output files...")
+  }
+  
+  # compile aqueous contribution data into a single melted dataframe and
+  # append it to the batch_3o object.
+  if(get_mass_contribution && length(batch_3o)>0){
     if(verbose > 1){
-      writeLines("Now processing EQ3 output files...")
+      writeLines("Now processing mass contribution data...")
     }
-
-    # process each .3o file
-    for(file in files_3o){
-      # add this sample's aqueous data to list of all sample data
-      sample_3o <- mine_3o(file,
-                           rxn_table=rxn_table,
-                           get_aq_dist=get_aq_dist,
-                           get_mass_contribution=get_mass_contribution,
-                           get_mineral_sat=get_mineral_sat,
-                           get_redox=get_redox,
-                           get_charge_balance=get_charge_balance,
-                           get_ion_activity_ratios=get_ion_activity_ratios,
-                           get_fugacity=get_fugacity,
-                           get_affinity_energy=get_affinity_energy,
-                           not_limiting=not_limiting,
-                           mass_contribution_other=mass_contribution_other,
-                           verbose=verbose)
-        
-      # if this file could be processed, add its data to the batch_3o object
-      if(length(sample_3o)>1){
-        batch_3o[["sample_data"]][[sample_3o[["name"]]]] <- sample_3o
-      }
-    }
-    
-    setwd("../")
-    
+    batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o,
+                                                              other=mass_contribution_other,
+                                                              verbose=verbose)
     if(verbose > 1){
-      writeLines("Finished processing EQ3 output files...")
+      writeLines("Finished processing mass contribution data...")
     }
+  }
     
-    # compile aqueous contribution data into a single melted dataframe and
-    # append it to the batch_3o object.
-    if(get_mass_contribution && length(batch_3o)>0){
-      if(verbose > 1){
-        writeLines("Now processing mass contribution data...")
-      }
-      batch_3o[["mass_contribution"]] <- melt_mass_contribution(batch_3o=batch_3o,
-                                                                other=mass_contribution_other,
-                                                                verbose=verbose)
-      if(verbose > 1){
-        writeLines("Finished processing mass contribution data...")
-      }
-    }
-    
-    if(length(batch_3o)>0){
-      # create a report summarizing 3o data from all samples
-      report_list <- compile_report(data=batch_3o[["sample_data"]],
-                                    csv_filename=csv_filename,
-                                    aq_dist_type,
-                                    mineral_sat_type,
-                                    redox_type,
-                                    get_aq_dist,
-                                    get_mineral_sat,
-                                    get_redox,
-                                    get_charge_balance,
-                                    get_ion_activity_ratios,
-                                    get_fugacity,
-                                    get_affinity_energy,
-                                    df_input_processed,
-                                    df_input_processed_names)
+  if(length(batch_3o)>0){
+    # create a report summarizing 3o data from all samples
+    report_list <- compile_report(data=batch_3o[["sample_data"]],
+                                  csv_filename=csv_filename,
+                                  aq_dist_type,
+                                  mineral_sat_type,
+                                  redox_type,
+                                  get_aq_dist,
+                                  get_mineral_sat,
+                                  get_redox,
+                                  get_charge_balance,
+                                  get_ion_activity_ratios,
+                                  get_fugacity,
+                                  get_affinity_energy,
+                                  df_input_processed,
+                                  df_input_processed_names)
     
 
-      # add the report to the batch_3o object
-      report <- report_list[["report"]]
-      batch_3o[["report"]] <- report
-      batch_3o[["report_divs"]] <- report_list[["divs"]]
-    }else{
-      return(list())
-    }
-    
-    # store user input file data
-    batch_3o[["input"]] <- read.csv(input_filename, check.names=FALSE, stringsAsFactors=FALSE)
+    # add the report to the batch_3o object
+    report <- report_list[["report"]]
+    batch_3o[["report"]] <- report
+    batch_3o[["report_divs"]] <- report_list[["divs"]]
+  }else{
+    return(list())
+  }
 
-    # save the batch_3o object as an rds file
-    if(!is.null(batch_3o_filename)){
-      saveRDS(batch_3o, file=batch_3o_filename)
-    }
-        
-    time_elapsed <- Sys.time() - start_time
-    if(verbose > 1){
-      writeLines(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
-    }
-    
-    return(batch_3o)
+  # store user input file data
+  batch_3o[["input"]] <- read.csv(input_filename, check.names=FALSE, stringsAsFactors=FALSE)
+
+  # save the batch_3o object as an rds file
+  if(!is.null(batch_3o_filename)){
+    saveRDS(batch_3o, file=batch_3o_filename)
+  }
+      
+  time_elapsed <- Sys.time() - start_time
+  if(verbose > 1){
+    writeLines(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
+  }
+  
+  return(batch_3o)
 }
