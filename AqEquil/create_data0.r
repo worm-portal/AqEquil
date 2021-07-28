@@ -1187,7 +1187,11 @@ main_create_data0 <- function(filename,
   if(length(grid_press) > 1){
     TP_grid_errors <- c()
     for(i in 1:length(grid_temps)){
-      psat_press <- suppressMessages(water("Psat", T=grid_temps[i]+273.15)[[1]])
+      tryCatch({
+        psat_press <<- suppressMessages(water("Psat", T=grid_temps[i]+273.15)[[1]])
+      }, error=function(e){
+        psat_press <<- NA
+      })
       if(is.na(psat_press)){
         #pass
       }else if(grid_press[i] < psat_press){
