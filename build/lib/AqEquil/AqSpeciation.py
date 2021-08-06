@@ -1958,6 +1958,7 @@ class AqEquil():
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2('mineral_sat'))
+            mineral_sat_cols = [col for col in mineral_sat_cols if col != "df"] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors='coerce')
 
@@ -1979,6 +1980,7 @@ class AqEquil():
 
         if get_redox:
             redox_cols = list(report_divs.rx2('redox'))
+            redox_cols = [col for col in redox_cols if col != "df"] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors='coerce')
 

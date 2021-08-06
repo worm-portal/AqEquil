@@ -1986,6 +1986,7 @@ class AqEquil():
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
+            mineral_sat_cols = [col for col in mineral_sat_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -2007,6 +2008,7 @@ class AqEquil():
 
         if get_redox:
             redox_cols = list(report_divs.rx2(&#39;redox&#39;))
+            redox_cols = [col for col in redox_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -3636,6 +3638,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
+            mineral_sat_cols = [col for col in mineral_sat_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -3657,6 +3660,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         if get_redox:
             redox_cols = list(report_divs.rx2(&#39;redox&#39;))
+            redox_cols = [col for col in redox_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -5313,6 +5317,7 @@ Needed for affinity and energy calculations.</dd>
 
         if get_mineral_sat:
             mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
+            mineral_sat_cols = [col for col in mineral_sat_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_mineral_sat = df_report[mineral_sat_cols]
             df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
@@ -5334,6 +5339,7 @@ Needed for affinity and energy calculations.</dd>
 
         if get_redox:
             redox_cols = list(report_divs.rx2(&#39;redox&#39;))
+            redox_cols = [col for col in redox_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
             df_redox = df_report[redox_cols]
             df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
 
