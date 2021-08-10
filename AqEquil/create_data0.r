@@ -264,7 +264,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     return(dissrxns)
   }
   basis_elem <- unique(basis_elem)
-
+                   
   sp <- thermo_df
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
@@ -273,8 +273,14 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   # loop through each element and assign preferred basis species (if supplied)
   # or automatically choose compatible basis species
   basis_list <- list()
-  for(elem in basis_elem){
 
+  # check that every basis element has a basis pref
+  if(!setequal(basis_elem, names(basis_pref))){
+    missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
+    stop(paste("Error: the element(s)", paste(missing_basis, collapse=","), "require strict basis species in the database."))
+  }
+
+  for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
       basis_list[[elem]] <- c(info(info(basis_pref[elem]), check.it=F)$name)
@@ -304,9 +310,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 
     # error handling in case a suitable basis species cannot be found
     errcheck(length(basis_list[[elem]]) == 0, me=paste0("A suitable basis species could be found to represent the element ", elem, "."))
-
   }
-
+                            
   # further narrow down the list of potential basis species by grabbing the basis species
   # with the fewest elements+charge from available basis species. In the end there should
   # only be one basis species assigned to each element.
@@ -1294,7 +1299,7 @@ main_create_data0 <- function(filename,
   e <- thermo()$element
   e[e[,"element"] == "Am", "mass"] <- 223
   thermo(element = e)
-
+    
   # Add oxidation-separated elements to CHNOSZ's database of elements
   # element, state, source, mass, s, n
   for(elem in names(redox_elem_states)){
@@ -1313,7 +1318,6 @@ main_create_data0 <- function(filename,
   }
 
   known_species <- to_vec(for(i in 1:length(known_oxstates)) paste0(names(known_oxstates)[i], known_oxstates[i]))
-
 
   if(infer_formula_ox){
       
@@ -1348,7 +1352,7 @@ main_create_data0 <- function(filename,
                       
   thermo_df["formula_modded"] <- thermo_df["formula"]
   thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]
-
+                      
   # create pseudoelements and assign to molecular formulae
   if(length(suppress_redox) > 0){
 
@@ -1477,7 +1481,6 @@ main_create_data0 <- function(filename,
       thermo_df[species_name, "formula_modded"] <- formula
     }
   }
-
                                    
   thermo_df %>% mutate_if(is.factor, as.character) -> thermo_df
                                    
@@ -1537,7 +1540,7 @@ main_create_data0 <- function(filename,
   aux_pref_names <- aux_pref_names[keep]
     
   names(aux_pref) <- aux_pref_names
-
+                                   
   # EQ3 has Cl-, H2O, and O2(g) hard-coded as basis species for the
   # elements Cl, H, and O, respectively.
   basis_pref["Cl"] <- "Cl-"
@@ -1606,7 +1609,6 @@ main_create_data0 <- function(filename,
       })
     }
   }
-                                
                                    
   df_needs_dissrxns <- thermo_df %>%
     filter(tag != "basis") %>%
@@ -1658,7 +1660,7 @@ main_create_data0 <- function(filename,
                basis_pref,
                exceed_Ttr,
                verbose)
-
+                                  
   if(generate_template){
     # create a template for sample input
       
