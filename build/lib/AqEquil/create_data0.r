@@ -339,12 +339,11 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
                       redox_elem_states, aux_pref, thermo_df=NULL, verbose=2){
  
-
   # determine a balanced dissociation reaction into basis species
 
   # get the elemental composition
   comp <- makeup(thermo_df[thermo_df["name"]==sp, "formula_modded"])
-
+    
   # get the elements that are not H, O, Z (charge)
   basis_elem <- setdiff(names(comp), c("H", "O", "Z"))
     
@@ -370,11 +369,15 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 #       print(paste("elem:", elem))
 #       print(paste("formula ox:", sp_formula_ox))
 #       print("formula ox split:")
-#       print(sp_formula_ox_split)
-#       print(paste("elem ox with coeff:", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])]))
-#       print(paste("elem ox no coeff:", gsub("^[[:digit:]]+", "", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])])))
         
-      sp_ox_elem <- makeup(gsub("^[[:digit:]]+", "", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]])]))
+      # get the element plus oxidation state from formula ox
+      # e.g., turn "2Al+3" into "Al+3"
+      # or "0.165Mg+2" to "Mg+2"
+      step1 <- sp_formula_ox_split[[1]]
+      step2 <- step1[grepl(paste0(elem,"([^a-z]|$)"), step1)]
+      step3 <- gsub("^[[:digit:]]+(\\.[[:digit:]]+)?", "", step2)
+      sp_ox_elem <- makeup(step3)
+        
       sp_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]], perl=T)], perl=T))
       sp_num_elem <- ifelse(is.na(sp_num_elem), 1, sp_num_elem)
       names(sp_num_elem) <- rep(simplest_basis[[elem]], length(sp_num_elem))
@@ -398,7 +401,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
         for(line in basis_formula_ox_split){
           basis_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", line[grepl(paste0(elem,"([^a-z]|$)"), line, perl=T)], perl=T))
           basis_num_elem <- ifelse(is.na(basis_num_elem), 1, basis_num_elem)
-          basis_ox_elem <- makeup(gsub("^[[:digit:]]+", "", line[grepl(paste0(elem,"([^a-z]|$)"), line, perl=T)]))
+          basis_ox_elem <- makeup(gsub("^[[:digit:]]+(\\.[[:digit:]]+)?", "", line[grepl(paste0(elem,"([^a-z]|$)"), line, perl=T)]))
           if(length(basis_num_elem) > 1){
             basis_oxstates <- c()
             basis_total_atoms <- c()
@@ -473,7 +476,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
         }
         
       }
-        
+
       # sum together basis species coeffs sharing a name (e.g., c(HS-:1, HS-:1) is summed to c(HS-:2))
       chosen_basis[[elem]] <- tapply(unlist(chosen_basis[[elem]]), names(unlist(chosen_basis[[elem]])), sum)
     }

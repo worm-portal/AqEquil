@@ -11,10 +11,18 @@ from subprocess import Popen
 import pkg_resources
 import pandas as pd
 import numpy as np
+
+# matplotlib for static plots
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
+# bokeh for interactive plots
+from bokeh.io import output_file, show, output_notebook
+from bokeh.plotting import figure
+from bokeh.models import Legend, HoverTool
+
+# rpy2 for Python and R integration
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     import rpy2.robjects as ro
@@ -650,7 +658,7 @@ class Speciation(object):
             yi_previous = copy.deepcopy(yi)
             unit_previous = copy.deepcopy(unit)
             subheader_previous = copy.deepcopy(subheader)
-            
+        
             if len(y) != 1:
                 color = m.to_rgba(i)
             else:
@@ -704,12 +712,222 @@ class Speciation(object):
             print("Saved figure as {}".format(save_as))
         
         plt.show()
+
+
+    def scatterplot_bokeh(self, x="pH", y="Temperature", xrange=None, yrange=None,
+                show_legend=True, legend_loc="best", plot_width=4, plot_height=3,
+                colormap="viridis", bg_color="white", save_as=None, interactive=True):
+        
+        """
+        Vizualize two or more sample variables with a scatterplot.
+        
+        Parameters
+        ----------
+        x, y : str, default for x is "pH", default for y is "Temperature"
+            Names of the variables to plot against each other. Valid variables
+            are columns in the speciation report. `y` can be a list of
+            of variable names for a multi-series scatterplot.
+       
+        xrange, yrange : list of numeric, optional
+            Sets the lower and upper limits of the x and y axis.
+            
+        show_legend : bool, default True
+            Show a legend if there is more than one variable?
+        
+        legend_loc : str or pair of float, default "best"
+            Location of the legend on the plot. See
+            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        
+        colormap : str, default "viridis"
+            Name of the Matplotlib colormap to color the scatterpoints. See
+            https://matplotlib.org/stable/tutorials/colors/colormaps.html
+
+        bg_color : str, default "white"
+            Name of the Matplotlib color you wish to set as the panel
+            background. A list of named colors can be found here:
+            https://matplotlib.org/stable/gallery/color/named_colors.html
+            
+        save_as : str, optional
+            Provide a filename to save this figure as a PNG.
+        """
+
+        if not isinstance(y, list):
+            y = [y]
+        
+        if not isinstance(x, str):
+            raise Exception("x must be a string.")
+        
+        x_col = self.lookup(x)
+        
+        try:
+            xsubheader = x_col.columns.get_level_values(1)[0]
+        except:
+            msg = ("Could not find '{}' ".format(x)+"in the speciation "
+                   "report. Available variables include "
+                   "{}".format(list(set(self.report.columns.get_level_values(0)))))
+            raise Exception(msg)
+            
+        try:
+            x_plot = [float(x0[0]) if x0[0] != 'NA' else float("nan") for x0 in x_col.values.tolist()]
+        except:
+            msg = ("One or more the values belonging to "
+                   "'{}' are non-numeric and cannot be plotted.".format(x_col.columns.get_level_values(0)[0]))
+            raise Exception(msg)
+        
+        try:
+            xunit_type, xunit = self.__get_unit_info(xsubheader)
+        except:
+            xunit_type = ""
+            xunit = ""
+
+        # colors used for both interactive and static plots
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
+        try:
+            cmap = cm.__getattribute__(colormap)
+        except:
+            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
+            raise Exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
+                            "Try one of these: {}".format(valid_colormaps))
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        
+        if interactive:
+            output_notebook() # embed plots into the notebook
+            p = figure(plot_width=plot_width*122, plot_height=plot_height*122,
+                       tools="pan,wheel_zoom,box_zoom,reset,save") # ,hover")
+        else:
+            fig = plt.figure(figsize=(plot_width, plot_height))
+            ax = fig.add_axes([0,0,1,1])
+            
+        
+        for i, yi in enumerate(y):
+            y_col = self.lookup(yi)
+            
+            try:
+                subheader = y_col.columns.get_level_values(1)[0]
+            except:
+                msg = ("Could not find '{}' ".format(yi)+"in the speciation "
+                       "report. Available variables include "
+                      "{}".format(list(set(self.report.columns.get_level_values(0)))))
+                raise Exception(msg)
+            try:
+                unit_type, unit = self.__get_unit_info(subheader)
+            except:
+                unit_type = ""
+                unit = ""
+            
+            try:
+                y_plot = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
+            except:
+                msg = ("One or more the values belonging to "
+                       "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0]))
+                raise Exception(msg)
+                
+            if i == 0:
+                subheader_previous = subheader
+                unit_previous = unit
+            if unit != unit_previous and i != 0:
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format(unit, yi_previous, unit_previous)+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "activity" in subheader.lower() and "molality" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("activity", yi_previous, "molality")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+            elif "molality" in subheader.lower() and "activity" in subheader_previous.lower():
+                msg = ("{} has a different unit of measurement ".format(yi)+""
+                       "({}) than {} ({}). ".format("molality", yi_previous, "activity")+""
+                       "Plotted variables must share units.")
+                raise Exception(msg)
+                
+            yi_previous = copy.deepcopy(yi)
+            unit_previous = copy.deepcopy(unit)
+            subheader_previous = copy.deepcopy(subheader)
+        
+            if len(y) != 1:
+                color = m.to_rgba(i)
+            else:
+                color = "black"
+                
+            if interactive:
+                source = pd.concat([x_col, y_col], axis=1)
+                source.columns = source.columns.get_level_values(0)
+                r = p.circle(x, yi, source=source, fill_alpha=0.2, size=10, color=matplotlib.colors.rgb2hex(color), legend_label=yi)
+            else:
+                plt.scatter(x_plot, y_plot, marker='o', color=color)
+
+        if len(y) > 1:
+            if unit != "":
+                ylabel = "{} [{}]".format(unit_type, unit)
+            else:
+                ylabel = unit_type
+            if show_legend:
+                if not interactive:
+                    ax.legend(labels=y, loc=legend_loc)
+        else:
+            if 'pH' in y:
+                ylabel = 'pH'
+            elif 'Temperature' in y:
+                ylabel = 'Temperature [°C]'
+            else:
+                if unit != "":
+                    ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
+                else:
+                    ylabel = "{} {}".format(y[0], unit_type)
+        
+        if x == 'pH':
+            xlabel = 'pH'
+        elif x == 'Temperature':
+            xlabel = 'Temperature [°C]'
+        else:
+            if xunit != "":
+                xlabel = "{} {} [{}]".format(x, xunit_type, xunit)
+            else:
+                xlabel = "{} {}".format(x, xunit_type)
+        
+
+        if interactive:
+            p.xgrid.grid_line_color = None
+            p.ygrid.grid_line_color = None
+            p.axis.minor_tick_line_color = None
+            p.outline_line_color = "black"
+            p.xaxis.axis_label = xlabel
+            p.yaxis.axis_label = ylabel
+            if show_legend and len(y) > 1:
+                p.legend.click_policy="hide"
+                p.add_layout(p.legend[0], 'right')
+            else:
+                p.legend.visible=False 
+    
+            show(p)
+        else:
+            if xrange != None:
+                plt.xlim(xrange[0], xrange[1])
+
+            if yrange != None:
+                plt.ylim(yrange[0], yrange[1])
+
+            ax.set_facecolor(bg_color)
+            plt.ylabel(ylabel)
+            plt.xlabel(xlabel)
+
+            if save_as != None:
+                if ".png" not in save_as[:-4]:
+                    save_as = save_as+".png"
+
+                plt.savefig(save_as, dpi=300, bbox_inches="tight")
+                print("Saved figure as {}".format(save_as))
+
+            plt.show()
     
     
     def plot_mass_contribution(self, basis, sort_by=None, ascending=True,
                                      sort_y_by=None, width=0.9,
-                                     legend_loc=(1.02, 0.5),
-                                     save_as=None):
+                                     legend_loc=(1.02, 0),
+                                     colormap="viridis",
+                                     plot_height=3,
+                                     save_as=None, interactive=True):
         
         """
         Plot basis species contributions to mass balance of aqueous species
@@ -737,12 +955,26 @@ class Speciation(object):
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
         
-        legend_loc : str or pair of float, default (1.02, 0.5)
-            Location of the legend on the plot. See
-            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+        legend_loc : str or pair of float, default (1.02, 0)
+            Location of the legend on the plot. Defaults to the right side.
+            Adjustments to `legend_loc` have different magnitudes depending on
+            whether the plot is interactive or static.
+        
+        colormap : str, default "viridis"
+            Name of the matplotlib colormap used to color the bars. See options
+            here: https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            
+        plot_height : numeric, default 3
+            Height (in inches) of the plot. For interactive plots, assumes 122
+            pixels per inch.
         
         save_as : str, optional
-            Provide a filename to save this figure as a PNG.
+            Provide a filename to save this figure as a PNG (for static plots)
+            or HTML (for interactive plots).
+        
+        interactive : bool, default True
+            Create an interactive plot? If False, a static matplotlib plot is
+            shown. If True, an interactive Bokeh plot is shown.
         """
         
         try:
@@ -823,35 +1055,103 @@ class Speciation(object):
             else:
                 raise Exception("sort_y_by must be either None, 'alphabetical', "
                                 "or a list of species names.")
-                
-        fig, ax = plt.subplots()
-        
-        for i,sp in enumerate(unique_species):
-            percents = []
-            for sample in labels:
-                df_sample = df_sp[df_sp["sample"]==sample]
-                try:
-                    percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
-                    percents.append(percent)
-                except:
-                    percents.append(0.0)
-            ax.bar(labels, percents, width, bottom=bottom, label=sp)
-            bottom = bottom + np.array(percents)
 
-        ax.set_ylabel('mole %')
-        ax.set_title('Species accounting for mass balance of '+basis)
-        plt.xticks(rotation = 45, ha='right')
-        ax.legend(loc=legend_loc)
+        # colors used for both interactive and static plots
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(unique_species)-1)
+        try:
+            cmap = cm.__getattribute__(colormap)
+        except:
+            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
+            raise Exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
+                            "Try one of these: {}".format(valid_colormaps))
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
         
-        if save_as != None:
-            if ".png" not in save_as[:-4]:
-                save_as = save_as+".png"
+        # static matplotlib plot
+        if not interactive:
+            if legend_loc == None:
+                legend_loc = (1.02, 0)
             
-            plt.savefig(save_as, dpi=300, bbox_inches="tight")
-            print("Saved figure as {}".format(save_as))
-            
-        plt.show()
+            fig, ax = plt.subplots()
 
+            for i,sp in enumerate(unique_species):
+                percents = []
+                for sample in labels:
+                    df_sample = df_sp[df_sp["sample"]==sample]
+                    try:
+                        percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
+                        percents.append(percent)
+                    except:
+                        percents.append(0.0)
+                ax.bar(labels, percents, width, bottom=bottom, label=sp, color=m.to_rgba(i))
+                bottom = bottom + np.array(percents)
+
+            ax.set_ylabel('mole %')
+            ax.set_title('Species accounting for mass balance of '+basis)
+            plt.xticks(rotation = 45, ha='right')
+            ax.legend(loc=legend_loc)
+
+            fig.set_figheight(plot_height)
+            
+            if save_as != None:
+                if ".png" not in save_as[:-4]:
+                    save_as = save_as+".png"
+
+                plt.savefig(save_as, dpi=300, bbox_inches="tight")
+                print("Saved figure as {}".format(save_as))
+
+            plt.show()
+        
+        # interactive Bokeh plot
+        else:
+            
+            if legend_loc == None:
+                legend_loc = (1.02-legend_loc[0], 0) # allows default to be 0,0
+            
+            if isinstance(save_as, str):
+                if ".html" not in save_as[:-5]:
+                    save_as = save_as+".html"
+                output_file(save_as)
+                print("Saved figure as {}".format(save_as))
+
+            output_notebook() # embed plots into the notebook
+
+            p = figure(x_range=labels, plot_height=plot_height*122, title='Species accounting for mass balance of '+basis,
+                       toolbar_location="right", tools="save", tooltips="@labels: @$name % $name")#, sizing_mode='scale_width')
+
+            data = {"labels" : labels}
+            colors = []
+            for i,sp in enumerate(unique_species):
+                percents = []
+                for sample in labels:
+                    df_sample = df_sp[df_sp["sample"]==sample]
+                    try:
+                        percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
+                        percents.append(percent)
+                    except:
+                        percents.append(0.0)
+                data[sp] = percents
+                colors.append(matplotlib.colors.rgb2hex(m.to_rgba(i)))
+
+            v = p.vbar_stack(unique_species, x='labels', width=width, source=data,
+                             color=colors)
+
+            p.y_range.start = 0
+            p.x_range.range_padding = 0
+            p.xgrid.grid_line_color = None
+            p.ygrid.grid_line_color = None
+            p.axis.minor_tick_line_color = None
+            p.outline_line_color = None
+            p.xaxis.major_label_orientation = 0.78539816339 # x axis label rotation
+            p.yaxis.axis_label = 'mole %'
+
+            categories = list(data.keys())
+            categories.remove('labels')
+            legend = Legend(items=[(x, [v[i]]) for i, x in enumerate(categories)],
+                            location=legend_loc)
+            p.add_layout(legend, 'right')
+
+            show(p)
+            
 
 class AqEquil():
 
