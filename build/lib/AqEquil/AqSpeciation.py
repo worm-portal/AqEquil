@@ -88,6 +88,62 @@ def convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector(value)
 
 
+def get_colors(colormap, ncol, alpha=1):
+    
+    qualitative_cmaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent',
+                         'Dark2', 'Set1', 'Set2', 'Set3',
+                         'tab10', 'tab20', 'tab20b', 'tab20c']
+    
+    if colormap == "colorblind":
+        # colors from Wong B. 2011, https://doi.org/10.1038/nmeth.1618
+        colors = [(0, 0, 0, alpha), # black
+                  (230/255, 159/255, 0, alpha), # orange
+                  (86/255, 180/255, 233/255, alpha), # sky blue
+                  (0, 158/255, 115/255, alpha), # bluish green
+                  (240/255, 228/255, 66/255, alpha), # yellow
+                  (0, 114/255, 178/255, alpha), # blue
+                  (213/255, 94/255, 0, alpha), # vermillion
+                  (204/255, 121/255, 167/255, alpha)] # reddish purple
+        if ncol <= len(colors):
+            return colors[:ncol]
+        else:
+            print("Switching from 'colorblind' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
+            colormap = "viridis"
+    elif colormap == "WORM":
+        colors = [(0, 0, 0, alpha), # black
+                  (22/255, 153/255, 211/255, alpha), # blue
+                  (232/255, 86/255, 66/255, alpha), # red
+                  (245/255, 171/255, 80/255, alpha), # orange
+                  (115/255, 108/255, 168/255, alpha), # purple
+                  (151/255, 208/255, 119/255, alpha), # green
+                  (47/255, 91/255, 124/255, alpha), # dark blue
+                  (119/255, 119/255, 119/255, alpha)] # gray
+        if ncol <= len(colors):
+            return colors[:ncol]
+        else:
+            print("Switching from 'WORM' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
+            colormap = "viridis"
+            
+    if colormap in qualitative_cmaps:
+        # handle qualitative (non-continuous) colormaps
+        colors = [plt.cm.__getattribute__(colormap).colors[i] for i in range(ncol)]
+        colors = [(c[0], c[1], c[2], alpha) for c in colors]
+    else:
+        # handle sequential (continuous) colormaps
+        norm = matplotlib.colors.Normalize(vmin=0, vmax=ncol-1)
+        try:
+            cmap = cm.__getattribute__(colormap)
+        except:
+            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
+            raise Exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
+                            "Try one of these: {}".format(valid_colormaps))
+        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        colors = [m.to_rgba(i) for i in range(ncol)]
+        colors = [(c[0], c[1], c[2], alpha) for c in colors]
+    
+    return colors
+
+
 class Speciation(object):
     
     """
@@ -239,6 +295,7 @@ class Speciation(object):
         
         return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
     
+    
     def __convert_aq_units_to_log_friendly(self, species, rows):
 
         col_data = self.lookup(species)
@@ -301,8 +358,6 @@ class Speciation(object):
                    "{}".format(list(self.report.index)))
             raise Exception(msg)
         
-
-        
         if isinstance(self.sample_data[sample_name].get('mineral_sat', None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name]['mineral_sat'][mineral_sat_type].astype(float).sort_values(ascending=False)
             x = mineral_data.index
@@ -355,7 +410,8 @@ class Speciation(object):
 
     def barplot(self, y, yrange=None, convert_log=True, show_trace=True,
                 show_legend=True, show_missing=True, legend_loc="best",
-                colormap="viridis", bg_color="white", save_as=None):
+                plot_width=4, plot_height=3,
+                colormap="WORM", bg_color="white", save_as=None):
         
         """
         Show a bar plot to vizualize one or more variables across all samples.
@@ -388,9 +444,16 @@ class Speciation(object):
             Location of the legend on the plot. See
             https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
         
-        colormap : str, default "viridis"
-            Name of the Matplotlib colormap to color the barplot. See
-            https://matplotlib.org/stable/tutorials/colors/colormaps.html
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches.
+        
+        colormap : str, default "WORM"
+            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            "colorblind", or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The "colorblind" colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
 
         bg_color : str, default "white"
             Name of the Matplotlib color you wish to set as the panel
@@ -402,6 +465,8 @@ class Speciation(object):
         """
         
         fig = plt.figure()
+        fig.set_figwidth(plot_width)
+        fig.set_figheight(plot_height)
         ax = fig.add_axes([0,0,1,1])
         plt.xticks(rotation = 45, ha='right')
 
@@ -414,11 +479,9 @@ class Speciation(object):
             y_cols = y_cols.dropna(how='all')
         
         x = y_cols.index # names of samples
-        
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
-        cmap = cm.__getattribute__(colormap)
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
         X = np.arange(len(x))
+        
+        colors = get_colors(colormap, len(y))
         
         barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
         for i, yi in enumerate(y):
@@ -477,7 +540,7 @@ class Speciation(object):
             subheader_previous = copy.deepcopy(subheader)
             
             if len(y) != 1:
-                color = m.to_rgba(i)
+                color = colors[i]
             else:
                 color = "black"
             
@@ -494,7 +557,7 @@ class Speciation(object):
             for p in bars.patches:
                 if show_trace and abs(p.get_height())/max_bar_height <= 0.009:
                     if len(y) != 1:
-                        color = m.to_rgba(i)
+                        color = colors[i]
                     else:
                         color = "black"
                 
@@ -538,11 +601,14 @@ class Speciation(object):
             print("Saved figure as {}".format(save_as))
         
         plt.show()
-    
-    
+
+
     def scatterplot(self, x="pH", y="Temperature", xrange=None, yrange=None,
-                show_legend=True, legend_loc="best",
-                colormap="viridis", bg_color="white", save_as=None):
+                          show_legend=True, legend_loc="best",
+                          plot_width=4, plot_height=3, ppi=122,
+                          fill_alpha=0.7, point_size=10,
+                          colormap="WORM", bg_color="white",
+                          save_as=None, interactive=True):
         
         """
         Vizualize two or more sample variables with a scatterplot.
@@ -561,186 +627,31 @@ class Speciation(object):
             Show a legend if there is more than one variable?
         
         legend_loc : str or pair of float, default "best"
-            Location of the legend on the plot. See
+            Coordinates of the legend on the plot. See
             https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
         
-        colormap : str, default "viridis"
-            Name of the Matplotlib colormap to color the scatterpoints. See
-            https://matplotlib.org/stable/tutorials/colors/colormaps.html
-
-        bg_color : str, default "white"
-            Name of the Matplotlib color you wish to set as the panel
-            background. A list of named colors can be found here:
-            https://matplotlib.org/stable/gallery/color/named_colors.html
-            
-        save_as : str, optional
-            Provide a filename to save this figure as a PNG.
-        """
-
-        if not isinstance(y, list):
-            y = [y]
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
         
-        if not isinstance(x, str):
-            raise Exception("x must be a string.")
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots. Ignored if `interactive`
+            is False.
         
-        x_col = self.lookup(x)
+        fill_alpha : numeric, default 0.7
+            Transparency of scatterpoint area fill.
         
-        try:
-            xsubheader = x_col.columns.get_level_values(1)[0]
-        except:
-            msg = ("Could not find '{}' ".format(x)+"in the speciation "
-                   "report. Available variables include "
-                   "{}".format(list(set(self.report.columns.get_level_values(0)))))
-            raise Exception(msg)
-            
-        try:
-            x_plot = [float(x0[0]) if x0[0] != 'NA' else float("nan") for x0 in x_col.values.tolist()]
-        except:
-            msg = ("One or more the values belonging to "
-                   "'{}' are non-numeric and cannot be plotted.".format(x_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
+        point_size : numeric, default 10
+            Size of scatterpoints.
         
-        try:
-            xunit_type, xunit = self.__get_unit_info(xsubheader)
-        except:
-            xunit_type = ""
-            xunit = ""
-        
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
-        cmap = cm.__getattribute__(colormap)
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
-        
-        fig = plt.figure()
-        ax = fig.add_axes([0,0,1,1])
-        
-        for i, yi in enumerate(y):
-            y_col = self.lookup(yi)
-            
-            try:
-                subheader = y_col.columns.get_level_values(1)[0]
-            except:
-                msg = ("Could not find '{}' ".format(yi)+"in the speciation "
-                       "report. Available variables include "
-                      "{}".format(list(set(self.report.columns.get_level_values(0)))))
-                raise Exception(msg)
-            try:
-                unit_type, unit = self.__get_unit_info(subheader)
-            except:
-                unit_type = ""
-                unit = ""
-            
-            try:
-                y_plot = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
-            except:
-                msg = ("One or more the values belonging to "
-                       "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0]))
-                raise Exception(msg)
-                
-            if i == 0:
-                subheader_previous = subheader
-                unit_previous = unit
-            if unit != unit_previous and i != 0:
-                msg = ("{} has a different unit of measurement ".format(yi)+""
-                       "({}) than {} ({}). ".format(unit, yi_previous, unit_previous)+""
-                       "Plotted variables must share units.")
-                raise Exception(msg)
-            elif "activity" in subheader.lower() and "molality" in subheader_previous.lower():
-                msg = ("{} has a different unit of measurement ".format(yi)+""
-                       "({}) than {} ({}). ".format("activity", yi_previous, "molality")+""
-                       "Plotted variables must share units.")
-                raise Exception(msg)
-            elif "molality" in subheader.lower() and "activity" in subheader_previous.lower():
-                msg = ("{} has a different unit of measurement ".format(yi)+""
-                       "({}) than {} ({}). ".format("molality", yi_previous, "activity")+""
-                       "Plotted variables must share units.")
-                raise Exception(msg)
-                
-            yi_previous = copy.deepcopy(yi)
-            unit_previous = copy.deepcopy(unit)
-            subheader_previous = copy.deepcopy(subheader)
-        
-            if len(y) != 1:
-                color = m.to_rgba(i)
-            else:
-                color = "black"
-            
-            plt.scatter(x_plot, y_plot, marker='o', color=color)
-
-        if len(y) > 1:
-            if unit != "":
-                ylabel = "{} [{}]".format(unit_type, unit)
-            else:
-                ylabel = unit_type
-            if show_legend:
-                ax.legend(labels=y, loc=legend_loc)
-        else:
-            if 'pH' in y:
-                ylabel = 'pH'
-            elif 'Temperature' in y:
-                ylabel = 'Temperature [°C]'
-            else:
-                if unit != "":
-                    ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
-                else:
-                    ylabel = "{} {}".format(y[0], unit_type)
-        
-        if x == 'pH':
-            xlabel = 'pH'
-        elif x == 'Temperature':
-            xlabel = 'Temperature [°C]'
-        else:
-            if xunit != "":
-                xlabel = "{} {} [{}]".format(x, xunit_type, xunit)
-            else:
-                xlabel = "{} {}".format(x, xunit_type)
-        
-        if xrange != None:
-            plt.xlim(xrange[0], xrange[1])
-        
-        if yrange != None:
-            plt.ylim(yrange[0], yrange[1])
-
-        ax.set_facecolor(bg_color)
-        plt.ylabel(ylabel)
-        plt.xlabel(xlabel)
-
-        if save_as != None:
-            if ".png" not in save_as[:-4]:
-                save_as = save_as+".png"
-            
-            plt.savefig(save_as, dpi=300, bbox_inches="tight")
-            print("Saved figure as {}".format(save_as))
-        
-        plt.show()
-
-
-    def scatterplot_bokeh(self, x="pH", y="Temperature", xrange=None, yrange=None,
-                show_legend=True, legend_loc="best", plot_width=4, plot_height=3,
-                colormap="viridis", bg_color="white", save_as=None, interactive=True):
-        
-        """
-        Vizualize two or more sample variables with a scatterplot.
-        
-        Parameters
-        ----------
-        x, y : str, default for x is "pH", default for y is "Temperature"
-            Names of the variables to plot against each other. Valid variables
-            are columns in the speciation report. `y` can be a list of
-            of variable names for a multi-series scatterplot.
-       
-        xrange, yrange : list of numeric, optional
-            Sets the lower and upper limits of the x and y axis.
-            
-        show_legend : bool, default True
-            Show a legend if there is more than one variable?
-        
-        legend_loc : str or pair of float, default "best"
-            Location of the legend on the plot. See
-            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
-        
-        colormap : str, default "viridis"
-            Name of the Matplotlib colormap to color the scatterpoints. See
-            https://matplotlib.org/stable/tutorials/colors/colormaps.html
+        colormap : str, default "WORM"
+            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            "colorblind", or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The "colorblind" colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
 
         bg_color : str, default "white"
             Name of the Matplotlib color you wish to set as the panel
@@ -780,19 +691,11 @@ class Speciation(object):
             xunit_type = ""
             xunit = ""
 
-        # colors used for both interactive and static plots
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(y)-1)
-        try:
-            cmap = cm.__getattribute__(colormap)
-        except:
-            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
-            raise Exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
-                            "Try one of these: {}".format(valid_colormaps))
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        colors = get_colors(colormap, len(y), alpha=fill_alpha)
         
         if interactive:
             output_notebook() # embed plots into the notebook
-            p = figure(plot_width=plot_width*122, plot_height=plot_height*122,
+            p = figure(plot_width=plot_width*ppi, plot_height=plot_height*ppi,
                        tools="pan,wheel_zoom,box_zoom,reset,save") # ,hover")
         else:
             fig = plt.figure(figsize=(plot_width, plot_height))
@@ -844,18 +747,15 @@ class Speciation(object):
             yi_previous = copy.deepcopy(yi)
             unit_previous = copy.deepcopy(unit)
             subheader_previous = copy.deepcopy(subheader)
-        
-            if len(y) != 1:
-                color = m.to_rgba(i)
-            else:
-                color = "black"
                 
             if interactive:
                 source = pd.concat([x_col, y_col], axis=1)
                 source.columns = source.columns.get_level_values(0)
-                r = p.circle(x, yi, source=source, fill_alpha=0.2, size=10, color=matplotlib.colors.rgb2hex(color), legend_label=yi)
+                r = p.circle(x, yi, source=source, fill_alpha=fill_alpha,
+                             size=point_size, legend_label=yi,
+                             color=matplotlib.colors.rgb2hex(colors[i]))
             else:
-                plt.scatter(x_plot, y_plot, marker='o', color=color)
+                plt.scatter(x_plot, y_plot, marker='o', color=colors[i])
 
         if len(y) > 1:
             if unit != "":
@@ -894,6 +794,7 @@ class Speciation(object):
             p.outline_line_color = "black"
             p.xaxis.axis_label = xlabel
             p.yaxis.axis_label = ylabel
+            p.background_fill_color = bg_color
             if show_legend and len(y) > 1:
                 p.legend.click_policy="hide"
                 p.add_layout(p.legend[0], 'right')
@@ -925,8 +826,8 @@ class Speciation(object):
     def plot_mass_contribution(self, basis, sort_by=None, ascending=True,
                                      sort_y_by=None, width=0.9,
                                      legend_loc=(1.02, 0),
-                                     colormap="viridis",
-                                     plot_height=3,
+                                     colormap="WORM",
+                                     plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, interactive=True):
         
         """
@@ -960,13 +861,22 @@ class Speciation(object):
             Adjustments to `legend_loc` have different magnitudes depending on
             whether the plot is interactive or static.
         
-        colormap : str, default "viridis"
-            Name of the matplotlib colormap used to color the bars. See options
-            here: https://matplotlib.org/stable/tutorials/colors/colormaps.html
+        colormap : str, default "WORM"
+            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            "colorblind", or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The "colorblind" colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
             
-        plot_height : numeric, default 3
-            Height (in inches) of the plot. For interactive plots, assumes 122
-            pixels per inch.
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots. Ignored if `interactive`
+            is False.
         
         save_as : str, optional
             Provide a filename to save this figure as a PNG (for static plots)
@@ -1056,15 +966,7 @@ class Speciation(object):
                 raise Exception("sort_y_by must be either None, 'alphabetical', "
                                 "or a list of species names.")
 
-        # colors used for both interactive and static plots
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=len(unique_species)-1)
-        try:
-            cmap = cm.__getattribute__(colormap)
-        except:
-            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
-            raise Exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
-                            "Try one of these: {}".format(valid_colormaps))
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
+        colors = get_colors(colormap, len(unique_species))
         
         # static matplotlib plot
         if not interactive:
@@ -1082,14 +984,16 @@ class Speciation(object):
                         percents.append(percent)
                     except:
                         percents.append(0.0)
-                ax.bar(labels, percents, width, bottom=bottom, label=sp, color=m.to_rgba(i))
+                ax.bar(labels, percents, width, bottom=bottom, label=sp, color=colors[i])
                 bottom = bottom + np.array(percents)
 
             ax.set_ylabel('mole %')
             ax.set_title('Species accounting for mass balance of '+basis)
             plt.xticks(rotation = 45, ha='right')
             ax.legend(loc=legend_loc)
+            ax.margins(0.02, 0.02)
 
+            fig.set_figwidth(plot_width)
             fig.set_figheight(plot_height)
             
             if save_as != None:
@@ -1115,11 +1019,10 @@ class Speciation(object):
 
             output_notebook() # embed plots into the notebook
 
-            p = figure(x_range=labels, plot_height=plot_height*122, title='Species accounting for mass balance of '+basis,
+            p = figure(x_range=labels, plot_width=plot_width*ppi, plot_height=plot_height*ppi, title='Species accounting for mass balance of '+basis,
                        toolbar_location="right", tools="save", tooltips="@labels: @$name % $name")#, sizing_mode='scale_width')
 
             data = {"labels" : labels}
-            colors = []
             for i,sp in enumerate(unique_species):
                 percents = []
                 for sample in labels:
@@ -1130,10 +1033,9 @@ class Speciation(object):
                     except:
                         percents.append(0.0)
                 data[sp] = percents
-                colors.append(matplotlib.colors.rgb2hex(m.to_rgba(i)))
 
             v = p.vbar_stack(unique_species, x='labels', width=width, source=data,
-                             color=colors)
+                             color=[matplotlib.colors.rgb2hex(c) for c in colors])
 
             p.y_range.start = 0
             p.x_range.range_padding = 0

@@ -525,7 +525,7 @@ create_data0 <- function(thermo_df,
   neutral_ion_type_vec <- c()
   dissociation_list <- list()
   tag_vec <- c()
-      
+
   for(i in 1:nrow(thermo_df)){
       # for each row in the data file...
 
