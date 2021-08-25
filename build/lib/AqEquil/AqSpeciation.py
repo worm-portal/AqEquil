@@ -17,10 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-# bokeh for interactive plots
-from bokeh.io import output_file, show, output_notebook
-from bokeh.plotting import figure
-from bokeh.models import Legend, HoverTool
+import plotly.express as px
 
 # rpy2 for Python and R integration
 with warnings.catch_warnings():
@@ -399,7 +396,7 @@ class Speciation(object):
         plt.ylabel(ylabel)
 
         if save_as != None:
-            if ".png" not in save_as[:-4]:
+            if ".png" not in save_as[-4:]:
                 save_as = save_as+".png"
             
             plt.savefig(save_as, dpi=300, bbox_inches="tight")
@@ -594,7 +591,7 @@ class Speciation(object):
         plt.ylabel(ylabel)
 
         if save_as != None:
-            if ".png" not in save_as[:-4]:
+            if ".png" not in save_as[-4:]:
                 save_as = save_as+".png"
             
             plt.savefig(save_as, dpi=300, bbox_inches="tight")
@@ -627,8 +624,8 @@ class Speciation(object):
             Show a legend if there is more than one variable?
         
         legend_loc : str or pair of float, default "best"
-            Coordinates of the legend on the plot. See
-            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
+            Location of the legend on the plot. Defaults to the right side.
+            Ignored if `interactive` is True.
         
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -659,7 +656,10 @@ class Speciation(object):
             https://matplotlib.org/stable/gallery/color/named_colors.html
             
         save_as : str, optional
-            Provide a filename to save this figure as a PNG.
+            Provide a filename to save this figure as a PNG (for static plots)
+            or HTML (for interactive plots). Interactive plots can be saved as
+            a PNG by clicking the 'Download plot as a png' button in the plot's
+            toolbar.
         """
 
         if not isinstance(y, list):
@@ -693,11 +693,7 @@ class Speciation(object):
 
         colors = get_colors(colormap, len(y), alpha=fill_alpha)
         
-        if interactive:
-            output_notebook() # embed plots into the notebook
-            p = figure(plot_width=plot_width*ppi, plot_height=plot_height*ppi,
-                       tools="pan,wheel_zoom,box_zoom,reset,save") # ,hover")
-        else:
+        if not interactive:
             fig = plt.figure(figsize=(plot_width, plot_height))
             ax = fig.add_axes([0,0,1,1])
             
@@ -748,13 +744,7 @@ class Speciation(object):
             unit_previous = copy.deepcopy(unit)
             subheader_previous = copy.deepcopy(subheader)
                 
-            if interactive:
-                source = pd.concat([x_col, y_col], axis=1)
-                source.columns = source.columns.get_level_values(0)
-                r = p.circle(x, yi, source=source, fill_alpha=fill_alpha,
-                             size=point_size, legend_label=yi,
-                             color=matplotlib.colors.rgb2hex(colors[i]))
-            else:
+            if not interactive:
                 plt.scatter(x_plot, y_plot, marker='o', color=colors[i])
 
         if len(y) > 1:
@@ -786,43 +776,49 @@ class Speciation(object):
             else:
                 xlabel = "{} {}".format(x, xunit_type)
         
-
         if interactive:
-            p.xgrid.grid_line_color = None
-            p.ygrid.grid_line_color = None
-            p.axis.minor_tick_line_color = None
-            p.outline_line_color = "black"
-            p.xaxis.axis_label = xlabel
-            p.yaxis.axis_label = ylabel
-            p.background_fill_color = bg_color
-            if show_legend and len(y) > 1:
-                p.legend.click_policy="hide"
-                p.add_layout(p.legend[0], 'right')
-            else:
-                p.legend.visible=False 
-    
-            show(p)
-        else:
-            if xrange != None:
-                plt.xlim(xrange[0], xrange[1])
 
-            if yrange != None:
-                plt.ylim(yrange[0], yrange[1])
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+            
+            # map each species to its color, e.g.,
+            # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+            dict_species_color = {sp:color for sp,color in zip(y, colors)}
 
-            ax.set_facecolor(bg_color)
-            plt.ylabel(ylabel)
-            plt.xlabel(xlabel)
-
-            if save_as != None:
-                if ".png" not in save_as[:-4]:
-                    save_as = save_as+".png"
-
-                plt.savefig(save_as, dpi=300, bbox_inches="tight")
+            df = self.lookup(["name", x]+y).copy()
+            df.loc[:, "name"] = df.index
+            df.columns = df.columns.get_level_values(0)
+            df = pd.melt(df, id_vars=["name", x], value_vars=y)
+            df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
+            
+            fig = px.scatter(df, x=x, y="y_value", color="y_variable",
+                             hover_data=[x, "y_value", "y_variable", "name"],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  "y_value": ylabel},
+                             category_orders={"species": y},
+                             color_discrete_map=dict_species_color,
+                             opacity=fill_alpha,
+                             custom_data=['name'],
+                             template="simple_white")
+            fig.update_traces(marker=dict(size=point_size),
+                              hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}")
+            fig.update_layout(legend_title=None,
+                              margin={"t": 40})
+            if len(y) == 1:
+                fig.update_layout(showlegend=False)
+            
+            if isinstance(save_as, str):
+                if ".html" not in save_as[-5:]:
+                    save_as = save_as+".html"
+                fig.write_html(save_as)
                 print("Saved figure as {}".format(save_as))
-
-            plt.show()
-    
-    
+            
+            config = {'displaylogo': False, 'scrollZoom': True,
+                      'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'toggleSpikelines', 'resetScale2d']}
+            
+            fig.show(config=config)
+            
+            
     def plot_mass_contribution(self, basis, sort_by=None, ascending=True,
                                      sort_y_by=None, width=0.9,
                                      legend_loc=(1.02, 0),
@@ -858,8 +854,7 @@ class Speciation(object):
         
         legend_loc : str or pair of float, default (1.02, 0)
             Location of the legend on the plot. Defaults to the right side.
-            Adjustments to `legend_loc` have different magnitudes depending on
-            whether the plot is interactive or static.
+            Ignored if `interactive` is True.
         
         colormap : str, default "WORM"
             Name of the colormap to color the scatterpoints. Accepts "WORM",
@@ -880,11 +875,13 @@ class Speciation(object):
         
         save_as : str, optional
             Provide a filename to save this figure as a PNG (for static plots)
-            or HTML (for interactive plots).
+            or HTML (for interactive plots). Interactive plots can be saved as
+            a PNG by clicking the 'Download plot as a png' button in the plot's
+            toolbar.
         
         interactive : bool, default True
-            Create an interactive plot? If False, a static matplotlib plot is
-            shown. If True, an interactive Bokeh plot is shown.
+            Create an interactive plot? If False, a static plot is shown.
+            If True, an interactive plot is shown.
         """
         
         try:
@@ -1005,55 +1002,42 @@ class Speciation(object):
 
             plt.show()
         
-        # interactive Bokeh plot
+        # interactive plot
         else:
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
             
-            if legend_loc == None:
-                legend_loc = (1.02-legend_loc[0], 0) # allows default to be 0,0
+            # map each species to its color, e.g.,
+            # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+            dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+
+            fig = px.bar(df_sp, x="sample", y="percent", color="species",
+                         title='<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(basis),
+                         width=plot_width*ppi, height=plot_height*ppi,
+                         labels={"sample": "sample",  "percent": "mole %", "species": "species"},
+                         category_orders={"species": unique_species, "sample": labels},
+                         color_discrete_map=dict_species_color,
+                         template="simple_white",
+                        )
+            fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                              margin={"t": 40}, bargap=0)
+            
+            fig.update_traces(width=width, marker_line_width=0)
+            
+            config = {'displaylogo': False,
+                      'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
+                                                 'lasso2d', 'zoomIn2d', 'zoomOut2d',
+                                                 'autoScale2d', 'resetScale2d',
+                                                 'toggleSpikelines']}
             
             if isinstance(save_as, str):
-                if ".html" not in save_as[:-5]:
+                if ".html" not in save_as[-5:]:
                     save_as = save_as+".html"
-                output_file(save_as)
+                fig.write_html(save_as)
                 print("Saved figure as {}".format(save_as))
-
-            output_notebook() # embed plots into the notebook
-
-            p = figure(x_range=labels, plot_width=plot_width*ppi, plot_height=plot_height*ppi, title='Species accounting for mass balance of '+basis,
-                       toolbar_location="right", tools="save", tooltips="@labels: @$name % $name")#, sizing_mode='scale_width')
-
-            data = {"labels" : labels}
-            for i,sp in enumerate(unique_species):
-                percents = []
-                for sample in labels:
-                    df_sample = df_sp[df_sp["sample"]==sample]
-                    try:
-                        percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
-                        percents.append(percent)
-                    except:
-                        percents.append(0.0)
-                data[sp] = percents
-
-            v = p.vbar_stack(unique_species, x='labels', width=width, source=data,
-                             color=[matplotlib.colors.rgb2hex(c) for c in colors])
-
-            p.y_range.start = 0
-            p.x_range.range_padding = 0
-            p.xgrid.grid_line_color = None
-            p.ygrid.grid_line_color = None
-            p.axis.minor_tick_line_color = None
-            p.outline_line_color = None
-            p.xaxis.major_label_orientation = 0.78539816339 # x axis label rotation
-            p.yaxis.axis_label = 'mole %'
-
-            categories = list(data.keys())
-            categories.remove('labels')
-            legend = Legend(items=[(x, [v[i]]) for i, x in enumerate(categories)],
-                            location=legend_loc)
-            p.add_layout(legend, 'right')
-
-            show(p)
             
+            fig.show(config=config)
+
 
 class AqEquil():
 
