@@ -31,8 +31,6 @@ mine_3o <- function(this_file,
                     mass_contribution_other=T,
                     verbose=1){
     
-
-    
   # set directory to rxn_3o folder where .3o files are kept
   setwd("rxn_3o")
     
@@ -64,7 +62,7 @@ mine_3o <- function(this_file,
     }
     return(list())
   }
-    
+
   sample_3o <- list()
 
   sample_3o[["filename"]] <- this_file
@@ -79,7 +77,7 @@ mine_3o <- function(this_file,
   sample_3o[["H2O_density"]] <- isolate_block(str=extractme, begin_str="^.*Solution density =\\s+", end_str="\\s+.*$")
   sample_3o[["H2O_molality"]] <- 55.348/as.numeric(sample_3o[["H2O_density"]])
   sample_3o[["H2O_log_molality"]] <- log10(sample_3o[["H2O_molality"]])
-    
+
   ### Begin extracting 'Distribution of Aqueous Solute Species' ###
   if (get_aq_dist){
     # string to isolate the aqueous species distribution section:
@@ -118,25 +116,27 @@ mine_3o <- function(this_file,
       df <- rbind(df, this_df)
 
     }
-    
-    # add a row for water
-    df <- rbind(df, data.frame(species="H2O",
-                    molality=sample_3o[["H2O_molality"]],
-                    log_molality=sample_3o[["H2O_log_molality"]],
-                    log_gamma=1,
-                    log_activity=sample_3o[["logact_H2O"]],
-                    stringsAsFactors=FALSE))
-      
+
+    if(!("H2O" %in% df$species)){
+      # add a row for water
+      df <- rbind(df, data.frame(species="H2O",
+                      molality=sample_3o[["H2O_molality"]],
+                      log_molality=sample_3o[["H2O_log_molality"]],
+                      log_gamma=1,
+                      log_activity=sample_3o[["logact_H2O"]],
+                      stringsAsFactors=FALSE))
+    }
+
     # set rownames of aqueous species block as species names
     rownames(df) <- df$species
     df$species <- NULL
 
     # add aqueous block to this sample data
     sample_3o[["aq_distribution"]] <- df
-  
+      
   } # end of 'aqueous distribution' extraction
     
-    
+
   if(get_mass_contribution){
     ### begin extracting 'Major Species by Contribution to Aqueous Mass Balances' ###
     
@@ -223,7 +223,7 @@ mine_3o <- function(this_file,
     sample_3o[["mineral_sat"]] <- df
   } # end 'mineral saturation affinity' extraction
     
-    
+
   ### Begin mining redox data
   if(get_redox){
     # string to isolate the redox section:
@@ -311,7 +311,7 @@ mine_3o <- function(this_file,
     sample_3o[["charge_balance"]] <- c(IS, IS_stoich, elec_block, cbal_block)
   } # end charge balance extraction
 
-    
+
   if(get_ion_activity_ratios){
     ion_ratio_block <- isolate_block(extractme, "^.*--- Ion-H\\+ Activity Ratios ---\n\n", "\n\n.*$")
     ion_ratio_block_split <- strsplit(ion_ratio_block, "\n")[[1]]
@@ -339,7 +339,7 @@ mine_3o <- function(this_file,
     df <- transform(df, ion = as.character(ion))
     sample_3o[["ion_activity_ratios"]] <- df
   }
-    
+
   ### begin fugacity mining
   if(get_fugacity){
     fugacity_block <- isolate_block(extractme, "^.*--- Fugacities ---\n\n", "\n\n\n.*$")
@@ -784,7 +784,7 @@ main_3o_mine <- function(files_3o,
     custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
     suppressMessages(mod.OBIGT(custom_obigt, replace=T))
   }
-    
+
   rxn_table <- NULL
   if(get_affinity_energy){
     # read table of reactions
@@ -814,7 +814,7 @@ main_3o_mine <- function(files_3o,
                          not_limiting=not_limiting,
                          mass_contribution_other=mass_contribution_other,
                          verbose=verbose)
- 
+
     # if this file could be processed, add its data to the batch_3o object
     if(length(sample_3o)>1){
       batch_3o[["sample_data"]][[sample_3o[["name"]]]] <- sample_3o
@@ -877,6 +877,6 @@ main_3o_mine <- function(files_3o,
   if(verbose > 1){
     writeLines(paste("Finished mining .3o files. Time elapsed:", round(time_elapsed, 2), "seconds"))
   }
-  
+
   return(batch_3o)
 }
