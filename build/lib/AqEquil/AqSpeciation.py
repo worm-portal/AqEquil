@@ -775,6 +775,26 @@ class Speciation(object):
                 xlabel = "{} {} [{}]".format(x, xunit_type, xunit)
             else:
                 xlabel = "{} {}".format(x, xunit_type)
+                
+        if not interactive:
+            if xrange != None:
+                plt.xlim(xrange[0], xrange[1])
+
+            if yrange != None:
+                plt.ylim(yrange[0], yrange[1])
+
+            ax.set_facecolor(bg_color)
+            plt.ylabel(ylabel)
+            plt.xlabel(xlabel)
+
+            if save_as != None:
+                if ".png" not in save_as[:-4]:
+                    save_as = save_as+".png"
+
+                plt.savefig(save_as, dpi=300, bbox_inches="tight")
+                print("Saved figure as {}".format(save_as))
+
+            plt.show()
         
         if interactive:
 

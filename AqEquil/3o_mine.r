@@ -275,13 +275,13 @@ mine_3o <- function(this_file,
 
     # isolate ionic strength
     IS <- isolate_block(str=extractme, begin_str=front_trim, end_str="\\s+.*$")
-    names(IS) <- "IS (molal)"
+    names(IS) <- "ionic strength"
 
     # string to isolate stoichiometric ionic strength:
     front_trim <- "^.*Stoichiometric ionic strength=\\s+"
 
     IS_stoich <- isolate_block(str=extractme, begin_str=front_trim, end_str="\\s+.*$")
-    names(IS_stoich) <- "stoichiometric IS (molal)"
+    names(IS_stoich) <- "stoichiometric ionic strength"
 
     # string to isolate the electrical balance section:
     front_trim <- "^.*Sigma\\(mz\\) cations=\\s+"
@@ -291,11 +291,11 @@ mine_3o <- function(this_file,
     # split electrical block into strings and numerics
     elec_block <- strsplit(elec_block, "=\\s+|\n\\s+")[[1]]
 
-    elec_block <- c("Sigma(mz) cations"=elec_block[1],
-                    "Sigma(mz) anions"=elec_block[3],
-                    "Total charge"=elec_block[5],
-                    "Mean charge"=elec_block[7],
-                    "Charge imbalance"=elec_block[9])
+    elec_block <- c("sigma(mz) cations"=elec_block[1],
+                    "sigma(mz) anions"=elec_block[3],
+                    "total charge"=elec_block[5],
+                    "mean charge"=elec_block[7],
+                    "charge imbalance"=elec_block[9])
 
     # string to isolate charge balance:
     front_trim <- "^.*The electrical imbalance is:\n\n\\s+"
@@ -305,8 +305,8 @@ mine_3o <- function(this_file,
     # split electrical block into strings and numerics
     cbal_block <- strsplit(cbal_bal, " per cent|\n\\s+")[[1]]
 
-    cbal_block <- c("%CI of total"=cbal_block[1],
-                    "%CI of mean"=cbal_block[3])
+    cbal_block <- c("charge imbalance % of total charge"=cbal_block[1],
+                    "charge imbalance % of mean charge"=cbal_block[3])
   
     sample_3o[["charge_balance"]] <- c(IS, IS_stoich, elec_block, cbal_block)
   } # end charge balance extraction
