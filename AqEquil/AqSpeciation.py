@@ -16,7 +16,6 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-
 import plotly.express as px
 
 # rpy2 for Python and R integration
@@ -25,6 +24,7 @@ with warnings.catch_warnings():
     import rpy2.robjects as ro
     from rpy2.robjects import pandas2ri
     pandas2ri.activate()
+
 
 def load(filename, messages=True):
     """
@@ -85,7 +85,32 @@ def convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector(value)
 
 
-def get_colors(colormap, ncol, alpha=1):
+def get_colors(colormap, ncol, alpha=1.0):
+
+    """
+    Get a list of rgb values for a matplotlib colormap
+    
+    Parameters
+    ----------
+    colormap : str, default "WORM"
+        Name of the colormap to color the scatterpoints. Accepts "WORM",
+        "colorblind", or matplotlib colormaps.
+        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+        The "colorblind" colormap is referenced from Wong, B. Points of view:
+        Color blindness. Nat Methods 8, 441 (2011).
+        https://doi.org/10.1038/nmeth.1618
+    
+    ncol : int
+        Number of colors to return in the list.
+    
+    alpha : float, default 1.0
+        An alpha value between 0.0 (transparent) and 1.0 (opaque).
+    
+    Returns
+    -------
+    colors : list
+        A list of rgb color tuples
+    """
     
     qualitative_cmaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent',
                          'Dark2', 'Set1', 'Set2', 'Set3',
@@ -660,6 +685,9 @@ class Speciation(object):
             or HTML (for interactive plots). Interactive plots can be saved as
             a PNG by clicking the 'Download plot as a png' button in the plot's
             toolbar.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
         """
 
         if not isinstance(y, list):
@@ -900,8 +928,7 @@ class Speciation(object):
             toolbar.
         
         interactive : bool, default True
-            Create an interactive plot? If False, a static plot is shown.
-            If True, an interactive plot is shown.
+            Return an interactive plot if True or a static plot if False.
         """
         
         try:
