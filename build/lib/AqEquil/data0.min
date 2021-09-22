@@ -1,0 +1,227 @@
+data0.min
+minimal working data0 file
++--------------------------------------------------------------------           
+data0 parameters                                                                
++--------------------------------------------------------------------           
+Temperature limits (degC)
+         0.0000  350.0000
+temperatures
+         0.0100   50.0000  100.0000  150.0000
+       200.0000  250.0000  300.0000  350.0000
+pressures
+         1.0000    1.0000    1.0130    4.7570
+        15.5360   39.7360   85.8380  165.2110
+debye huckel a (adh)
+         0.4939    0.5336    0.5995    0.6855
+         0.7994    0.9593    1.2180    1.9252
+debye huckel b (bdh)
+         0.3253    0.3325    0.3421    0.3525
+         0.3639    0.3766    0.3925    0.4256
+bdot
+         0.0374    0.0430    0.0460    0.0470                                   
+         0.0470    0.0340    0.0000    0.0000                                   
+cco2   (coefficients for the drummond (1981) polynomial)                        
+        -1.0312              0.0012806                                          
+          255.9                 0.4445                                          
+      -0.001606                                                                 
+log k for eh reaction
+       -91.0450  -76.4320  -65.8640  -57.8930                         
+       -51.6850  -46.7260  -42.6830  -39.3310                                 
++--------------------------------------------------------------------
+bdot parameters
++--------------------------------------------------------------------
+*  species name                 azer0  neutral ion type
+Cl-                             3.0000     0
+H+                              9.0000     0
+H2O                             3.0000     0
+OH-                             3.0000     0
+O2(g)                           3.0000     0
+O2                              3.0000    -1
+plhold                          3.0000     0
++--------------------------------------------------------------------
+elements
++--------------------------------------------------------------------
+O         15.99940
+Cl        35.45270
+H          1.00794
+pl         1.00000
++--------------------------------------------------------------------
+basis species
++--------------------------------------------------------------------
+H2O
+    date last revised =  13-jul-1990                                            
+ keys   = basis            active                                               
+     charge  =   0.0                                                             
+*    DHazero =   3.0                                                             
+*    mol.wt. =      18.01528 g/mol                                                   
+     2 element(s):                                                      
+      2.0000 H              1.0000 O                                            
++--------------------------------------------------------------------
+Cl-
+    date last revised =  26-jun-1990                                            
+ keys   = basis            active                                               
+     charge  =  -1.0                                                             
+*    DHazero =   3.0                                                             
+*    mol.wt. =      35.45270 g/mol                                                   
+     1 element(s):                                                      
+      1.0000 Cl                                                                 
++--------------------------------------------------------------------
+H+
+    date last revised =  13-jun-1988                                            
+ keys   = basis            active                                               
+     charge  =   1.0                                                             
+*    DHazero =   9.0                                                             
+*    mol.wt. =       1.00794 g/mol                                                   
+     1 element(s):                                                      
+      1.0000 H                                                                  
++--------------------------------------------------------------------
+plhold
+    date last revised =  28-apr-2020                                            
+ keys   = basis            active                                               
+     charge  =   0.0                                                             
+*    DHazero =   3.5                                                             
+*    mol.wt. =       1.00000 g/mol                                                   
+     1 element(s):                                                      
+      1.0000 pl                                                                 
++--------------------------------------------------------------------
+O2(g)
+    date last revised =  31-jul-1984                                            
+ keys   = basis            active                                               
+     charge  =   0.0                                                             
+*    DHazero =   3.0                                                             
+*    mol.wt. =      31.99880 g/mol                                                   
+     1 element(s):                                                      
+      2.0000 O                                                                  
++--------------------------------------------------------------------
+auxiliary basis species
++--------------------------------------------------------------------
+O2
+    date last revised = 20-nov-2008
+ keys   = aux              active                                               
+     charge  =   0.0                                                             
+*    DHazero =   3.0                                                             
+*    mol.wt. =      31.99880 g/mol                                                   
+     1 element(s):
+      2.0000 O
+     2 species in aqueous dissociation reaction:
+    -1.0000  O2                           1.0000  O2(g)                         
+**** logK grid [T, P @ Miscellaneous parameters]=O2
+         2.6560    3.0310    3.1080    3.0350
+         2.8740    2.6490    2.3540    1.8830
++--------------------------------------------------------------------
+aqueous species
++--------------------------------------------------------------------
+OH-
+    date last revised = 20-nov-2008
+ keys   = aqueous          active                                               
+     charge  =  -1.0                                                             
+*    DHazero =   3.0                                                             
+*    mol.wt. =      17.00734 g/mol                                                   
+     2 element(s):
+      1.0000 H              1.0000 O
+     3 species in aqueous dissociation reaction:
+    -1.0000  OH-                         -1.0000  H+                            
+     1.0000  H2O                                                                
+**** logK grid [T, P @ Miscellaneous parameters]=OH-
+        14.9400   13.2710   12.2550   11.6310
+        11.2840   11.1670   11.3000   11.8280
++--------------------------------------------------------------------
+solids
++--------------------------------------------------------------------
+PLACEHOLDER1            pl
+    date last revised = 28-apr-2020
+ keys   = solid            refstate         active                              
+       V0PrTr =     5.298 cm**3/mol
+*      mwt    =    12.01100 g/mol
+     1 element(s):
+      1.0000 pl
+     2 species in data0 reaction
+    -1.0000  PLACEHOLDER1                 1.0000  plhold                           
+**** logK grid [T, P @ Miscellaneous parameters]=PLACEHOLDER1
+        67.7190   55.7740   46.8740   39.9510
+        34.3690   29.7110   25.6630   21.8320
++--------------------------------------------------------------------
+PLACEHOLDER2            pl
+    date last revised = 28-apr-2020
+ keys   = solid            refstate         active                              
+       V0PrTr =     5.298 cm**3/mol
+*      mwt    =    12.01100 g/mol
+     1 element(s):
+      1.0000 pl
+     2 species in data0 reaction
+    -1.0000  PLACEHOLDER2                 1.0000  plhold                           
+**** logK grid [T, P @ Miscellaneous parameters]=PLACEHOLDER2
+        67.7190   55.7740   46.8740   39.9510
+        34.3690   29.7110   25.6630   21.8320
++--------------------------------------------------------------------
+liquids
++--------------------------------------------------------------------
+PLACEHOLDER3              pl
+    date last revised = 20-nov-2008
+ keys   = liquid           refstate         active                              
+       V0PrTr =    14.822 cm**3/mol
+*      mwt    =   200.59000 g/mol                                               
+     1 element(s):                                                      
+      1.0000 pl                                                                 
+     2 species in data0 reaction
+    -1.0000  PLACEHOLDER3                 1.0000  plhold                            
+**** logK grid [T, P @ Miscellaneous parameters]=PLACEHOLDER3
+        14.5630   11.1400    8.6820    6.8350
+         5.3860    4.1960    3.1670    2.2860
++--------------------------------------------------------------------           
+gases
++--------------------------------------------------------------------
+H2O(g)
+    date last revised = 20-nov-2008
+ keys   = gas              active                                               
+       V0PrTr = 24465.000 cm**3/mol
+*      mwt    =    18.01528 g/mol                                               
+     2 element(s):                                                      
+      2.0000 H              1.0000 O                                            
+     2 species in data0 reaction
+    -1.0000  H2O(g)                       1.0000  H2O                           
+**** logK grid [T, P @ Miscellaneous parameters]=H2O(g)
+         2.2990    0.9950   -0.0060   -0.6630
+        -1.1560   -1.5340   -1.8290   -2.0630
++--------------------------------------------------------------------
+O2(g)
+    date last revised = 20-nov-2008
+ keys   = gas              refstate         active                              
+       V0PrTr = 24465.000 cm**3/mol
+*      mwt    =    31.99880 g/mol                                               
+     1 element(s):                                                      
+      2.0000 O                                                                  
+     2 species in data0 reaction
+    -1.0000  O2(g)                        1.0000  O2(g)                         
+**** logK grid [T, P @ Miscellaneous parameters]=O2(g)
+         0.0000    0.0000    0.0000    0.0000
+         0.0000    0.0000    0.0000    0.0000
++--------------------------------------------------------------------
+solid solutions
++--------------------------------------------------------------------
+PLAC EHO LDER 4         pl1-pl1
+    date last revised = 30-apr-2020 GMB
+ keys   = ss               cubic maclaurin  active
+  2 end members
+     1.0000  PLACEHOLDER1                 1.0000  PLACEHOLDER2
+ type   = 4
+  4 model parameters
+ 7.404 5.200 0.086 4.078 0.000 0.086
+  1 site parameters
+ 1.000 0.000 0.000 0.000 0.000 0.000
++--------------------------------------------------------------------
+references
++--------------------------------------------------------------------
+GB Note: placeholder elements and species were required to produce a
+working data0 file without real liquids, solids, or solid solutions.
+In this way, only aqueous and gaseous species are included.
+Placeholder element: pl
+Placeholder basis: plhold
+Placeholder solid: PLACEHOLDER1, PLACEHOLDER2
+Placeholder liquid: PLACEHOLDER3
+Placeholder solid solution: "PLAC EHO LDER 4"
+
+                                                                               
+stop.                                                                           
+                                                                                
+                                                                                

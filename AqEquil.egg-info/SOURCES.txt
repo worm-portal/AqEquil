@@ -1,0 +1,10 @@
+README.md
+setup.py
+AqEquil/AqSpeciation.py
+AqEquil/__init__.py
+AqEquil.egg-info/PKG-INFO
+AqEquil.egg-info/SOURCES.txt
+AqEquil.egg-info/dependency_links.txt
+AqEquil.egg-info/not-zip-safe
+AqEquil.egg-info/requires.txt
+AqEquil.egg-info/top_level.txt
