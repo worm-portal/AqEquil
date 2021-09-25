@@ -453,6 +453,7 @@ mine_3o <- function(this_file,
         product_molalities <- molalities[which(stoichs > 0)]
         this_logQ <- sum(abs(product_stoich)*log10(product_activities)) - sum(abs(reactant_stoich)*log10(reactant_activities))
 
+          
         if(!is.na(this_logQ)){
           ### calculate K using subcrt() function in CHNOSZ
           this_logK <- suppressMessages(subcrt(species=species_CHNOSZ,

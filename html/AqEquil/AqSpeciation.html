@@ -295,6 +295,7 @@ class Speciation(object):
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
             &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
+            &#34;cal/mol e-&#34; : (&#34;affinity&#34;, &#34;cal/mol e-&#34;),
             &#34;cal/kg.H2O&#34; : (&#34;energy supply&#34;, &#34;cal/kg H2O&#34;),
             &#34;Log ion-H+ activity ratio&#34; : (&#34;Log ion-H+ activity ratio&#34;, &#34;&#34;),
             &#34;log_fugacity&#34; : (&#34;log fugacity&#34;, &#34;log(bar)&#34;),
@@ -4648,7 +4649,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i=os.getcwd(), path_3o=os.getcwd(), path_3p=os.getcwd())</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='C:\\Users\\gmboy\\Desktop\\aqequil', path_3o='C:\\Users\\gmboy\\Desktop\\aqequil', path_3p='C:\\Users\\gmboy\\Desktop\\aqequil')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -5993,6 +5994,7 @@ speciation report.</dd>
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
             &#34;eq/kg.H2O&#34; : (&#34;charge&#34;, &#34;eq/kg&#34;),
             &#34;logfO2&#34; : (&#34;&#34;, &#34;&#34;),
+            &#34;cal/mol e-&#34; : (&#34;affinity&#34;, &#34;cal/mol e-&#34;),
             &#34;cal/kg.H2O&#34; : (&#34;energy supply&#34;, &#34;cal/kg H2O&#34;),
             &#34;Log ion-H+ activity ratio&#34; : (&#34;Log ion-H+ activity ratio&#34;, &#34;&#34;),
             &#34;log_fugacity&#34; : (&#34;log fugacity&#34;, &#34;log(bar)&#34;),

@@ -267,6 +267,7 @@ class Speciation(object):
             "Eh_volts" : ("Eh", "volts"),
             "eq/kg.H2O" : ("charge", "eq/kg"),
             "logfO2" : ("", ""),
+            "cal/mol e-" : ("affinity", "cal/mol e-"),
             "cal/kg.H2O" : ("energy supply", "cal/kg H2O"),
             "Log ion-H+ activity ratio" : ("Log ion-H+ activity ratio", ""),
             "log_fugacity" : ("log fugacity", "log(bar)"),
