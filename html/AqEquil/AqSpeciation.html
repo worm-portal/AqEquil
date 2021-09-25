@@ -194,6 +194,40 @@ def get_colors(colormap, ncol, alpha=1.0):
     return colors
 
 
+def html_chemname_format(name):
+    
+    &#34;&#34;&#34;
+    Format a chemical formula to display subscripts and superscripts in HTML
+    (e.g., Plotly plots)
+    Example, &#34;CH3COO-&#34; becomes &#34;CH&lt;sub&gt;3&lt;/sub&gt;COO&lt;sup&gt;-&lt;/sup&gt;&#34;
+    
+    Parameters
+    ----------
+    name : str
+        A chemical formula.
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    &#34;&#34;&#34;
+    
+    p = re.compile(r&#39;(?P&lt;sp&gt;[-+]\d*?$)&#39;)
+    name = p.sub(r&#39;&lt;sup&gt;\g&lt;sp&gt;&lt;/sup&gt;&#39;, name)
+    
+    name_no_charge = re.match(r&#39;(?:(?!&lt;|$).)*&#39;, name).group(0)
+    mapping = {&#34;0&#34;: &#34;&lt;sub&gt;0&lt;/sub&gt;&#34;, &#34;1&#34;: &#34;&lt;sub&gt;1&lt;/sub&gt;&#34;, &#34;2&#34;: &#34;&lt;sub&gt;2&lt;/sub&gt;&#34;, &#34;3&#34;: &#34;&lt;sub&gt;3&lt;/sub&gt;&#34;, &#34;4&#34;: &#34;&lt;sub&gt;4&lt;/sub&gt;&#34;, 
+           &#34;5&#34;: &#34;&lt;sub&gt;5&lt;/sub&gt;&#34;, &#34;6&#34;: &#34;&lt;sub&gt;6&lt;/sub&gt;&#34;, &#34;7&#34;: &#34;&lt;sub&gt;7&lt;/sub&gt;&#34;, &#34;8&#34;: &#34;&lt;sub&gt;8&lt;/sub&gt;&#34;, &#34;9&#34;: &#34;&lt;sub&gt;9&lt;/sub&gt;&#34;,
+           &#34;.&#34;:&#34;&lt;sub&gt;.&lt;/sub&gt;&#34;}
+    name_no_charge_formatted = &#34;&#34;.join([mapping.get(x) or x for x in list(name_no_charge)])
+
+    try:
+        name = re.sub(name_no_charge, name_no_charge_formatted, name)
+    except:
+        pass
+
+    return(name)
+
+
 class Speciation(object):
     
     &#34;&#34;&#34;
@@ -818,20 +852,28 @@ class Speciation(object):
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                if unit != &#34;&#34;:
-                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if interactive:
+                    y_formatted = html_chemname_format(y[0])
                 else:
-                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
+                    y_formatted = y[0]
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y_formatted, unit_type)
         
         if x == &#39;pH&#39;:
             xlabel = &#39;pH&#39;
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            if xunit != &#34;&#34;:
-                xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            if interactive:
+                x_formatted = html_chemname_format(x)
             else:
-                xlabel = &#34;{} {}&#34;.format(x, xunit_type)
+                x_formatted = x
+            if xunit != &#34;&#34;:
+                xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
+            else:
+                xlabel = &#34;{} {}&#34;.format(x_formatted, xunit_type)
                 
         if not interactive:
             if xrange != None:
@@ -867,6 +909,8 @@ class Speciation(object):
             df.columns = df.columns.get_level_values(0)
             df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
             df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
+
+            df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format)
             
             fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                              hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
@@ -1083,12 +1127,15 @@ class Speciation(object):
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
             
+            df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format)
+            unique_species = [html_chemname_format(sp) for sp in unique_species]
+            
             # map each species to its color, e.g.,
             # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
             dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
 
             fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
-                         title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(basis),
+                         title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format(basis)),
                          width=plot_width*ppi, height=plot_height*ppi,
                          labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                          category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
@@ -2797,6 +2844,58 @@ Color blindness. Nat Methods 8, 441 (2011).
         colors = [(c[0], c[1], c[2], alpha) for c in colors]
     
     return colors</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.AqSpeciation.html_chemname_format"><code class="name flex">
+<span>def <span class="ident">html_chemname_format</span></span>(<span>name)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Format a chemical formula to display subscripts and superscripts in HTML
+(e.g., Plotly plots)
+Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>A chemical formula.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A formatted chemical formula string.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def html_chemname_format(name):
+    
+    &#34;&#34;&#34;
+    Format a chemical formula to display subscripts and superscripts in HTML
+    (e.g., Plotly plots)
+    Example, &#34;CH3COO-&#34; becomes &#34;CH&lt;sub&gt;3&lt;/sub&gt;COO&lt;sup&gt;-&lt;/sup&gt;&#34;
+    
+    Parameters
+    ----------
+    name : str
+        A chemical formula.
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    &#34;&#34;&#34;
+    
+    p = re.compile(r&#39;(?P&lt;sp&gt;[-+]\d*?$)&#39;)
+    name = p.sub(r&#39;&lt;sup&gt;\g&lt;sp&gt;&lt;/sup&gt;&#39;, name)
+    
+    name_no_charge = re.match(r&#39;(?:(?!&lt;|$).)*&#39;, name).group(0)
+    mapping = {&#34;0&#34;: &#34;&lt;sub&gt;0&lt;/sub&gt;&#34;, &#34;1&#34;: &#34;&lt;sub&gt;1&lt;/sub&gt;&#34;, &#34;2&#34;: &#34;&lt;sub&gt;2&lt;/sub&gt;&#34;, &#34;3&#34;: &#34;&lt;sub&gt;3&lt;/sub&gt;&#34;, &#34;4&#34;: &#34;&lt;sub&gt;4&lt;/sub&gt;&#34;, 
+           &#34;5&#34;: &#34;&lt;sub&gt;5&lt;/sub&gt;&#34;, &#34;6&#34;: &#34;&lt;sub&gt;6&lt;/sub&gt;&#34;, &#34;7&#34;: &#34;&lt;sub&gt;7&lt;/sub&gt;&#34;, &#34;8&#34;: &#34;&lt;sub&gt;8&lt;/sub&gt;&#34;, &#34;9&#34;: &#34;&lt;sub&gt;9&lt;/sub&gt;&#34;,
+           &#34;.&#34;:&#34;&lt;sub&gt;.&lt;/sub&gt;&#34;}
+    name_no_charge_formatted = &#34;&#34;.join([mapping.get(x) or x for x in list(name_no_charge)])
+
+    try:
+        name = re.sub(name_no_charge, name_no_charge_formatted, name)
+    except:
+        pass
+
+    return(name)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.load"><code class="name flex">
@@ -6517,20 +6616,28 @@ speciation report.</dd>
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                if unit != &#34;&#34;:
-                    ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+                if interactive:
+                    y_formatted = html_chemname_format(y[0])
                 else:
-                    ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
+                    y_formatted = y[0]
+                if unit != &#34;&#34;:
+                    ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
+                else:
+                    ylabel = &#34;{} {}&#34;.format(y_formatted, unit_type)
         
         if x == &#39;pH&#39;:
             xlabel = &#39;pH&#39;
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            if xunit != &#34;&#34;:
-                xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+            if interactive:
+                x_formatted = html_chemname_format(x)
             else:
-                xlabel = &#34;{} {}&#34;.format(x, xunit_type)
+                x_formatted = x
+            if xunit != &#34;&#34;:
+                xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
+            else:
+                xlabel = &#34;{} {}&#34;.format(x_formatted, xunit_type)
                 
         if not interactive:
             if xrange != None:
@@ -6566,6 +6673,8 @@ speciation report.</dd>
             df.columns = df.columns.get_level_values(0)
             df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
             df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
+
+            df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format)
             
             fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                              hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
@@ -6782,12 +6891,15 @@ speciation report.</dd>
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
             
+            df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format)
+            unique_species = [html_chemname_format(sp) for sp in unique_species]
+            
             # map each species to its color, e.g.,
             # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
             dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
 
             fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
-                         title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(basis),
+                         title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format(basis)),
                          width=plot_width*ppi, height=plot_height*ppi,
                          labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                          category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
@@ -7363,12 +7475,15 @@ toolbar.</dd>
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
         
+        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format)
+        unique_species = [html_chemname_format(sp) for sp in unique_species]
+        
         # map each species to its color, e.g.,
         # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
         dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
 
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
-                     title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(basis),
+                     title=&#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format(basis)),
                      width=plot_width*ppi, height=plot_height*ppi,
                      labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                      category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
@@ -7767,20 +7882,28 @@ toolbar.</dd>
         elif &#39;Temperature&#39; in y:
             ylabel = &#39;Temperature [°C]&#39;
         else:
-            if unit != &#34;&#34;:
-                ylabel = &#34;{} {} [{}]&#34;.format(y[0], unit_type, unit)
+            if interactive:
+                y_formatted = html_chemname_format(y[0])
             else:
-                ylabel = &#34;{} {}&#34;.format(y[0], unit_type)
+                y_formatted = y[0]
+            if unit != &#34;&#34;:
+                ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
+            else:
+                ylabel = &#34;{} {}&#34;.format(y_formatted, unit_type)
     
     if x == &#39;pH&#39;:
         xlabel = &#39;pH&#39;
     elif x == &#39;Temperature&#39;:
         xlabel = &#39;Temperature [°C]&#39;
     else:
-        if xunit != &#34;&#34;:
-            xlabel = &#34;{} {} [{}]&#34;.format(x, xunit_type, xunit)
+        if interactive:
+            x_formatted = html_chemname_format(x)
         else:
-            xlabel = &#34;{} {}&#34;.format(x, xunit_type)
+            x_formatted = x
+        if xunit != &#34;&#34;:
+            xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
+        else:
+            xlabel = &#34;{} {}&#34;.format(x_formatted, xunit_type)
             
     if not interactive:
         if xrange != None:
@@ -7816,6 +7939,8 @@ toolbar.</dd>
         df.columns = df.columns.get_level_values(0)
         df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
+
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format)
         
         fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                          hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
@@ -7865,6 +7990,7 @@ toolbar.</dd>
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.convert_to_RVector" href="#AqEquil.AqSpeciation.convert_to_RVector">convert_to_RVector</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.get_colors" href="#AqEquil.AqSpeciation.get_colors">get_colors</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.html_chemname_format" href="#AqEquil.AqSpeciation.html_chemname_format">html_chemname_format</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.load" href="#AqEquil.AqSpeciation.load">load</a></code></li>
 </ul>
 </li>

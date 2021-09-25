@@ -166,6 +166,40 @@ def get_colors(colormap, ncol, alpha=1.0):
     return colors
 
 
+def html_chemname_format(name):
+    
+    """
+    Format a chemical formula to display subscripts and superscripts in HTML
+    (e.g., Plotly plots)
+    Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"
+    
+    Parameters
+    ----------
+    name : str
+        A chemical formula.
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    """
+    
+    p = re.compile(r'(?P<sp>[-+]\d*?$)')
+    name = p.sub(r'<sup>\g<sp></sup>', name)
+    
+    name_no_charge = re.match(r'(?:(?!<|$).)*', name).group(0)
+    mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>", "3": "<sub>3</sub>", "4": "<sub>4</sub>", 
+           "5": "<sub>5</sub>", "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>", "9": "<sub>9</sub>",
+           ".":"<sub>.</sub>"}
+    name_no_charge_formatted = "".join([mapping.get(x) or x for x in list(name_no_charge)])
+
+    try:
+        name = re.sub(name_no_charge, name_no_charge_formatted, name)
+    except:
+        pass
+
+    return(name)
+
+
 class Speciation(object):
     
     """
@@ -790,20 +824,28 @@ class Speciation(object):
             elif 'Temperature' in y:
                 ylabel = 'Temperature [°C]'
             else:
-                if unit != "":
-                    ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
+                if interactive:
+                    y_formatted = html_chemname_format(y[0])
                 else:
-                    ylabel = "{} {}".format(y[0], unit_type)
+                    y_formatted = y[0]
+                if unit != "":
+                    ylabel = "{} {} [{}]".format(y_formatted, unit_type, unit)
+                else:
+                    ylabel = "{} {}".format(y_formatted, unit_type)
         
         if x == 'pH':
             xlabel = 'pH'
         elif x == 'Temperature':
             xlabel = 'Temperature [°C]'
         else:
-            if xunit != "":
-                xlabel = "{} {} [{}]".format(x, xunit_type, xunit)
+            if interactive:
+                x_formatted = html_chemname_format(x)
             else:
-                xlabel = "{} {}".format(x, xunit_type)
+                x_formatted = x
+            if xunit != "":
+                xlabel = "{} {} [{}]".format(x_formatted, xunit_type, xunit)
+            else:
+                xlabel = "{} {}".format(x_formatted, xunit_type)
                 
         if not interactive:
             if xrange != None:
@@ -839,6 +881,8 @@ class Speciation(object):
             df.columns = df.columns.get_level_values(0)
             df = pd.melt(df, id_vars=["name", x], value_vars=y)
             df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
+
+            df['y_variable'] = df['y_variable'].apply(html_chemname_format)
             
             fig = px.scatter(df, x=x, y="y_value", color="y_variable",
                              hover_data=[x, "y_value", "y_variable", "name"],
@@ -1055,12 +1099,15 @@ class Speciation(object):
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
             
+            df_sp["species"] = df_sp["species"].apply(html_chemname_format)
+            unique_species = [html_chemname_format(sp) for sp in unique_species]
+            
             # map each species to its color, e.g.,
             # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
             dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
 
             fig = px.bar(df_sp, x="sample", y="percent", color="species",
-                         title='<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(basis),
+                         title='<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(html_chemname_format(basis)),
                          width=plot_width*ppi, height=plot_height*ppi,
                          labels={"sample": "sample",  "percent": "mole %", "species": "species"},
                          category_orders={"species": unique_species, "sample": labels},

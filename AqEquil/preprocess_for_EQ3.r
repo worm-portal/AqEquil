@@ -590,6 +590,11 @@ preprocess <- function(input_filename,
           species_name  <- header_species(column)
           if(!(species_name %in% exclude)){
            species_value <- df[row, column]
+           # EQ3 won't balance on a species if its concentration is 0 so
+           # change it to a very small non-zero value
+           if(charge_balance_on == species_name && as.numeric(species_value)==0){
+             species_value <- 1e-99
+           }
            species_unit  <- header_unit(column, keepcase=T)
            if(!(species_unit %in% EQ3_jflags)){
              if(tolower(species_unit) == "ppb"){

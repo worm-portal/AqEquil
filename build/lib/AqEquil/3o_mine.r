@@ -60,6 +60,8 @@ mine_3o <- function(this_file,
       }
       
     }
+
+    setwd("../")
     return(list())
   }
 
