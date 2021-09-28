@@ -166,6 +166,39 @@ def get_colors(colormap, ncol, alpha=1.0):
     return colors
 
 
+def html_chemname_format_AqEquil(name):
+    
+    """
+    AqEquil-specific formatting of chemical names for html. Takes "_(input)"
+    into account when formatting names.
+    
+    Parameters
+    ----------
+    name : str
+        A chemical formula.
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    """
+    
+    # format only the first part of the name if it has "_(input)"
+    if len(name.split("_(input)"))==2:
+        if name.split("_(input)")[1] == '':
+            name = name.split("_(input)")[0]
+            input_flag=True
+    else:
+        input_flag = False
+    
+    name = html_chemname_format(name)
+    
+    # add " (input)" to the end of the name
+    if input_flag:
+        name = name+" (input)"
+    
+    return(name)
+
+
 def html_chemname_format(name):
     
     """
@@ -185,17 +218,18 @@ def html_chemname_format(name):
     
     p = re.compile(r'(?P<sp>[-+]\d*?$)')
     name = p.sub(r'<sup>\g<sp></sup>', name)
-    
+    charge = re.search(r'<.*$', name)
+
     name_no_charge = re.match(r'(?:(?!<|$).)*', name).group(0)
     mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>", "3": "<sub>3</sub>", "4": "<sub>4</sub>", 
            "5": "<sub>5</sub>", "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>", "9": "<sub>9</sub>",
            ".":"<sub>.</sub>"}
     name_no_charge_formatted = "".join([mapping.get(x) or x for x in list(name_no_charge)])
 
-    try:
-        name = re.sub(name_no_charge, name_no_charge_formatted, name)
-    except:
-        pass
+    if charge != None:
+        name = name_no_charge_formatted + charge.group(0)
+    else:
+        name = name_no_charge_formatted
 
     return(name)
 
@@ -377,10 +411,11 @@ class Speciation(object):
         return y, out_unit
     
     
-    def plot_mineral_saturation(self, sample_name, mineral_sat_type="affinity",
-                                yrange=None,
-                                colors=["blue", "orange"], bg_color="white",
-                                save_as=None):
+    def plot_mineral_saturation(self, sample_name, title=None,
+                                mineral_sat_type="affinity",
+                                plot_width=4, plot_height=3, ppi=122,
+                                colors=["blue", "orange"],
+                                save_as=None, interactive=True):
         """
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -388,22 +423,17 @@ class Speciation(object):
         ----------
         sample_name : str
             Name of the sample to plot.
+            
+        title : str, optional
+            Title of the plot.
         
         mineral_sat_type : str, default "affinity"
             Metric for mineral saturation state to plot. Can be "affinity" or
             "logQoverK".
-            
-        yrange : list of numeric, optional
-            Sets the lower and upper limits of the y axis.
         
         colors : list of two str, default ["blue", "orange"]
             Sets the color of the bars representing supersaturated
             and undersaturated states, respectively.
-        
-        bg_color : str, default "white"
-            Name of the Matplotlib color you wish to set as the panel
-            background. A list of named colors can be found here:
-            https://matplotlib.org/stable/gallery/color/named_colors.html
             
         save_as : str, optional
             Provide a filename to save this figure as a PNG.
@@ -424,51 +454,52 @@ class Speciation(object):
                    "running speciate(), or ensure this sample has "
                    "mineral-forming basis species.")
             raise Exception(msg)
-            
-        fig = plt.figure()
-        ax = fig.add_axes([0,0,1,1])
-        plt.xticks(rotation = 45, ha='right')
         
-        pos_sat = [m if m >= 0 else float("nan") for m in mineral_data] # possibly: special list for m==0
-        neg_sat = [m if m < 0 else float("nan") for m in mineral_data]
-        
-        barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
-        for i, y_plot in enumerate([pos_sat, neg_sat]):
+        color_list = [colors[0] if m >= 0 else colors[1] for m in mineral_data]
             
-            if i == 0:
-                color = colors[0]
-            else:
-                color = colors[1]
-                
-            bars = ax.bar(x, y_plot, tick_label=x, color=color)
-            
-            barlist.append(bars)
-            
-            if mineral_sat_type == "affinity":
-                ylabel = 'affinity, kcal/mol'
-            if mineral_sat_type == "logQoverK":
-                ylabel = 'logQ/K'
+        if mineral_sat_type == "affinity":
+            ylabel = 'affinity, kcal/mol'
+        if mineral_sat_type == "logQoverK":
+            ylabel = 'logQ/K'
         
-        if yrange != None:
-            plt.ylim(yrange[0], yrange[1])
+        if title==None:
+            title = sample_name + " mineral saturation index"
         
-        ax.set_facecolor(bg_color)
-        plt.ylabel(ylabel)
+        df = pd.DataFrame(mineral_data)
 
-        if save_as != None:
-            if ".png" not in save_as[-4:]:
-                save_as = save_as+".png"
-            
-            plt.savefig(save_as, dpi=300, bbox_inches="tight")
-            print("Saved figure as {}".format(save_as))
+        fig = px.bar(df, x=df.index, y="affinity",
+            height=plot_height*ppi, width=plot_width*ppi,
+            labels={'affinity': ylabel}, template="simple_white")
         
-        plt.show()
+        fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}",
+                          marker_color=color_list)
+        
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+                          margin={"t":40},
+                          xaxis={'fixedrange':True},
+                          yaxis={'fixedrange':True, 'exponentformat':'power'})
+        
+        config = {'displaylogo': False,
+                  'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
+                                             'lasso2d', 'zoomIn2d', 'zoomOut2d',
+                                             'autoScale2d', 'resetScale2d',
+                                             'toggleSpikelines']}
+        if not interactive:
+            config['staticPlot'] = True
+
+        if isinstance(save_as, str):
+            if ".html" not in save_as[-5:]:
+                save_as = save_as+".html"
+            fig.write_html(save_as)
+            print("Saved figure as {}".format(save_as))
+
+        fig.show(config=config)
     
 
-    def barplot(self, y, yrange=None, convert_log=True, show_trace=True,
-                show_legend=True, show_missing=True, legend_loc="best",
-                plot_width=4, plot_height=3,
-                colormap="WORM", bg_color="white", save_as=None):
+    def barplot(self, y, title=None, convert_log=True, show_missing=True,
+                plot_width=4, plot_height=3, ppi=122, interactive=True,
+                colormap="WORM", save_as=None):
         
         """
         Show a bar plot to vizualize one or more variables across all samples.
@@ -478,31 +509,24 @@ class Speciation(object):
         y : str or list of str
             Name (or list of names) of the variables to plot. Valid variables
             are columns in the speciation report.
-       
-        yrange : list of numeric, optional
-            Sets the lower and upper limits of the y axis.
+
+        title : str, optional
+            Title of the plot.
             
         convert_log : bool, default True
             Convert units "log_activity", "log_molality", "log_gamma", and
             "log_fugacity" to "activity", "molality", "gamma", and "fugacity",
             respectively?
         
-        show_trace : bool, default True
-            Show asterisks for columns with numerical values but are too short
-            to see clearly?
-            
-        show_legend : bool, default True
-            Show a legend if there is more than one variable?
-        
         show_missing : bool, default True
             Show samples that do not have bars?
         
-        legend_loc : str or pair of float, default "best"
-            Location of the legend on the plot. See
-            https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.legend.html#matplotlib.axes.Axes.legend
-        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches.
+
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
         
         colormap : str, default "WORM"
             Name of the colormap to color the scatterpoints. Accepts "WORM",
@@ -511,39 +535,42 @@ class Speciation(object):
             The "colorblind" colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-
-        bg_color : str, default "white"
-            Name of the Matplotlib color you wish to set as the panel
-            background. A list of named colors can be found here:
-            https://matplotlib.org/stable/gallery/color/named_colors.html
             
         save_as : str, optional
             Provide a filename to save this figure as a PNG.
         """
-        
-        fig = plt.figure()
-        fig.set_figwidth(plot_width)
-        fig.set_figheight(plot_height)
-        ax = fig.add_axes([0,0,1,1])
-        plt.xticks(rotation = 45, ha='right')
 
         if not isinstance(y, list):
             y = [y]
-        
-        y_cols = self.lookup(y)
-        
-        if not show_missing:
-            y_cols = y_cols.dropna(how='all')
-        
-        x = y_cols.index # names of samples
-        X = np.arange(len(x))
-        
+
         colors = get_colors(colormap, len(y))
+
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+
+        # map each species to its color, e.g.,
+        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+        dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
-        barlist = [] # stores sets of bars in the bar chart so they can referenced for annotation
+        # html format color dict key names
+        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+            
+        y_cols = self.lookup(y)
+
+        if not show_missing:
+            y_cols = y_cols.dropna(how='all') # this df will keep subheaders
+        x = y_cols.index # names of samples
+
+        df = self.lookup(["name"]+y).copy()
+        if not show_missing:
+            df = df.dropna(how='all') # this df will lose subheaders (flattened)
+        df.loc[:, "name"] = df.index
+        df.columns = df.columns.get_level_values(0)
+
+        
         for i, yi in enumerate(y):
             y_col = y_cols.iloc[:, y_cols.columns.get_level_values(0)==yi]
-            
+
             try:
                 subheader = y_col.columns.get_level_values(1)[0]
             except:
@@ -556,14 +583,14 @@ class Speciation(object):
             except:
                 unit_type = ""
                 unit = ""
-            
+
             try:
                 y_vals = [float(y0[0]) if y0[0] != 'NA' else float("nan") for y0 in y_col.values.tolist()]
             except:
                 msg = ("One or more the values belonging to "
                        "'{}' are non-numeric and cannot be plotted.".format(y_col.columns.get_level_values(0)[0]))
                 raise Exception(msg)
-            
+
             if convert_log and [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in ["log_activity", "log_molality", "log_gamma", "log_fugacity"]:
                     y_plot, out_unit = self.__convert_aq_units_to_log_friendly(yi, rows=x)
@@ -572,7 +599,7 @@ class Speciation(object):
                     y_plot = y_vals
             else:
                 y_plot = y_vals
-            
+
             if i == 0:
                 subheader_previous = subheader
                 unit_previous = unit
@@ -591,48 +618,20 @@ class Speciation(object):
                        "({}) than {} ({}). ".format("molality", yi_previous, "activity")+""
                        "Plotted variables must share units.")
                 raise Exception(msg)
-                
+
             yi_previous = copy.deepcopy(yi)
             unit_previous = copy.deepcopy(unit)
             subheader_previous = copy.deepcopy(subheader)
             
-            if len(y) != 1:
-                color = colors[i]
-            else:
-                color = "black"
-            
-            bars = ax.bar(X+i*(1/(len(y)+1)), y_plot, tick_label=x, color=color, width=1/(len(y)+1))
-            
-            barlist.append(bars)
+            df.loc[:, yi] = y_plot
 
-        max_bar_height = 0
-        for bars in barlist:
-            for p in bars.patches:
-                max_bar_height = np.nanmax([max_bar_height, abs(p.get_height())])
-                
-        for i,bars in enumerate(barlist):
-            for p in bars.patches:
-                if show_trace and abs(p.get_height())/max_bar_height <= 0.009:
-                    if len(y) != 1:
-                        color = colors[i]
-                    else:
-                        color = "black"
-                
-                    plt.annotate("*",
-                                  (p.get_x() + p.get_width() / 2., p.get_height()),
-                                  ha = 'center', va = 'center', xytext = (0, 10),
-                                  color=color,
-                                  weight='bold',
-                                  fontsize=18,
-                                  textcoords = 'offset points')
-        
+
         if len(y) > 1:
             if unit != "":
                 ylabel = "{} [{}]".format(unit_type, unit)
             else:
                 ylabel = unit_type
-            if show_legend:
-                ax.legend(labels=y, loc=legend_loc)
+
         else:
             if 'pH' in y:
                 ylabel = 'pH'
@@ -640,32 +639,53 @@ class Speciation(object):
                 ylabel = 'Temperature [°C]'
             else:
                 if unit != "":
-                    ylabel = "{} {} [{}]".format(y[0], unit_type, unit)
+                    ylabel = "{} {} [{}]".format(html_chemname_format_AqEquil(y[0]), unit_type, unit)
                 else:
-                    ylabel = "{} {}".format(y[0], unit_type)
-        
-        if yrange != None:
-            plt.ylim(yrange[0], yrange[1])
-        
-        ax.set_facecolor(bg_color)
-        plt.ylabel(ylabel)
+                    ylabel = "{} {}".format(html_chemname_format_AqEquil(y[0]), unit_type)
 
-        if save_as != None:
-            if ".png" not in save_as[-4:]:
-                save_as = save_as+".png"
-            
-            plt.savefig(save_as, dpi=300, bbox_inches="tight")
+        
+        df = pd.melt(df, id_vars=["name"], value_vars=y)
+        df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
+
+        df['y_variable'] = df['y_variable'].apply(html_chemname_format_AqEquil)
+
+        fig = px.bar(df, x="name", y="y_value",
+            height=plot_height*ppi, width=plot_width*ppi,
+            color='y_variable', barmode='group',
+            labels={'y_value': ylabel}, template="simple_white",
+            color_discrete_map=dict_species_color)
+        
+        fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}")
+        
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+                          legend_title=None, margin={"t": 40},
+                          xaxis={'fixedrange':True},
+                          yaxis={'fixedrange':True, 'exponentformat':'power'})
+        if len(y) == 1:
+            fig.update_layout(showlegend=False)
+        
+        config = {'displaylogo': False,
+                  'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
+                                             'lasso2d', 'zoomIn2d', 'zoomOut2d',
+                                             'autoScale2d', 'resetScale2d',
+                                             'toggleSpikelines']}
+        if not interactive:
+            config['staticPlot'] = True
+
+        if isinstance(save_as, str):
+            if ".html" not in save_as[-5:]:
+                save_as = save_as+".html"
+            fig.write_html(save_as)
             print("Saved figure as {}".format(save_as))
+
+        fig.show(config=config)
+
         
-        plt.show()
-
-
-    def scatterplot(self, x="pH", y="Temperature", xrange=None, yrange=None,
-                          show_legend=True, legend_loc="best",
+    def scatterplot(self, x="pH", y="Temperature", title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
-                          colormap="WORM", bg_color="white",
-                          save_as=None, interactive=True):
+                          colormap="WORM", save_as=None, interactive=True):
         
         """
         Vizualize two or more sample variables with a scatterplot.
@@ -676,16 +696,9 @@ class Speciation(object):
             Names of the variables to plot against each other. Valid variables
             are columns in the speciation report. `y` can be a list of
             of variable names for a multi-series scatterplot.
-       
-        xrange, yrange : list of numeric, optional
-            Sets the lower and upper limits of the x and y axis.
-            
-        show_legend : bool, default True
-            Show a legend if there is more than one variable?
-        
-        legend_loc : str or pair of float, default "best"
-            Location of the legend on the plot. Defaults to the right side.
-            Ignored if `interactive` is True.
+
+        title : str, optional
+            Title of the plot.
         
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -693,8 +706,7 @@ class Speciation(object):
         
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
-            determines the size of interactive plots. Ignored if `interactive`
-            is False.
+            determines the size of interactive plots.
         
         fill_alpha : numeric, default 0.7
             Transparency of scatterpoint area fill.
@@ -709,17 +721,11 @@ class Speciation(object):
             The "colorblind" colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-
-        bg_color : str, default "white"
-            Name of the Matplotlib color you wish to set as the panel
-            background. A list of named colors can be found here:
-            https://matplotlib.org/stable/gallery/color/named_colors.html
             
         save_as : str, optional
-            Provide a filename to save this figure as a PNG (for static plots)
-            or HTML (for interactive plots). Interactive plots can be saved as
-            a PNG by clicking the 'Download plot as a png' button in the plot's
-            toolbar.
+            Provide a filename to save this figure as an interactive HTML.
+            Note: static PNGs of interactive plots can be saved by clicking the
+            'Download plot as a png' button in the plot's toolbar.
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
@@ -755,11 +761,6 @@ class Speciation(object):
             xunit = ""
 
         colors = get_colors(colormap, len(y), alpha=fill_alpha)
-        
-        if not interactive:
-            fig = plt.figure(figsize=(plot_width, plot_height))
-            ax = fig.add_axes([0,0,1,1])
-            
         
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
@@ -806,28 +807,19 @@ class Speciation(object):
             yi_previous = copy.deepcopy(yi)
             unit_previous = copy.deepcopy(unit)
             subheader_previous = copy.deepcopy(subheader)
-                
-            if not interactive:
-                plt.scatter(x_plot, y_plot, marker='o', color=colors[i])
 
         if len(y) > 1:
             if unit != "":
                 ylabel = "{} [{}]".format(unit_type, unit)
             else:
                 ylabel = unit_type
-            if show_legend:
-                if not interactive:
-                    ax.legend(labels=y, loc=legend_loc)
         else:
             if 'pH' in y:
                 ylabel = 'pH'
             elif 'Temperature' in y:
                 ylabel = 'Temperature [°C]'
             else:
-                if interactive:
-                    y_formatted = html_chemname_format(y[0])
-                else:
-                    y_formatted = y[0]
+                y_formatted = html_chemname_format_AqEquil(y[0])
                 if unit != "":
                     ylabel = "{} {} [{}]".format(y_formatted, unit_type, unit)
                 else:
@@ -838,83 +830,65 @@ class Speciation(object):
         elif x == 'Temperature':
             xlabel = 'Temperature [°C]'
         else:
-            if interactive:
-                x_formatted = html_chemname_format(x)
-            else:
-                x_formatted = x
+            x_formatted = html_chemname_format_AqEquil(x)
             if xunit != "":
                 xlabel = "{} {} [{}]".format(x_formatted, xunit_type, xunit)
             else:
                 xlabel = "{} {}".format(x_formatted, xunit_type)
-                
-        if not interactive:
-            if xrange != None:
-                plt.xlim(xrange[0], xrange[1])
 
-            if yrange != None:
-                plt.ylim(yrange[0], yrange[1])
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-            ax.set_facecolor(bg_color)
-            plt.ylabel(ylabel)
-            plt.xlabel(xlabel)
-
-            if save_as != None:
-                if ".png" not in save_as[:-4]:
-                    save_as = save_as+".png"
-
-                plt.savefig(save_as, dpi=300, bbox_inches="tight")
-                print("Saved figure as {}".format(save_as))
-
-            plt.show()
+        # map each species to its color, e.g.,
+        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+        dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
-        if interactive:
+        # html format color dict key names
+        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        
+        df = self.lookup(["name", x]+y).copy()
+        df.loc[:, "name"] = df.index
+        df.columns = df.columns.get_level_values(0)
+        df = pd.melt(df, id_vars=["name", x], value_vars=y)
+        df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
 
-            # convert rgba to hex
-            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
-            
-            # map each species to its color, e.g.,
-            # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
-            dict_species_color = {sp:color for sp,color in zip(y, colors)}
+        df['y_variable'] = df['y_variable'].apply(html_chemname_format_AqEquil)
 
-            df = self.lookup(["name", x]+y).copy()
-            df.loc[:, "name"] = df.index
-            df.columns = df.columns.get_level_values(0)
-            df = pd.melt(df, id_vars=["name", x], value_vars=y)
-            df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
+        fig = px.scatter(df, x=x, y="y_value", color="y_variable",
+                         hover_data=[x, "y_value", "y_variable", "name"],
+                         width=plot_width*ppi, height=plot_height*ppi,
+                         labels={x: xlabel,  "y_value": ylabel},
+                         category_orders={"species": y},
+                         color_discrete_map=dict_species_color,
+                         opacity=fill_alpha,
+                         custom_data=['name'],
+                         template="simple_white")
+        fig.update_traces(marker=dict(size=point_size),
+                          hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}")
+        fig.update_layout(legend_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+                          margin={"t": 40},
+                          yaxis={'exponentformat':'power'})
+        if len(y) == 1:
+            fig.update_layout(showlegend=False)
 
-            df['y_variable'] = df['y_variable'].apply(html_chemname_format)
+        config = {'displaylogo': False, 'scrollZoom': True,
+                  'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'toggleSpikelines', 'resetScale2d']}
+
+        if not interactive:
+            config['staticPlot'] = True
+
+        if isinstance(save_as, str):
+            if ".html" not in save_as[-5:]:
+                save_as = save_as+".html"
+            fig.write_html(save_as)
+            print("Saved figure as {}".format(save_as))
             
-            fig = px.scatter(df, x=x, y="y_value", color="y_variable",
-                             hover_data=[x, "y_value", "y_variable", "name"],
-                             width=plot_width*ppi, height=plot_height*ppi,
-                             labels={x: xlabel,  "y_value": ylabel},
-                             category_orders={"species": y},
-                             color_discrete_map=dict_species_color,
-                             opacity=fill_alpha,
-                             custom_data=['name'],
-                             template="simple_white")
-            fig.update_traces(marker=dict(size=point_size),
-                              hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}")
-            fig.update_layout(legend_title=None,
-                              margin={"t": 40})
-            if len(y) == 1:
-                fig.update_layout(showlegend=False)
+        fig.show(config=config)
+
             
-            if isinstance(save_as, str):
-                if ".html" not in save_as[-5:]:
-                    save_as = save_as+".html"
-                fig.write_html(save_as)
-                print("Saved figure as {}".format(save_as))
-            
-            config = {'displaylogo': False, 'scrollZoom': True,
-                      'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'toggleSpikelines', 'resetScale2d']}
-            
-            fig.show(config=config)
-            
-            
-    def plot_mass_contribution(self, basis, sort_by=None, ascending=True,
-                                     sort_y_by=None, width=0.9,
-                                     legend_loc=(1.02, 0),
+    def plot_mass_contribution(self, basis, title=None, sort_by=None,
+                                     ascending=True, sort_y_by=None, width=0.9,
                                      colormap="WORM",
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, interactive=True):
@@ -927,6 +901,9 @@ class Speciation(object):
         ----------
         basis : str
             Name of the basis species.
+
+        title : str, optional
+            Title of the plot.
             
         sort_by : str, optional
             Name of the variable used to sort samples. Variable names must be
@@ -945,10 +922,6 @@ class Speciation(object):
         width : float, default 0.9
             Width of bars. No space between bars if width=1.0.
         
-        legend_loc : str or pair of float, default (1.02, 0)
-            Location of the legend on the plot. Defaults to the right side.
-            Ignored if `interactive` is True.
-        
         colormap : str, default "WORM"
             Name of the colormap to color the scatterpoints. Accepts "WORM",
             "colorblind", or matplotlib colormaps.
@@ -963,14 +936,12 @@ class Speciation(object):
             
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
-            determines the size of interactive plots. Ignored if `interactive`
-            is False.
+            determines the size of interactive plots.
         
         save_as : str, optional
-            Provide a filename to save this figure as a PNG (for static plots)
-            or HTML (for interactive plots). Interactive plots can be saved as
-            a PNG by clicking the 'Download plot as a png' button in the plot's
-            toolbar.
+            Provide a filename to save this figure as an interactive HTML.
+            Note: static PNGs of interactive plots can be saved by clicking the
+            'Download plot as a png' button in the plot's toolbar.
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
@@ -1055,83 +1026,52 @@ class Speciation(object):
                 raise Exception("sort_y_by must be either None, 'alphabetical', "
                                 "or a list of species names.")
 
+        # get colormap
         colors = get_colors(colormap, len(unique_species))
         
-        # static matplotlib plot
-        if not interactive:
-            if legend_loc == None:
-                legend_loc = (1.02, 0)
-            
-            fig, ax = plt.subplots()
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-            for i,sp in enumerate(unique_species):
-                percents = []
-                for sample in labels:
-                    df_sample = df_sp[df_sp["sample"]==sample]
-                    try:
-                        percent = df_sample[df_sample["species"]==sp]["percent"].iloc[0]
-                        percents.append(percent)
-                    except:
-                        percents.append(0.0)
-                ax.bar(labels, percents, width, bottom=bottom, label=sp, color=colors[i])
-                bottom = bottom + np.array(percents)
+        df_sp["species"] = df_sp["species"].apply(html_chemname_format_AqEquil)
+        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
 
-            ax.set_ylabel('mole %')
-            ax.set_title('Species accounting for mass balance of '+basis)
-            plt.xticks(rotation = 45, ha='right')
-            ax.legend(loc=legend_loc)
-            ax.margins(0.02, 0.02)
-
-            fig.set_figwidth(plot_width)
-            fig.set_figheight(plot_height)
-            
-            if save_as != None:
-                if ".png" not in save_as[:-4]:
-                    save_as = save_as+".png"
-
-                plt.savefig(save_as, dpi=300, bbox_inches="tight")
-                print("Saved figure as {}".format(save_as))
-
-            plt.show()
+        # map each species to its color, e.g.,
+        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
         
-        # interactive plot
-        else:
-            # convert rgba to hex
-            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
-            
-            df_sp["species"] = df_sp["species"].apply(html_chemname_format)
-            unique_species = [html_chemname_format(sp) for sp in unique_species]
-            
-            # map each species to its color, e.g.,
-            # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
-            dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+        if title == None:
+            title = '<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(html_chemname_format_AqEquil(basis))
+        
+        fig = px.bar(df_sp, x="sample", y="percent", color="species",
+                     width=plot_width*ppi, height=plot_height*ppi,
+                     labels={"sample": "sample",  "percent": "mole %", "species": "species"},
+                     category_orders={"species": unique_species, "sample": labels},
+                     color_discrete_map=dict_species_color,
+                     template="simple_white",
+                    )
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+                          margin={"t": 40}, bargap=0, xaxis={'fixedrange':True},
+                          yaxis={'fixedrange':True})
 
-            fig = px.bar(df_sp, x="sample", y="percent", color="species",
-                         title='<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(html_chemname_format(basis)),
-                         width=plot_width*ppi, height=plot_height*ppi,
-                         labels={"sample": "sample",  "percent": "mole %", "species": "species"},
-                         category_orders={"species": unique_species, "sample": labels},
-                         color_discrete_map=dict_species_color,
-                         template="simple_white",
-                        )
-            fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                              margin={"t": 40}, bargap=0)
+        fig.update_traces(width=width, marker_line_width=0)
+
+        config = {'displaylogo': False,
+                  'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
+                                             'lasso2d', 'zoomIn2d', 'zoomOut2d',
+                                             'autoScale2d', 'resetScale2d',
+                                             'toggleSpikelines']}
+        
+        if not interactive:
+            config['staticPlot'] = True
             
-            fig.update_traces(width=width, marker_line_width=0)
-            
-            config = {'displaylogo': False,
-                      'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
-                                                 'lasso2d', 'zoomIn2d', 'zoomOut2d',
-                                                 'autoScale2d', 'resetScale2d',
-                                                 'toggleSpikelines']}
-            
-            if isinstance(save_as, str):
-                if ".html" not in save_as[-5:]:
-                    save_as = save_as+".html"
-                fig.write_html(save_as)
-                print("Saved figure as {}".format(save_as))
-            
-            fig.show(config=config)
+        if isinstance(save_as, str):
+            if ".html" not in save_as[-5:]:
+                save_as = save_as+".html"
+            fig.write_html(save_as)
+            print("Saved figure as {}".format(save_as))
+
+        fig.show(config=config)
 
 
 class AqEquil():
