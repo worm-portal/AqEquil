@@ -1,0 +1,26 @@
+# YAML 1.2
+---
+authors: 
+  -
+    affiliation: "Arizona State University, School of Earth and Space Exploration"
+    family-names: Boyer
+    given-names: Grayson
+    orcid: "https://orcid.org/0000-0002-7670-9273"
+  -
+    affiliation: "University of Minnesota, Department of Soil, Water, and Climate"
+    family-names: Ely
+    given-names: Tucker
+    orcid: "https://orcid.org/0000-0002-2955-4184"
+  -
+    affiliation: "Arizona State University, School of Earth and Space Exploration"
+    family-names: Shock
+    given-names: Everett
+    orcid: "https://orcid.org/0000-0002-4283-0163"
+cff-version: "0.1.0"
+license: MIT
+message: "If you use this software, please cite it using these metadata."
+repository-code: "https://github.com/worm-portal/AqEquil"
+title: "AqEquil: Python package for aqueous geochemical speciation"
+version: "0.9.1"
+date-released: 2021-09-28
+...
