@@ -1,12 +1,14 @@
 Metadata-Version: 2.1
 Name: AqEquil
-Version: 0.9.1
+Version: 0.9.2
 Summary: Python tools for aqueous chemical speciation.
 Home-page: UNKNOWN
 Author: Grayson Boyer
 Author-email: gmboyer@asu.edu
 License: UNKNOWN
 Description: # AqEquil
+        
+        [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5534832.svg)](https://doi.org/10.5281/zenodo.5534832)
         
         Grayson Boyer, PhD
         
@@ -55,6 +57,7 @@ Description: # AqEquil
         ### Usage
         
         See this [demo notebook](https://gitlab.com/worm1/worm-library/-/blob/master/3-Aqueous-Speciation/1-Introduction-to-Aq-Speciation/2-Intro-to-Multi-Aq-Speciation.ipynb) for usage examples.
+        
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License

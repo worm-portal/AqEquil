@@ -17,6 +17,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import plotly.express as px
+import plotly.io as pio
 
 # rpy2 for Python and R integration
 with warnings.catch_warnings():
@@ -232,7 +233,7 @@ def html_chemname_format(name):
         name = name_no_charge_formatted
 
     return(name)
-
+            
 
 class Speciation(object):
     
@@ -303,6 +304,36 @@ class Speciation(object):
             pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
             if messages:
                 print("Saved as '{}'".format(filename))
+
+    
+    @staticmethod
+    def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
+        if isinstance(save_format, str) and save_format not in ['png', 'jpg', 'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', 'html']:
+            raise Exception("{}".format(save_format)+" is an unrecognized "
+                            "save format. Supported formats include 'png', "
+                            "'jpg', 'jpeg', 'webp', 'svg', 'pdf', 'eps', "
+                            "'json', or 'html'")
+            
+        if isinstance(save_format, str):
+            if not isinstance(save_as, str):
+                save_as = "newplot"
+            if save_format=="html":
+                fig.write_html(save_as+".html")
+                print("Saved figure as {}".format(save_as)+".html")
+                save_format = 'png'
+            elif save_format in ['pdf', 'eps', 'json']:
+                pio.write_image(fig, save_as+"."+save_format, format=save_format, scale=save_scale,
+                                width=plot_width*ppi, height=plot_height*ppi)
+                print("Saved figure as {}".format(save_as)+"."+save_format)
+                save_format = "png"
+            else:
+                pio.write_image(fig, save_as+"."+save_format, format=save_format, scale=save_scale,
+                                width=plot_width*ppi, height=plot_height*ppi)
+                print("Saved figure as {}".format(save_as)+"."+save_format)
+        else:
+            save_format = "png"
+            
+        return save_as, save_format
     
     
     @staticmethod
@@ -346,7 +377,7 @@ class Speciation(object):
         out = unit_name_dict.get(subheader)
         
         return out[0], out[1]
-    
+
     
     def lookup(self, col=None):
         
@@ -415,7 +446,8 @@ class Speciation(object):
                                 mineral_sat_type="affinity",
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=["blue", "orange"],
-                                save_as=None, interactive=True):
+                                save_as=None, save_format=None, save_scale=1,
+                                interactive=True):
         """
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -436,7 +468,24 @@ class Speciation(object):
             and undersaturated states, respectively.
             
         save_as : str, optional
-            Provide a filename to save this figure as a PNG.
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
         """
         
         if sample_name not in self.report.index:
@@ -480,26 +529,33 @@ class Speciation(object):
                           xaxis={'fixedrange':True},
                           yaxis={'fixedrange':True, 'exponentformat':'power'})
         
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+
         config = {'displaylogo': False,
                   'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
                                              'lasso2d', 'zoomIn2d', 'zoomOut2d',
                                              'autoScale2d', 'resetScale2d',
-                                             'toggleSpikelines']}
+                                             'toggleSpikelines'],
+                  'toImageButtonOptions': {
+                                             'format': save_format, # one of png, svg, jpeg, webp
+                                             'filename': save_as,
+                                             'height': plot_height*ppi,
+                                             'width': plot_width*ppi,
+                                             'scale': save_scale,
+                                          },
+                 }
         if not interactive:
             config['staticPlot'] = True
-
-        if isinstance(save_as, str):
-            if ".html" not in save_as[-5:]:
-                save_as = save_as+".html"
-            fig.write_html(save_as)
-            print("Saved figure as {}".format(save_as))
 
         fig.show(config=config)
     
 
     def barplot(self, y, title=None, convert_log=True, show_missing=True,
-                plot_width=4, plot_height=3, ppi=122, interactive=True,
-                colormap="WORM", save_as=None):
+                plot_width=4, plot_height=3, ppi=122, colormap="WORM",
+                save_as=None, save_format=None, save_scale=1,
+                interactive=True):
         
         """
         Show a bar plot to vizualize one or more variables across all samples.
@@ -537,7 +593,24 @@ class Speciation(object):
             https://doi.org/10.1038/nmeth.1618
             
         save_as : str, optional
-            Provide a filename to save this figure as a PNG.
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+        
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
         """
 
         if not isinstance(y, list):
@@ -664,20 +737,26 @@ class Speciation(object):
                           yaxis={'fixedrange':True, 'exponentformat':'power'})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
-        
+
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
         config = {'displaylogo': False,
                   'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
                                              'lasso2d', 'zoomIn2d', 'zoomOut2d',
                                              'autoScale2d', 'resetScale2d',
-                                             'toggleSpikelines']}
+                                             'toggleSpikelines'],
+                  'toImageButtonOptions': {
+                                             'format': save_format,
+                                             'filename': save_as+'.png',
+                                             'height': plot_height*ppi,
+                                             'width': plot_width*ppi,
+                                             'scale': save_scale,
+                                           },
+                  }
         if not interactive:
             config['staticPlot'] = True
-
-        if isinstance(save_as, str):
-            if ".html" not in save_as[-5:]:
-                save_as = save_as+".html"
-            fig.write_html(save_as)
-            print("Saved figure as {}".format(save_as))
 
         fig.show(config=config)
 
@@ -685,7 +764,8 @@ class Speciation(object):
     def scatterplot(self, x="pH", y="Temperature", title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
-                          colormap="WORM", save_as=None, interactive=True):
+                          colormap="WORM", save_as=None, save_format=None,
+                          save_scale=1, interactive=True):
         
         """
         Vizualize two or more sample variables with a scatterplot.
@@ -723,9 +803,21 @@ class Speciation(object):
             https://doi.org/10.1038/nmeth.1618
             
         save_as : str, optional
-            Provide a filename to save this figure as an interactive HTML.
-            Note: static PNGs of interactive plots can be saved by clicking the
-            'Download plot as a png' button in the plot's toolbar.
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
@@ -871,18 +963,24 @@ class Speciation(object):
                           yaxis={'exponentformat':'power'})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
+            
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
 
         config = {'displaylogo': False, 'scrollZoom': True,
-                  'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'toggleSpikelines', 'resetScale2d']}
+                  'modeBarButtonsToRemove': ['select2d', 'lasso2d', 'toggleSpikelines', 'resetScale2d'],
+                  'toImageButtonOptions': {
+                                           'format': save_format, # one of png, svg, jpeg, webp
+                                           'filename': save_as,
+                                           'height': plot_height*ppi,
+                                           'width': plot_width*ppi,
+                                           'scale': save_scale,
+                                           },
+                 }
 
         if not interactive:
             config['staticPlot'] = True
-
-        if isinstance(save_as, str):
-            if ".html" not in save_as[-5:]:
-                save_as = save_as+".html"
-            fig.write_html(save_as)
-            print("Saved figure as {}".format(save_as))
             
         fig.show(config=config)
 
@@ -891,7 +989,8 @@ class Speciation(object):
                                      ascending=True, sort_y_by=None, width=0.9,
                                      colormap="WORM",
                                      plot_width=4, plot_height=3, ppi=122,
-                                     save_as=None, interactive=True):
+                                     save_as=None, save_format=None,
+                                     save_scale=1, interactive=True):
         
         """
         Plot basis species contributions to mass balance of aqueous species
@@ -939,9 +1038,21 @@ class Speciation(object):
             determines the size of interactive plots.
         
         save_as : str, optional
-            Provide a filename to save this figure as an interactive HTML.
-            Note: static PNGs of interactive plots can be saved by clicking the
-            'Download plot as a png' button in the plot's toolbar.
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
@@ -1055,21 +1166,27 @@ class Speciation(object):
                           yaxis={'fixedrange':True})
 
         fig.update_traces(width=width, marker_line_width=0)
-
+        
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
         config = {'displaylogo': False,
                   'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
                                              'lasso2d', 'zoomIn2d', 'zoomOut2d',
                                              'autoScale2d', 'resetScale2d',
-                                             'toggleSpikelines']}
+                                             'toggleSpikelines'],
+                  'toImageButtonOptions': {
+                                           'format': save_format, # one of png, svg, jpeg, webp
+                                           'filename': save_as,
+                                           'height': plot_height*ppi,
+                                           'width': plot_width*ppi,
+                                           'scale': save_scale,
+                                           },
+                 }
         
         if not interactive:
             config['staticPlot'] = True
-            
-        if isinstance(save_as, str):
-            if ".html" not in save_as[-5:]:
-                save_as = save_as+".html"
-            fig.write_html(save_as)
-            print("Saved figure as {}".format(save_as))
 
         fig.show(config=config)
 
