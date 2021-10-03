@@ -48,4 +48,4 @@ Install AqEquil using pip:
 
 ### Usage
 
-See this [demo notebook](https://gitlab.com/worm1/worm-library/-/blob/master/3-Aqueous-Speciation/1-Introduction-to-Aq-Speciation/2-Intro-to-Multi-Aq-Speciation.ipynb) for usage examples.
+See this [demo notebook](https://github.com/worm-portal/WORM-Library/blob/master/3-Aqueous-Speciation/1-Introduction-to-Aq-Speciation/2-Intro-to-Multi-Aq-Speciation.ipynb) for usage examples.
