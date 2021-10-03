@@ -749,7 +749,7 @@ class Speciation(object):
                                              'toggleSpikelines'],
                   'toImageButtonOptions': {
                                              'format': save_format,
-                                             'filename': save_as+'.png',
+                                             'filename': save_as,
                                              'height': plot_height*ppi,
                                              'width': plot_width*ppi,
                                              'scale': save_scale,
