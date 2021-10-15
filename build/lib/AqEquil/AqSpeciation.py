@@ -20,16 +20,13 @@ import plotly.express as px
 import plotly.io as pio
 
 # rpy2 for Python and R integration
-from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
+import rpy2.rinterface_lib.callbacks
 import logging
-rpy2_logger.setLevel(logging.ERROR)   # will display errors, but not warnings
-
-#rpy2_logger.addFilter(lambda record: 'R[write to console]:' not in record.msg)
+rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)   # will display errors, but not warnings
 
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
-
 
 def load(filename, messages=True):
     """
@@ -1244,7 +1241,29 @@ class AqEquil():
 
         os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
-    
+
+
+    def capture_r_output(self):
+        """
+        Capture and create a list of R console messages
+        """
+        
+        # Record output #
+        self.stdout = []
+        self.stderr = []
+        
+        # Dummy functions #
+        def add_to_stdout(line): self.stdout.append(line)
+        def add_to_stderr(line): self.stderr.append(line)
+            
+        # Keep the old functions #
+        self.stdout_orig = rpy2.rinterface_lib.callbacks.consolewrite_print
+        self.stderr_orig = rpy2.rinterface_lib.callbacks.consolewrite_warnerror
+        
+        # Set the call backs #
+        rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
+        rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
+
     
     @staticmethod
     def __file_exists(filename, ext='.csv'):
@@ -2154,7 +2173,7 @@ class AqEquil():
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        rpy2_logger.setLevel(logging.WARNING)
+        self.capture_r_output()
         
         r_prescript = pkg_resources.resource_string(
             __name__, 'preprocess_for_EQ3.r').decode("utf-8")
@@ -2174,8 +2193,8 @@ class AqEquil():
                                              grid_temp=convert_to_RVector(grid_temp),
                                              grid_press=convert_to_RVector(grid_press),
                                              verbose=self.verbose)
-
-        rpy2_logger.setLevel(logging.ERROR)
+        
+        for line in self.stderr: print(line)
 
         self.df_input_processed = ro.conversion.rpy2py(df_input_processed)
 
@@ -2204,7 +2223,7 @@ class AqEquil():
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        rpy2_logger.setLevel(logging.WARNING)
+        self.capture_r_output()
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, '3o_mine.r').decode("utf-8")
@@ -2239,7 +2258,7 @@ class AqEquil():
             verbose=self.verbose,
         )
 
-        rpy2_logger.setLevel(logging.ERROR)
+        for line in self.stderr: print(line)
         
         if len(batch_3o) == 0:
             raise Exception("Could not compile a speciation report. This is "
@@ -2675,7 +2694,7 @@ class AqEquil():
             raise Exception("template_type {} ".format(template_type)+"is not"
                             "recognized. Try 'strict', 'all basis', or 'all species'")
 
-        rpy2_logger.setLevel(logging.WARNING)
+        self.capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
             __name__, 'create_data0.r').decode("utf-8")
@@ -2696,7 +2715,7 @@ class AqEquil():
                                template_type=template_type,
                                verbose=self.verbose)
     
-        rpy2_logger.setLevel(logging.ERROR)
+        for line in self.stderr: print(line)
         
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
