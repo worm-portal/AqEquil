@@ -402,13 +402,14 @@ mine_3o <- function(this_file,
         
       # substitute CHNOSZ's lowercase mineral names
       for(species in species_CHNOSZ){
-        
+          
         lowercase_species <- tolower(species)
         if(lowercase_species %in% CHNOSZ_cr_names){
           #species_CHNOSZ <- gsub(species, lowercase_species, species_CHNOSZ)
           # add the mineral to master_df and master_df_mol dataframes assuming an
           # activity of 1 (log activity 0)
           df[species, "log_activity"] <- 0
+          not_limiting <- c(not_limiting, species)
         }
       }
       
@@ -455,7 +456,6 @@ mine_3o <- function(this_file,
         product_molalities <- molalities[which(stoichs > 0)]
         this_logQ <- sum(abs(product_stoich)*log10(product_activities)) - sum(abs(reactant_stoich)*log10(reactant_activities))
 
-          
         if(!is.na(this_logQ)){
           ### calculate K using subcrt() function in CHNOSZ
           this_logK <- suppressMessages(subcrt(species=species_CHNOSZ,
@@ -467,7 +467,6 @@ mine_3o <- function(this_file,
           this_logK <- NA
         }
 
-
         ### calculate activity of limiting reactant
         reactant_names <- species_EQ3[which(stoichs < 0)]
         product_names <- species_EQ3[which(stoichs > 0)]
@@ -477,6 +476,18 @@ mine_3o <- function(this_file,
 
         if(length(not_lim_index) == 0){
           molality_div_stoich <- reactant_molalities/abs(reactant_stoich)
+        }else if(all(reactant_names %in% not_limiting)){
+          # if there are no limiting reactants (e.g., reactants are all minerals)
+          # then append NAs and continue...
+          df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
+                                             affinity=affinity,
+                                             energy_supply=NA,
+                                             mol_rxn=NA,
+                                             electrons=electrons,
+                                             reaction=paste(full_rxn,collapse=" "),
+                                             limiting=NA,
+                                             stringsAsFactors=FALSE))
+          next
         }else{
           molality_div_stoich <- reactant_molalities[-not_lim_index]/abs(reactant_stoich[-not_lim_index])
         }
@@ -528,7 +539,7 @@ mine_3o <- function(this_file,
         mol_rxn <- NA
         limiting_reactants <- NA
       }
-      
+        
       # unit conversion
       affinity <- ((this_A*1000)/4.184)/electrons # in cal/mol e-
       energy_supply <- (this_energy*1000)/4.184 # in cal/kg
@@ -542,9 +553,8 @@ mine_3o <- function(this_file,
                                          reaction=paste(full_rxn,collapse=" "),
                                          limiting=limiting_reactants,
                                          stringsAsFactors=FALSE))
-      
     } # end rxn loop
-
+      
     rownames(df_rxn) <- df_rxn$rxn
     df_rxn$rxn <- NULL
       
@@ -554,8 +564,7 @@ mine_3o <- function(this_file,
                          electrons = numeric(0),
                          reaction = character(0),
                          stringsAsFactors = FALSE)
-    
-    
+      
     ### sum reaction clusters (a reaction and its subreactions)
     if(sum(grepl("_sub$", rownames(df_rxn))) > 0){
       # perform this chunk of code if "_sub" rxns are present
@@ -564,7 +573,7 @@ mine_3o <- function(this_file,
       
       for(rxn in c(rownames(df_rxn), "final_energy")){
         # loop through columns (plus a dummy "final_energy" column)
-        
+          
         if(grepl("_sub", rxn)){
           # if the rxn represents a sub-reaction in the cluster, add column name to vector
           rxn_list_sub <- c(rxn_list_sub, rxn)

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
-<meta name="generator" content="pdoc 0.9.2" />
+<meta name="generator" content="pdoc 0.10.0" />
 <title>AqEquil.AqSpeciation API documentation</title>
 <meta name="description" content="" />
 <link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
@@ -35,7 +35,7 @@ import collections
 import pickle
 
 import warnings
-from subprocess import Popen
+import subprocess
 import pkg_resources
 import pandas as pd
 import numpy as np
@@ -48,11 +48,15 @@ import plotly.express as px
 import plotly.io as pio
 
 # rpy2 for Python and R integration
-with warnings.catch_warnings():
-    warnings.simplefilter(&#34;ignore&#34;)
-    import rpy2.robjects as ro
-    from rpy2.robjects import pandas2ri
-    pandas2ri.activate()
+from rpy2.rinterface_lib.callbacks import logger as rpy2_logger
+import logging
+rpy2_logger.setLevel(logging.ERROR)   # will display errors, but not warnings
+
+#rpy2_logger.addFilter(lambda record: &#39;R[write to console]:&#39; not in record.msg)
+
+import rpy2.robjects as ro
+from rpy2.robjects import pandas2ri
+pandas2ri.activate()
 
 
 def load(filename, messages=True):
@@ -1779,8 +1783,8 @@ class AqEquil():
         Runs shell commands.
         &#34;&#34;&#34;
         
-        with open(os.devnull, &#39;w&#39;) as fp:  # devnull supresses written output
-            Popen(args, stdout=fp).wait()
+        # DEVNULL and STDOUT needed to suppress all warnings
+        subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).wait()
 
             
     def _delete_rxn_folders(self):
@@ -2178,31 +2182,30 @@ class AqEquil():
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_prescript = pkg_resources.resource_string(
-                __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_prescript)
-            df_input_processed = ro.r.preprocess(input_filename=input_filename,
-                                                 exclude=convert_to_RVector(
-                                                     exclude),
-                                                 redox_flag=redox_flag,
-                                                 redox_aux=redox_aux,
-                                                 default_logfO2=default_logfO2,
-                                                 charge_balance_on=charge_balance_on,
-                                                 suppress_missing=suppress_missing,
-                                                 suppress=convert_to_RVector(
-                                                     suppress),
-                                                 alter_options=alter_options,
-                                                 water_model=water_model,
-                                                 grid_temp=convert_to_RVector(grid_temp),
-                                                 grid_press=convert_to_RVector(grid_press),
-                                                 verbose=self.verbose)
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_prescript = pkg_resources.resource_string(
+            __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_prescript)
+        df_input_processed = ro.r.preprocess(input_filename=input_filename,
+                                             exclude=convert_to_RVector(
+                                                 exclude),
+                                             redox_flag=redox_flag,
+                                             redox_aux=redox_aux,
+                                             default_logfO2=default_logfO2,
+                                             charge_balance_on=charge_balance_on,
+                                             suppress_missing=suppress_missing,
+                                             suppress=convert_to_RVector(
+                                                 suppress),
+                                             alter_options=alter_options,
+                                             water_model=water_model,
+                                             grid_temp=convert_to_RVector(grid_temp),
+                                             grid_press=convert_to_RVector(grid_press),
+                                             verbose=self.verbose)
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
 
-        self.df_input_processed = pandas2ri.ri2py_dataframe(df_input_processed)
+        self.df_input_processed = ro.conversion.rpy2py(df_input_processed)
 
         # run EQ3 on each input file
         cwd = os.getcwd()
@@ -2229,40 +2232,42 @@ class AqEquil():
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_3o_mine = pkg_resources.resource_string(
-                __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_3o_mine)
-            batch_3o = ro.r.main_3o_mine(
-                files_3o=convert_to_RVector(files_3o),
-                input_filename=input_filename,
-                rxn_filename=rxn_filename,
-                get_aq_dist=get_aq_dist,
-                aq_dist_type=aq_dist_type,
-                get_mass_contribution=get_mass_contribution,
-                mass_contribution_other=mass_contribution_other,
-                get_mineral_sat=get_mineral_sat,
-                mineral_sat_type=mineral_sat_type,
-                get_redox=get_redox,
-                redox_type=redox_type,
-                get_charge_balance=get_charge_balance,
-                get_ion_activity_ratios=get_ion_activity_ratios,
-                get_fugacity=get_fugacity,
-                get_affinity_energy=get_affinity_energy,
-                not_limiting=convert_to_RVector(not_limiting),
-                batch_3o_filename=batch_3o_filename,
-                df_input_processed=pandas2ri.py2ri(self.df_input_processed),
-                # Needed for keeping symbols in column names after porting
-                #   df_input_processed in the line above. Some kind of check.names
-                #   option for pandas2ri.py2ri would be nice. Workaround:
-                df_input_processed_names=df_input_processed_names,
-                custom_obigt=custom_obigt,
-                verbose=self.verbose,
-            )
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_3o_mine = pkg_resources.resource_string(
+            __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_3o_mine)
+        batch_3o = ro.r.main_3o_mine(
+            files_3o=convert_to_RVector(files_3o),
+            input_filename=input_filename,
+            rxn_filename=rxn_filename,
+            get_aq_dist=get_aq_dist,
+            aq_dist_type=aq_dist_type,
+            get_mass_contribution=get_mass_contribution,
+            mass_contribution_other=mass_contribution_other,
+            get_mineral_sat=get_mineral_sat,
+            mineral_sat_type=mineral_sat_type,
+            get_redox=get_redox,
+            redox_type=redox_type,
+            get_charge_balance=get_charge_balance,
+            get_ion_activity_ratios=get_ion_activity_ratios,
+            get_fugacity=get_fugacity,
+            get_affinity_energy=get_affinity_energy,
+            not_limiting=convert_to_RVector(not_limiting),
+            batch_3o_filename=batch_3o_filename,
+            df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
+            # New rpy2 py2rpy2 conversion might not need the workaround below.
+            # The old note regarding deprecated pandas2ri is shown below...
+            # OLD NOTE:
+            # Needed for keeping symbols in column names after porting
+            #   df_input_processed in the line above. Some kind of check.names
+            #   option for pandas2ri.py2ri would be nice. Workaround:
+            df_input_processed_names=df_input_processed_names,
+            custom_obigt=custom_obigt,
+            verbose=self.verbose,
+        )
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
         
         if len(batch_3o) == 0:
             raise Exception(&#34;Could not compile a speciation report. This is &#34;
@@ -2271,9 +2276,9 @@ class AqEquil():
             return
         
         if get_mass_contribution:
-            mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
-        df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+            mass_contribution = ro.conversion.rpy2py(batch_3o.rx2(&#39;mass_contribution&#39;))
+        df_report = ro.conversion.rpy2py(batch_3o.rx2(&#39;report&#39;))
+        #df_input = ro.conversion.rpy2py(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
@@ -2457,7 +2462,7 @@ class AqEquil():
                 }
 
             if get_aq_dist:
-                sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2(&#39;aq_distribution&#39;))
+                sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
@@ -2468,14 +2473,14 @@ class AqEquil():
 
             if get_mineral_sat:
                 dict_sample_data.update(
-                    {&#34;mineral_sat&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;mineral_sat&#34;: ro.conversion.rpy2py(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample mineral_sat entry with None if there is no mineral saturation data.
                 if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;mineral_sat&#39;] = None
 
             if get_redox:
                 dict_sample_data.update(
-                    {&#34;redox&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;redox&#34;: ro.conversion.rpy2py(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             if get_charge_balance:
                 dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
@@ -2483,13 +2488,13 @@ class AqEquil():
             if get_ion_activity_ratios:
                 try:
                     dict_sample_data.update(
-                        {&#34;ion_activity_ratios&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;ion_activity_ratios&#39;))})
+                        {&#34;ion_activity_ratios&#34;: ro.conversion.rpy2py(sample.rx2(&#39;ion_activity_ratios&#39;))})
                 except:
                     dict_sample_data[&#39;ion_activity_ratios&#39;] = None
             
             if get_fugacity:
                 dict_sample_data.update(
-                    {&#34;fugacity&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;fugacity&#34;: ro.conversion.rpy2py(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample fugacity entry with None if there is no fugacity data.
                 if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;fugacity&#39;] = None
@@ -2497,10 +2502,10 @@ class AqEquil():
                     dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
             
             if get_affinity_energy:
-                dict_sample_data.update({&#34;affinity_energy_raw&#34;: pandas2ri.ri2py_dataframe(
+                dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
                     sample.rx2(&#39;affinity_energy_raw&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 dict_sample_data.update(
-                    {&#34;affinity_energy&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;affinity_energy&#34;: ro.conversion.rpy2py(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             out_dict[&#34;sample_data&#34;].update(
                 {sample_data.names[i]: dict_sample_data})
@@ -2698,29 +2703,28 @@ class AqEquil():
             raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_create_data0 = pkg_resources.resource_string(
-                __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_create_data0)
-            ro.r.main_create_data0(filename=filename,
-                                   filename_ss=filename_ss,
-                                   grid_temps=grid_temps,
-                                   grid_press=grid_press,
-                                   db=db,
-                                   water_model=water_model,
-                                   template=template,
-                                   exceed_Ttr=exceed_Ttr,
-                                   data0_formula_ox_name=data0_formula_ox_name,
-                                   suppress_redox=suppress_redox,
-                                   infer_formula_ox=infer_formula_ox,
-                                   generate_template=generate_template,
-                                   template_name=template_name,
-                                   template_type=template_type,
-                                   verbose=self.verbose)
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_create_data0 = pkg_resources.resource_string(
+            __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_create_data0)
+        ro.r.main_create_data0(filename=filename,
+                               filename_ss=filename_ss,
+                               grid_temps=grid_temps,
+                               grid_press=grid_press,
+                               db=db,
+                               water_model=water_model,
+                               template=template,
+                               exceed_Ttr=exceed_Ttr,
+                               data0_formula_ox_name=data0_formula_ox_name,
+                               suppress_redox=suppress_redox,
+                               infer_formula_ox=infer_formula_ox,
+                               generate_template=generate_template,
+                               template_name=template_name,
+                               template_type=template_type,
+                               verbose=self.verbose)
     
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
         
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
@@ -3050,7 +3054,7 @@ into account when formatting names.</p>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da=None, eq36co=None)</span>
+<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/home/shock/EQ3_6v8.0a/bin')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -3643,8 +3647,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         Runs shell commands.
         &#34;&#34;&#34;
         
-        with open(os.devnull, &#39;w&#39;) as fp:  # devnull supresses written output
-            Popen(args, stdout=fp).wait()
+        # DEVNULL and STDOUT needed to suppress all warnings
+        subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).wait()
 
             
     def _delete_rxn_folders(self):
@@ -4042,31 +4046,30 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_prescript = pkg_resources.resource_string(
-                __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_prescript)
-            df_input_processed = ro.r.preprocess(input_filename=input_filename,
-                                                 exclude=convert_to_RVector(
-                                                     exclude),
-                                                 redox_flag=redox_flag,
-                                                 redox_aux=redox_aux,
-                                                 default_logfO2=default_logfO2,
-                                                 charge_balance_on=charge_balance_on,
-                                                 suppress_missing=suppress_missing,
-                                                 suppress=convert_to_RVector(
-                                                     suppress),
-                                                 alter_options=alter_options,
-                                                 water_model=water_model,
-                                                 grid_temp=convert_to_RVector(grid_temp),
-                                                 grid_press=convert_to_RVector(grid_press),
-                                                 verbose=self.verbose)
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_prescript = pkg_resources.resource_string(
+            __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_prescript)
+        df_input_processed = ro.r.preprocess(input_filename=input_filename,
+                                             exclude=convert_to_RVector(
+                                                 exclude),
+                                             redox_flag=redox_flag,
+                                             redox_aux=redox_aux,
+                                             default_logfO2=default_logfO2,
+                                             charge_balance_on=charge_balance_on,
+                                             suppress_missing=suppress_missing,
+                                             suppress=convert_to_RVector(
+                                                 suppress),
+                                             alter_options=alter_options,
+                                             water_model=water_model,
+                                             grid_temp=convert_to_RVector(grid_temp),
+                                             grid_press=convert_to_RVector(grid_press),
+                                             verbose=self.verbose)
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
 
-        self.df_input_processed = pandas2ri.ri2py_dataframe(df_input_processed)
+        self.df_input_processed = ro.conversion.rpy2py(df_input_processed)
 
         # run EQ3 on each input file
         cwd = os.getcwd()
@@ -4093,40 +4096,42 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_3o_mine = pkg_resources.resource_string(
-                __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_3o_mine)
-            batch_3o = ro.r.main_3o_mine(
-                files_3o=convert_to_RVector(files_3o),
-                input_filename=input_filename,
-                rxn_filename=rxn_filename,
-                get_aq_dist=get_aq_dist,
-                aq_dist_type=aq_dist_type,
-                get_mass_contribution=get_mass_contribution,
-                mass_contribution_other=mass_contribution_other,
-                get_mineral_sat=get_mineral_sat,
-                mineral_sat_type=mineral_sat_type,
-                get_redox=get_redox,
-                redox_type=redox_type,
-                get_charge_balance=get_charge_balance,
-                get_ion_activity_ratios=get_ion_activity_ratios,
-                get_fugacity=get_fugacity,
-                get_affinity_energy=get_affinity_energy,
-                not_limiting=convert_to_RVector(not_limiting),
-                batch_3o_filename=batch_3o_filename,
-                df_input_processed=pandas2ri.py2ri(self.df_input_processed),
-                # Needed for keeping symbols in column names after porting
-                #   df_input_processed in the line above. Some kind of check.names
-                #   option for pandas2ri.py2ri would be nice. Workaround:
-                df_input_processed_names=df_input_processed_names,
-                custom_obigt=custom_obigt,
-                verbose=self.verbose,
-            )
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_3o_mine = pkg_resources.resource_string(
+            __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_3o_mine)
+        batch_3o = ro.r.main_3o_mine(
+            files_3o=convert_to_RVector(files_3o),
+            input_filename=input_filename,
+            rxn_filename=rxn_filename,
+            get_aq_dist=get_aq_dist,
+            aq_dist_type=aq_dist_type,
+            get_mass_contribution=get_mass_contribution,
+            mass_contribution_other=mass_contribution_other,
+            get_mineral_sat=get_mineral_sat,
+            mineral_sat_type=mineral_sat_type,
+            get_redox=get_redox,
+            redox_type=redox_type,
+            get_charge_balance=get_charge_balance,
+            get_ion_activity_ratios=get_ion_activity_ratios,
+            get_fugacity=get_fugacity,
+            get_affinity_energy=get_affinity_energy,
+            not_limiting=convert_to_RVector(not_limiting),
+            batch_3o_filename=batch_3o_filename,
+            df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
+            # New rpy2 py2rpy2 conversion might not need the workaround below.
+            # The old note regarding deprecated pandas2ri is shown below...
+            # OLD NOTE:
+            # Needed for keeping symbols in column names after porting
+            #   df_input_processed in the line above. Some kind of check.names
+            #   option for pandas2ri.py2ri would be nice. Workaround:
+            df_input_processed_names=df_input_processed_names,
+            custom_obigt=custom_obigt,
+            verbose=self.verbose,
+        )
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
         
         if len(batch_3o) == 0:
             raise Exception(&#34;Could not compile a speciation report. This is &#34;
@@ -4135,9 +4140,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             return
         
         if get_mass_contribution:
-            mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
-        df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+            mass_contribution = ro.conversion.rpy2py(batch_3o.rx2(&#39;mass_contribution&#39;))
+        df_report = ro.conversion.rpy2py(batch_3o.rx2(&#39;report&#39;))
+        #df_input = ro.conversion.rpy2py(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
@@ -4321,7 +4326,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 }
 
             if get_aq_dist:
-                sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2(&#39;aq_distribution&#39;))
+                sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
@@ -4332,14 +4337,14 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
             if get_mineral_sat:
                 dict_sample_data.update(
-                    {&#34;mineral_sat&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;mineral_sat&#34;: ro.conversion.rpy2py(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample mineral_sat entry with None if there is no mineral saturation data.
                 if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;mineral_sat&#39;] = None
 
             if get_redox:
                 dict_sample_data.update(
-                    {&#34;redox&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;redox&#34;: ro.conversion.rpy2py(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             if get_charge_balance:
                 dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
@@ -4347,13 +4352,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             if get_ion_activity_ratios:
                 try:
                     dict_sample_data.update(
-                        {&#34;ion_activity_ratios&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;ion_activity_ratios&#39;))})
+                        {&#34;ion_activity_ratios&#34;: ro.conversion.rpy2py(sample.rx2(&#39;ion_activity_ratios&#39;))})
                 except:
                     dict_sample_data[&#39;ion_activity_ratios&#39;] = None
             
             if get_fugacity:
                 dict_sample_data.update(
-                    {&#34;fugacity&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;fugacity&#34;: ro.conversion.rpy2py(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample fugacity entry with None if there is no fugacity data.
                 if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;fugacity&#39;] = None
@@ -4361,10 +4366,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                     dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
             
             if get_affinity_energy:
-                dict_sample_data.update({&#34;affinity_energy_raw&#34;: pandas2ri.ri2py_dataframe(
+                dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
                     sample.rx2(&#39;affinity_energy_raw&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 dict_sample_data.update(
-                    {&#34;affinity_energy&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;affinity_energy&#34;: ro.conversion.rpy2py(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             out_dict[&#34;sample_data&#34;].update(
                 {sample_data.names[i]: dict_sample_data})
@@ -4562,29 +4567,28 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_create_data0 = pkg_resources.resource_string(
-                __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_create_data0)
-            ro.r.main_create_data0(filename=filename,
-                                   filename_ss=filename_ss,
-                                   grid_temps=grid_temps,
-                                   grid_press=grid_press,
-                                   db=db,
-                                   water_model=water_model,
-                                   template=template,
-                                   exceed_Ttr=exceed_Ttr,
-                                   data0_formula_ox_name=data0_formula_ox_name,
-                                   suppress_redox=suppress_redox,
-                                   infer_formula_ox=infer_formula_ox,
-                                   generate_template=generate_template,
-                                   template_name=template_name,
-                                   template_type=template_type,
-                                   verbose=self.verbose)
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_create_data0 = pkg_resources.resource_string(
+            __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_create_data0)
+        ro.r.main_create_data0(filename=filename,
+                               filename_ss=filename_ss,
+                               grid_temps=grid_temps,
+                               grid_press=grid_press,
+                               db=db,
+                               water_model=water_model,
+                               template=template,
+                               exceed_Ttr=exceed_Ttr,
+                               data0_formula_ox_name=data0_formula_ox_name,
+                               suppress_redox=suppress_redox,
+                               infer_formula_ox=infer_formula_ox,
+                               generate_template=generate_template,
+                               template_name=template_name,
+                               template_type=template_type,
+                               verbose=self.verbose)
     
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
         
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
@@ -4827,36 +4831,35 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter(&#34;always&#34;)
-        r_create_data0 = pkg_resources.resource_string(
-            __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
-        ro.r(r_create_data0)
-        ro.r.main_create_data0(filename=filename,
-                               filename_ss=filename_ss,
-                               grid_temps=grid_temps,
-                               grid_press=grid_press,
-                               db=db,
-                               water_model=water_model,
-                               template=template,
-                               exceed_Ttr=exceed_Ttr,
-                               data0_formula_ox_name=data0_formula_ox_name,
-                               suppress_redox=suppress_redox,
-                               infer_formula_ox=infer_formula_ox,
-                               generate_template=generate_template,
-                               template_name=template_name,
-                               template_type=template_type,
-                               verbose=self.verbose)
+    rpy2_logger.setLevel(logging.WARNING)
+    
+    r_create_data0 = pkg_resources.resource_string(
+        __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+    ro.r(r_create_data0)
+    ro.r.main_create_data0(filename=filename,
+                           filename_ss=filename_ss,
+                           grid_temps=grid_temps,
+                           grid_press=grid_press,
+                           db=db,
+                           water_model=water_model,
+                           template=template,
+                           exceed_Ttr=exceed_Ttr,
+                           data0_formula_ox_name=data0_formula_ox_name,
+                           suppress_redox=suppress_redox,
+                           infer_formula_ox=infer_formula_ox,
+                           generate_template=generate_template,
+                           template_name=template_name,
+                           template_type=template_type,
+                           verbose=self.verbose)
 
-    for warning in w:
-        print(warning.message)
+    rpy2_logger.setLevel(logging.ERROR)
     
     if self.verbose &gt; 0:
         print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='C:\\Users\\gmboy\\Desktop\\AqEquil', path_3o='C:\\Users\\gmboy\\Desktop\\AqEquil', path_3p='C:\\Users\\gmboy\\Desktop\\AqEquil')</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev', path_3o='/var/lib/private/gmboyer/AqEquil-dev', path_3p='/var/lib/private/gmboyer/AqEquil-dev')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -4958,7 +4961,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
-<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='C:\\Users\\gmboy\\Desktop\\AqEquil', path_6o='C:\\Users\\gmboy\\Desktop\\AqEquil', path_6p='C:\\Users\\gmboy\\Desktop\\AqEquil')</span>
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev', path_6o='/var/lib/private/gmboyer/AqEquil-dev', path_6p='/var/lib/private/gmboyer/AqEquil-dev')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ6 on a .6i input file.</p>
@@ -5721,31 +5724,30 @@ Needed for affinity and energy calculations.</dd>
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_prescript = pkg_resources.resource_string(
-                __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_prescript)
-            df_input_processed = ro.r.preprocess(input_filename=input_filename,
-                                                 exclude=convert_to_RVector(
-                                                     exclude),
-                                                 redox_flag=redox_flag,
-                                                 redox_aux=redox_aux,
-                                                 default_logfO2=default_logfO2,
-                                                 charge_balance_on=charge_balance_on,
-                                                 suppress_missing=suppress_missing,
-                                                 suppress=convert_to_RVector(
-                                                     suppress),
-                                                 alter_options=alter_options,
-                                                 water_model=water_model,
-                                                 grid_temp=convert_to_RVector(grid_temp),
-                                                 grid_press=convert_to_RVector(grid_press),
-                                                 verbose=self.verbose)
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_prescript = pkg_resources.resource_string(
+            __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_prescript)
+        df_input_processed = ro.r.preprocess(input_filename=input_filename,
+                                             exclude=convert_to_RVector(
+                                                 exclude),
+                                             redox_flag=redox_flag,
+                                             redox_aux=redox_aux,
+                                             default_logfO2=default_logfO2,
+                                             charge_balance_on=charge_balance_on,
+                                             suppress_missing=suppress_missing,
+                                             suppress=convert_to_RVector(
+                                                 suppress),
+                                             alter_options=alter_options,
+                                             water_model=water_model,
+                                             grid_temp=convert_to_RVector(grid_temp),
+                                             grid_press=convert_to_RVector(grid_press),
+                                             verbose=self.verbose)
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
 
-        self.df_input_processed = pandas2ri.ri2py_dataframe(df_input_processed)
+        self.df_input_processed = ro.conversion.rpy2py(df_input_processed)
 
         # run EQ3 on each input file
         cwd = os.getcwd()
@@ -5772,40 +5774,42 @@ Needed for affinity and energy calculations.</dd>
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter(&#34;always&#34;)
-            r_3o_mine = pkg_resources.resource_string(
-                __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
-            ro.r(r_3o_mine)
-            batch_3o = ro.r.main_3o_mine(
-                files_3o=convert_to_RVector(files_3o),
-                input_filename=input_filename,
-                rxn_filename=rxn_filename,
-                get_aq_dist=get_aq_dist,
-                aq_dist_type=aq_dist_type,
-                get_mass_contribution=get_mass_contribution,
-                mass_contribution_other=mass_contribution_other,
-                get_mineral_sat=get_mineral_sat,
-                mineral_sat_type=mineral_sat_type,
-                get_redox=get_redox,
-                redox_type=redox_type,
-                get_charge_balance=get_charge_balance,
-                get_ion_activity_ratios=get_ion_activity_ratios,
-                get_fugacity=get_fugacity,
-                get_affinity_energy=get_affinity_energy,
-                not_limiting=convert_to_RVector(not_limiting),
-                batch_3o_filename=batch_3o_filename,
-                df_input_processed=pandas2ri.py2ri(self.df_input_processed),
-                # Needed for keeping symbols in column names after porting
-                #   df_input_processed in the line above. Some kind of check.names
-                #   option for pandas2ri.py2ri would be nice. Workaround:
-                df_input_processed_names=df_input_processed_names,
-                custom_obigt=custom_obigt,
-                verbose=self.verbose,
-            )
+        rpy2_logger.setLevel(logging.WARNING)
+        
+        r_3o_mine = pkg_resources.resource_string(
+            __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
+        ro.r(r_3o_mine)
+        batch_3o = ro.r.main_3o_mine(
+            files_3o=convert_to_RVector(files_3o),
+            input_filename=input_filename,
+            rxn_filename=rxn_filename,
+            get_aq_dist=get_aq_dist,
+            aq_dist_type=aq_dist_type,
+            get_mass_contribution=get_mass_contribution,
+            mass_contribution_other=mass_contribution_other,
+            get_mineral_sat=get_mineral_sat,
+            mineral_sat_type=mineral_sat_type,
+            get_redox=get_redox,
+            redox_type=redox_type,
+            get_charge_balance=get_charge_balance,
+            get_ion_activity_ratios=get_ion_activity_ratios,
+            get_fugacity=get_fugacity,
+            get_affinity_energy=get_affinity_energy,
+            not_limiting=convert_to_RVector(not_limiting),
+            batch_3o_filename=batch_3o_filename,
+            df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
+            # New rpy2 py2rpy2 conversion might not need the workaround below.
+            # The old note regarding deprecated pandas2ri is shown below...
+            # OLD NOTE:
+            # Needed for keeping symbols in column names after porting
+            #   df_input_processed in the line above. Some kind of check.names
+            #   option for pandas2ri.py2ri would be nice. Workaround:
+            df_input_processed_names=df_input_processed_names,
+            custom_obigt=custom_obigt,
+            verbose=self.verbose,
+        )
 
-        for warning in w:
-            print(warning.message)
+        rpy2_logger.setLevel(logging.ERROR)
         
         if len(batch_3o) == 0:
             raise Exception(&#34;Could not compile a speciation report. This is &#34;
@@ -5814,9 +5818,9 @@ Needed for affinity and energy calculations.</dd>
             return
         
         if get_mass_contribution:
-            mass_contribution = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;mass_contribution&#39;))
-        df_report = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;report&#39;))
-        #df_input = pandas2ri.ri2py_dataframe(batch_3o.rx2(&#39;input&#39;))
+            mass_contribution = ro.conversion.rpy2py(batch_3o.rx2(&#39;mass_contribution&#39;))
+        df_report = ro.conversion.rpy2py(batch_3o.rx2(&#39;report&#39;))
+        #df_input = ro.conversion.rpy2py(batch_3o.rx2(&#39;input&#39;))
         report_divs = batch_3o.rx2(&#39;report_divs&#39;)
 
         input_cols = list(report_divs.rx2(&#39;input&#39;))
@@ -6000,7 +6004,7 @@ Needed for affinity and energy calculations.</dd>
                 }
 
             if get_aq_dist:
-                sample_aq_dist = pandas2ri.ri2py_dataframe(sample.rx2(&#39;aq_distribution&#39;))
+                sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
@@ -6011,14 +6015,14 @@ Needed for affinity and energy calculations.</dd>
 
             if get_mineral_sat:
                 dict_sample_data.update(
-                    {&#34;mineral_sat&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;mineral_sat&#34;: ro.conversion.rpy2py(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample mineral_sat entry with None if there is no mineral saturation data.
                 if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;mineral_sat&#39;] = None
 
             if get_redox:
                 dict_sample_data.update(
-                    {&#34;redox&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;redox&#34;: ro.conversion.rpy2py(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             if get_charge_balance:
                 dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
@@ -6026,13 +6030,13 @@ Needed for affinity and energy calculations.</dd>
             if get_ion_activity_ratios:
                 try:
                     dict_sample_data.update(
-                        {&#34;ion_activity_ratios&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;ion_activity_ratios&#39;))})
+                        {&#34;ion_activity_ratios&#34;: ro.conversion.rpy2py(sample.rx2(&#39;ion_activity_ratios&#39;))})
                 except:
                     dict_sample_data[&#39;ion_activity_ratios&#39;] = None
             
             if get_fugacity:
                 dict_sample_data.update(
-                    {&#34;fugacity&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;fugacity&#34;: ro.conversion.rpy2py(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 # replace sample fugacity entry with None if there is no fugacity data.
                 if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
                     dict_sample_data[&#39;fugacity&#39;] = None
@@ -6040,10 +6044,10 @@ Needed for affinity and energy calculations.</dd>
                     dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
             
             if get_affinity_energy:
-                dict_sample_data.update({&#34;affinity_energy_raw&#34;: pandas2ri.ri2py_dataframe(
+                dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
                     sample.rx2(&#39;affinity_energy_raw&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
                 dict_sample_data.update(
-                    {&#34;affinity_energy&#34;: pandas2ri.ri2py_dataframe(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+                    {&#34;affinity_energy&#34;: ro.conversion.rpy2py(sample.rx2(&#39;affinity_energy&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
             out_dict[&#34;sample_data&#34;].update(
                 {sample_data.names[i]: dict_sample_data})
@@ -8167,7 +8171,7 @@ the figure.</dd>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc"><cite>pdoc</cite> 0.9.2</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
 </footer>
 </body>
 </html>
