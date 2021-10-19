@@ -775,6 +775,7 @@ main_3o_mine <- function(files_3o,
                          get_ion_activity_ratios,
                          get_fugacity,
                          get_affinity_energy,
+                         load_rxn_file,
                          not_limiting,
                          mass_contribution_other,
                          csv_filename,
@@ -799,9 +800,15 @@ main_3o_mine <- function(files_3o,
 
   rxn_table <- NULL
   if(get_affinity_energy){
-    # read table of reactions
-    rxn_table <- readLines(rxn_filename)
+    if(load_rxn_file){
+      # read table of reactions
+      rxn_table <- readLines(rxn_filename)
+    }else{
+      rxn_table <- strsplit(rxn_filename, "\n")[[1]]
+    }
   }
+    
+  print(rxn_table)
 
   # instantiate an empty object to store data from all 3o files
   batch_3o <- list()

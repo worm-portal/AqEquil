@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="AqEquil",
-    version="0.10.1",
+    version="0.11.0",
     author="Grayson Boyer",
     author_email="gmboyer@asu.edu",
     description="Python tools for aqueous chemical speciation.",
@@ -18,10 +18,10 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
-    install_requires=['rpy2', 'pandas', 'numpy', 'matplotlib', 'plotly'],
+    python_requires='>=3.8',
+    install_requires=['rpy2', 'pandas', 'numpy', 'matplotlib', 'plotly', 'ipython', 'chemparse'],
     include_package_data=True,
-    package_data={'': ['*.r', '*.min']},
+    package_data={'': ['*.r', '*.min', '*.csv']},
     zip_safe=False
 )
 

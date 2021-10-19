@@ -3,3 +3,5 @@ pandas
 numpy
 matplotlib
 plotly
+ipython
+chemparse
