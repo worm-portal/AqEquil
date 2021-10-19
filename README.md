@@ -2,13 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5534832.svg)](https://doi.org/10.5281/zenodo.5534832)
 
-Grayson Boyer, PhD
-
-GEOPIG Lab, Arizona State University
-
-Tucker Ely, PhD
-
-Toner Lab, University of Minnesota
+Boyer, G., Robare, J., Ely, T., Shock, E.L.
 
 ## About
 

@@ -21,11 +21,11 @@ authors:
     family-names: Shock
     given-names: Everett
     orcid: "https://orcid.org/0000-0002-4283-0163"
-cff-version: "0.2.0"
+cff-version: "0.2.1"
 license: MIT
 message: "If you use this software, please cite it using these metadata."
 repository-code: "https://github.com/worm-portal/AqEquil"
 title: "AqEquil: Python package for aqueous geochemical speciation"
-version: "0.11.0"
+version: "0.11.1"
 date-released: 2021-10-18
 ...
