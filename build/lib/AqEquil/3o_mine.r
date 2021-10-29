@@ -356,6 +356,7 @@ mine_3o <- function(this_file,
     
   ### begin energy mining
   if(get_affinity_energy){
+      
     this_temp <- as.numeric(sample_3o[["temperature"]])
     this_pres <- as.numeric(sample_3o[["pressure"]])
     this_logact_H2O <- as.numeric(sample_3o[["logact_H2O"]])
@@ -382,6 +383,7 @@ mine_3o <- function(this_file,
                          stringsAsFactors = FALSE)
       
     for(rxn in rxn_table){
+        
       rxn_split <- unlist(strsplit(rxn, "\t"))
       rxn_name  <- rxn_split[1]
       electrons <- as.numeric(rxn_split[2])
@@ -389,7 +391,7 @@ mine_3o <- function(this_file,
       if(length(full_rxn) %% 2 != 0){
         stop(paste("Error: Number of reaction coefficients and species do not match in reaction", rxn_name))
       }
-        
+
       stoichs <- as.numeric(full_rxn[c(TRUE, FALSE)])
       species_EQ3 <- full_rxn[c(FALSE, TRUE)]
 #       species_CHNOSZ <- gsub(",AQ", "", species_EQ3) # this won't work for mineral names, gases, etc.!
@@ -400,11 +402,9 @@ mine_3o <- function(this_file,
 
       species_CHNOSZ <- species_EQ3 # assuming no differences between EQ3 and CHNOSZ naming
         
-      # substitute CHNOSZ's lowercase mineral names
+      # handle minerals
       for(species in species_CHNOSZ){
-          
-        lowercase_species <- tolower(species)
-        if(lowercase_species %in% CHNOSZ_cr_names){
+        if(species %in% CHNOSZ_cr_names){
           #species_CHNOSZ <- gsub(species, lowercase_species, species_CHNOSZ)
           # add the mineral to master_df and master_df_mol dataframes assuming an
           # activity of 1 (log activity 0)
@@ -412,7 +412,7 @@ mine_3o <- function(this_file,
           not_limiting <- c(not_limiting, species)
         }
       }
-      
+
       ### calculate Q using EQ3-speciated activities
       # get speciated activities from master_df
       activities <- c()
@@ -435,13 +435,12 @@ mine_3o <- function(this_file,
           molalities <- c(molalities, NA)
         }
       }
-      
-      
-      if(!(NA %in% activities) & !is.null(molalities) & !is.null(activities)){
         
+      if(!(NA %in% activities) & !is.null(molalities) & !is.null(activities)){
+          
         names(activities) <- species_EQ3
         names(molalities) <- species_EQ3
-        
+
         if(grepl("sub$", rxn_name)){
           other_reactants_and_prod_names <- setdiff(names(remaining_react_molal_with_product_molal), names(molalities))
           other_reactants_and_prod <- remaining_react_molal_with_product_molal[other_reactants_and_prod_names]
@@ -467,33 +466,38 @@ mine_3o <- function(this_file,
           this_logK <- NA
         }
 
+        ### calculate affinity, A
+        affinity_per_mol_rxn <- 0.008314*(this_temp+273.15)*2.302585*(this_logK-this_logQ) # in kJ/mol, A=RT*ln(K/Q)=RT*2.302585*(logK-logQ)
+        affinity_per_mol_e <- ((affinity_per_mol_rxn*1000)/4.184)/electrons # in cal/mol e-
+
         ### calculate activity of limiting reactant
         reactant_names <- species_EQ3[which(stoichs < 0)]
         product_names <- species_EQ3[which(stoichs > 0)]
         not_lim_index <- which(reactant_names %in% not_limiting)
 
         names(reactant_molalities) <- reactant_names
-
+          
         if(length(not_lim_index) == 0){
           molality_div_stoich <- reactant_molalities/abs(reactant_stoich)
         }else if(all(reactant_names %in% not_limiting)){
+
           # if there are no limiting reactants (e.g., reactants are all minerals)
           # then append NAs and continue...
           df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
-                                             affinity=affinity,
+                                             affinity=affinity_per_mol_e,
                                              energy_supply=NA,
-                                             mol_rxn=NA,
+                                             mol_rxn=1,
                                              electrons=electrons,
                                              reaction=paste(full_rxn,collapse=" "),
                                              limiting=NA,
                                              stringsAsFactors=FALSE))
+            
           next
         }else{
           molality_div_stoich <- reactant_molalities[-not_lim_index]/abs(reactant_stoich[-not_lim_index])
         }
         limiting_reactant <- min(molality_div_stoich)
-
-
+          
         which_limiting <- which(reactant_molalities/abs(reactant_stoich) == limiting_reactant)
 
         # create a string of all limiting reactants
@@ -510,13 +514,11 @@ mine_3o <- function(this_file,
         
         # calculate reactant molalities that remain when the limiting reactant runs out
         remaining_reactant_molalities <- reactant_molalities - abs(reactant_stoich) * mol_rxn
-
         
         # if 'nonlimiting' species are specified by user, restore their molalities back to their original values.
         if(length(not_lim_index) > 0){
           remaining_reactant_molalities[not_lim_index] <- reactant_molalities[not_lim_index]
         }
-
 
         remaining_react_molal_with_product_molal <- c(remaining_reactant_molalities, product_molalities)
         names(remaining_react_molal_with_product_molal) <- c(reactant_names, product_names)
@@ -526,27 +528,24 @@ mine_3o <- function(this_file,
           remaining_react_molal_with_product_molal <- c(remaining_react_molal_with_product_molal, other_reactants_and_prod)
         }
 
-        ### calculate affinity, A
-        this_A <- 0.008314*(this_temp+273.15)*2.302585*(this_logK-this_logQ) # in kJ/mol, A=RT*ln(K/Q)=RT*2.302585*(logK-logQ)
-
         ### calculate 'energy' in kJ/kg H2O by multiplying affinity (kJ/mol) by activity (mol/kg) of limiting reactant
-        this_energy <- this_A * limiting_reactant
+        this_energy <- affinity_per_mol_rxn * limiting_reactant
 
 
       } else { # if there is an NA in one of the activities
-        this_A <- NA
+        affinity_per_mol_rxn <- NA
+        affinity_per_mol_e <- NA
         this_energy <- NA
         mol_rxn <- NA
         limiting_reactants <- NA
       }
-        
+
       # unit conversion
-      affinity <- ((this_A*1000)/4.184)/electrons # in cal/mol e-
       energy_supply <- (this_energy*1000)/4.184 # in cal/kg
         
       # append results
       df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
-                                         affinity=affinity,
+                                         affinity=affinity_per_mol_e,
                                          energy_supply=energy_supply,
                                          mol_rxn=mol_rxn,
                                          electrons=electrons,
@@ -557,7 +556,7 @@ mine_3o <- function(this_file,
       
     rownames(df_rxn) <- df_rxn$rxn
     df_rxn$rxn <- NULL
-      
+
     # create a dataframe for storing results
     df_rxn_sum <- data.frame(affinity = numeric(0),
                          energy_supply = numeric(0),
@@ -605,12 +604,12 @@ mine_3o <- function(this_file,
     }else{
       df_rxn_sum <- df_rxn
     }
-    
+      
     # append affinity and energy results to this sample's data
     sample_3o[["affinity_energy_raw"]] <- df_rxn
     sample_3o[["affinity_energy"]] <- df_rxn_sum
   } # end calculation of affinity and energy supply
-
+                             
   setwd("../")
 
   return(sample_3o)
@@ -790,7 +789,7 @@ main_3o_mine <- function(files_3o,
                          verbose){
     
   start_time <- Sys.time()
-
+    
   # allow user to add their custom data as an OBIGT
   if(!is.null(custom_obigt)){
     custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)
@@ -807,8 +806,6 @@ main_3o_mine <- function(files_3o,
       rxn_table <- strsplit(rxn_filename, "\n")[[1]]
     }
   }
-    
-  print(rxn_table)
 
   # instantiate an empty object to store data from all 3o files
   batch_3o <- list()
@@ -816,9 +813,10 @@ main_3o_mine <- function(files_3o,
   if(verbose > 1){
     writeLines("Now processing EQ3 output files...")
   }
-
+    
   # process each .3o file
   for(file in files_3o){
+      
     # add this sample's aqueous data to list of all sample data
     sample_3o <- mine_3o(file,
                          rxn_table=rxn_table,
@@ -833,7 +831,7 @@ main_3o_mine <- function(files_3o,
                          not_limiting=not_limiting,
                          mass_contribution_other=mass_contribution_other,
                          verbose=verbose)
-
+      
     # if this file could be processed, add its data to the batch_3o object
     if(length(sample_3o)>1){
       batch_3o[["sample_data"]][[sample_3o[["name"]]]] <- sample_3o
