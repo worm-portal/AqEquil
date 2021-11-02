@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 
 import os
 import re
@@ -32,6 +32,7 @@ rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)   # will display er
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
+
 
 def load(filename, messages=True):
     """
@@ -2010,6 +2011,7 @@ class AqEquil():
                  redox_type="Eh",
                  get_ion_activity_ratios=True,
                  get_fugacity=True,
+                 get_basis_totals=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
@@ -2199,6 +2201,9 @@ class AqEquil():
         
         get_fugacity : bool, default True
             Calculate gas fugacities?
+
+        get_basis_totals : bool, default True
+            Report total compositions of basis aqueous species?
         
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
@@ -2440,6 +2445,7 @@ class AqEquil():
             get_charge_balance=get_charge_balance,
             get_ion_activity_ratios=get_ion_activity_ratios,
             get_fugacity=get_fugacity,
+            get_basis_totals=get_basis_totals,
             get_affinity_energy=get_affinity_energy,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
@@ -2604,6 +2610,19 @@ class AqEquil():
                 [headers, subheaders], names=['Sample', ''])
             df_fugacity.columns = multicolumns
             df_join = df_join.join(df_fugacity)
+
+        if get_basis_totals:
+            sc_cols = list(report_divs.rx2('basis_totals'))
+            df_sc = df_report[sc_cols]
+            df_sc = df_sc.apply(pd.to_numeric, errors='coerce')
+            
+            # handle headers of basis_totals section
+            headers = df_sc.columns
+            subheaders = ["molality"]*(len(headers))
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=['Sample', ''])
+            df_sc.columns = multicolumns
+            df_join = df_join.join(df_sc)
             
         if get_affinity_energy:
             affinity_cols = list(report_divs.rx2('affinity'))
@@ -2692,6 +2711,11 @@ class AqEquil():
                     dict_sample_data['fugacity'] = None
                 else:
                     dict_sample_data["fugacity"]["fugacity"] = 10**dict_sample_data["fugacity"]["log_fugacity"]
+                    
+            if get_basis_totals:
+                sc_dist = ro.conversion.rpy2py(sample.rx2('basis_totals'))
+                sc_dist = sc_dist.apply(pd.to_numeric, errors='coerce')
+                dict_sample_data.update({"basis_totals": sc_dist})
             
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": ro.conversion.rpy2py(
@@ -3484,6 +3508,7 @@ class AqEquil():
                 rxn_pairs_all.append(self.rxn_pairs_main[n])
                 prev_was_sub = True
         self.rxn_pairs_all = rxn_pairs_all
+        
         self.affinity_energy_reactions_table.insert(0, "redox_pairs", rxn_pairs_all)
         
         prev_was_coeff = False
@@ -3532,14 +3557,15 @@ class AqEquil():
         A pandas dataframe containing balanced redox reactions written in full.
         """
         
-        self.affinity_energy_formatted_reactions = copy.copy(self.affinity_energy_reactions_table.iloc[:, 0:0])
+        self.affinity_energy_formatted_reactions = copy.copy(self.affinity_energy_reactions_table.iloc[:, 0:1])
         
         df = copy.copy(self.affinity_energy_reactions_table)
         
         if simplify:
             main_rxn_names = df.loc[[ind for ind in df.index if "_sub" not in ind[-4:]]].index
             df = df.iloc[[i-1 for i in range(0, len(df.index)) if "_sub" not in df.index[i][-4:]]]
-            self.affinity_energy_formatted_reactions = df.iloc[:, 0:0]
+            
+            self.affinity_energy_formatted_reactions = copy.copy(df.iloc[:, 0:1])
             
             reactions = []
             for irow in range(0, df.shape[0]):
@@ -3633,5 +3659,73 @@ class AqEquil():
         
         return df_out
         
+
+def compare(*args):
+    
+    """
+    Combine two or more speciations into a single speciation object for
+    comparison. The speciation object returned by this function can produce
+    scatterplots, barplots, and mass contribution plots, and contains a report
+    that can be browsed with `lookup`. See documentation for the functions in
+    the `Speciation` class for more detail.
+
+    Parameters
+    ----------
+    *args : two or more objects of class `Speciation` to compare
+
+    Returns
+    ----------
+    An object of class `Speciation`.
+    """
+    
+    if all(["mass_contribution" in a.__dict__.keys() for a in args]):
+        allow_mass_contribution = True
+        mass_contribution_breaks = []
+    else:
+        allow_mass_contribution = False
+    
+    for i,sp in enumerate(args):
+        if i == 0:
+            sp_total = copy.deepcopy(sp)
+            sp_total.sample_data = None
+            if allow_mass_contribution:
+                mass_contribution_breaks.append(0)
+        else:
+            sp_i = copy.deepcopy(sp)
+            if allow_mass_contribution:
+                mass_contribution_breaks.append(sp_total.report.shape[0])
+            sp_total.report = pd.concat([sp_total.report, sp_i.report], axis=0, sort=False)
         
+
+    sp_total.report.index = sp_total.report.index + ("_"+sp_total.report.groupby(level=0).cumcount().astype(str)).replace('_0','')
+    
+    if allow_mass_contribution:
+        mass_contribution_breaks.append(len(sp_total.report.index))
+        mc_sample_names_with_suffixes = list(sp_total.report.index)
+        for i,sp in enumerate(args):
+            mc_i = copy.deepcopy(sp.mass_contribution)
+            
+            new_sample_names = copy.copy(mc_sample_names_with_suffixes[mass_contribution_breaks[i]:mass_contribution_breaks[i+1]])
+            old_sample_names = list(args[i].sample_data.keys())
+            
+            old_new_sample_name_dict = {old:new for old,new in zip(old_sample_names, new_sample_names)}
+                
+            newsample = [old_new_sample_name_dict[old] for old in mc_i["sample"]]
+
+            mc_i["sample"] = newsample
+            
+            if i == 0:
+                mc_total = mc_i
+            else:
+                mc_total = pd.concat([mc_total, mc_i], axis=0, sort=False)
         
+        sp_total.mass_contribution = mc_total
+        
+    else:
+        def no_mass_contrib_message(*args, **kwargs):
+            print("Mass contributions cannot be compared between these speciations "
+                  "because one or more lack mass contribution data.")
+        sp_total.plot_mass_contribution = no_mass_contrib_message
+                
+    
+    return sp_total

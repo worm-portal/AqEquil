@@ -26,6 +26,7 @@ mine_3o <- function(this_file,
                     get_charge_balance=T,
                     get_ion_activity_ratios=T,
                     get_fugacity=T,
+                    get_basis_totals=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
@@ -351,9 +352,43 @@ mine_3o <- function(this_file,
     df <- data.frame(gas=unlist(lapply(split_str, `[[`, 1)),
                      log_fugacity=as.numeric(unlist(lapply(split_str, `[[`, 2))),
                      stringsAsFactors=F, row.names=1)
+
+    # fix an annoying behavior with R dataframes ignoring rownames when there is
+    # only one row
+    if(nrow(df) == 1){
+      rownames(df) <- unlist(lapply(split_str, `[[`, 1))[1]
+      df <- df[ , !(names(df)=="gas")]
+    }
+
     sample_3o[["fugacity"]] <- df
   }
+
+                             
+  ### begin sensible composition mining ("basis totals")
+  if(get_basis_totals){
+    sc_block <- isolate_block(extractme, "^.*--- Sensible Composition of the Aqueous Solution ---\n\n", "\n\n   The above data have.*$")
+    str <- str_squish(strsplit(sc_block, "\n")[[1]])
+    str <- str[3:length(str)]
+    split_str <- strsplit(str, " ")
+    sc_names <- unlist(lapply(lapply(split_str, `[[`, 1), paste0, "_total"))
+    df <- data.frame(species=sc_names,
+                     `mg/L`=as.numeric(unlist(lapply(split_str, `[[`, 2))),
+                     `mg/kg.sol`=as.numeric(unlist(lapply(split_str, `[[`, 3))),
+                     `molarity`=as.numeric(unlist(lapply(split_str, `[[`, 4))),
+                     `molality`=as.numeric(unlist(lapply(split_str, `[[`, 5))),
+                     stringsAsFactors=F, row.names=1)
     
+    # fix an annoying behavior with R dataframes ignoring rownames when there is
+    # only one row
+    if(nrow(df) == 1){
+      rownames(df) <- sc_names[1]
+      df <- df[ , !(names(df)=="species")]
+    }
+      
+    sample_3o[["basis_totals"]] <- df
+
+  }
+
   ### begin energy mining
   if(get_affinity_energy){
       
@@ -671,9 +706,9 @@ melt_mass_contribution <- function(batch_3o, other=F, verbose=1){
 create_report_df <- function(data, category, out_type){
 
   df_cat <- lapply(data, `[[`, category)
-
+    
   all_species <- unique(unlist(lapply(lapply(df_cat, FUN=t), FUN=colnames)))
-
+    
   df <- read.csv(text=paste(all_species, collapse="\t"), check.names=FALSE, sep="\t", stringsAsFactors=FALSE)
 
   for(i in 1:length(df_cat)){
@@ -682,7 +717,7 @@ create_report_df <- function(data, category, out_type){
   }
   df <- df[, order(colnames(df))]
   df_cat <- cbind.data.frame(sample=names(df_cat), df,  stringsAsFactors = FALSE)
-  
+    
   return(df_cat)
     
 }
@@ -691,7 +726,7 @@ create_report_df <- function(data, category, out_type){
 compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
                            redox_type, get_aq_dist, get_mineral_sat, get_redox,
                            get_charge_balance, get_ion_activity_ratios, get_fugacity,
-                           get_affinity_energy, input_processed_df,
+                           get_basis_totals, get_affinity_energy, input_processed_df,
                            df_input_processed_names){
     
   report_list <- list()
@@ -740,6 +775,12 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report <- report %>% inner_join(fugacities, by=c("Sample"="sample"))
   }
 
+  if(get_basis_totals){
+    sc <- create_report_df(data=data, category='basis_totals', out_type=4) # 4 is the molality column
+    report_list[["divs"]][["basis_totals"]] <- names(sc)[2:length(sc)] # start at 2 to exclude "sample" column
+    report <- report %>% inner_join(sc, by=c("Sample"="sample"))
+  }
+
   if(get_affinity_energy){
     affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
     names(affinity)[2:length(names(affinity))] <- paste0(names(affinity)[2:length(names(affinity))], "_affinity")
@@ -773,6 +814,7 @@ main_3o_mine <- function(files_3o,
                          get_charge_balance,
                          get_ion_activity_ratios,
                          get_fugacity,
+                         get_basis_totals,
                          get_affinity_energy,
                          load_rxn_file,
                          not_limiting,
@@ -827,6 +869,7 @@ main_3o_mine <- function(files_3o,
                          get_charge_balance=get_charge_balance,
                          get_ion_activity_ratios=get_ion_activity_ratios,
                          get_fugacity=get_fugacity,
+                         get_basis_totals=get_basis_totals,
                          get_affinity_energy=get_affinity_energy,
                          not_limiting=not_limiting,
                          mass_contribution_other=mass_contribution_other,
@@ -869,6 +912,7 @@ main_3o_mine <- function(files_3o,
                                   get_charge_balance,
                                   get_ion_activity_ratios,
                                   get_fugacity,
+                                  get_basis_totals,
                                   get_affinity_energy,
                                   df_input_processed,
                                   df_input_processed_names)

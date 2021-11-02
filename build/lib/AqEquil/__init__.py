@@ -1,1 +1,1 @@
-from .AqSpeciation import AqEquil, load
+from .AqSpeciation import AqEquil, load, compare
