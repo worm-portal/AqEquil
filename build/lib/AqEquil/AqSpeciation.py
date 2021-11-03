@@ -201,7 +201,7 @@ def convert_to_RVector(value, force_Rvec=True):
     elif all(isinstance(x, float) or isinstance(x, int) for x in value):
         return ro.FloatVector(value)
     else:
-        return ro.StrVector(value)
+        return ro.StrVector([str(v) for v in value])
 
 
 def get_colors(colormap, ncol, alpha=1.0):
