@@ -2979,7 +2979,6 @@ class AqEquil():
         self.affinity_energy_reactions_raw = None
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
-        
         if self.verbose != 0:
             print("Generating redox reactions...")
         
@@ -3039,8 +3038,8 @@ class AqEquil():
                     continue
                 if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
                     continue
-                if Oxidant_1[i] == 'H2O' and Reductant_1[indices[i+n]] == 'H2O':
-                    continue
+#                 if Oxidant_1[i] == 'H2O' and Reductant_1[indices[i+n]] == 'H2O': #suppress the splitting of water
+#                     continue
                 else:
 
                     # GENERATING REACTIONS BETWEEN OXIDANT_1 AND REDUCTANT_1
@@ -3111,11 +3110,12 @@ class AqEquil():
                         rxn_pairs.append([i, indices[i+n]])
                         index +=1
         
-        rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
-        self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
+#         rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
+#         self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
         
         df_reax['Reaction'] = rxn_list
         df_reax['Names'] = rxn_names
+        df_reax['Temp_Pairs'] = rxn_pairs
         
         # if there are no reactions, return nothing
         if df_reax.shape[0] == 0:
@@ -3326,8 +3326,15 @@ class AqEquil():
                     all_reax.loc[temp-0.5,'rR_2_coeff'] = rR_coeff/2
 
         all_reax = all_reax.sort_index().reset_index(drop=True)
+        pair_list = []
+        for i in range(0, len(all_reax['Temp_Pairs'])):
+            pair_list.append([redox_pairs[all_reax.loc[i, 'Temp_Pairs'][0]], redox_pairs[all_reax.loc[i, 'Temp_Pairs'][1]]])
+        all_reax['pairs'] = pair_list
 
         reax = all_reax.copy(deep=True)
+        reax.drop('Temp_Pairs', axis=1, inplace=True)
+        reax.drop('pairs', axis=1, inplace=True)
+        reax.reset_index(drop=True, inplace=True)
         for s in ['Fe', 'O', 'H','-','+']:
             for i in range(0,len(reax['rO'])):
 
@@ -3491,25 +3498,26 @@ class AqEquil():
         df_rxn = pd.DataFrame([x.split('\t') for x in self.affinity_energy_reactions_raw.split('\n')])
         df_rxn.columns = df_rxn.columns.map(str)
         df_rxn = df_rxn.rename(columns={"0": "reaction_name", "1": "mol_e-_transferred_per_mol_rxn"})
+        df_rxn.insert(1, 'Redox_Pairs', all_reax['pairs'])
         df_rxn = df_rxn.set_index("reaction_name")
         df_rxn = df_rxn[df_rxn['mol_e-_transferred_per_mol_rxn'].notna()]
         self.affinity_energy_reactions_table = df_rxn
 
-        rxn_pairs_all = []
-        n = 0
-        prev_was_sub = False
-        for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
-            if "_sub" not in rxn[-4:]:
-                if prev_was_sub:
-                    n += 1
-                    prev_was_sub = False
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-            else:
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-                prev_was_sub = True
-        self.rxn_pairs_all = rxn_pairs_all
+#         rxn_pairs_all = []
+#         n = 0
+#         prev_was_sub = False
+#         for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
+#             if "_sub" not in rxn[-4:]:
+#                 if prev_was_sub:
+#                     n += 1
+#                     prev_was_sub = False
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#             else:
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#                 prev_was_sub = True
+#         self.rxn_pairs_all = rxn_pairs_all
         
-        self.affinity_energy_reactions_table.insert(0, "redox_pairs", rxn_pairs_all)
+#         self.affinity_energy_reactions_table.insert(0, "redox_pairs", rxn_pairs_all)
         
         prev_was_coeff = False
         n = 1
