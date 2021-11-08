@@ -273,12 +273,12 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   # loop through each element and assign preferred basis species (if supplied)
   # or automatically choose compatible basis species
   basis_list <- list()
-
-  # check that every basis element has a basis pref
-  if(!setequal(basis_elem, names(basis_pref))){
-    missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
-    stop(paste("Error: the element(s)", paste(missing_basis, collapse=","), "require strict basis species in the database."))
-  }
+                   
+#   # check that every basis element has a basis pref
+#   if(!setequal(basis_elem, names(basis_pref))){
+#     missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
+#     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
+#   }
 
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
