@@ -66,6 +66,7 @@ preprocess <- function(input_filename,
                        water_model,
                        grid_temps,
                        grid_press,
+                       get_solid_solutions,
                        verbose=2){
     # Start the timer:
     ptm <- proc.time()
@@ -707,6 +708,15 @@ if(length(alter_options) > 0){
 }else{
   alter_block <- "\n|None                                            |None            | 0.00000E+00|"
 }
+
+if(get_solid_solutions){
+  ss_checkbox_ignore <- " "
+  ss_checkbox_permit <- "x"
+}else{
+  ss_checkbox_ignore <- "x"
+  ss_checkbox_permit <- " "
+}
+        
 eq3.ender2 <- paste("\n|------------------------------------------------------------------------------|",
     "* Valid alter/suppress strings (ukxm(kxmod(n))) are:                           *",
     "*    Suppress            Replace             AugmentLogK                       *",
@@ -715,8 +725,8 @@ eq3.ender2 <- paste("\n|--------------------------------------------------------
     "|Iopt Model Option Switches (\"( 0)\" marks default choices)                     |",
     "|------------------------------------------------------------------------------|",
     "|iopt(4) - Solid Solutions:                                                    |",
-    "|  [x] ( 0) Ignore                                                             |",
-    "|  [ ] ( 1) Permit                                                             |",
+paste0("|  [", ss_checkbox_ignore, "] ( 0) Ignore                                                             |"),
+paste0("|  [", ss_checkbox_permit, "] ( 1) Permit                                                             |"),
     "|------------------------------------------------------------------------------|",
     "|iopt(11) - Auto Basis Switching in pre-N-R Optimization:                      |",
     "|  [x] ( 0) Turn off                                                           |",

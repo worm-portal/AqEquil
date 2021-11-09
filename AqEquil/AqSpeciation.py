@@ -1349,6 +1349,132 @@ class Speciation(object):
         fig.show(config=config)
 
 
+    def plot_solid_solutions(self, sample, title=None,
+                                   width=0.9, colormap="WORM",
+                                   plot_width=4, plot_height=3, ppi=122,
+                                   save_as=None, save_format=None,
+                                   save_scale=1, interactive=True):
+        
+        """
+        Plot fractions of minerals of hypothetical solid solutions in a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample.
+
+        title : str, optional
+            Title of the plot.
+        
+        width : float, default 0.9
+            Width of bars. No space between bars if width=1.0.
+        
+        colormap : str, default "WORM"
+            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            "colorblind", or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The "colorblind" colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
+            
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+        
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
+        """
+
+        if sample not in self.sample_data.keys():
+            msg = ("The sample "+sample+" was not found in this speciation dataset."
+                   " Samples with solid solutions in this dataset include:"+str([s for s in self.sample_data.keys() if "solid_solutions" in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        try:
+            self.sample_data[sample]["solid_solutions"]
+        except:
+            msg = ("Results for solid solutions could not be found for this "
+                   "sample. Samples with solid solutions in this speciation "
+                   "dataset include:"+str([s for s in self.sample_data.keys() if "solid_solutions" in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        if title == None:
+            title = "Hypothetical solid solutions in " + sample
+        
+        df = copy.deepcopy(self.sample_data[sample]["solid_solutions"])
+
+        df = df.dropna(subset=['x'])
+
+        unique_minerals = self.__unique(df["mineral"])
+        
+        # get colormap
+        colors = get_colors(colormap, len(unique_minerals))
+        
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        
+        # map each species to its color, e.g.,
+        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+        dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+        
+        fig = px.bar(df, x="solid solution", y="x", color="mineral",
+                     width=plot_width*ppi, height=plot_height*ppi,
+                     color_discrete_map=dict_minerals_color,
+                     template="simple_white",
+                    )
+
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+                          margin={"t": 40}, bargap=0, xaxis={'fixedrange':True},
+                          yaxis={'fixedrange':True})
+
+        fig.update_traces(width=width, marker_line_width=0)
+        
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
+        config = {'displaylogo': False,
+                  'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d',
+                                             'lasso2d', 'zoomIn2d', 'zoomOut2d',
+                                             'autoScale2d', 'resetScale2d',
+                                             'toggleSpikelines'],
+                  'toImageButtonOptions': {
+                                           'format': save_format, # one of png, svg, jpeg, webp
+                                           'filename': save_as,
+                                           'height': plot_height*ppi,
+                                           'width': plot_width*ppi,
+                                           'scale': save_scale,
+                                           },
+                 }
+        
+        if not interactive:
+            config['staticPlot'] = True
+
+        fig.show(config=config)
+        
+        
 class AqEquil():
 
     """
@@ -1423,7 +1549,7 @@ class AqEquil():
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
 
 
-    def capture_r_output(self):
+    def __capture_r_output(self):
         """
         Capture and create a list of R console messages
         """
@@ -2012,6 +2138,7 @@ class AqEquil():
                  get_ion_activity_ratios=True,
                  get_fugacity=True,
                  get_basis_totals=True,
+                 get_solid_solutions=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
@@ -2204,6 +2331,10 @@ class AqEquil():
 
         get_basis_totals : bool, default True
             Report total compositions of basis aqueous species?
+
+        get_solid_solutions : bool, default True
+            Permit the calculation of solid solutions and include them in the
+            speciation report?
         
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
@@ -2375,7 +2506,7 @@ class AqEquil():
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_prescript = pkg_resources.resource_string(
             __name__, 'preprocess_for_EQ3.r').decode("utf-8")
@@ -2394,6 +2525,7 @@ class AqEquil():
                                              water_model=water_model,
                                              grid_temp=convert_to_RVector(grid_temp),
                                              grid_press=convert_to_RVector(grid_press),
+                                             get_solid_solutions=get_solid_solutions,
                                              verbose=self.verbose)
         
         for line in self.stderr: print(line)
@@ -2425,7 +2557,7 @@ class AqEquil():
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, '3o_mine.r').decode("utf-8")
@@ -2446,6 +2578,7 @@ class AqEquil():
             get_ion_activity_ratios=get_ion_activity_ratios,
             get_fugacity=get_fugacity,
             get_basis_totals=get_basis_totals,
+            get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
@@ -2716,6 +2849,23 @@ class AqEquil():
                 sc_dist = ro.conversion.rpy2py(sample.rx2('basis_totals'))
                 sc_dist = sc_dist.apply(pd.to_numeric, errors='coerce')
                 dict_sample_data.update({"basis_totals": sc_dist})
+
+            if get_solid_solutions:
+                sample_solid_solutions = batch_3o.rx2["sample_data"].rx2[sample.rx2('name')[0]].rx2["solid_solutions"]
+
+                if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
+
+                    ss_df_list = []
+                    for ss in list(sample_solid_solutions.names):
+                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2["ideal solution"]
+                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2["mineral"]
+                        df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on='mineral', right_on='component', how='left')
+                        df_merged.insert(0, 'solid solution', ss)
+                        del df_merged['component']
+                        ss_df_list.append(df_merged)
+                
+                    dict_sample_data.update(
+                        {"solid_solutions": pd.concat(ss_df_list)})
             
             if get_affinity_energy:
                 dict_sample_data.update({"affinity_energy_raw": ro.conversion.rpy2py(
@@ -2925,7 +3075,7 @@ class AqEquil():
             raise Exception("template_type {} ".format(template_type)+"is not"
                             "recognized. Try 'strict', 'all basis', or 'all species'")
 
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
             __name__, 'create_data0.r').decode("utf-8")

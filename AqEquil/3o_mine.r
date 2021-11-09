@@ -27,6 +27,7 @@ mine_3o <- function(this_file,
                     get_ion_activity_ratios=T,
                     get_fugacity=T,
                     get_basis_totals=T,
+                    get_solid_solutions=T,
                     get_affinity_energy=T,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
@@ -224,6 +225,84 @@ mine_3o <- function(this_file,
       
     # add mineral saturation block to this sample data
     sample_3o[["mineral_sat"]] <- df
+
+    if(get_solid_solutions){
+      if(grepl("--- Saturation States of Hypothetical Solid Solutions ---", extractme)){
+        # string to isolate the solid solution saturation section:
+        front_trim <- "^.*\n\n\n                --- Saturation States of Hypothetical Solid Solutions ---\n\n"
+
+        # isolate solid solution block
+        ss_block <- isolate_block(str=extractme, begin_str=front_trim, end_str="\n\n                     --- Fugacities ---.*$") # end_str might be different if fugacity section is not present
+
+        # split into substrings, each representing a separate solid solution
+        ss_block <- strsplit(ss_block, "\n\n\n                --- ")[[1]]
+
+        ss_entries <- list()
+
+        for(ss_entry in ss_block){
+        ss_entry <- strsplit(ss_entry, " ---\n\n   ")[[1]]
+        ss_name <- ss_entry[1]
+        ss_name <- sub("\n                --- ", "", ss_name) # needed to clean up the first ss_entry name
+        ss_data <- ss_entry[2]
+        ss_data <- sub("Ideal solution\n\n    Component                    x           Log x   Log lambda  Log activity\n\n", "", ss_data)[[1]]
+        ss_entry <- strsplit(ss_data, "\n\n\n    Mineral                       Log Q/K         Aff, kcal    State\n\n")
+
+
+
+        ss_entry <- lapply(ss_entry, FUN=strsplit, "\n")[[1]]
+        ss_entry <- lapply(ss_entry, FUN=trimws, "l")
+        ss_entry <- lapply(ss_entry, FUN=strsplit, "[ ]{2,}", perl=TRUE)
+        names(ss_entry) <- c("ideal solution", "mineral")
+
+
+        ideal_sol_df <- data.frame(component=character(),
+                                   x=numeric(),
+                                   `Log x`=numeric(),
+                                   `Log lambda`=numeric(),
+                                   `Log activity`=numeric(),
+                                   stringsAsFactors = FALSE)
+        for(row in ss_entry[["ideal solution"]]){
+
+          x <- suppressWarnings(as.numeric(row[2]))
+          if(is.na(x)){
+            x <- 0
+          }
+
+          ideal_sol_df <- rbind(ideal_sol_df, data.frame(component=as.character(row[1]),
+                                                         x = x,
+                                                         `Log x` = as.numeric(row[3]),
+                                                         `Log lambda` = as.numeric(row[4]),
+                                                         `Log activity` = as.numeric(row[5])),
+                                                         stringsAsFactors=FALSE)
+        }
+        names(ideal_sol_df) <- c("component", "x", "Log x", "Log lambda", "Log activity") # rename columns because check.names doesn't work when creating the dataframes
+        ss_entry[["ideal solution"]] <- ideal_sol_df
+
+        mineral_ss_df <- data.frame(mineral=character(),                                   
+                                    `Log Q/K`=numeric(),
+                                    `Aff, kcal`=numeric(),
+                                    `State`=character(),
+                                    stringsAsFactors = FALSE)
+        for(row in ss_entry[["mineral"]]){
+
+
+          if(length(row) == 3){
+            row <- c(row, "")
+          }
+          mineral_ss_df <- rbind(mineral_ss_df, data.frame(mineral=as.character(row[1]),
+                                                           `Log Q/K`=as.numeric(row[2]),
+                                                           `Aff, kcal`=as.numeric(row[3]),
+                                                           `State`=row[4]),
+                                                           stringsAsFactors = FALSE)
+        }
+        names(mineral_ss_df) <- c("mineral", "Log Q/K", "Aff, kcal", "State") # rename columns because check.names doesn't work when creating the dataframes
+        ss_entry[["mineral"]] <- mineral_ss_df
+
+        ss_entries[[ss_name]] <- ss_entry
+        }
+        sample_3o[["solid_solutions"]] <- ss_entries
+      }
+    }
   } # end 'mineral saturation affinity' extraction
     
 
@@ -815,6 +894,7 @@ main_3o_mine <- function(files_3o,
                          get_ion_activity_ratios,
                          get_fugacity,
                          get_basis_totals,
+                         get_solid_solutions,
                          get_affinity_energy,
                          load_rxn_file,
                          not_limiting,
@@ -870,6 +950,7 @@ main_3o_mine <- function(files_3o,
                          get_ion_activity_ratios=get_ion_activity_ratios,
                          get_fugacity=get_fugacity,
                          get_basis_totals=get_basis_totals,
+                         get_solid_solutions=get_solid_solutions,
                          get_affinity_energy=get_affinity_energy,
                          not_limiting=not_limiting,
                          mass_contribution_other=mass_contribution_other,
