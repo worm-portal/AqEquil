@@ -1377,6 +1377,132 @@ class Speciation(object):
         fig.show(config=config)
 
 
+    def plot_solid_solutions(self, sample, title=None,
+                                   width=0.9, colormap=&#34;WORM&#34;,
+                                   plot_width=4, plot_height=3, ppi=122,
+                                   save_as=None, save_format=None,
+                                   save_scale=1, interactive=True):
+        
+        &#34;&#34;&#34;
+        Plot fractions of minerals of hypothetical solid solutions in a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample.
+
+        title : str, optional
+            Title of the plot.
+        
+        width : float, default 0.9
+            Width of bars. No space between bars if width=1.0.
+        
+        colormap : str, default &#34;WORM&#34;
+            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            &#34;colorblind&#34;, or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
+            
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+        
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
+        &#34;&#34;&#34;
+
+        if sample not in self.sample_data.keys():
+            msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
+                   &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        try:
+            self.sample_data[sample][&#34;solid_solutions&#34;]
+        except:
+            msg = (&#34;Results for solid solutions could not be found for this &#34;
+                   &#34;sample. Samples with solid solutions in this speciation &#34;
+                   &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        if title == None:
+            title = &#34;Hypothetical solid solutions in &#34; + sample
+        
+        df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+
+        df = df.dropna(subset=[&#39;x&#39;])
+
+        unique_minerals = self.__unique(df[&#34;mineral&#34;])
+        
+        # get colormap
+        colors = get_colors(colormap, len(unique_minerals))
+        
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        
+        # map each species to its color, e.g.,
+        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+        dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+        
+        fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
+                     width=plot_width*ppi, height=plot_height*ppi,
+                     color_discrete_map=dict_minerals_color,
+                     template=&#34;simple_white&#34;,
+                    )
+
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+                          margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
+                          yaxis={&#39;fixedrange&#39;:True})
+
+        fig.update_traces(width=width, marker_line_width=0)
+        
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
+        config = {&#39;displaylogo&#39;: False,
+                  &#39;modeBarButtonsToRemove&#39;: [&#39;zoom2d&#39;, &#39;pan2d&#39;, &#39;select2d&#39;,
+                                             &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
+                                             &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
+                                             &#39;toggleSpikelines&#39;],
+                  &#39;toImageButtonOptions&#39;: {
+                                           &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
+                                           &#39;filename&#39;: save_as,
+                                           &#39;height&#39;: plot_height*ppi,
+                                           &#39;width&#39;: plot_width*ppi,
+                                           &#39;scale&#39;: save_scale,
+                                           },
+                 }
+        
+        if not interactive:
+            config[&#39;staticPlot&#39;] = True
+
+        fig.show(config=config)
+        
+        
 class AqEquil():
 
     &#34;&#34;&#34;
@@ -1451,7 +1577,7 @@ class AqEquil():
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
 
 
-    def capture_r_output(self):
+    def __capture_r_output(self):
         &#34;&#34;&#34;
         Capture and create a list of R console messages
         &#34;&#34;&#34;
@@ -2040,6 +2166,7 @@ class AqEquil():
                  get_ion_activity_ratios=True,
                  get_fugacity=True,
                  get_basis_totals=True,
+                 get_solid_solutions=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
@@ -2232,6 +2359,10 @@ class AqEquil():
 
         get_basis_totals : bool, default True
             Report total compositions of basis aqueous species?
+
+        get_solid_solutions : bool, default True
+            Permit the calculation of solid solutions and include them in the
+            speciation report?
         
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
@@ -2403,7 +2534,7 @@ class AqEquil():
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_prescript = pkg_resources.resource_string(
             __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
@@ -2422,6 +2553,7 @@ class AqEquil():
                                              water_model=water_model,
                                              grid_temp=convert_to_RVector(grid_temp),
                                              grid_press=convert_to_RVector(grid_press),
+                                             get_solid_solutions=get_solid_solutions,
                                              verbose=self.verbose)
         
         for line in self.stderr: print(line)
@@ -2453,7 +2585,7 @@ class AqEquil():
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
@@ -2474,6 +2606,7 @@ class AqEquil():
             get_ion_activity_ratios=get_ion_activity_ratios,
             get_fugacity=get_fugacity,
             get_basis_totals=get_basis_totals,
+            get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
@@ -2744,6 +2877,23 @@ class AqEquil():
                 sc_dist = ro.conversion.rpy2py(sample.rx2(&#39;basis_totals&#39;))
                 sc_dist = sc_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
+
+            if get_solid_solutions:
+                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+
+                if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
+
+                    ss_df_list = []
+                    for ss in list(sample_solid_solutions.names):
+                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;]
+                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;]
+                        df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
+                        df_merged.insert(0, &#39;solid solution&#39;, ss)
+                        del df_merged[&#39;component&#39;]
+                        ss_df_list.append(df_merged)
+                
+                    dict_sample_data.update(
+                        {&#34;solid_solutions&#34;: pd.concat(ss_df_list)})
             
             if get_affinity_energy:
                 dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
@@ -2953,7 +3103,7 @@ class AqEquil():
             raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
             __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
@@ -3007,7 +3157,6 @@ class AqEquil():
         self.affinity_energy_reactions_raw = None
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
-        
         if self.verbose != 0:
             print(&#34;Generating redox reactions...&#34;)
         
@@ -3067,8 +3216,8 @@ class AqEquil():
                     continue
                 if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
                     continue
-                if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;:
-                    continue
+#                 if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;: #suppress the splitting of water
+#                     continue
                 else:
 
                     # GENERATING REACTIONS BETWEEN OXIDANT_1 AND REDUCTANT_1
@@ -3139,11 +3288,12 @@ class AqEquil():
                         rxn_pairs.append([i, indices[i+n]])
                         index +=1
         
-        rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
-        self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
+#         rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
+#         self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
         
         df_reax[&#39;Reaction&#39;] = rxn_list
         df_reax[&#39;Names&#39;] = rxn_names
+        df_reax[&#39;Temp_Pairs&#39;] = rxn_pairs
         
         # if there are no reactions, return nothing
         if df_reax.shape[0] == 0:
@@ -3354,8 +3504,15 @@ class AqEquil():
                     all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
 
         all_reax = all_reax.sort_index().reset_index(drop=True)
+        pair_list = []
+        for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
+            pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
+        all_reax[&#39;pairs&#39;] = pair_list
 
         reax = all_reax.copy(deep=True)
+        reax.drop(&#39;Temp_Pairs&#39;, axis=1, inplace=True)
+        reax.drop(&#39;pairs&#39;, axis=1, inplace=True)
+        reax.reset_index(drop=True, inplace=True)
         for s in [&#39;Fe&#39;, &#39;O&#39;, &#39;H&#39;,&#39;-&#39;,&#39;+&#39;]:
             for i in range(0,len(reax[&#39;rO&#39;])):
 
@@ -3519,25 +3676,26 @@ class AqEquil():
         df_rxn = pd.DataFrame([x.split(&#39;\t&#39;) for x in self.affinity_energy_reactions_raw.split(&#39;\n&#39;)])
         df_rxn.columns = df_rxn.columns.map(str)
         df_rxn = df_rxn.rename(columns={&#34;0&#34;: &#34;reaction_name&#34;, &#34;1&#34;: &#34;mol_e-_transferred_per_mol_rxn&#34;})
+        df_rxn.insert(1, &#39;redox_pairs&#39;, all_reax[&#39;pairs&#39;])
         df_rxn = df_rxn.set_index(&#34;reaction_name&#34;)
         df_rxn = df_rxn[df_rxn[&#39;mol_e-_transferred_per_mol_rxn&#39;].notna()]
         self.affinity_energy_reactions_table = df_rxn
 
-        rxn_pairs_all = []
-        n = 0
-        prev_was_sub = False
-        for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
-            if &#34;_sub&#34; not in rxn[-4:]:
-                if prev_was_sub:
-                    n += 1
-                    prev_was_sub = False
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-            else:
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-                prev_was_sub = True
-        self.rxn_pairs_all = rxn_pairs_all
+#         rxn_pairs_all = []
+#         n = 0
+#         prev_was_sub = False
+#         for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
+#             if &#34;_sub&#34; not in rxn[-4:]:
+#                 if prev_was_sub:
+#                     n += 1
+#                     prev_was_sub = False
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#             else:
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#                 prev_was_sub = True
+#         self.rxn_pairs_all = rxn_pairs_all
         
-        self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
+#         self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
         
         prev_was_coeff = False
         n = 1
@@ -4465,7 +4623,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
 
 
-    def capture_r_output(self):
+    def __capture_r_output(self):
         &#34;&#34;&#34;
         Capture and create a list of R console messages
         &#34;&#34;&#34;
@@ -5054,6 +5212,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  get_ion_activity_ratios=True,
                  get_fugacity=True,
                  get_basis_totals=True,
+                 get_solid_solutions=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
@@ -5246,6 +5405,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         get_basis_totals : bool, default True
             Report total compositions of basis aqueous species?
+
+        get_solid_solutions : bool, default True
+            Permit the calculation of solid solutions and include them in the
+            speciation report?
         
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
@@ -5417,7 +5580,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_prescript = pkg_resources.resource_string(
             __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
@@ -5436,6 +5599,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                              water_model=water_model,
                                              grid_temp=convert_to_RVector(grid_temp),
                                              grid_press=convert_to_RVector(grid_press),
+                                             get_solid_solutions=get_solid_solutions,
                                              verbose=self.verbose)
         
         for line in self.stderr: print(line)
@@ -5467,7 +5631,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
@@ -5488,6 +5652,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             get_ion_activity_ratios=get_ion_activity_ratios,
             get_fugacity=get_fugacity,
             get_basis_totals=get_basis_totals,
+            get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
@@ -5758,6 +5923,23 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 sc_dist = ro.conversion.rpy2py(sample.rx2(&#39;basis_totals&#39;))
                 sc_dist = sc_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
+
+            if get_solid_solutions:
+                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+
+                if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
+
+                    ss_df_list = []
+                    for ss in list(sample_solid_solutions.names):
+                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;]
+                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;]
+                        df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
+                        df_merged.insert(0, &#39;solid solution&#39;, ss)
+                        del df_merged[&#39;component&#39;]
+                        ss_df_list.append(df_merged)
+                
+                    dict_sample_data.update(
+                        {&#34;solid_solutions&#34;: pd.concat(ss_df_list)})
             
             if get_affinity_energy:
                 dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
@@ -5967,7 +6149,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
             __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
@@ -6021,7 +6203,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.affinity_energy_reactions_raw = None
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
-        
         if self.verbose != 0:
             print(&#34;Generating redox reactions...&#34;)
         
@@ -6081,8 +6262,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                     continue
                 if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
                     continue
-                if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;:
-                    continue
+#                 if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;: #suppress the splitting of water
+#                     continue
                 else:
 
                     # GENERATING REACTIONS BETWEEN OXIDANT_1 AND REDUCTANT_1
@@ -6153,11 +6334,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                         rxn_pairs.append([i, indices[i+n]])
                         index +=1
         
-        rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
-        self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
+#         rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
+#         self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
         
         df_reax[&#39;Reaction&#39;] = rxn_list
         df_reax[&#39;Names&#39;] = rxn_names
+        df_reax[&#39;Temp_Pairs&#39;] = rxn_pairs
         
         # if there are no reactions, return nothing
         if df_reax.shape[0] == 0:
@@ -6368,8 +6550,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                     all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
 
         all_reax = all_reax.sort_index().reset_index(drop=True)
+        pair_list = []
+        for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
+            pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
+        all_reax[&#39;pairs&#39;] = pair_list
 
         reax = all_reax.copy(deep=True)
+        reax.drop(&#39;Temp_Pairs&#39;, axis=1, inplace=True)
+        reax.drop(&#39;pairs&#39;, axis=1, inplace=True)
+        reax.reset_index(drop=True, inplace=True)
         for s in [&#39;Fe&#39;, &#39;O&#39;, &#39;H&#39;,&#39;-&#39;,&#39;+&#39;]:
             for i in range(0,len(reax[&#39;rO&#39;])):
 
@@ -6533,25 +6722,26 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         df_rxn = pd.DataFrame([x.split(&#39;\t&#39;) for x in self.affinity_energy_reactions_raw.split(&#39;\n&#39;)])
         df_rxn.columns = df_rxn.columns.map(str)
         df_rxn = df_rxn.rename(columns={&#34;0&#34;: &#34;reaction_name&#34;, &#34;1&#34;: &#34;mol_e-_transferred_per_mol_rxn&#34;})
+        df_rxn.insert(1, &#39;redox_pairs&#39;, all_reax[&#39;pairs&#39;])
         df_rxn = df_rxn.set_index(&#34;reaction_name&#34;)
         df_rxn = df_rxn[df_rxn[&#39;mol_e-_transferred_per_mol_rxn&#39;].notna()]
         self.affinity_energy_reactions_table = df_rxn
 
-        rxn_pairs_all = []
-        n = 0
-        prev_was_sub = False
-        for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
-            if &#34;_sub&#34; not in rxn[-4:]:
-                if prev_was_sub:
-                    n += 1
-                    prev_was_sub = False
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-            else:
-                rxn_pairs_all.append(self.rxn_pairs_main[n])
-                prev_was_sub = True
-        self.rxn_pairs_all = rxn_pairs_all
+#         rxn_pairs_all = []
+#         n = 0
+#         prev_was_sub = False
+#         for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
+#             if &#34;_sub&#34; not in rxn[-4:]:
+#                 if prev_was_sub:
+#                     n += 1
+#                     prev_was_sub = False
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#             else:
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#                 prev_was_sub = True
+#         self.rxn_pairs_all = rxn_pairs_all
         
-        self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
+#         self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
         
         prev_was_coeff = False
         n = 1
@@ -6703,39 +6893,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </details>
 <h3>Methods</h3>
 <dl>
-<dt id="AqEquil.AqSpeciation.AqEquil.capture_r_output"><code class="name flex">
-<span>def <span class="ident">capture_r_output</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Capture and create a list of R console messages</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def capture_r_output(self):
-    &#34;&#34;&#34;
-    Capture and create a list of R console messages
-    &#34;&#34;&#34;
-    
-    # Record output #
-    self.stdout = []
-    self.stderr = []
-    
-    if not DEBUGGING_R:
-    
-        # Dummy functions #
-        def add_to_stdout(line): self.stdout.append(line)
-        def add_to_stderr(line): self.stderr.append(line)
-
-        # Keep the old functions #
-        self.stdout_orig = rpy2.rinterface_lib.callbacks.consolewrite_print
-        self.stderr_orig = rpy2.rinterface_lib.callbacks.consolewrite_warnerror
-
-        # Set the call backs #
-        rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
-        rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr</code></pre>
-</details>
-</dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
 <span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', verbose=1)</span>
 </code></dt>
@@ -6972,7 +7129,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-    self.capture_r_output()
+    self.__capture_r_output()
     
     r_create_data0 = pkg_resources.resource_string(
         __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
@@ -7180,580 +7337,588 @@ cell reactions.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def make_redox_reactions(self, redox_pairs=&#34;all&#34;):
-    
-    &#34;&#34;&#34;
-    Generate an organized collection of redox reactions for calculating
-    chemical affinity and energy supply values during speciation.
-    
-    Parameters
-    ----------
-    redox_pairs : list of int or &#34;all&#34;, default &#34;all&#34;
-        List of indices of half reactions in the half cell reaction table
-        to be combined when generating full redox reactions.
-        E.g. [0, 1, 4] will combine half reactions with indices 0, 1, and 4
-        in the table stored in the `half_cell_reactions` attribute of the
-        `AqEquil` class.
-        If &#34;all&#34;, generate all possible redox reactions from available half
-        cell reactions.
-    
-    Returns
-    ----------
-    Output is stored in the `affinity_energy_reactions_raw` and
-    `affinity_energy_reactions_table` attributes of the `AqEquil` class.
-    &#34;&#34;&#34;
-    
-    # reset all redox variables stored in the AqEquil class
-    self.affinity_energy_reactions_raw = None
-    self.affinity_energy_reactions_table = None
-    self.affinity_energy_formatted_reactions = None
-    
-    if self.verbose != 0:
-        print(&#34;Generating redox reactions...&#34;)
-    
-    if isinstance(redox_pairs, str):
-        if redox_pairs == &#34;all&#34;:
-            redox_pairs = list(range(0, self.half_cell_reactions.shape[0]))
-    
-    self.redox_pairs = redox_pairs
-    
-    df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
-    
-    Oxidant_1 = df[&#39;Oxidant_1&#39;]
-    Oxidant_2 = df[&#39;Oxidant_2&#39;]
-    Oxidant_3 = df[&#39;Oxidant_3&#39;]
-    Reductant_1 = df[&#39;Reductant_1&#39;]
-    Reductant_2 = df[&#39;Reductant_2&#39;]
-    
-    #CREATING A LIST OF ALL SPECIES AND THEIR ELEMENT DICTIONARIES
-    df_oxidants_and_reductants = self.half_cell_reactions.loc[:, &#34;Oxidant_1&#34;:].values.tolist()
-    flat_list = flatten_list(df_oxidants_and_reductants)
-    oxidants_and_reductants = [sp for sp in list(dict.fromkeys(flat_list)) if str(sp) != &#39;nan&#39;]
-    elements = [list(parse_formula(sp).keys()) for sp in oxidants_and_reductants]
-    elements = flatten_list(elements)
-    elements = list(dict.fromkeys(elements))
-    
-    # get a dictionary of species and their elemental makeup:
-    # {&#39;HNO3&#39;: {&#39;H&#39;: 1.0, &#39;N&#39;: 1.0, &#39;O&#39;: 3.0, &#39;-&#39;: 0, &#39;Fe&#39;: 0, &#39;C&#39;: 0, &#39;S&#39;: 0, &#39;+&#39;: 0}, ...}
-    element_dictionary = dict()
-    for sp in oxidants_and_reductants:
-            element_dictionary[sp] = parse_formula(sp)
-            for e in elements:
-                if element_dictionary[sp].get(e, 0) == 0:
-                    element_dictionary[sp][e] = 0
-                    
-    df_reax = pd.DataFrame() # empty df of reactions
-    df_reax[&#39;rO_coeff&#39;] = &#39;&#39;
-    df_reax[&#39;rO&#39;] = &#39;&#39;
-    df_reax[&#39;rR_coeff&#39;] = &#39;&#39;
-    df_reax[&#39;rR&#39;] = &#39;&#39;
-    df_reax[&#39;pO_coeff&#39;] = &#39;&#39;
-    df_reax[&#39;pO&#39;] = &#39;&#39;
-    df_reax[&#39;pR_coeff&#39;] = &#39;&#39;
-    df_reax[&#39;pR&#39;] = &#39;&#39;
-    df_reax[&#39;Reaction&#39;] = &#39;&#39;
-    index = 0
+<pre><code class="python">    def make_redox_reactions(self, redox_pairs=&#34;all&#34;):
+        
+        &#34;&#34;&#34;
+        Generate an organized collection of redox reactions for calculating
+        chemical affinity and energy supply values during speciation.
+        
+        Parameters
+        ----------
+        redox_pairs : list of int or &#34;all&#34;, default &#34;all&#34;
+            List of indices of half reactions in the half cell reaction table
+            to be combined when generating full redox reactions.
+            E.g. [0, 1, 4] will combine half reactions with indices 0, 1, and 4
+            in the table stored in the `half_cell_reactions` attribute of the
+            `AqEquil` class.
+            If &#34;all&#34;, generate all possible redox reactions from available half
+            cell reactions.
+        
+        Returns
+        ----------
+        Output is stored in the `affinity_energy_reactions_raw` and
+        `affinity_energy_reactions_table` attributes of the `AqEquil` class.
+        &#34;&#34;&#34;
+        
+        # reset all redox variables stored in the AqEquil class
+        self.affinity_energy_reactions_raw = None
+        self.affinity_energy_reactions_table = None
+        self.affinity_energy_formatted_reactions = None
+        if self.verbose != 0:
+            print(&#34;Generating redox reactions...&#34;)
+        
+        if isinstance(redox_pairs, str):
+            if redox_pairs == &#34;all&#34;:
+                redox_pairs = list(range(0, self.half_cell_reactions.shape[0]))
+        
+        self.redox_pairs = redox_pairs
+        
+        df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
+        
+        Oxidant_1 = df[&#39;Oxidant_1&#39;]
+        Oxidant_2 = df[&#39;Oxidant_2&#39;]
+        Oxidant_3 = df[&#39;Oxidant_3&#39;]
+        Reductant_1 = df[&#39;Reductant_1&#39;]
+        Reductant_2 = df[&#39;Reductant_2&#39;]
+        
+        #CREATING A LIST OF ALL SPECIES AND THEIR ELEMENT DICTIONARIES
+        df_oxidants_and_reductants = self.half_cell_reactions.loc[:, &#34;Oxidant_1&#34;:].values.tolist()
+        flat_list = flatten_list(df_oxidants_and_reductants)
+        oxidants_and_reductants = [sp for sp in list(dict.fromkeys(flat_list)) if str(sp) != &#39;nan&#39;]
+        elements = [list(parse_formula(sp).keys()) for sp in oxidants_and_reductants]
+        elements = flatten_list(elements)
+        elements = list(dict.fromkeys(elements))
+        
+        # get a dictionary of species and their elemental makeup:
+        # {&#39;HNO3&#39;: {&#39;H&#39;: 1.0, &#39;N&#39;: 1.0, &#39;O&#39;: 3.0, &#39;-&#39;: 0, &#39;Fe&#39;: 0, &#39;C&#39;: 0, &#39;S&#39;: 0, &#39;+&#39;: 0}, ...}
+        element_dictionary = dict()
+        for sp in oxidants_and_reductants:
+                element_dictionary[sp] = parse_formula(sp)
+                for e in elements:
+                    if element_dictionary[sp].get(e, 0) == 0:
+                        element_dictionary[sp][e] = 0
+                        
+        df_reax = pd.DataFrame() # empty df of reactions
+        df_reax[&#39;rO_coeff&#39;] = &#39;&#39;
+        df_reax[&#39;rO&#39;] = &#39;&#39;
+        df_reax[&#39;rR_coeff&#39;] = &#39;&#39;
+        df_reax[&#39;rR&#39;] = &#39;&#39;
+        df_reax[&#39;pO_coeff&#39;] = &#39;&#39;
+        df_reax[&#39;pO&#39;] = &#39;&#39;
+        df_reax[&#39;pR_coeff&#39;] = &#39;&#39;
+        df_reax[&#39;pR&#39;] = &#39;&#39;
+        df_reax[&#39;Reaction&#39;] = &#39;&#39;
+        index = 0
 
-    reaction = [] 
-    indices = np.arange(0, len(df[&#39;Oxidant_1&#39;]), 1).tolist()*2 # how to loop back through the redox pairs to not run into out-of-range index
-    rxn_num = 0 # counting unique reactions
-    rxn_list = [] # list of unique reactions
-    rxn_names = []
-    rxn_pairs = [] # list of paired half reactions
+        reaction = [] 
+        indices = np.arange(0, len(df[&#39;Oxidant_1&#39;]), 1).tolist()*2 # how to loop back through the redox pairs to not run into out-of-range index
+        rxn_num = 0 # counting unique reactions
+        rxn_list = [] # list of unique reactions
+        rxn_names = []
+        rxn_pairs = [] # list of paired half reactions
 
-    for i in range(0, len(df[&#39;Oxidant_1&#39;]),1): # length of redox pairs - columns
-        for n in range(0, len(df[&#39;Oxidant_1&#39;]), 1):
-            if Reductant_1[i] == Reductant_1[indices[i+n]] or Reductant_1[i] == Reductant_2[indices[i+n]]: # if both reductants are the same thing, skip
-                continue
-            if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
-                continue
-            if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;:
-                continue
-            else:
+        for i in range(0, len(df[&#39;Oxidant_1&#39;]),1): # length of redox pairs - columns
+            for n in range(0, len(df[&#39;Oxidant_1&#39;]), 1):
+                if Reductant_1[i] == Reductant_1[indices[i+n]] or Reductant_1[i] == Reductant_2[indices[i+n]]: # if both reductants are the same thing, skip
+                    continue
+                if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
+                    continue
+#                 if Oxidant_1[i] == &#39;H2O&#39; and Reductant_1[indices[i+n]] == &#39;H2O&#39;: #suppress the splitting of water
+#                     continue
+                else:
 
-                # GENERATING REACTIONS BETWEEN OXIDANT_1 AND REDUCTANT_1
-                reaction.append(Oxidant_1[i]+&#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
-                rxn_num+=1
-                rxn_list.append(rxn_num)
-                rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
-                df_reax.loc[index, &#39;rO&#39;] = Oxidant_1[i]
-                df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
-                df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
-                df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
-                rxn_pairs.append([i, indices[i+n]])
-                index+=1
+                    # GENERATING REACTIONS BETWEEN OXIDANT_1 AND REDUCTANT_1
+                    reaction.append(Oxidant_1[i]+&#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                    rxn_num+=1
+                    rxn_list.append(rxn_num)
+                    rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
+                    df_reax.loc[index, &#39;rO&#39;] = Oxidant_1[i]
+                    df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
+                    df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
+                    df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
+                    rxn_pairs.append([i, indices[i+n]])
+                    index+=1
 
-            # REACTIONS INVOLVING OTHER PH-DEPENDENT SPECIES
-            if pd.isnull(Oxidant_2[i]) != True:
-                reaction.append(Oxidant_2[i] + &#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
-                rxn_list.append(rxn_num)
-                rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
-                df_reax.loc[index, &#39;rO&#39;] = Oxidant_2[i]
-                df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
-                df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
-                df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
-                rxn_pairs.append([i, indices[i+n]])
-                index +=1
-
-                if pd.isnull(Reductant_2[indices[i+n]]) != True:
-                    reaction.append(Oxidant_2[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                # REACTIONS INVOLVING OTHER PH-DEPENDENT SPECIES
+                if pd.isnull(Oxidant_2[i]) != True:
+                    reaction.append(Oxidant_2[i] + &#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
                     rxn_list.append(rxn_num)
                     rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
                     df_reax.loc[index, &#39;rO&#39;] = Oxidant_2[i]
+                    df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
+                    df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
+                    df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
+                    rxn_pairs.append([i, indices[i+n]])
+                    index +=1
+
+                    if pd.isnull(Reductant_2[indices[i+n]]) != True:
+                        reaction.append(Oxidant_2[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                        rxn_list.append(rxn_num)
+                        rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
+                        df_reax.loc[index, &#39;rO&#39;] = Oxidant_2[i]
+                        df_reax.loc[index, &#39;rR&#39;] = Reductant_2[indices[i+n]]
+                        df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
+                        df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
+                        rxn_pairs.append([i, indices[i+n]])
+                        index +=1
+
+                if pd.isnull(Reductant_2[indices[i+n]]) != True:
+                    reaction.append(Oxidant_1[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                    rxn_list.append(rxn_num)
+                    rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
+                    df_reax.loc[index, &#39;rO&#39;] = Oxidant_1[i]
                     df_reax.loc[index, &#39;rR&#39;] = Reductant_2[indices[i+n]]
                     df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
                     df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
                     rxn_pairs.append([i, indices[i+n]])
                     index +=1
 
-            if pd.isnull(Reductant_2[indices[i+n]]) != True:
-                reaction.append(Oxidant_1[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
-                rxn_list.append(rxn_num)
-                rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
-                df_reax.loc[index, &#39;rO&#39;] = Oxidant_1[i]
-                df_reax.loc[index, &#39;rR&#39;] = Reductant_2[indices[i+n]]
-                df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
-                df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
-                rxn_pairs.append([i, indices[i+n]])
-                index +=1
-
-            if pd.isnull(Oxidant_3[i]) != True:
-                reaction.append(Oxidant_3[i] + &#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
-                rxn_list.append(rxn_num)
-                rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
-                df_reax.loc[index, &#39;rO&#39;] = Oxidant_3[i]
-                df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
-                df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
-                df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
-                rxn_pairs.append([i, indices[i+n]])
-                index +=1
-
-                if pd.isnull(Reductant_2[indices[i+n]]) != True:
-                    reaction.append(Oxidant_3[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                if pd.isnull(Oxidant_3[i]) != True:
+                    reaction.append(Oxidant_3[i] + &#39; \t &#39; + Reductant_1[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
                     rxn_list.append(rxn_num)
                     rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
                     df_reax.loc[index, &#39;rO&#39;] = Oxidant_3[i]
-                    df_reax.loc[index, &#39;rR&#39;] = Reductant_2[indices[i+n]]
+                    df_reax.loc[index, &#39;rR&#39;] = Reductant_1[indices[i+n]]
                     df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
                     df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
                     rxn_pairs.append([i, indices[i+n]])
                     index +=1
-    
-    rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
-    self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
-    
-    df_reax[&#39;Reaction&#39;] = rxn_list
-    df_reax[&#39;Names&#39;] = rxn_names
-    
-    # if there are no reactions, return nothing
-    if df_reax.shape[0] == 0:
-        incompatible_half_reactions = pd.Series(self.half_cell_reactions[&#34;Redox Couple&#34;], index=redox_pairs).tolist()
-        redundant_reductant_or_oxidant = []
-        for col in [&#34;Oxidant_1&#34;, &#34;Oxidant_2&#34;, &#34;Oxidant_3&#34;, &#34;Reductant_1&#34;, &#34;Reductant_2&#34;]:
-            redox_col = pd.Series(self.half_cell_reactions[col], index=[0,1])
-            if redox_col.eq(redox_col[0]).all():
-                redundant_reductant_or_oxidant.append(redox_col[0])
-        err_no_rxns = (&#34;Valid reactions could not be written between the half &#34;
-            &#34;reactions {} &#34;.format(incompatible_half_reactions)+&#34;because &#34;
-            &#34;{}&#34;.format(redundant_reductant_or_oxidant)+&#34; is on both sides &#34;
-            &#34;of all reactions.&#34;)
-        print(err_no_rxns)
-        return
-    
-    ### BALANCING NON-O, H ELEMENTS
-    for r in range(0, len(df_reax[&#39;rO&#39;])):
-        count = 0 #to restart the loop through the elements
-        temp_rO_coeff = [1] *4 #C, N, S, Fe
-        temp_rR_coeff = [1] *4 #C, N, S, Fe
-        temp_pO_coeff = [1] *4 #C, N, S, Fe
-        temp_pR_coeff = [1] *4 #C, N, S, Fe
-        for e in [&#39;C&#39;,&#39;N&#39;,&#39;S&#39;,&#39;Fe&#39;]:
-            temp1 = int(element_dictionary[df_reax[&#39;rO&#39;][r]][e]) #count for the element in the list for rO at index r
-            temp2 = int(element_dictionary[df_reax[&#39;pR&#39;][r]][e])
-            temp3 = int(element_dictionary[df_reax[&#39;rR&#39;][r]][e])
-            temp4 = int(element_dictionary[df_reax[&#39;pO&#39;][r]][e])
-            if temp1 == temp2:
-                temp_rO_coeff[count] = 1
-                temp_pR_coeff[count] = 1
-            if temp1 != temp2:
-                if temp1 ==0:
+
+                    if pd.isnull(Reductant_2[indices[i+n]]) != True:
+                        reaction.append(Oxidant_3[i] + &#39; \t &#39; + Reductant_2[indices[i+n]] + &#39;=&#39; + Reductant_1[i] + &#39; \t &#39; + Oxidant_1[indices[i+n]])
+                        rxn_list.append(rxn_num)
+                        rxn_names.append(&#39;red_&#39;+Oxidant_1[i]+&#39;_&#39;+Reductant_1[i]+&#39;_ox_&#39;+Reductant_1[indices[i+n]]+&#39;_&#39;+Oxidant_1[indices[i+n]])
+                        df_reax.loc[index, &#39;rO&#39;] = Oxidant_3[i]
+                        df_reax.loc[index, &#39;rR&#39;] = Reductant_2[indices[i+n]]
+                        df_reax.loc[index, &#39;pR&#39;] = Reductant_1[i]
+                        df_reax.loc[index, &#39;pO&#39;] = Oxidant_1[indices[i+n]]
+                        rxn_pairs.append([i, indices[i+n]])
+                        index +=1
+        
+#         rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
+#         self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
+        
+        df_reax[&#39;Reaction&#39;] = rxn_list
+        df_reax[&#39;Names&#39;] = rxn_names
+        df_reax[&#39;Temp_Pairs&#39;] = rxn_pairs
+        
+        # if there are no reactions, return nothing
+        if df_reax.shape[0] == 0:
+            incompatible_half_reactions = pd.Series(self.half_cell_reactions[&#34;Redox Couple&#34;], index=redox_pairs).tolist()
+            redundant_reductant_or_oxidant = []
+            for col in [&#34;Oxidant_1&#34;, &#34;Oxidant_2&#34;, &#34;Oxidant_3&#34;, &#34;Reductant_1&#34;, &#34;Reductant_2&#34;]:
+                redox_col = pd.Series(self.half_cell_reactions[col], index=[0,1])
+                if redox_col.eq(redox_col[0]).all():
+                    redundant_reductant_or_oxidant.append(redox_col[0])
+            err_no_rxns = (&#34;Valid reactions could not be written between the half &#34;
+                &#34;reactions {} &#34;.format(incompatible_half_reactions)+&#34;because &#34;
+                &#34;{}&#34;.format(redundant_reductant_or_oxidant)+&#34; is on both sides &#34;
+                &#34;of all reactions.&#34;)
+            print(err_no_rxns)
+            return
+        
+        ### BALANCING NON-O, H ELEMENTS
+        for r in range(0, len(df_reax[&#39;rO&#39;])):
+            count = 0 #to restart the loop through the elements
+            temp_rO_coeff = [1] *4 #C, N, S, Fe
+            temp_rR_coeff = [1] *4 #C, N, S, Fe
+            temp_pO_coeff = [1] *4 #C, N, S, Fe
+            temp_pR_coeff = [1] *4 #C, N, S, Fe
+            for e in [&#39;C&#39;,&#39;N&#39;,&#39;S&#39;,&#39;Fe&#39;]:
+                temp1 = int(element_dictionary[df_reax[&#39;rO&#39;][r]][e]) #count for the element in the list for rO at index r
+                temp2 = int(element_dictionary[df_reax[&#39;pR&#39;][r]][e])
+                temp3 = int(element_dictionary[df_reax[&#39;rR&#39;][r]][e])
+                temp4 = int(element_dictionary[df_reax[&#39;pO&#39;][r]][e])
+                if temp1 == temp2:
                     temp_rO_coeff[count] = 1
-                if temp1 != 0:
-                    temp_rO_coeff[count] = np.lcm(temp1,temp2)/temp1
-                if temp2 == 0:
                     temp_pR_coeff[count] = 1
-                if temp2 != 0:
-                    temp_pR_coeff[count] = np.lcm(temp1,temp2)/temp2
-            if temp3 == temp4:
-                temp_rR_coeff[count] = 1
-                temp_pO_coeff[count] = 1
-            if temp4 != temp3:
-                if temp3 == 0:
+                if temp1 != temp2:
+                    if temp1 ==0:
+                        temp_rO_coeff[count] = 1
+                    if temp1 != 0:
+                        temp_rO_coeff[count] = np.lcm(temp1,temp2)/temp1
+                    if temp2 == 0:
+                        temp_pR_coeff[count] = 1
+                    if temp2 != 0:
+                        temp_pR_coeff[count] = np.lcm(temp1,temp2)/temp2
+                if temp3 == temp4:
                     temp_rR_coeff[count] = 1
-                if temp3 != 0:
-                    temp_rR_coeff[count] = np.lcm(temp3,temp4)/temp3
-                if temp4 == 0.0:
                     temp_pO_coeff[count] = 1
-                if temp4 !=0.0:
-                    temp_pO_coeff[count] = np.lcm(temp3,temp4)/temp4
-            count +=1
-        df_reax.loc[r, &#39;rO_coeff&#39;] = -max(temp_rO_coeff)
-        df_reax.loc[r, &#39;rR_coeff&#39;] = -max(temp_rR_coeff)
-        df_reax.loc[r, &#39;pR_coeff&#39;] = max(temp_pR_coeff)
-        df_reax.loc[r, &#39;pO_coeff&#39;] = max(temp_pO_coeff)
+                if temp4 != temp3:
+                    if temp3 == 0:
+                        temp_rR_coeff[count] = 1
+                    if temp3 != 0:
+                        temp_rR_coeff[count] = np.lcm(temp3,temp4)/temp3
+                    if temp4 == 0.0:
+                        temp_pO_coeff[count] = 1
+                    if temp4 !=0.0:
+                        temp_pO_coeff[count] = np.lcm(temp3,temp4)/temp4
+                count +=1
+            df_reax.loc[r, &#39;rO_coeff&#39;] = -max(temp_rO_coeff)
+            df_reax.loc[r, &#39;rR_coeff&#39;] = -max(temp_rR_coeff)
+            df_reax.loc[r, &#39;pR_coeff&#39;] = max(temp_pR_coeff)
+            df_reax.loc[r, &#39;pO_coeff&#39;] = max(temp_pO_coeff)
 
-    all_reax = df_reax.copy(deep=True)
-    all_reax[&#39;rO_2_coeff&#39;] = &#39;&#39;
-    all_reax[&#39;rO_2&#39;] = &#39;&#39;
-    all_reax[&#39;rO_3_coeff&#39;] = &#39;&#39;
-    all_reax[&#39;rO_3&#39;] = &#39;&#39;
-    all_reax[&#39;rR_2_coeff&#39;] = &#39;&#39;
-    all_reax[&#39;rR_2&#39;] = &#39;&#39;
-    
-    ### MAIN REACTION
-    for r in range(1, max(all_reax[&#39;Reaction&#39;]+1)): # each reaction number once, 1 to 305
-        if len(all_reax[all_reax[&#39;Reaction&#39;]==r].index.values) == 1: # if nothing to combine, skip
-            continue
-        else:
-            temp = all_reax[all_reax[&#39;Reaction&#39;]==r].index.values[0] #index of first instance of this reaction which has multiple subreactions
-            lst2 = []
-            all_reax.loc[temp-0.5] = all_reax.loc[temp] # replicating the row to build on
-            all_reax = all_reax.sort_index() # putting the replicated row above the first instance
-            for i in all_reax[all_reax[&#39;Reaction&#39;]==r].index.values[2:]: #all but the first instance in the reactions (since that&#39;s copied already)
-                if all_reax.loc[i, &#39;rO&#39;] != all_reax.loc[temp, &#39;rO&#39;] and all_reax.loc[i, &#39;rO&#39;] not in lst2: # if rO is new (and not the same as the first)
-                    lst2.append(all_reax.loc[i, &#39;rO&#39;]) # list unique rO besides the first
-                    for l in range(0, len(lst2)): # looping through unique rO
-                        temp2 = &#39;rO_&#39;+str(2+int(l)) # adding 0 or 1 to the rO number
-                        all_reax.loc[temp-0.5,str(temp2)] = lst2[l] # add the unique rO to rO_2 or 3
-                if all_reax.loc[i, &#39;rR&#39;] != all_reax.loc[temp, &#39;rR&#39;]: # if rR is new
-                        all_reax.loc[temp-0.5,&#39;rR_2&#39;] = all_reax.loc[i, &#39;rR&#39;] # add it to rR_2
+        all_reax = df_reax.copy(deep=True)
+        all_reax[&#39;rO_2_coeff&#39;] = &#39;&#39;
+        all_reax[&#39;rO_2&#39;] = &#39;&#39;
+        all_reax[&#39;rO_3_coeff&#39;] = &#39;&#39;
+        all_reax[&#39;rO_3&#39;] = &#39;&#39;
+        all_reax[&#39;rR_2_coeff&#39;] = &#39;&#39;
+        all_reax[&#39;rR_2&#39;] = &#39;&#39;
+        
+        ### MAIN REACTION
+        for r in range(1, max(all_reax[&#39;Reaction&#39;]+1)): # each reaction number once, 1 to 305
+            if len(all_reax[all_reax[&#39;Reaction&#39;]==r].index.values) == 1: # if nothing to combine, skip
+                continue
+            else:
+                temp = all_reax[all_reax[&#39;Reaction&#39;]==r].index.values[0] #index of first instance of this reaction which has multiple subreactions
+                lst2 = []
+                all_reax.loc[temp-0.5] = all_reax.loc[temp] # replicating the row to build on
+                all_reax = all_reax.sort_index() # putting the replicated row above the first instance
+                for i in all_reax[all_reax[&#39;Reaction&#39;]==r].index.values[2:]: #all but the first instance in the reactions (since that&#39;s copied already)
+                    if all_reax.loc[i, &#39;rO&#39;] != all_reax.loc[temp, &#39;rO&#39;] and all_reax.loc[i, &#39;rO&#39;] not in lst2: # if rO is new (and not the same as the first)
+                        lst2.append(all_reax.loc[i, &#39;rO&#39;]) # list unique rO besides the first
+                        for l in range(0, len(lst2)): # looping through unique rO
+                            temp2 = &#39;rO_&#39;+str(2+int(l)) # adding 0 or 1 to the rO number
+                            all_reax.loc[temp-0.5,str(temp2)] = lst2[l] # add the unique rO to rO_2 or 3
+                    if all_reax.loc[i, &#39;rR&#39;] != all_reax.loc[temp, &#39;rR&#39;]: # if rR is new
+                            all_reax.loc[temp-0.5,&#39;rR_2&#39;] = all_reax.loc[i, &#39;rR&#39;] # add it to rR_2
 
-            ##CHANGING COEFFICIENTS
-            rO = all_reax.loc[temp-0.5,&#39;rO&#39;] #assigning easy variables
-            rO_2 = all_reax.loc[temp-0.5,&#39;rO_2&#39;]
-            rO_3 = all_reax.loc[temp-0.5,&#39;rO_3&#39;]
-            rR = all_reax.loc[temp-0.5,&#39;rR&#39;]
-            rR_2 = all_reax.loc[temp-0.5,&#39;rR_2&#39;]
-            rO_coeff = all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] #these are empty at the moment
-            rO_2_coeff = all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;]
-            rO_3_coeff = all_reax.loc[temp-0.5,&#39;rO_3_coeff&#39;]
-            rR_2_coeff = all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;]
-            rR_coeff = all_reax.loc[temp-0.5,&#39;rR_coeff&#39;]
-            if rO_3 != &#39;&#39; and rO_2 != &#39;&#39;: #if DIC is the oxidant
-                all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] = rO_coeff/3 #this works fine
-                all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;] = rO_coeff/3
-                all_reax.loc[temp-0.5,&#39;rO_3_coeff&#39;] = rO_coeff/3
+                ##CHANGING COEFFICIENTS
+                rO = all_reax.loc[temp-0.5,&#39;rO&#39;] #assigning easy variables
+                rO_2 = all_reax.loc[temp-0.5,&#39;rO_2&#39;]
+                rO_3 = all_reax.loc[temp-0.5,&#39;rO_3&#39;]
+                rR = all_reax.loc[temp-0.5,&#39;rR&#39;]
+                rR_2 = all_reax.loc[temp-0.5,&#39;rR_2&#39;]
+                rO_coeff = all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] #these are empty at the moment
+                rO_2_coeff = all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;]
+                rO_3_coeff = all_reax.loc[temp-0.5,&#39;rO_3_coeff&#39;]
+                rR_2_coeff = all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;]
+                rR_coeff = all_reax.loc[temp-0.5,&#39;rR_coeff&#39;]
+                if rO_3 != &#39;&#39; and rO_2 != &#39;&#39;: #if DIC is the oxidant
+                    all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] = rO_coeff/3 #this works fine
+                    all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;] = rO_coeff/3
+                    all_reax.loc[temp-0.5,&#39;rO_3_coeff&#39;] = rO_coeff/3
 
-                if rR_2 != &#39;&#39;:
-                    all_reax.loc[temp-0.5,&#39;rR_coeff&#39;] = rR_coeff/2 #this works fine
-                    all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
+                    if rR_2 != &#39;&#39;:
+                        all_reax.loc[temp-0.5,&#39;rR_coeff&#39;] = rR_coeff/2 #this works fine
+                        all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
 
-                    all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR - this works fine : line 4
-                    all_reax.loc[temp-0.4, &#39;rR_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.4, &#39;rR_coeff&#39;] = rR_coeff
+                        all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR - this works fine : line 4
+                        all_reax.loc[temp-0.4, &#39;rR_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.4, &#39;rR_coeff&#39;] = rR_coeff
 
-                    all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2 - this works fine: line 5
-                    all_reax.loc[temp-0.3, &#39;rR_2_coeff&#39;] = rR_coeff
-                    all_reax.loc[temp-0.3, &#39;rR_coeff&#39;] = 0
+                        all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2 - this works fine: line 5
+                        all_reax.loc[temp-0.3, &#39;rR_2_coeff&#39;] = rR_coeff
+                        all_reax.loc[temp-0.3, &#39;rR_coeff&#39;] = 0
 
-                    #NEW ROWS WITH TWO DIC AND BOTH rR
-                    all_reax.loc[temp-0.25] = all_reax.loc[temp-0.5] #eliminate CO2
-                    all_reax.loc[temp-0.25, &#39;rO_coeff&#39;] = 0
-                    all_reax.loc[temp-0.25, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.25, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.24] = all_reax.loc[temp-0.5] #eliminate HCO3-
-                    all_reax.loc[temp-0.24, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.24, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.24, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.23] = all_reax.loc[temp-0.5] #eliminate CO3-2
-                    all_reax.loc[temp-0.23, &#39;rO_3_coeff&#39;] = 0                
-                    all_reax.loc[temp-0.23, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.23, &#39;rO_coeff&#39;] = rO_coeff/2
+                        #NEW ROWS WITH TWO DIC AND BOTH rR
+                        all_reax.loc[temp-0.25] = all_reax.loc[temp-0.5] #eliminate CO2
+                        all_reax.loc[temp-0.25, &#39;rO_coeff&#39;] = 0
+                        all_reax.loc[temp-0.25, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.25, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.24] = all_reax.loc[temp-0.5] #eliminate HCO3-
+                        all_reax.loc[temp-0.24, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.24, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.24, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.23] = all_reax.loc[temp-0.5] #eliminate CO3-2
+                        all_reax.loc[temp-0.23, &#39;rO_3_coeff&#39;] = 0                
+                        all_reax.loc[temp-0.23, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.23, &#39;rO_coeff&#39;] = rO_coeff/2
 
-                    all_reax.loc[temp-0.2] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING CO2: line 6
-                    all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
-                    all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.2, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.1] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING HCO3-: line 7
-                    all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.1, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING CO3-2: line 8
-                    all_reax.loc[temp-0.05, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05, &#39;rO_3_coeff&#39;] = 0
+                        all_reax.loc[temp-0.2] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING CO2: line 6
+                        all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
+                        all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.2, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.1] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING HCO3-: line 7
+                        all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.1, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05] = all_reax.loc[temp-0.4] #NEW ROW WITH ONLY rR ELIMINATING CO3-2: line 8
+                        all_reax.loc[temp-0.05, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05, &#39;rO_3_coeff&#39;] = 0
 
-                    all_reax.loc[temp-0.04] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING CO2: line 9
-                    all_reax.loc[temp-0.04, &#39;rO_coeff&#39;] = 0
-                    all_reax.loc[temp-0.04, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.04, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.03] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING HCO3-: line 10
-                    all_reax.loc[temp-0.03, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.03, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.03, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.02] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING CO3-2: line 11
-                    all_reax.loc[temp-0.02, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.02, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.02, &#39;rO_3_coeff&#39;] = 0
+                        all_reax.loc[temp-0.04] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING CO2: line 9
+                        all_reax.loc[temp-0.04, &#39;rO_coeff&#39;] = 0
+                        all_reax.loc[temp-0.04, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.04, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.03] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING HCO3-: line 10
+                        all_reax.loc[temp-0.03, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.03, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.03, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.02] = all_reax.loc[temp-0.3] #NEW ROW WITH ONLY rR_2 ELIMINATING CO3-2: line 11
+                        all_reax.loc[temp-0.02, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.02, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.02, &#39;rO_3_coeff&#39;] = 0
 
-                    all_reax.loc[temp-0.01] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY CO2 and both RR
-                    all_reax.loc[temp-0.01, &#39;rO_coeff&#39;] = rO_coeff
-                    all_reax.loc[temp-0.01, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.01, &#39;rO_3_coeff&#39;] = 0
+                        all_reax.loc[temp-0.01] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY CO2 and both RR
+                        all_reax.loc[temp-0.01, &#39;rO_coeff&#39;] = rO_coeff
+                        all_reax.loc[temp-0.01, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.01, &#39;rO_3_coeff&#39;] = 0
 
-                    all_reax.loc[temp-0.009] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY HCO3- and both RR
-                    all_reax.loc[temp-0.009, &#39;rO_coeff&#39;] = 0 ###
-                    all_reax.loc[temp-0.009, &#39;rO_2_coeff&#39;] = rO_coeff
-                    all_reax.loc[temp-0.009, &#39;rO_3_coeff&#39;] = 0
+                        all_reax.loc[temp-0.009] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY HCO3- and both RR
+                        all_reax.loc[temp-0.009, &#39;rO_coeff&#39;] = 0 ###
+                        all_reax.loc[temp-0.009, &#39;rO_2_coeff&#39;] = rO_coeff
+                        all_reax.loc[temp-0.009, &#39;rO_3_coeff&#39;] = 0
 
-                    all_reax.loc[temp-0.008] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY CO2 and both RR
-                    all_reax.loc[temp-0.008, &#39;rO_coeff&#39;] = 0
-                    all_reax.loc[temp-0.008, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.008, &#39;rO_3_coeff&#39;] = rO_coeff
+                        all_reax.loc[temp-0.008] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY CO2 and both RR
+                        all_reax.loc[temp-0.008, &#39;rO_coeff&#39;] = 0
+                        all_reax.loc[temp-0.008, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.008, &#39;rO_3_coeff&#39;] = rO_coeff
 
-                if rR_2 == &#39;&#39;:
-                    all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING CO2
-                    all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
-                    all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.2, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING HCO3-
-                    all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.1, &#39;rO_3_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING CO3-2
-                    all_reax.loc[temp-0.05, &#39;rO_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05, &#39;rO_2_coeff&#39;] = rO_coeff/2
-                    all_reax.loc[temp-0.05, &#39;rO_3_coeff&#39;] = 0
+                    if rR_2 == &#39;&#39;:
+                        all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING CO2
+                        all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
+                        all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.2, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING HCO3-
+                        all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.1, &#39;rO_3_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05] = all_reax.loc[temp-0.5] #NEW ROW ELIMINATING CO3-2
+                        all_reax.loc[temp-0.05, &#39;rO_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05, &#39;rO_2_coeff&#39;] = rO_coeff/2
+                        all_reax.loc[temp-0.05, &#39;rO_3_coeff&#39;] = 0
 
-            if rO_2 != &#39;&#39; and rO_3 == &#39;&#39;: # IF THERE ARE TWO OXIDANT OPTIONS
-                all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] = rO_coeff/2
-                all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;] = rO_coeff/2
+                if rO_2 != &#39;&#39; and rO_3 == &#39;&#39;: # IF THERE ARE TWO OXIDANT OPTIONS
+                    all_reax.loc[temp-0.5,&#39;rO_coeff&#39;] = rO_coeff/2
+                    all_reax.loc[temp-0.5,&#39;rO_2_coeff&#39;] = rO_coeff/2
 
-                if rR_2 != &#39;&#39;: #IF THERE ARE TWO REDUCTANT OPTIONS
+                    if rR_2 != &#39;&#39;: #IF THERE ARE TWO REDUCTANT OPTIONS
+                        all_reax.loc[temp-0.5,&#39;rR_coeff&#39;] = rR_coeff/2
+                        all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
+
+                        all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR
+                        all_reax.loc[temp-0.4, &#39;rR_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.4, &#39;rR_coeff&#39;] = rR_coeff
+
+                        all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2
+                        all_reax.loc[temp-0.3, &#39;rR_2_coeff&#39;] = rR_coeff
+                        all_reax.loc[temp-0.3, &#39;rR_coeff&#39;] = 0
+
+                        all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO_2
+                        all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff
+                        all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
+
+                        all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO
+                        all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
+                        all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff
+
+                if rO_2 == &#39;&#39; and rO_3 == &#39;&#39; and rR_2 != &#39;&#39;: # IF THERE IS ONLY ONE OXIDANT BUT TWO REDUCTANTS
                     all_reax.loc[temp-0.5,&#39;rR_coeff&#39;] = rR_coeff/2
                     all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
 
-                    all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR
-                    all_reax.loc[temp-0.4, &#39;rR_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.4, &#39;rR_coeff&#39;] = rR_coeff
+        all_reax = all_reax.sort_index().reset_index(drop=True)
+        pair_list = []
+        for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
+            pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
+        all_reax[&#39;pairs&#39;] = pair_list
 
-                    all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2
-                    all_reax.loc[temp-0.3, &#39;rR_2_coeff&#39;] = rR_coeff
-                    all_reax.loc[temp-0.3, &#39;rR_coeff&#39;] = 0
+        reax = all_reax.copy(deep=True)
+        reax.drop(&#39;Temp_Pairs&#39;, axis=1, inplace=True)
+        reax.drop(&#39;pairs&#39;, axis=1, inplace=True)
+        reax.reset_index(drop=True, inplace=True)
+        for s in [&#39;Fe&#39;, &#39;O&#39;, &#39;H&#39;,&#39;-&#39;,&#39;+&#39;]:
+            for i in range(0,len(reax[&#39;rO&#39;])):
 
-                    all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO_2
-                    all_reax.loc[temp-0.2, &#39;rO_2_coeff&#39;] = rO_coeff
-                    all_reax.loc[temp-0.2, &#39;rO_coeff&#39;] = 0
+                ### assigning temporary values to each species
+                temp_rO_coeff = reax[&#39;rO_coeff&#39;][i]
+                temp_rO = element_dictionary[reax[&#39;rO&#39;][i]][s]
+                if reax[&#39;rO_2_coeff&#39;][i] != &#39;&#39;:
+                    temp_rO_2_coeff = reax[&#39;rO_2_coeff&#39;][i]
+                    temp_rO_2 = element_dictionary[reax[&#39;rO_2&#39;][i]][s]
+                else:
+                    temp_rO_2_coeff = 0 
+                    temp_rO_2 = 0 
+                if reax[&#39;rO_3_coeff&#39;][i] != &#39;&#39;:
+                    temp_rO_3_coeff = reax[&#39;rO_3_coeff&#39;][i]
+                    temp_rO_3 = element_dictionary[reax[&#39;rO_3&#39;][i]][s]
+                else:
+                    temp_rO_3_coeff = 0
+                    temp_rO_3 = 0
+                temp_rR_coeff = reax[&#39;rR_coeff&#39;][i]
+                temp_rR = element_dictionary[reax[&#39;rR&#39;][i]][s]
+                if reax[&#39;rR_2_coeff&#39;][i] != &#39;&#39;:
+                    temp_rR_2_coeff = reax[&#39;rR_2_coeff&#39;][i]
+                    temp_rR_2 = element_dictionary[reax[&#39;rR_2&#39;][i]][s]
+                else:
+                    temp_rR_2_coeff = 0
+                    temp_rR_2 = 0
+                temp_pO_coeff = reax[&#39;pO_coeff&#39;][i]
+                temp_pO = element_dictionary[reax[&#39;pO&#39;][i]][s]
+                temp_pR_coeff = reax[&#39;pR_coeff&#39;][i]
+                temp_pR = element_dictionary[reax[&#39;pR&#39;][i]][s]
 
-                    all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO
-                    all_reax.loc[temp-0.1, &#39;rO_2_coeff&#39;] = 0
-                    all_reax.loc[temp-0.1, &#39;rO_coeff&#39;] = rO_coeff
+                r = 0-(temp_rO*temp_rO_coeff+temp_pR*temp_pR_coeff+temp_rO_2*temp_rO_2_coeff+temp_rO_3*temp_rO_3_coeff)
+                o = 0-(temp_rR*temp_rR_coeff+temp_rR_2*temp_rR_2_coeff+temp_pO*temp_pO_coeff)
+                reax.loc[i, &#39;r_&#39;+s] = r
+                reax.loc[i, &#39;o_&#39;+s] = o
 
-            if rO_2 == &#39;&#39; and rO_3 == &#39;&#39; and rR_2 != &#39;&#39;: # IF THERE IS ONLY ONE OXIDANT BUT TWO REDUCTANTS
-                all_reax.loc[temp-0.5,&#39;rR_coeff&#39;] = rR_coeff/2
-                all_reax.loc[temp-0.5,&#39;rR_2_coeff&#39;] = rR_coeff/2
+        reax[&#39;r_H&#39;] = reax[&#39;r_H&#39;] - 2*reax[&#39;r_O&#39;]
+        reax[&#39;o_H&#39;] = reax[&#39;o_H&#39;] - 2*reax[&#39;o_O&#39;]
+        reax[&#39;r_+&#39;] = reax[&#39;r_+&#39;] - 2*reax[&#39;r_Fe&#39;] - reax[&#39;r_H&#39;]
+        reax[&#39;o_+&#39;] = reax[&#39;o_+&#39;] - 2*reax[&#39;o_Fe&#39;] - reax[&#39;o_H&#39;]
+        reax[&#39;r_e-&#39;] = reax[&#39;r_+&#39;] - reax[&#39;r_-&#39;] 
+        reax[&#39;o_e-&#39;] = reax[&#39;o_+&#39;] - reax[&#39;o_-&#39;] 
+        reax.rename({&#39;r_Fe&#39;: &#39;r_Fe+2&#39;, &#39;r_O&#39;: &#39;r_H2O&#39;, &#39;r_H&#39;: &#39;r_H+&#39;, &#39;o_Fe&#39;: &#39;o_Fe+2&#39;, &#39;o_O&#39;: &#39;o_H2O&#39;, &#39;o_H&#39;: &#39;o_H+&#39;}, axis=1, inplace = True)
 
-    all_reax = all_reax.sort_index().reset_index(drop=True)
+        ### MULTIPLYING SUB-REACTIONS
+        lcm_charge = []
+        electrons = []
+        for i in range(0, len(reax[&#39;rO&#39;])):
+        # # for i in range(0, 10):
+            lcm_charge = np.lcm(round(reax[&#39;r_e-&#39;][i]), round(reax[&#39;o_e-&#39;][i]))
+            electrons.append(str(lcm_charge)+&#39;e&#39;)
+            r_multiplier = abs(lcm_charge/int(reax[&#39;r_e-&#39;][i]))
+            o_multiplier = abs(lcm_charge/int(reax[&#39;o_e-&#39;][i]))
+            for r in [&#39;rO_coeff&#39;, &#39;pR_coeff&#39;, &#39;r_H2O&#39;, &#39;r_Fe+2&#39;, &#39;r_H+&#39;]:
+                reax.loc[i, r] = reax.loc[i, r]*r_multiplier
+            for o in [&#39;rR_coeff&#39;, &#39;pO_coeff&#39;, &#39;o_H2O&#39;, &#39;o_Fe+2&#39;, &#39;o_H+&#39;]:
+                reax.loc[i, o] = reax.loc[i, o]*o_multiplier
+            if reax.loc[i, &#39;rO_2_coeff&#39;] != &#39;&#39;:
+                reax.loc[i, &#39;rO_2_coeff&#39;] = reax.loc[i, &#39;rO_2_coeff&#39;]*r_multiplier
+            if reax.loc[i, &#39;rO_3_coeff&#39;] != &#39;&#39;:
+                reax.loc[i, &#39;rO_3_coeff&#39;] = reax.loc[i, &#39;rO_3_coeff&#39;]*r_multiplier
+            if reax.loc[i, &#39;rR_2_coeff&#39;] != &#39;&#39;:
+                reax.loc[i, &#39;rR_2_coeff&#39;] = reax.loc[i, &#39;rR_2_coeff&#39;]*o_multiplier
 
-    reax = all_reax.copy(deep=True)
-    for s in [&#39;Fe&#39;, &#39;O&#39;, &#39;H&#39;,&#39;-&#39;,&#39;+&#39;]:
-        for i in range(0,len(reax[&#39;rO&#39;])):
+        reax[&#39;H+&#39;] = reax[&#39;r_H+&#39;] + reax[&#39;o_H+&#39;]
+        reax[&#39;protons&#39;] = &#39;H+&#39;
+        reax[&#39;H2O&#39;] = reax[&#39;r_H2O&#39;] + reax[&#39;o_H2O&#39;]
+        reax[&#39;water&#39;] = &#39;H2O&#39;
+        reax[&#39;Fe+2&#39;] = reax[&#39;r_Fe+2&#39;] + reax[&#39;o_Fe+2&#39;]
+        reax[&#39;iron&#39;] = &#39;Fe+2&#39;
+        reax.drop(columns = [&#39;r_Fe+2&#39;, &#39;r_H2O&#39;, &#39;r_H+&#39;, &#39;r_-&#39;, &#39;r_+&#39;, &#39;r_e-&#39;, &#39;o_Fe+2&#39;, &#39;o_H2O&#39;, &#39;o_H+&#39;, &#39;o_-&#39;, &#39;o_+&#39;, &#39;o_e-&#39;], axis=1, inplace=True)
 
-            ### assigning temporary values to each species
-            temp_rO_coeff = reax[&#39;rO_coeff&#39;][i]
-            temp_rO = element_dictionary[reax[&#39;rO&#39;][i]][s]
-            if reax[&#39;rO_2_coeff&#39;][i] != &#39;&#39;:
-                temp_rO_2_coeff = reax[&#39;rO_2_coeff&#39;][i]
-                temp_rO_2 = element_dictionary[reax[&#39;rO_2&#39;][i]][s]
+        old_new_dict = {&#39;SO4-2&#39;:&#39;SO4-2&#39;, &#39;HSO4-&#39;:&#39;HSO4-&#39;,&#39;FeS2&#39;:&#39;pyrite&#39;,
+                        &#39;H2S&#39;:&#39;H2S&#39;, &#39;H2O&#39;:&#39;H2O&#39;, &#39;O2&#39;:&#39;O2&#39;, &#39;H2&#39;:&#39;H2&#39;,
+                        &#39;Fe2O3&#39;:&#39;hematite&#39;,&#39;Fe3O4&#39;:&#39;magnetite&#39;, &#39;CO2&#39;:&#39;CO2&#39;,
+                        &#39;CH4&#39;:&#39;METHANE&#39;, &#39;HCO3-&#39;:&#39;HCO3-&#39;,&#39;CO3-2&#39;:&#39;CO3-2&#39;,
+                        &#39;NH3&#39;:&#39;NH3&#39;, &#39;NH4+&#39;:&#39;NH4+&#39;, &#39;NO2-&#39;:&#39;NO2-&#39;, &#39;HNO2&#39;:&#39;HNO2&#39;,
+                        &#39;NO3-&#39;:&#39;NO3-&#39;, &#39;HNO3&#39;:&#39;HNO3&#39;, &#39;S&#39;:&#39;sulfur&#39;,
+                        &#39;FeOOH&#39;:&#39;goethite&#39;, &#39;CO&#39;:&#39;CO&#39;, &#39;H+&#39;:&#39;H+&#39;, &#39;Fe+2&#39;:&#39;Fe+2&#39;,
+                        &#39;HS-&#39;:&#39;HS-&#39;}
+        
+        old_new_dict = {old:&#39;start&#39;+new+&#39;end&#39; for old,new in zip(old_new_dict.keys(), old_new_dict.values())}
+
+        real_reax = reax.replace(old_new_dict.keys(), old_new_dict.values())
+        
+        count = 0
+        rxn_count = []
+        rxn_number = []
+
+        for i in real_reax[&#39;Reaction&#39;]:
+            if i not in rxn_count:
+                rxn_count.append(i)
+                rxn_number.append(real_reax[&#39;Names&#39;][count])
+                name_count = 1
             else:
-                temp_rO_2_coeff = 0 
-                temp_rO_2 = 0 
-            if reax[&#39;rO_3_coeff&#39;][i] != &#39;&#39;:
-                temp_rO_3_coeff = reax[&#39;rO_3_coeff&#39;][i]
-                temp_rO_3 = element_dictionary[reax[&#39;rO_3&#39;][i]][s]
+                rxn_number.append(real_reax[&#39;Names&#39;][count]+ &#39;_&#39;+str(name_count)+&#39;_sub&#39;)
+                name_count += 1
+            count += 1
+        real_reax.insert(0, &#39;Reaction Number&#39;, rxn_number)
+        # # real_reax.insert(1, &#39;electrons&#39;, &#39;1e&#39;)
+        real_reax.insert(1, &#39;electrons&#39;, electrons)
+
+        lst3 = [] #list of reaction numbers
+        lst4 = [] #list of reactions with issues
+        for i in range(0, len(real_reax[&#39;Reaction&#39;])):
+            if real_reax[&#39;Reaction&#39;][i] not in lst3:
+                lst3.append(real_reax[&#39;Reaction&#39;][i])
+        for j in lst3: #looping through reaction numbers
+            first_e = real_reax.loc[real_reax[&#39;Reaction&#39;] == j][&#39;electrons&#39;].reset_index(drop=True)[0]
+            for k in real_reax.loc[real_reax[&#39;Reaction&#39;] == j][&#39;electrons&#39;].reset_index(drop=True):
+                if k != first_e:
+                    if j not in lst4:
+                        lst4.append(j)
+        for l in lst4:
+            print(real_reax.loc[real_reax[&#39;Reaction&#39;] ==  l])
+
+        real_reax.drop(labels=&#39;Reaction&#39;, axis=1, inplace = True)
+        real_reax.drop(columns = &#39;Names&#39;, inplace = True)
+        
+        #real_reax.to_csv(&#39;template.txt&#39;, sep =&#39;\t&#39;, header=False, index=False)
+        file = real_reax.to_csv(sep=&#39;\t&#39;, header=False, index=False, line_terminator=&#39;\n&#39;)
+        file = file.split(&#34;\n&#34;)
+
+        # Formatting species to preserve charges while using regex package
+        new2 = []
+        for i in old_new_dict.values():
+            i = i.replace(&#39;+&#39;,&#39;\+&#39;)
+            i = i.replace(&#39;-&#39;,&#39;\-&#39;)
+            new2.append(i)
+
+        newlines = []
+        for line in file:        
+            line = line.strip()
+
+            for s in new2:
+                number = 0
+                match = re.findall(&#39;\W+\d+\.\d+\t&#39;+s, line)
+                if len(match) &gt; 1:
+                    for m in match:
+                        pos = re.findall(&#39;\t(\d+\.\d+)&#39;, m)
+                        if len(pos) &gt; 0:
+                            number += float(pos[0])
+                        neg = re.findall(&#39;-\d+\.\d+&#39;, m)
+                        if len(neg) &gt; 0:
+                            number += float(neg[0])
+                        line = line.replace(m,&#39;&#39;)
+                    line = line + &#39;\t&#39; + str(number) + &#39;\t&#39; + s
+                new_match = re.findall(&#39;\t0\.0\t&#39;+s, line) + re.findall(&#39;\t0\t&#39;+s, line) + re.findall(&#39;\t0\t&#39;+s+&#39;$&#39;, line)
+                if len(new_match) &gt; 0:
+                    for n in new_match:
+                        line = line.replace(n, &#39;&#39;)
+            line = re.sub(&#39;\t+&#39;, &#39;\t&#39;, line)
+            line = line.replace(&#39;\t0.0\tH\t&#39;, &#39;\t&#39;)
+            line = line.replace(&#39;\tH\t&#39;,&#39;\tH+\t&#39;)
+            line = line.replace(&#39;\\&#39;, &#39;&#39;)      
+            line = line.replace(&#39;start&#39;, &#39;&#39;)
+            line = line.replace(&#39;end&#39;, &#39;&#39;)
+            line = line.strip()
+            newlines.append(line)
+        self.affinity_energy_reactions_raw = &#34;\n&#34;.join(newlines)
+        df_rxn = pd.DataFrame([x.split(&#39;\t&#39;) for x in self.affinity_energy_reactions_raw.split(&#39;\n&#39;)])
+        df_rxn.columns = df_rxn.columns.map(str)
+        df_rxn = df_rxn.rename(columns={&#34;0&#34;: &#34;reaction_name&#34;, &#34;1&#34;: &#34;mol_e-_transferred_per_mol_rxn&#34;})
+        df_rxn.insert(1, &#39;redox_pairs&#39;, all_reax[&#39;pairs&#39;])
+        df_rxn = df_rxn.set_index(&#34;reaction_name&#34;)
+        df_rxn = df_rxn[df_rxn[&#39;mol_e-_transferred_per_mol_rxn&#39;].notna()]
+        self.affinity_energy_reactions_table = df_rxn
+
+#         rxn_pairs_all = []
+#         n = 0
+#         prev_was_sub = False
+#         for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
+#             if &#34;_sub&#34; not in rxn[-4:]:
+#                 if prev_was_sub:
+#                     n += 1
+#                     prev_was_sub = False
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#             else:
+#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
+#                 prev_was_sub = True
+#         self.rxn_pairs_all = rxn_pairs_all
+        
+#         self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
+        
+        prev_was_coeff = False
+        n = 1
+        for col in self.affinity_energy_reactions_table.iloc[:, 2:].columns:
+            if not prev_was_coeff:
+                new_col_name = &#34;coeff_&#34;+str(n)
+                prev_was_coeff = True
             else:
-                temp_rO_3_coeff = 0
-                temp_rO_3 = 0
-            temp_rR_coeff = reax[&#39;rR_coeff&#39;][i]
-            temp_rR = element_dictionary[reax[&#39;rR&#39;][i]][s]
-            if reax[&#39;rR_2_coeff&#39;][i] != &#39;&#39;:
-                temp_rR_2_coeff = reax[&#39;rR_2_coeff&#39;][i]
-                temp_rR_2 = element_dictionary[reax[&#39;rR_2&#39;][i]][s]
-            else:
-                temp_rR_2_coeff = 0
-                temp_rR_2 = 0
-            temp_pO_coeff = reax[&#39;pO_coeff&#39;][i]
-            temp_pO = element_dictionary[reax[&#39;pO&#39;][i]][s]
-            temp_pR_coeff = reax[&#39;pR_coeff&#39;][i]
-            temp_pR = element_dictionary[reax[&#39;pR&#39;][i]][s]
-
-            r = 0-(temp_rO*temp_rO_coeff+temp_pR*temp_pR_coeff+temp_rO_2*temp_rO_2_coeff+temp_rO_3*temp_rO_3_coeff)
-            o = 0-(temp_rR*temp_rR_coeff+temp_rR_2*temp_rR_2_coeff+temp_pO*temp_pO_coeff)
-            reax.loc[i, &#39;r_&#39;+s] = r
-            reax.loc[i, &#39;o_&#39;+s] = o
-
-    reax[&#39;r_H&#39;] = reax[&#39;r_H&#39;] - 2*reax[&#39;r_O&#39;]
-    reax[&#39;o_H&#39;] = reax[&#39;o_H&#39;] - 2*reax[&#39;o_O&#39;]
-    reax[&#39;r_+&#39;] = reax[&#39;r_+&#39;] - 2*reax[&#39;r_Fe&#39;] - reax[&#39;r_H&#39;]
-    reax[&#39;o_+&#39;] = reax[&#39;o_+&#39;] - 2*reax[&#39;o_Fe&#39;] - reax[&#39;o_H&#39;]
-    reax[&#39;r_e-&#39;] = reax[&#39;r_+&#39;] - reax[&#39;r_-&#39;] 
-    reax[&#39;o_e-&#39;] = reax[&#39;o_+&#39;] - reax[&#39;o_-&#39;] 
-    reax.rename({&#39;r_Fe&#39;: &#39;r_Fe+2&#39;, &#39;r_O&#39;: &#39;r_H2O&#39;, &#39;r_H&#39;: &#39;r_H+&#39;, &#39;o_Fe&#39;: &#39;o_Fe+2&#39;, &#39;o_O&#39;: &#39;o_H2O&#39;, &#39;o_H&#39;: &#39;o_H+&#39;}, axis=1, inplace = True)
-
-    ### MULTIPLYING SUB-REACTIONS
-    lcm_charge = []
-    electrons = []
-    for i in range(0, len(reax[&#39;rO&#39;])):
-    # # for i in range(0, 10):
-        lcm_charge = np.lcm(round(reax[&#39;r_e-&#39;][i]), round(reax[&#39;o_e-&#39;][i]))
-        electrons.append(str(lcm_charge)+&#39;e&#39;)
-        r_multiplier = abs(lcm_charge/int(reax[&#39;r_e-&#39;][i]))
-        o_multiplier = abs(lcm_charge/int(reax[&#39;o_e-&#39;][i]))
-        for r in [&#39;rO_coeff&#39;, &#39;pR_coeff&#39;, &#39;r_H2O&#39;, &#39;r_Fe+2&#39;, &#39;r_H+&#39;]:
-            reax.loc[i, r] = reax.loc[i, r]*r_multiplier
-        for o in [&#39;rR_coeff&#39;, &#39;pO_coeff&#39;, &#39;o_H2O&#39;, &#39;o_Fe+2&#39;, &#39;o_H+&#39;]:
-            reax.loc[i, o] = reax.loc[i, o]*o_multiplier
-        if reax.loc[i, &#39;rO_2_coeff&#39;] != &#39;&#39;:
-            reax.loc[i, &#39;rO_2_coeff&#39;] = reax.loc[i, &#39;rO_2_coeff&#39;]*r_multiplier
-        if reax.loc[i, &#39;rO_3_coeff&#39;] != &#39;&#39;:
-            reax.loc[i, &#39;rO_3_coeff&#39;] = reax.loc[i, &#39;rO_3_coeff&#39;]*r_multiplier
-        if reax.loc[i, &#39;rR_2_coeff&#39;] != &#39;&#39;:
-            reax.loc[i, &#39;rR_2_coeff&#39;] = reax.loc[i, &#39;rR_2_coeff&#39;]*o_multiplier
-
-    reax[&#39;H+&#39;] = reax[&#39;r_H+&#39;] + reax[&#39;o_H+&#39;]
-    reax[&#39;protons&#39;] = &#39;H+&#39;
-    reax[&#39;H2O&#39;] = reax[&#39;r_H2O&#39;] + reax[&#39;o_H2O&#39;]
-    reax[&#39;water&#39;] = &#39;H2O&#39;
-    reax[&#39;Fe+2&#39;] = reax[&#39;r_Fe+2&#39;] + reax[&#39;o_Fe+2&#39;]
-    reax[&#39;iron&#39;] = &#39;Fe+2&#39;
-    reax.drop(columns = [&#39;r_Fe+2&#39;, &#39;r_H2O&#39;, &#39;r_H+&#39;, &#39;r_-&#39;, &#39;r_+&#39;, &#39;r_e-&#39;, &#39;o_Fe+2&#39;, &#39;o_H2O&#39;, &#39;o_H+&#39;, &#39;o_-&#39;, &#39;o_+&#39;, &#39;o_e-&#39;], axis=1, inplace=True)
-
-    old_new_dict = {&#39;SO4-2&#39;:&#39;SO4-2&#39;, &#39;HSO4-&#39;:&#39;HSO4-&#39;,&#39;FeS2&#39;:&#39;pyrite&#39;,
-                    &#39;H2S&#39;:&#39;H2S&#39;, &#39;H2O&#39;:&#39;H2O&#39;, &#39;O2&#39;:&#39;O2&#39;, &#39;H2&#39;:&#39;H2&#39;,
-                    &#39;Fe2O3&#39;:&#39;hematite&#39;,&#39;Fe3O4&#39;:&#39;magnetite&#39;, &#39;CO2&#39;:&#39;CO2&#39;,
-                    &#39;CH4&#39;:&#39;METHANE&#39;, &#39;HCO3-&#39;:&#39;HCO3-&#39;,&#39;CO3-2&#39;:&#39;CO3-2&#39;,
-                    &#39;NH3&#39;:&#39;NH3&#39;, &#39;NH4+&#39;:&#39;NH4+&#39;, &#39;NO2-&#39;:&#39;NO2-&#39;, &#39;HNO2&#39;:&#39;HNO2&#39;,
-                    &#39;NO3-&#39;:&#39;NO3-&#39;, &#39;HNO3&#39;:&#39;HNO3&#39;, &#39;S&#39;:&#39;sulfur&#39;,
-                    &#39;FeOOH&#39;:&#39;goethite&#39;, &#39;CO&#39;:&#39;CO&#39;, &#39;H+&#39;:&#39;H+&#39;, &#39;Fe+2&#39;:&#39;Fe+2&#39;,
-                    &#39;HS-&#39;:&#39;HS-&#39;}
-    
-    old_new_dict = {old:&#39;start&#39;+new+&#39;end&#39; for old,new in zip(old_new_dict.keys(), old_new_dict.values())}
-
-    real_reax = reax.replace(old_new_dict.keys(), old_new_dict.values())
-    
-    count = 0
-    rxn_count = []
-    rxn_number = []
-
-    for i in real_reax[&#39;Reaction&#39;]:
-        if i not in rxn_count:
-            rxn_count.append(i)
-            rxn_number.append(real_reax[&#39;Names&#39;][count])
-            name_count = 1
-        else:
-            rxn_number.append(real_reax[&#39;Names&#39;][count]+ &#39;_&#39;+str(name_count)+&#39;_sub&#39;)
-            name_count += 1
-        count += 1
-    real_reax.insert(0, &#39;Reaction Number&#39;, rxn_number)
-    # # real_reax.insert(1, &#39;electrons&#39;, &#39;1e&#39;)
-    real_reax.insert(1, &#39;electrons&#39;, electrons)
-
-    lst3 = [] #list of reaction numbers
-    lst4 = [] #list of reactions with issues
-    for i in range(0, len(real_reax[&#39;Reaction&#39;])):
-        if real_reax[&#39;Reaction&#39;][i] not in lst3:
-            lst3.append(real_reax[&#39;Reaction&#39;][i])
-    for j in lst3: #looping through reaction numbers
-        first_e = real_reax.loc[real_reax[&#39;Reaction&#39;] == j][&#39;electrons&#39;].reset_index(drop=True)[0]
-        for k in real_reax.loc[real_reax[&#39;Reaction&#39;] == j][&#39;electrons&#39;].reset_index(drop=True):
-            if k != first_e:
-                if j not in lst4:
-                    lst4.append(j)
-    for l in lst4:
-        print(real_reax.loc[real_reax[&#39;Reaction&#39;] ==  l])
-
-    real_reax.drop(labels=&#39;Reaction&#39;, axis=1, inplace = True)
-    real_reax.drop(columns = &#39;Names&#39;, inplace = True)
-    
-    #real_reax.to_csv(&#39;template.txt&#39;, sep =&#39;\t&#39;, header=False, index=False)
-    file = real_reax.to_csv(sep=&#39;\t&#39;, header=False, index=False, line_terminator=&#39;\n&#39;)
-    file = file.split(&#34;\n&#34;)
-
-    # Formatting species to preserve charges while using regex package
-    new2 = []
-    for i in old_new_dict.values():
-        i = i.replace(&#39;+&#39;,&#39;\+&#39;)
-        i = i.replace(&#39;-&#39;,&#39;\-&#39;)
-        new2.append(i)
-
-    newlines = []
-    for line in file:        
-        line = line.strip()
-
-        for s in new2:
-            number = 0
-            match = re.findall(&#39;\W+\d+\.\d+\t&#39;+s, line)
-            if len(match) &gt; 1:
-                for m in match:
-                    pos = re.findall(&#39;\t(\d+\.\d+)&#39;, m)
-                    if len(pos) &gt; 0:
-                        number += float(pos[0])
-                    neg = re.findall(&#39;-\d+\.\d+&#39;, m)
-                    if len(neg) &gt; 0:
-                        number += float(neg[0])
-                    line = line.replace(m,&#39;&#39;)
-                line = line + &#39;\t&#39; + str(number) + &#39;\t&#39; + s
-            new_match = re.findall(&#39;\t0\.0\t&#39;+s, line) + re.findall(&#39;\t0\t&#39;+s, line) + re.findall(&#39;\t0\t&#39;+s+&#39;$&#39;, line)
-            if len(new_match) &gt; 0:
-                for n in new_match:
-                    line = line.replace(n, &#39;&#39;)
-        line = re.sub(&#39;\t+&#39;, &#39;\t&#39;, line)
-        line = line.replace(&#39;\t0.0\tH\t&#39;, &#39;\t&#39;)
-        line = line.replace(&#39;\tH\t&#39;,&#39;\tH+\t&#39;)
-        line = line.replace(&#39;\\&#39;, &#39;&#39;)      
-        line = line.replace(&#39;start&#39;, &#39;&#39;)
-        line = line.replace(&#39;end&#39;, &#39;&#39;)
-        line = line.strip()
-        newlines.append(line)
-    self.affinity_energy_reactions_raw = &#34;\n&#34;.join(newlines)
-    df_rxn = pd.DataFrame([x.split(&#39;\t&#39;) for x in self.affinity_energy_reactions_raw.split(&#39;\n&#39;)])
-    df_rxn.columns = df_rxn.columns.map(str)
-    df_rxn = df_rxn.rename(columns={&#34;0&#34;: &#34;reaction_name&#34;, &#34;1&#34;: &#34;mol_e-_transferred_per_mol_rxn&#34;})
-    df_rxn = df_rxn.set_index(&#34;reaction_name&#34;)
-    df_rxn = df_rxn[df_rxn[&#39;mol_e-_transferred_per_mol_rxn&#39;].notna()]
-    self.affinity_energy_reactions_table = df_rxn
-
-    rxn_pairs_all = []
-    n = 0
-    prev_was_sub = False
-    for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
-        if &#34;_sub&#34; not in rxn[-4:]:
-            if prev_was_sub:
+                new_col_name = &#34;species_&#34;+str(n)
+                prev_was_coeff = False
                 n += 1
-                prev_was_sub = False
-            rxn_pairs_all.append(self.rxn_pairs_main[n])
-        else:
-            rxn_pairs_all.append(self.rxn_pairs_main[n])
-            prev_was_sub = True
-    self.rxn_pairs_all = rxn_pairs_all
-    
-    self.affinity_energy_reactions_table.insert(0, &#34;redox_pairs&#34;, rxn_pairs_all)
-    
-    prev_was_coeff = False
-    n = 1
-    for col in self.affinity_energy_reactions_table.iloc[:, 2:].columns:
-        if not prev_was_coeff:
-            new_col_name = &#34;coeff_&#34;+str(n)
-            prev_was_coeff = True
-        else:
-            new_col_name = &#34;species_&#34;+str(n)
-            prev_was_coeff = False
-            n += 1
-        self.affinity_energy_reactions_table = self.affinity_energy_reactions_table.rename(columns={col: new_col_name})
-    
-    nonsub_reaction_names = [name for name in self.affinity_energy_reactions_table.index if &#34;_sub&#34; not in name[-4:]]
-    if self.verbose != 0:
-        print(&#34;{} redox reactions have been generated.&#34;.format(len(nonsub_reaction_names)))</code></pre>
+            self.affinity_energy_reactions_table = self.affinity_energy_reactions_table.rename(columns={col: new_col_name})
+        
+        nonsub_reaction_names = [name for name in self.affinity_energy_reactions_table.index if &#34;_sub&#34; not in name[-4:]]
+        if self.verbose != 0:
+            print(&#34;{} redox reactions have been generated.&#34;.format(len(nonsub_reaction_names)))</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
@@ -8038,7 +8203,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False, custom_obigt=None)</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, extra_eqpt_output=False, batch_3o_filename=None, delete_generated_folders=False, custom_obigt=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -8206,6 +8371,9 @@ solids. Can be "logQoverK" or "affinity". Ignored if
 <dd>Calculate gas fugacities?</dd>
 <dt><strong><code>get_basis_totals</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Report total compositions of basis aqueous species?</dd>
+<dt><strong><code>get_solid_solutions</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Permit the calculation of solid solutions and include them in the
+speciation report?</dd>
 <dt><strong><code>get_affinity_energy</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Calculate affinities and energy supplies of reactions listed in a
 separate user-supplied file?</dd>
@@ -8273,6 +8441,7 @@ Needed for affinity and energy calculations.</dd>
                  get_ion_activity_ratios=True,
                  get_fugacity=True,
                  get_basis_totals=True,
+                 get_solid_solutions=True,
                  get_affinity_energy=False,
                  rxn_filename=None,
                  not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
@@ -8465,6 +8634,10 @@ Needed for affinity and energy calculations.</dd>
 
         get_basis_totals : bool, default True
             Report total compositions of basis aqueous species?
+
+        get_solid_solutions : bool, default True
+            Permit the calculation of solid solutions and include them in the
+            speciation report?
         
         get_affinity_energy : bool, default False
             Calculate affinities and energy supplies of reactions listed in a
@@ -8636,7 +8809,7 @@ Needed for affinity and energy calculations.</dd>
         alter_options = ro.ListVector(alter_options_dict)
             
         # preprocess for EQ3 using R scripts
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_prescript = pkg_resources.resource_string(
             __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
@@ -8655,6 +8828,7 @@ Needed for affinity and energy calculations.</dd>
                                              water_model=water_model,
                                              grid_temp=convert_to_RVector(grid_temp),
                                              grid_press=convert_to_RVector(grid_press),
+                                             get_solid_solutions=get_solid_solutions,
                                              verbose=self.verbose)
         
         for line in self.stderr: print(line)
@@ -8686,7 +8860,7 @@ Needed for affinity and energy calculations.</dd>
         df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
-        self.capture_r_output()
+        self.__capture_r_output()
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
@@ -8707,6 +8881,7 @@ Needed for affinity and energy calculations.</dd>
             get_ion_activity_ratios=get_ion_activity_ratios,
             get_fugacity=get_fugacity,
             get_basis_totals=get_basis_totals,
+            get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
@@ -8977,6 +9152,23 @@ Needed for affinity and energy calculations.</dd>
                 sc_dist = ro.conversion.rpy2py(sample.rx2(&#39;basis_totals&#39;))
                 sc_dist = sc_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
                 dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
+
+            if get_solid_solutions:
+                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+
+                if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
+
+                    ss_df_list = []
+                    for ss in list(sample_solid_solutions.names):
+                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;]
+                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;]
+                        df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
+                        df_merged.insert(0, &#39;solid solution&#39;, ss)
+                        del df_merged[&#39;component&#39;]
+                        ss_df_list.append(df_merged)
+                
+                    dict_sample_data.update(
+                        {&#34;solid_solutions&#34;: pd.concat(ss_df_list)})
             
             if get_affinity_energy:
                 dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
@@ -10026,6 +10218,132 @@ speciation report.</dd>
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
+        fig.show(config=config)
+
+
+    def plot_solid_solutions(self, sample, title=None,
+                                   width=0.9, colormap=&#34;WORM&#34;,
+                                   plot_width=4, plot_height=3, ppi=122,
+                                   save_as=None, save_format=None,
+                                   save_scale=1, interactive=True):
+        
+        &#34;&#34;&#34;
+        Plot fractions of minerals of hypothetical solid solutions in a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample.
+
+        title : str, optional
+            Title of the plot.
+        
+        width : float, default 0.9
+            Width of bars. No space between bars if width=1.0.
+        
+        colormap : str, default &#34;WORM&#34;
+            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            &#34;colorblind&#34;, or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
+            
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+        
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
+        &#34;&#34;&#34;
+
+        if sample not in self.sample_data.keys():
+            msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
+                   &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        try:
+            self.sample_data[sample][&#34;solid_solutions&#34;]
+        except:
+            msg = (&#34;Results for solid solutions could not be found for this &#34;
+                   &#34;sample. Samples with solid solutions in this speciation &#34;
+                   &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+            raise Exception(msg)
+        
+        if title == None:
+            title = &#34;Hypothetical solid solutions in &#34; + sample
+        
+        df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+
+        df = df.dropna(subset=[&#39;x&#39;])
+
+        unique_minerals = self.__unique(df[&#34;mineral&#34;])
+        
+        # get colormap
+        colors = get_colors(colormap, len(unique_minerals))
+        
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        
+        # map each species to its color, e.g.,
+        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+        dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+        
+        fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
+                     width=plot_width*ppi, height=plot_height*ppi,
+                     color_discrete_map=dict_minerals_color,
+                     template=&#34;simple_white&#34;,
+                    )
+
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+                          margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
+                          yaxis={&#39;fixedrange&#39;:True})
+
+        fig.update_traces(width=width, marker_line_width=0)
+        
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
+        config = {&#39;displaylogo&#39;: False,
+                  &#39;modeBarButtonsToRemove&#39;: [&#39;zoom2d&#39;, &#39;pan2d&#39;, &#39;select2d&#39;,
+                                             &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
+                                             &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
+                                             &#39;toggleSpikelines&#39;],
+                  &#39;toImageButtonOptions&#39;: {
+                                           &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
+                                           &#39;filename&#39;: save_as,
+                                           &#39;height&#39;: plot_height*ppi,
+                                           &#39;width&#39;: plot_width*ppi,
+                                           &#39;scale&#39;: save_scale,
+                                           },
+                 }
+        
+        if not interactive:
+            config[&#39;staticPlot&#39;] = True
+
         fig.show(config=config)</code></pre>
 </details>
 <h3>Methods</h3>
@@ -10798,6 +11116,179 @@ the figure.</dd>
     fig.show(config=config)</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.AqSpeciation.Speciation.plot_solid_solutions"><code class="name flex">
+<span>def <span class="ident">plot_solid_solutions</span></span>(<span>self, sample, title=None, width=0.9, colormap='WORM', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Plot fractions of minerals of hypothetical solid solutions in a sample.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>sample</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the sample.</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Title of the plot.</dd>
+<dt><strong><code>width</code></strong> :&ensp;<code>float</code>, default <code>0.9</code></dt>
+<dd>Width of bars. No space between bars if width=1.0.</dd>
+<dt><strong><code>colormap</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
+<dd>Name of the colormap to color the scatterpoints. Accepts "WORM",
+"colorblind", or matplotlib colormaps.
+See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">https://matplotlib.org/stable/tutorials/colors/colormaps.html</a>
+The "colorblind" colormap is referenced from Wong, B. Points of view:
+Color blindness. Nat Methods 8, 441 (2011).
+<a href="https://doi.org/10.1038/nmeth.1618">https://doi.org/10.1038/nmeth.1618</a></dd>
+<dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
+<dd>Width and height of the plot, in inches. Size of interactive plots
+is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
+<dt><strong><code>ppi</code></strong> :&ensp;<code>numeric</code>, default <code>122</code></dt>
+<dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
+determines the size of interactive plots.</dd>
+<dt><strong><code>save_as</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Provide a filename to save this figure. Filetype of saved figure is
+determined by <code>save_format</code>.
+Note: interactive plots can be saved by clicking the 'Download plot'
+button in the plot's toolbar.</dd>
+<dt><strong><code>save_format</code></strong> :&ensp;<code>str</code>, default <code>"png"</code></dt>
+<dd>Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+and 'webp' can be downloaded with the 'download as' button in the
+toolbar of an interactive plot.</dd>
+<dt><strong><code>save_scale</code></strong> :&ensp;<code>numeric</code>, default <code>1</code></dt>
+<dd>Multiply title/legend/axis/canvas sizes by this factor when saving
+the figure.</dd>
+<dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Return an interactive plot if True or a static plot if False.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_solid_solutions(self, sample, title=None,
+                               width=0.9, colormap=&#34;WORM&#34;,
+                               plot_width=4, plot_height=3, ppi=122,
+                               save_as=None, save_format=None,
+                               save_scale=1, interactive=True):
+    
+    &#34;&#34;&#34;
+    Plot fractions of minerals of hypothetical solid solutions in a sample.
+    
+    Parameters
+    ----------
+    sample : str
+        Name of the sample.
+
+    title : str, optional
+        Title of the plot.
+    
+    width : float, default 0.9
+        Width of bars. No space between bars if width=1.0.
+    
+    colormap : str, default &#34;WORM&#34;
+        Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+        &#34;colorblind&#34;, or matplotlib colormaps.
+        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+        The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
+        Color blindness. Nat Methods 8, 441 (2011).
+        https://doi.org/10.1038/nmeth.1618
+        
+    plot_width, plot_height : numeric, default 4 by 3
+        Width and height of the plot, in inches. Size of interactive plots
+        is also determined by pixels per inch, set by the parameter `ppi`.
+        
+    ppi : numeric, default 122
+        Pixels per inch. Along with `plot_width` and `plot_height`,
+        determines the size of interactive plots.
+    
+    save_as : str, optional
+        Provide a filename to save this figure. Filetype of saved figure is
+        determined by `save_format`.
+        Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+        button in the plot&#39;s toolbar.
+
+    save_format : str, default &#34;png&#34;
+        Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+        &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+        an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+        and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+        toolbar of an interactive plot.
+
+    save_scale : numeric, default 1
+        Multiply title/legend/axis/canvas sizes by this factor when saving
+        the figure.
+    
+    interactive : bool, default True
+        Return an interactive plot if True or a static plot if False.
+    &#34;&#34;&#34;
+
+    if sample not in self.sample_data.keys():
+        msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
+               &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+        raise Exception(msg)
+    
+    try:
+        self.sample_data[sample][&#34;solid_solutions&#34;]
+    except:
+        msg = (&#34;Results for solid solutions could not be found for this &#34;
+               &#34;sample. Samples with solid solutions in this speciation &#34;
+               &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
+        raise Exception(msg)
+    
+    if title == None:
+        title = &#34;Hypothetical solid solutions in &#34; + sample
+    
+    df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+
+    df = df.dropna(subset=[&#39;x&#39;])
+
+    unique_minerals = self.__unique(df[&#34;mineral&#34;])
+    
+    # get colormap
+    colors = get_colors(colormap, len(unique_minerals))
+    
+    # convert rgba to hex
+    colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+    
+    # map each species to its color, e.g.,
+    # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+    dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+    
+    fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
+                 width=plot_width*ppi, height=plot_height*ppi,
+                 color_discrete_map=dict_minerals_color,
+                 template=&#34;simple_white&#34;,
+                )
+
+    fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                      title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+                      margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
+                      yaxis={&#39;fixedrange&#39;:True})
+
+    fig.update_traces(width=width, marker_line_width=0)
+    
+    save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                              save_scale, plot_width,
+                                              plot_height, ppi)
+        
+    config = {&#39;displaylogo&#39;: False,
+              &#39;modeBarButtonsToRemove&#39;: [&#39;zoom2d&#39;, &#39;pan2d&#39;, &#39;select2d&#39;,
+                                         &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
+                                         &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
+                                         &#39;toggleSpikelines&#39;],
+              &#39;toImageButtonOptions&#39;: {
+                                       &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
+                                       &#39;filename&#39;: save_as,
+                                       &#39;height&#39;: plot_height*ppi,
+                                       &#39;width&#39;: plot_width*ppi,
+                                       &#39;scale&#39;: save_scale,
+                                       },
+             }
+    
+    if not interactive:
+        config[&#39;staticPlot&#39;] = True
+
+    fig.show(config=config)</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.Speciation.save"><code class="name flex">
 <span>def <span class="ident">save</span></span>(<span>self, filename, messages=True)</span>
 </code></dt>
@@ -11149,7 +11640,6 @@ the figure.</dd>
 <li>
 <h4><code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code></h4>
 <ul class="">
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.capture_r_output" href="#AqEquil.AqSpeciation.AqEquil.capture_r_output">capture_r_output</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.get_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.get_redox_reactions">get_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.make_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.make_redox_reactions">make_redox_reactions</a></code></li>
@@ -11166,6 +11656,7 @@ the figure.</dd>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.lookup" href="#AqEquil.AqSpeciation.Speciation.lookup">lookup</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mass_contribution" href="#AqEquil.AqSpeciation.Speciation.plot_mass_contribution">plot_mass_contribution</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mineral_saturation" href="#AqEquil.AqSpeciation.Speciation.plot_mineral_saturation">plot_mineral_saturation</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Speciation.plot_solid_solutions" href="#AqEquil.AqSpeciation.Speciation.plot_solid_solutions">plot_solid_solutions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.save" href="#AqEquil.AqSpeciation.Speciation.save">save</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.scatterplot" href="#AqEquil.AqSpeciation.Speciation.scatterplot">scatterplot</a></code></li>
 </ul>

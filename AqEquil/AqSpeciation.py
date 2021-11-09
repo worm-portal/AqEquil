@@ -3648,7 +3648,7 @@ class AqEquil():
         df_rxn = pd.DataFrame([x.split('\t') for x in self.affinity_energy_reactions_raw.split('\n')])
         df_rxn.columns = df_rxn.columns.map(str)
         df_rxn = df_rxn.rename(columns={"0": "reaction_name", "1": "mol_e-_transferred_per_mol_rxn"})
-        df_rxn.insert(1, 'Redox_Pairs', all_reax['pairs'])
+        df_rxn.insert(1, 'redox_pairs', all_reax['pairs'])
         df_rxn = df_rxn.set_index("reaction_name")
         df_rxn = df_rxn[df_rxn['mol_e-_transferred_per_mol_rxn'].notna()]
         self.affinity_energy_reactions_table = df_rxn
