@@ -34,7 +34,7 @@ import sys
 import shutil
 import copy
 import collections
-import pickle
+import dill
 import math
 
 import warnings
@@ -62,7 +62,62 @@ from rpy2.robjects import pandas2ri
 pandas2ri.activate()
 
 
-def load(filename, messages=True):
+class Error_Handler:
+    
+    &#34;&#34;&#34;
+    Handles how errors are printed in Jupyter notebooks. By default, errors that
+    are handled by AqEquil are printed with an error message, but no traceback.
+    Errors that are not handled by AqEquil, such as those thrown if the user
+    encounters a bug, will display a full traceback.
+    
+    If the error handler prints an error message without traceback, all future
+    errors regardless of origin will be shown without traceback until the
+    notebook kernel is restarted.
+    
+    Attributes
+    ----------
+    clean : bool
+        Report exceptions without traceback? If True, only the error message is
+        shown. If False, the entire error message, including traceback, is
+        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
+    
+    &#34;&#34;&#34;
+    def __init__(self, clean=True):
+        self.clean = clean # bool: hide traceback?
+        pass
+    
+    
+    @staticmethod
+    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                       exception_only=False, running_compiled_code=False):
+        
+        &#34;&#34;&#34;
+        Return a modified ipython showtraceback function that does not display
+        traceback when encountering an error.
+        &#34;&#34;&#34;
+        
+        ipython = get_ipython()
+        etype, value, tb = sys.exc_info()
+        value.__cause__ = None  # suppress chained exceptions
+        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
+        
+
+    def raise_exception(self, msg):
+        
+        &#34;&#34;&#34;
+        Raise an exception that displays the error message without traceback. This
+        happens only when the exception is predicted by the AqEquil package
+        (e.g., for common user errors).
+        &#34;&#34;&#34;
+        
+        if self.clean and isnotebook():
+            ipython = get_ipython()
+            ipython.showtraceback = self.hide_traceback
+        raise Exception(msg)
+
+
+def load(filename, messages=True, hide_traceback=True):
+    
     &#34;&#34;&#34;
     Load a speciation file.
 
@@ -76,14 +131,36 @@ def load(filename, messages=True):
     An object of class `Speciation`.
     &#34;&#34;&#34;
 
-    with open(filename, &#39;rb&#39;) as handle:
-        speciation = pickle.load(handle)
-        if messages:
-            print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
-        return speciation
+    err_handler = Error_Handler(clean=hide_traceback)
+    
+    if len(filename) &lt;= 12:
+        print(&#34;Attempting to load &#34;+str(filename)+&#34;.speciation ...&#34;)
+        filename = filename+&#34;.speciation&#34;
+        
+    if &#39;speciation&#39; in filename[-11:]:
+        if os.path.exists(filename) and os.path.isfile(filename):
+            pass
+        else:
+            err = &#34;Cannot locate input file {}/{}&#34;.format(os.getcwd(), filename)
+            err_handler.raise_exception(err)
+    else:
+        err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
+            &#34;must be in {} format.&#34;.format(ext_dict[ext]))
+        err_handler.raise_exception(err)
+    
+    if os.path.getsize(filename) &gt; 0:
+        with open(filename, &#39;rb&#39;) as handle:
+            speciation = dill.load(handle)
+            if messages:
+                print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
+            return speciation
+    else:
+        msg = &#34;Cannot open &#34; + str(filename) + &#34; because the file is empty.&#34;
+        err_handler.raise_exception(msg)
 
     
 def isnotebook():
+    
     &#34;&#34;&#34;
     Check if this code is running in a Jupyter notebook
     &#34;&#34;&#34;
@@ -100,6 +177,7 @@ def isnotebook():
 
 
 def float_to_fraction (x, error=0.000001):
+    
     &#34;&#34;&#34;
     Convert a float into a fraction. Works with floats like 2.66666666.
     Solution from https://stackoverflow.com/a/5128558/8406195
@@ -137,6 +215,7 @@ def float_to_fraction (x, error=0.000001):
 
     
 def float_to_formatted_fraction(x, error=0.000001):
+    
     &#34;&#34;&#34;
     Format a fraction for html.
     &#34;&#34;&#34;
@@ -154,6 +233,7 @@ def float_to_formatted_fraction(x, error=0.000001):
 
 
 def format_coeff(coeff):
+    
     &#34;&#34;&#34;
     Format a reaction coefficient for html.
     &#34;&#34;&#34;
@@ -232,7 +312,7 @@ def convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector([str(v) for v in value])
 
 
-def get_colors(colormap, ncol, alpha=1.0):
+def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
 
     &#34;&#34;&#34;
     Get a list of rgb values for a matplotlib colormap
@@ -258,6 +338,8 @@ def get_colors(colormap, ncol, alpha=1.0):
     colors : list
         A list of rgb color tuples
     &#34;&#34;&#34;
+    
+    err_handler = Error_Handler(clean=hide_traceback)
     
     qualitative_cmaps = [&#39;Pastel1&#39;, &#39;Pastel2&#39;, &#39;Paired&#39;, &#39;Accent&#39;,
                          &#39;Dark2&#39;, &#39;Set1&#39;, &#39;Set2&#39;, &#39;Set3&#39;,
@@ -304,7 +386,7 @@ def get_colors(colormap, ncol, alpha=1.0):
             cmap = cm.__getattribute__(colormap)
         except:
             valid_colormaps = [cmap for cmap in dir(cm) if &#34;_&#34; not in cmap and cmap not in [&#34;LUTSIZE&#34;, &#34;MutableMapping&#34;, &#34;ScalarMappable&#34;, &#34;functools&#34;, &#34;datad&#34;, &#34;revcmap&#34;]]
-            raise Exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
+            err_handler.raise_exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
                             &#34;Try one of these: {}&#34;.format(valid_colormaps))
         m = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [m.to_rgba(i) for i in range(ncol)]
@@ -424,7 +506,8 @@ class Speciation(object):
     
     &#34;&#34;&#34;
     
-    def __init__(self, args):
+    def __init__(self, args, hide_traceback=True):
+        self.err_handler = Error_Handler(clean=hide_traceback)
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -460,7 +543,7 @@ class Speciation(object):
             filename = filename + &#39;.speciation&#39;
         
         with open(filename, &#39;wb&#39;) as handle:
-            pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            dill.dump(self, handle, protocol=dill.HIGHEST_PROTOCOL)
             if messages:
                 print(&#34;Saved as &#39;{}&#39;&#34;.format(filename))
 
@@ -468,7 +551,7 @@ class Speciation(object):
     @staticmethod
     def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
-            raise Exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
+            self.err_handler.raise_exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
                             &#34;save format. Supported formats include &#39;png&#39;, &#34;
                             &#34;&#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#34;
                             &#34;&#39;json&#39;, or &#39;html&#39;&#34;)
@@ -564,10 +647,12 @@ class Speciation(object):
             columns in a section (if a section name is provided).
         &#34;&#34;&#34;
         
-        if col==None and self.report_divs.named:
+        names_length = len(self.report_divs.names)
+        
+        if col==None and names_length&gt;0:
             return list(self.report_divs.names)
         
-        if self.report_divs.named:
+        if names_length&gt;0:
             if col in list(self.report_divs.names):
                 return list(self.report_divs.rx2(col))
         
@@ -606,7 +691,7 @@ class Speciation(object):
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=[&#34;blue&#34;, &#34;orange&#34;],
                                 save_as=None, save_format=None, save_scale=1,
-                                interactive=True):
+                                interactive=True, hide_traceback=True):
         &#34;&#34;&#34;
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -651,7 +736,7 @@ class Speciation(object):
             msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                    &#34;names in the speciation report. Sample names include &#34;
                    &#34;{}&#34;.format(list(self.report.index)))
-            raise Exception(msg)
+            err_handler.raise_exception(msg)
         
         if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -661,7 +746,7 @@ class Speciation(object):
                    &#34;To generate this data, ensure get_mineral_sat=True when &#34;
                    &#34;running speciate(), or ensure this sample has &#34;
                    &#34;mineral-forming basis species.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         color_list = [colors[0] if m &gt;= 0 else colors[1] for m in mineral_data]
             
@@ -809,19 +894,19 @@ class Speciation(object):
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
                       &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             try:
                 unit_type, unit = self.__get_unit_info(subheader)
             except:
                 unit_type = &#34;&#34;
                 unit = &#34;&#34;
-
+                
             try:
                 y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
                        &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             if convert_log and [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_fugacity&#34;]:
@@ -834,25 +919,26 @@ class Speciation(object):
 
             if i == 0:
                 subheader_previous = subheader
-                unit_previous = unit
-            if unit != unit_previous and i != 0:
+                unit_type_previous = unit_type
+            if unit_type != unit_type_previous and i != 0:
+                
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_type_previous)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             yi_previous = copy.deepcopy(yi)
-            unit_previous = copy.deepcopy(unit)
+            unit_type_previous = copy.deepcopy(unit_type)
             subheader_previous = copy.deepcopy(subheader)
             
             df.loc[:, yi] = y_plot
@@ -886,7 +972,7 @@ class Speciation(object):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
-                self.reactions_for_plotting = self.get_redox_reactions(formatted=True,
+                self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                        charge_sign_at_end=False,
                                                                        show=False, simplify=True)
             
@@ -1013,7 +1099,7 @@ class Speciation(object):
             y = [y]
         
         if not isinstance(x, str):
-            raise Exception(&#34;x must be a string.&#34;)
+            self.err_handler.raise_exception(&#34;x must be a string.&#34;)
         
         x_col = self.lookup(x)
         
@@ -1023,14 +1109,14 @@ class Speciation(object):
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
                    &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         try:
             x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
                    &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         try:
             xunit_type, xunit = self.__get_unit_info(xsubheader)
@@ -1049,7 +1135,7 @@ class Speciation(object):
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
                       &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             try:
                 unit_type, unit = self.__get_unit_info(subheader)
             except:
@@ -1061,29 +1147,29 @@ class Speciation(object):
             except:
                 msg = (&#34;One or more the values belonging to &#34;
                        &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
                 
             if i == 0:
                 subheader_previous = subheader
-                unit_previous = unit
-            if unit != unit_previous and i != 0:
+                unit_type_previous = unit_type
+            if unit_type != unit_type_previous and i != 0:
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                       &#34;({}) than {} ({}). &#34;.format(unit_type, yi_previous, unit_type_previous)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
                 
             yi_previous = copy.deepcopy(yi)
-            unit_previous = copy.deepcopy(unit)
+            unit_type_previous = copy.deepcopy(unit_type)
             subheader_previous = copy.deepcopy(subheader)
 
         if len(y) &gt; 1:
@@ -1130,19 +1216,39 @@ class Speciation(object):
         df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+            # get formatted reactions to display
+            if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+                self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
+                                                                       charge_sign_at_end=False,
+                                                                       show=False, simplify=True)
+            
+            y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
+            
+            
+            rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
+            rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
+            if len(y) == 1:
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+            
+            df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
+        else:
+            df[&#34;formatted_rxn&#34;] = &#34;&#34;
+        
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        
         fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
+                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
                          width=plot_width*ppi, height=plot_height*ppi,
                          labels={x: xlabel,  &#34;y_value&#34;: ylabel},
                          category_orders={&#34;species&#34;: y},
                          color_discrete_map=dict_species_color,
                          opacity=fill_alpha,
-                         custom_data=[&#39;name&#39;],
+                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
                          template=&#34;simple_white&#34;)
         fig.update_traces(marker=dict(size=point_size),
-                          hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;)
+                          hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
         fig.update_layout(legend_title=None,
                           title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
                           margin={&#34;t&#34;: 40},
@@ -1250,13 +1356,13 @@ class Speciation(object):
             msg = (&#34;Results for basis species contributions to aqueous mass &#34;
                    &#34;balance could not be found. Ensure that &#34;
                    &#34;get_mass_contribution = True when running speciate().&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if basis not in set(self.mass_contribution[&#39;basis&#39;]):
             msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                    &#34;among available basis species: &#34;
                    &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
@@ -1276,7 +1382,7 @@ class Speciation(object):
                 msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
                        &#34;speciation report. Available variables include &#34;
                        &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
         
         df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
         
@@ -1301,17 +1407,17 @@ class Speciation(object):
                         msg = (&#34;sort_y_by is missing the following species: &#34;
                                &#34;{}&#34;.format(valid_needed)+&#34; and was provided &#34;
                                &#34;these invalid species: {}&#34;.format(invalid))
-                        raise Exception(msg)
+                        self.err_handler.raise_exception(msg)
                         
                 elif len(sort_y_by) &lt; len(unique_species):
                     msg = (&#34;sort_y_by must have of all of the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
                            &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
-                    raise Exception(msg)
+                    self.err_handler.raise_exception(msg)
                 else:
                     msg = (&#34;sort_y_by can only have the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                    raise Exception(msg)
+                    self.err_handler.raise_exception(msg)
             elif sort_y_by == &#34;alphabetical&#34;:
                 if &#34;Other&#34; in unique_species:
                     unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
@@ -1320,7 +1426,7 @@ class Speciation(object):
                 else:
                     unique_species = sorted(unique_species)
             else:
-                raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                                 &#34;or a list of species names.&#34;)
 
         # get colormap
@@ -1437,7 +1543,7 @@ class Speciation(object):
         if sample not in self.sample_data.keys():
             msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
                    &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         try:
             self.sample_data[sample][&#34;solid_solutions&#34;]
@@ -1445,7 +1551,7 @@ class Speciation(object):
             msg = (&#34;Results for solid solutions could not be found for this &#34;
                    &#34;sample. Samples with solid solutions in this speciation &#34;
                    &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if title == None:
             title = &#34;Hypothetical solid solutions in &#34; + sample
@@ -1503,7 +1609,7 @@ class Speciation(object):
         fig.show(config=config)
         
         
-class AqEquil():
+class AqEquil:
 
     &#34;&#34;&#34;
     Class containing functions to speciate aqueous water chemistry data using
@@ -1558,7 +1664,8 @@ class AqEquil():
 
     def __init__(self,
                  eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                 eq36co=os.environ.get(&#39;EQ36CO&#39;)):
+                 eq36co=os.environ.get(&#39;EQ36CO&#39;),
+                 hide_traceback=True):
 
         self.eq36da = eq36da
         self.eq36co = eq36co
@@ -1572,10 +1679,12 @@ class AqEquil():
         self.affinity_energy_formatted_reactions = None
         
         self.verbose = 1
+        self.hide_traceback = hide_traceback
+        self.err_handler = Error_Handler(clean=self.hide_traceback)
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
-
+        
 
     def __capture_r_output(self):
         &#34;&#34;&#34;
@@ -1600,9 +1709,8 @@ class AqEquil():
             rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
             rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
 
-    
-    @staticmethod
-    def __file_exists(filename, ext=&#39;.csv&#39;):
+
+    def __file_exists(self, filename, ext=&#39;.csv&#39;):
         &#34;&#34;&#34;
         Check that a file exists and that it has the correct extension.
         Returns True if so, raises exception if not.
@@ -1618,12 +1726,12 @@ class AqEquil():
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
             else:
-                err = &#34;Cannot locate input file {}.&#34;.format(filename)
-                raise Exception(err)
+                err = &#34;Cannot locate input file {}/{}&#34;.format(os.getcwd(), filename)
+                self.err_handler.raise_exception(err)
         else:
             err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
                 &#34;must be in {} format.&#34;.format(ext_dict[ext]))
-            raise Exception(err)
+            self.err_handler.raise_exception(err)
         
         return False
     
@@ -1657,7 +1765,7 @@ class AqEquil():
                    &#34;is missing one or more required columns: &#34;
                    &#34;{}&#34;.format(&#34;, &#34;.join(missing_headers))+&#34;. &#34;
                    &#34;Are these headers spelled correctly in the file?&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         # does Cl-, O2(g), and O2 exist in the file?
         required_species = [&#34;Cl-&#34;, &#34;O2&#34;, &#34;O2(g)&#34;]
@@ -1685,7 +1793,7 @@ class AqEquil():
         if self.__file_exists(input_filename):
             df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
         else:
-            raise Exception(&#34;_check_sample_input() error!&#34;)
+            self.err_handler.raise_exception(&#34;_check_sample_input() error!&#34;)
         
         # are there any samples?
         if df_in.shape[0] &lt;= 2:
@@ -1693,7 +1801,7 @@ class AqEquil():
                 &#34;must contain at least three rows: the &#34;
                 &#34;first for column names, the second for column subheaders, &#34;
                 &#34;followed by one or more rows for sample data.&#34;)
-            raise Exception(err_no_samples)
+            self.err_handler.raise_exception(err_no_samples)
         
         err_list = [] # for appending errors found in the sample input file
         
@@ -1707,7 +1815,7 @@ class AqEquil():
                 &#34;file have blank headers. These might be empty columns. &#34;
                 &#34;Only the first column may have a blank header. Remove any &#34;
                 &#34;empty columns and/or give each header a name.&#34;)
-            raise Exception(err_blank_header)
+            self.err_handler.raise_exception(err_blank_header)
         
         # are there duplicate headers?
         dupe_cols = list(set([x for x in col_list if col_list.count(x) &gt; 1]))
@@ -1742,7 +1850,7 @@ class AqEquil():
                 &#34;file have blank sample names. These might be empty rows. &#34;
                 &#34;Remove any empty rows and/or give each sample a name. Sample &#34;
                 &#34;names go in the first column.&#34;)
-            raise Exception(err_blank_row)
+            self.err_handler.raise_exception(err_blank_row)
             
         # are there duplicate rows?
         dupe_rows = list(set([x for x in row_list if row_list.count(x) &gt; 1]))
@@ -1758,7 +1866,7 @@ class AqEquil():
             err_sample_leading_trailing_spaces = (&#34;The following sample names &#34;
                 &#34;have leading or trailing spaces. Remove spaces and try again: &#34;
                 &#34;{}&#34;.format(invalid_sample_names))
-            raise Exception(err_sample_leading_trailing_spaces)
+            self.err_handler.raise_exception(err_sample_leading_trailing_spaces)
         
         # are column names valid entries in the database?
         if custom_db:
@@ -1837,12 +1945,12 @@ class AqEquil():
                 &#34;sample in degrees Celsius.&#34;)
             err_list.append(err_temp)
         
-        # raise exception that outlines all errors found
+        # raise an exception that summarizes all errors found
         if len(err_list) &gt; 0:
             errs = &#34;\n\n*&#34;.join(err_list)
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
-            raise Exception(errs)
+            self.err_handler.raise_exception(errs)
         
         return
         
@@ -1879,8 +1987,8 @@ class AqEquil():
         if os.path.exists(&#34;data0.&#34;+db) and os.path.isfile(&#34;data0.&#34;+db):
             pass
         else:
-            raise Exception(&#34;Error: could not locate custom database&#34;,
-                            &#34;data0.{} in {}.&#34;.format(db, os.getcwd()))
+            self.err_handler.raise_exception(&#34; &#34;.join([&#34;Error: could not locate custom database&#34;,
+                            &#34;data0.{} in {}.&#34;.format(db, os.getcwd())]))
 
         if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
             os.remove(&#34;data1.&#34;+db)
@@ -1895,7 +2003,7 @@ class AqEquil():
             self.__run_script_and_wait(args) # run EQPT
         except:
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
-            raise Exception(
+            self.err_handler.raise_exception(
                 &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
 
         if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
@@ -1913,7 +2021,7 @@ class AqEquil():
         else:
             msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                    &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if not extra_eqpt_output:
             self.__clear_eqpt_extra_output()
@@ -2430,7 +2538,7 @@ class AqEquil():
         elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
             redox_flag = 1
         else:
-            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+            self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                             &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
             
         # handle batch_3o naming
@@ -2450,7 +2558,7 @@ class AqEquil():
                 pass
             else:
                 err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
         else:
             custom_obigt = ro.r(&#34;NULL&#34;)
             
@@ -2462,7 +2570,7 @@ class AqEquil():
                     &#34;is: [ &#34; + os.getcwd() + &#34; ]. Remove or &#34;
                     &#34;replace spaces in folder names for this &#34;
                     &#34;feature. Example: [ &#34; + os.getcwd().replace(&#34; &#34;, &#34;-&#34;) + &#34; ].&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ[&#39;EQ36DA&#39;] = os.getcwd()
@@ -2508,7 +2616,7 @@ class AqEquil():
                 err = (&#34;get_affinity_energy is set to True but a reaction &#34;
                        &#34;file is not specified or redox reactions have not yet &#34;
                        &#34;been generated with generate_redox_reactions()&#34;)
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
             elif rxn_filename != None:
                 self.__file_exists(rxn_filename, &#39;.txt&#39;)
                 
@@ -2626,7 +2734,7 @@ class AqEquil():
         for line in self.stderr: print(line)
         
         if len(batch_3o) == 0:
-            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+            self.err_handler.raise_exception(&#34;Could not compile a speciation report. This is &#34;
                             &#34;likely because errors occurred during &#34;
                             &#34;the speciation calculation.&#34;)
             return
@@ -2696,7 +2804,7 @@ class AqEquil():
             elif mineral_sat_type == &#34;logQoverK&#34;:
                 mineral_sat_unit = &#34;logQ/K&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
 
             headers = df_mineral_sat.columns
@@ -2722,7 +2830,7 @@ class AqEquil():
             elif redox_type == &#34;Ah&#34;:
                 redox_unit = &#34;Ah_kcal&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
 
             headers = df_redox.columns
@@ -2908,13 +3016,13 @@ class AqEquil():
         
         out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
         
-        speciation = Speciation(out_dict)
+        speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
         
         if get_affinity_energy:
             speciation.half_cell_reactions = self.half_cell_reactions
             speciation.affinity_energy_reactions_table = self.affinity_energy_reactions_table
             speciation.affinity_energy_formatted_reactions = self.affinity_energy_formatted_reactions
-            speciation.get_redox_reactions = self.get_redox_reactions
+            speciation.show_redox_reactions = self.show_redox_reactions
         
         if report_filename != None:
             if &#34;.csv&#34; in report_filename[-4:]:
@@ -3031,17 +3139,17 @@ class AqEquil():
             print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
         
         if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
-            raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+            self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
         if isinstance(grid_press, list):
             if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
-                raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+                self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
         
         if sum([T &gt;= 10000 for T in grid_temps]):
-            raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
+            self.err_handler.raise_exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
         
         if isinstance(grid_press, list):
             if sum([P &gt;= 10000 for P in grid_press]):
-                raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+                self.err_handler.raise_exception(&#34;Grid pressures must be below 10000 bars.&#34;)
             
         if water_model == &#34;SUPCRT92&#34;:
             min_T = 0
@@ -3059,7 +3167,7 @@ class AqEquil():
             min_P = 1
             max_P = 60000
         else:
-            raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+            self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
                             &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
         
         # check that T and P are above minimum values
@@ -3100,7 +3208,7 @@ class AqEquil():
         if template_name == None:
             template_name = &#34;sample_template_{}.csv&#34;.format(db)
         if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
-            raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+            self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
         self.__capture_r_output()
@@ -3159,10 +3267,24 @@ class AqEquil():
         self.affinity_energy_formatted_reactions = None
         if self.verbose != 0:
             print(&#34;Generating redox reactions...&#34;)
-        
+
+        err_msg = (&#34;redox_pairs can either be &#39;all&#39; or a list of integers &#34;
+               &#34;indicating the indices of half cell reactions in &#34;
+               &#34;the half_cell_reactions table that should be combined into &#34;
+               &#34;full redox reactions. For example, redox_pairs=[0, 1, 2, 6] &#34;
+               &#34;will combine half cell reactions with indices 0, 1, 2, and 6 in &#34;
+               &#34;the half_cell_reactions table. This table is an attribute in the &#34;
+               &#34;class AqEquil.&#34;)
         if isinstance(redox_pairs, str):
             if redox_pairs == &#34;all&#34;:
                 redox_pairs = list(range(0, self.half_cell_reactions.shape[0]))
+            else:
+                self.err_handler.raise_exception(err_msg)
+        elif isinstance(redox_pairs, list):
+            if not all([isinstance(i, int) for i in redox_pairs]):
+                self.err_handler.raise_exception(err_msg)
+        else:
+            self.err_handler.raise_exception(err_msg)
         
         self.redox_pairs = redox_pairs
         
@@ -3714,9 +3836,9 @@ class AqEquil():
             print(&#34;{} redox reactions have been generated.&#34;.format(len(nonsub_reaction_names)))
         
         
-    def get_redox_reactions(self, formatted=True, charge_sign_at_end=False,
+    def show_redox_reactions(self, formatted=True, charge_sign_at_end=False,
                                   hide_subreactions=True, simplify=True,
-                                  show=False):
+                                  show=True):
         
         &#34;&#34;&#34;
         Show a table of redox reactions generated with the function
@@ -4115,6 +4237,7 @@ Code from: <a href="https://stackabuse.com/python-how-to-flatten-list-of-lists/"
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def float_to_formatted_fraction(x, error=0.000001):
+    
     &#34;&#34;&#34;
     Format a fraction for html.
     &#34;&#34;&#34;
@@ -4142,6 +4265,7 @@ Solution from <a href="https://stackoverflow.com/a/5128558/8406195">https://stac
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def float_to_fraction (x, error=0.000001):
+    
     &#34;&#34;&#34;
     Convert a float into a fraction. Works with floats like 2.66666666.
     Solution from https://stackoverflow.com/a/5128558/8406195
@@ -4188,6 +4312,7 @@ Solution from <a href="https://stackoverflow.com/a/5128558/8406195">https://stac
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def format_coeff(coeff):
+    
     &#34;&#34;&#34;
     Format a reaction coefficient for html.
     &#34;&#34;&#34;
@@ -4210,7 +4335,7 @@ Solution from <a href="https://stackoverflow.com/a/5128558/8406195">https://stac
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.get_colors"><code class="name flex">
-<span>def <span class="ident">get_colors</span></span>(<span>colormap, ncol, alpha=1.0)</span>
+<span>def <span class="ident">get_colors</span></span>(<span>colormap, ncol, alpha=1.0, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Get a list of rgb values for a matplotlib colormap</p>
@@ -4237,7 +4362,7 @@ Color blindness. Nat Methods 8, 441 (2011).
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def get_colors(colormap, ncol, alpha=1.0):
+<pre><code class="python">def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
 
     &#34;&#34;&#34;
     Get a list of rgb values for a matplotlib colormap
@@ -4263,6 +4388,8 @@ Color blindness. Nat Methods 8, 441 (2011).
     colors : list
         A list of rgb color tuples
     &#34;&#34;&#34;
+    
+    err_handler = Error_Handler(clean=hide_traceback)
     
     qualitative_cmaps = [&#39;Pastel1&#39;, &#39;Pastel2&#39;, &#39;Paired&#39;, &#39;Accent&#39;,
                          &#39;Dark2&#39;, &#39;Set1&#39;, &#39;Set2&#39;, &#39;Set3&#39;,
@@ -4309,7 +4436,7 @@ Color blindness. Nat Methods 8, 441 (2011).
             cmap = cm.__getattribute__(colormap)
         except:
             valid_colormaps = [cmap for cmap in dir(cm) if &#34;_&#34; not in cmap and cmap not in [&#34;LUTSIZE&#34;, &#34;MutableMapping&#34;, &#34;ScalarMappable&#34;, &#34;functools&#34;, &#34;datad&#34;, &#34;revcmap&#34;]]
-            raise Exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
+            err_handler.raise_exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
                             &#34;Try one of these: {}&#34;.format(valid_colormaps))
         m = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [m.to_rgba(i) for i in range(ncol)]
@@ -4445,6 +4572,7 @@ into account when formatting names.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def isnotebook():
+    
     &#34;&#34;&#34;
     Check if this code is running in a Jupyter notebook
     &#34;&#34;&#34;
@@ -4461,7 +4589,7 @@ into account when formatting names.</p>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.load"><code class="name flex">
-<span>def <span class="ident">load</span></span>(<span>filename, messages=True)</span>
+<span>def <span class="ident">load</span></span>(<span>filename, messages=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Load a speciation file.</p>
@@ -4476,7 +4604,8 @@ into account when formatting names.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def load(filename, messages=True):
+<pre><code class="python">def load(filename, messages=True, hide_traceback=True):
+    
     &#34;&#34;&#34;
     Load a speciation file.
 
@@ -4490,11 +4619,32 @@ into account when formatting names.</p>
     An object of class `Speciation`.
     &#34;&#34;&#34;
 
-    with open(filename, &#39;rb&#39;) as handle:
-        speciation = pickle.load(handle)
-        if messages:
-            print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
-        return speciation</code></pre>
+    err_handler = Error_Handler(clean=hide_traceback)
+    
+    if len(filename) &lt;= 12:
+        print(&#34;Attempting to load &#34;+str(filename)+&#34;.speciation ...&#34;)
+        filename = filename+&#34;.speciation&#34;
+        
+    if &#39;speciation&#39; in filename[-11:]:
+        if os.path.exists(filename) and os.path.isfile(filename):
+            pass
+        else:
+            err = &#34;Cannot locate input file {}/{}&#34;.format(os.getcwd(), filename)
+            err_handler.raise_exception(err)
+    else:
+        err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
+            &#34;must be in {} format.&#34;.format(ext_dict[ext]))
+        err_handler.raise_exception(err)
+    
+    if os.path.getsize(filename) &gt; 0:
+        with open(filename, &#39;rb&#39;) as handle:
+            speciation = dill.load(handle)
+            if messages:
+                print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
+            return speciation
+    else:
+        msg = &#34;Cannot open &#34; + str(filename) + &#34; because the file is empty.&#34;
+        err_handler.raise_exception(msg)</code></pre>
 </details>
 </dd>
 </dl>
@@ -4504,7 +4654,7 @@ into account when formatting names.</p>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/home/shock/EQ3_6v8.0a/bin')</span>
+<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/home/shock/EQ3_6v8.0a/bin', hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -4549,7 +4699,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class AqEquil():
+<pre><code class="python">class AqEquil:
 
     &#34;&#34;&#34;
     Class containing functions to speciate aqueous water chemistry data using
@@ -4604,7 +4754,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     def __init__(self,
                  eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                 eq36co=os.environ.get(&#39;EQ36CO&#39;)):
+                 eq36co=os.environ.get(&#39;EQ36CO&#39;),
+                 hide_traceback=True):
 
         self.eq36da = eq36da
         self.eq36co = eq36co
@@ -4618,10 +4769,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.affinity_energy_formatted_reactions = None
         
         self.verbose = 1
+        self.hide_traceback = hide_traceback
+        self.err_handler = Error_Handler(clean=self.hide_traceback)
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
-
+        
 
     def __capture_r_output(self):
         &#34;&#34;&#34;
@@ -4646,9 +4799,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
             rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
 
-    
-    @staticmethod
-    def __file_exists(filename, ext=&#39;.csv&#39;):
+
+    def __file_exists(self, filename, ext=&#39;.csv&#39;):
         &#34;&#34;&#34;
         Check that a file exists and that it has the correct extension.
         Returns True if so, raises exception if not.
@@ -4664,12 +4816,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
             else:
-                err = &#34;Cannot locate input file {}.&#34;.format(filename)
-                raise Exception(err)
+                err = &#34;Cannot locate input file {}/{}&#34;.format(os.getcwd(), filename)
+                self.err_handler.raise_exception(err)
         else:
             err = (&#34;Input file {}&#34;.format(filename) + &#34; &#34;
                 &#34;must be in {} format.&#34;.format(ext_dict[ext]))
-            raise Exception(err)
+            self.err_handler.raise_exception(err)
         
         return False
     
@@ -4703,7 +4855,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                    &#34;is missing one or more required columns: &#34;
                    &#34;{}&#34;.format(&#34;, &#34;.join(missing_headers))+&#34;. &#34;
                    &#34;Are these headers spelled correctly in the file?&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         # does Cl-, O2(g), and O2 exist in the file?
         required_species = [&#34;Cl-&#34;, &#34;O2&#34;, &#34;O2(g)&#34;]
@@ -4731,7 +4883,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if self.__file_exists(input_filename):
             df_in = pd.read_csv(input_filename, header=None) # no headers for now so colname dupes can be checked
         else:
-            raise Exception(&#34;_check_sample_input() error!&#34;)
+            self.err_handler.raise_exception(&#34;_check_sample_input() error!&#34;)
         
         # are there any samples?
         if df_in.shape[0] &lt;= 2:
@@ -4739,7 +4891,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 &#34;must contain at least three rows: the &#34;
                 &#34;first for column names, the second for column subheaders, &#34;
                 &#34;followed by one or more rows for sample data.&#34;)
-            raise Exception(err_no_samples)
+            self.err_handler.raise_exception(err_no_samples)
         
         err_list = [] # for appending errors found in the sample input file
         
@@ -4753,7 +4905,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 &#34;file have blank headers. These might be empty columns. &#34;
                 &#34;Only the first column may have a blank header. Remove any &#34;
                 &#34;empty columns and/or give each header a name.&#34;)
-            raise Exception(err_blank_header)
+            self.err_handler.raise_exception(err_blank_header)
         
         # are there duplicate headers?
         dupe_cols = list(set([x for x in col_list if col_list.count(x) &gt; 1]))
@@ -4788,7 +4940,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 &#34;file have blank sample names. These might be empty rows. &#34;
                 &#34;Remove any empty rows and/or give each sample a name. Sample &#34;
                 &#34;names go in the first column.&#34;)
-            raise Exception(err_blank_row)
+            self.err_handler.raise_exception(err_blank_row)
             
         # are there duplicate rows?
         dupe_rows = list(set([x for x in row_list if row_list.count(x) &gt; 1]))
@@ -4804,7 +4956,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             err_sample_leading_trailing_spaces = (&#34;The following sample names &#34;
                 &#34;have leading or trailing spaces. Remove spaces and try again: &#34;
                 &#34;{}&#34;.format(invalid_sample_names))
-            raise Exception(err_sample_leading_trailing_spaces)
+            self.err_handler.raise_exception(err_sample_leading_trailing_spaces)
         
         # are column names valid entries in the database?
         if custom_db:
@@ -4883,12 +5035,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 &#34;sample in degrees Celsius.&#34;)
             err_list.append(err_temp)
         
-        # raise exception that outlines all errors found
+        # raise an exception that summarizes all errors found
         if len(err_list) &gt; 0:
             errs = &#34;\n\n*&#34;.join(err_list)
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
-            raise Exception(errs)
+            self.err_handler.raise_exception(errs)
         
         return
         
@@ -4925,8 +5077,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if os.path.exists(&#34;data0.&#34;+db) and os.path.isfile(&#34;data0.&#34;+db):
             pass
         else:
-            raise Exception(&#34;Error: could not locate custom database&#34;,
-                            &#34;data0.{} in {}.&#34;.format(db, os.getcwd()))
+            self.err_handler.raise_exception(&#34; &#34;.join([&#34;Error: could not locate custom database&#34;,
+                            &#34;data0.{} in {}.&#34;.format(db, os.getcwd())]))
 
         if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
             os.remove(&#34;data1.&#34;+db)
@@ -4941,7 +5093,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.__run_script_and_wait(args) # run EQPT
         except:
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
-            raise Exception(
+            self.err_handler.raise_exception(
                 &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
 
         if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
@@ -4959,7 +5111,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         else:
             msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                    &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if not extra_eqpt_output:
             self.__clear_eqpt_extra_output()
@@ -5476,7 +5628,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
             redox_flag = 1
         else:
-            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+            self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                             &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
             
         # handle batch_3o naming
@@ -5496,7 +5648,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 pass
             else:
                 err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
         else:
             custom_obigt = ro.r(&#34;NULL&#34;)
             
@@ -5508,7 +5660,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                     &#34;is: [ &#34; + os.getcwd() + &#34; ]. Remove or &#34;
                     &#34;replace spaces in folder names for this &#34;
                     &#34;feature. Example: [ &#34; + os.getcwd().replace(&#34; &#34;, &#34;-&#34;) + &#34; ].&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ[&#39;EQ36DA&#39;] = os.getcwd()
@@ -5554,7 +5706,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 err = (&#34;get_affinity_energy is set to True but a reaction &#34;
                        &#34;file is not specified or redox reactions have not yet &#34;
                        &#34;been generated with generate_redox_reactions()&#34;)
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
             elif rxn_filename != None:
                 self.__file_exists(rxn_filename, &#39;.txt&#39;)
                 
@@ -5672,7 +5824,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         for line in self.stderr: print(line)
         
         if len(batch_3o) == 0:
-            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+            self.err_handler.raise_exception(&#34;Could not compile a speciation report. This is &#34;
                             &#34;likely because errors occurred during &#34;
                             &#34;the speciation calculation.&#34;)
             return
@@ -5742,7 +5894,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             elif mineral_sat_type == &#34;logQoverK&#34;:
                 mineral_sat_unit = &#34;logQ/K&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
 
             headers = df_mineral_sat.columns
@@ -5768,7 +5920,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             elif redox_type == &#34;Ah&#34;:
                 redox_unit = &#34;Ah_kcal&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
 
             headers = df_redox.columns
@@ -5954,13 +6106,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
         
-        speciation = Speciation(out_dict)
+        speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
         
         if get_affinity_energy:
             speciation.half_cell_reactions = self.half_cell_reactions
             speciation.affinity_energy_reactions_table = self.affinity_energy_reactions_table
             speciation.affinity_energy_formatted_reactions = self.affinity_energy_formatted_reactions
-            speciation.get_redox_reactions = self.get_redox_reactions
+            speciation.show_redox_reactions = self.show_redox_reactions
         
         if report_filename != None:
             if &#34;.csv&#34; in report_filename[-4:]:
@@ -6077,17 +6229,17 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
         
         if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
-            raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+            self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
         if isinstance(grid_press, list):
             if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
-                raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+                self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
         
         if sum([T &gt;= 10000 for T in grid_temps]):
-            raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
+            self.err_handler.raise_exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
         
         if isinstance(grid_press, list):
             if sum([P &gt;= 10000 for P in grid_press]):
-                raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+                self.err_handler.raise_exception(&#34;Grid pressures must be below 10000 bars.&#34;)
             
         if water_model == &#34;SUPCRT92&#34;:
             min_T = 0
@@ -6105,7 +6257,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             min_P = 1
             max_P = 60000
         else:
-            raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+            self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
                             &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
         
         # check that T and P are above minimum values
@@ -6146,7 +6298,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if template_name == None:
             template_name = &#34;sample_template_{}.csv&#34;.format(db)
         if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
-            raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+            self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
         self.__capture_r_output()
@@ -6205,10 +6357,24 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.affinity_energy_formatted_reactions = None
         if self.verbose != 0:
             print(&#34;Generating redox reactions...&#34;)
-        
+
+        err_msg = (&#34;redox_pairs can either be &#39;all&#39; or a list of integers &#34;
+               &#34;indicating the indices of half cell reactions in &#34;
+               &#34;the half_cell_reactions table that should be combined into &#34;
+               &#34;full redox reactions. For example, redox_pairs=[0, 1, 2, 6] &#34;
+               &#34;will combine half cell reactions with indices 0, 1, 2, and 6 in &#34;
+               &#34;the half_cell_reactions table. This table is an attribute in the &#34;
+               &#34;class AqEquil.&#34;)
         if isinstance(redox_pairs, str):
             if redox_pairs == &#34;all&#34;:
                 redox_pairs = list(range(0, self.half_cell_reactions.shape[0]))
+            else:
+                self.err_handler.raise_exception(err_msg)
+        elif isinstance(redox_pairs, list):
+            if not all([isinstance(i, int) for i in redox_pairs]):
+                self.err_handler.raise_exception(err_msg)
+        else:
+            self.err_handler.raise_exception(err_msg)
         
         self.redox_pairs = redox_pairs
         
@@ -6760,9 +6926,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             print(&#34;{} redox reactions have been generated.&#34;.format(len(nonsub_reaction_names)))
         
         
-    def get_redox_reactions(self, formatted=True, charge_sign_at_end=False,
+    def show_redox_reactions(self, formatted=True, charge_sign_at_end=False,
                                   hide_subreactions=True, simplify=True,
-                                  show=False):
+                                  show=True):
         
         &#34;&#34;&#34;
         Show a table of redox reactions generated with the function
@@ -7057,17 +7223,17 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
     
     if len(grid_temps) &gt; 8 or len(grid_temps) &lt; 1:
-        raise Exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
+        self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have eight values.&#34;)
     if isinstance(grid_press, list):
         if len(grid_press) &gt; 8 or len(grid_press) &lt; 1:
-            raise Exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
+            self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have eight values.&#34;)
     
     if sum([T &gt;= 10000 for T in grid_temps]):
-        raise Exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
+        self.err_handler.raise_exception(&#34;Grid temperatures must be below 10000 °C.&#34;)
     
     if isinstance(grid_press, list):
         if sum([P &gt;= 10000 for P in grid_press]):
-            raise Exception(&#34;Grid pressures must be below 10000 bars.&#34;)
+            self.err_handler.raise_exception(&#34;Grid pressures must be below 10000 bars.&#34;)
         
     if water_model == &#34;SUPCRT92&#34;:
         min_T = 0
@@ -7085,7 +7251,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         min_P = 1
         max_P = 60000
     else:
-        raise Exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+        self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
                         &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
     
     # check that T and P are above minimum values
@@ -7126,7 +7292,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     if template_name == None:
         template_name = &#34;sample_template_{}.csv&#34;.format(db)
     if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
-        raise Exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+        self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
     self.__capture_r_output()
@@ -7154,163 +7320,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
     if self.verbose &gt; 0:
         print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.AqEquil.get_redox_reactions"><code class="name flex">
-<span>def <span class="ident">get_redox_reactions</span></span>(<span>self, formatted=True, charge_sign_at_end=False, hide_subreactions=True, simplify=True, show=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Show a table of redox reactions generated with the function
-<code>make_redox_reactions</code>.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>formatted</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Should reactions be formatted for html output?</dd>
-<dt><strong><code>charge_sign_at_end</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Display charge with sign after the number (e.g. SO4 2-)? Ignored if
-<code>formatted</code> is False.</dd>
-<dt><strong><code>hide_subreactions</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Hide subreactions?</dd>
-<dt><strong><code>show</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Show the table of reactions? Ignored if not run in a Jupyter
-notebook.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A pandas dataframe containing balanced redox reactions written in full.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    def get_redox_reactions(self, formatted=True, charge_sign_at_end=False,
-                                  hide_subreactions=True, simplify=True,
-                                  show=False):
-        
-        &#34;&#34;&#34;
-        Show a table of redox reactions generated with the function
-        `make_redox_reactions`.
-        
-        Parameters
-        ----------
-        formatted : bool, default True
-            Should reactions be formatted for html output?
-            
-        charge_sign_at_end : bool, default False
-            Display charge with sign after the number (e.g. SO4 2-)? Ignored if
-            `formatted` is False.
-        
-        hide_subreactions : bool, default True
-            Hide subreactions?
-        
-        show : bool, default False
-            Show the table of reactions? Ignored if not run in a Jupyter
-            notebook.
-        
-        Returns
-        ----------
-        A pandas dataframe containing balanced redox reactions written in full.
-        &#34;&#34;&#34;
-        
-        self.affinity_energy_formatted_reactions = copy.copy(self.affinity_energy_reactions_table.iloc[:, 0:1])
-        
-        df = copy.copy(self.affinity_energy_reactions_table)
-        
-        if simplify:
-            main_rxn_names = df.loc[[ind for ind in df.index if &#34;_sub&#34; not in ind[-4:]]].index
-            df = df.iloc[[i-1 for i in range(0, len(df.index)) if &#34;_sub&#34; not in df.index[i][-4:]]]
-            
-            self.affinity_energy_formatted_reactions = copy.copy(df.iloc[:, 0:1])
-            
-            reactions = []
-            for irow in range(0, df.shape[0]):
-                redox_pair = df.loc[df.index[irow], &#34;redox_pairs&#34;]
-
-                oxidant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_1&#34;]
-                oxidant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_2&#34;]
-                oxidant_3 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_3&#34;]
-                reductant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], &#34;Reductant_1&#34;]
-                reductant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], &#34;Reductant_2&#34;]
-                
-                oxidants = [ox for ox in [oxidant_1, oxidant_2, oxidant_3] if str(ox) != &#39;nan&#39;]
-                reductants = [rd for rd in [reductant_1, reductant_2] if str(rd) != &#39;nan&#39;]
-                
-                if len(oxidants) &gt; 1:
-                    oxidant_sigma_needed = True
-                else:
-                    oxidant_sigma_needed = False
-                if len(reductants) &gt; 1:
-                    reductant_sigma_needed = True
-                else:
-                    reductant_sigma_needed = False
-                    
-                rxn_row = df.iloc[irow, 2:]
-                rxn = rxn_row[rxn_row.notna()]
-                coeffs = copy.copy(rxn[::2]).tolist()
-                names = copy.copy(rxn[1::2]).tolist()
-                
-#                 print(rxn.name)
-                
-                if oxidant_sigma_needed or reductant_sigma_needed:
-
-                    reactant_names = [names[i] for i in range(0, len(names)) if float(coeffs[i]) &lt; 0]
-                    for sp in reactant_names:
-                        if sp in oxidants and oxidant_sigma_needed:
-                            i = names.index(sp)
-                            names[i] = u&#34;\u03A3&#34;+sp
-                        if sp in reductants and reductant_sigma_needed:
-                            i = names.index(sp)
-                            names[i] = u&#34;\u03A3&#34;+sp
-                    
-                react_grid = pd.DataFrame({&#34;coeff&#34;:coeffs, &#34;name&#34;:names})
-                react_grid[&#34;coeff&#34;] = pd.to_numeric(react_grid[&#34;coeff&#34;])
-                react_grid = react_grid.astype({&#39;coeff&#39;: &#39;float&#39;})
-
-                reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
-                if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
-                reaction = reactants + &#34; = &#34; + products
-                reactions.append(reaction)
-
-            self.affinity_energy_formatted_reactions[&#34;reaction&#34;] = reactions[1:] + reactions[:1] # because reactions got rotated with respect to reaction names, rotate the other way
-            self.affinity_energy_formatted_reactions.index = main_rxn_names
-            
-        else:
-            reactions = []
-            for irow in range(0, df.shape[0]):
-                redox_pair = df.loc[self.affinity_energy_reactions_table.index[irow], &#34;redox_pairs&#34;]
-
-                oxidant = redox_pair[0]
-                reductant = redox_pair[1]
-
-                rxn_row = df.iloc[irow, 2:]
-                rxn = rxn_row[rxn_row.notna()]
-                coeffs = copy.copy(rxn[::2]).tolist()
-                names = copy.copy(rxn[1::2]).tolist()
-                react_grid = pd.DataFrame({&#34;coeff&#34;:coeffs, &#34;name&#34;:names})
-                react_grid[&#34;coeff&#34;] = pd.to_numeric(react_grid[&#34;coeff&#34;])
-                react_grid = react_grid.astype({&#39;coeff&#39;: &#39;float&#39;})
-
-                reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
-                if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
-                reaction = reactants + &#34; = &#34; + products
-                reactions.append(reaction)
-        
-            self.affinity_energy_formatted_reactions[&#34;reaction&#34;] = reactions
-        
-
-        df_out = copy.copy(self.affinity_energy_formatted_reactions)
-
-        if hide_subreactions and not simplify:
-            df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if &#34;_sub&#34; not in ind[-4:]]]
-        
-        if isnotebook() and show:
-            display(HTML(df_out.to_html(escape=False)))
-        
-        return df_out</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
@@ -7366,10 +7375,24 @@ cell reactions.</dd>
         self.affinity_energy_formatted_reactions = None
         if self.verbose != 0:
             print(&#34;Generating redox reactions...&#34;)
-        
+
+        err_msg = (&#34;redox_pairs can either be &#39;all&#39; or a list of integers &#34;
+               &#34;indicating the indices of half cell reactions in &#34;
+               &#34;the half_cell_reactions table that should be combined into &#34;
+               &#34;full redox reactions. For example, redox_pairs=[0, 1, 2, 6] &#34;
+               &#34;will combine half cell reactions with indices 0, 1, 2, and 6 in &#34;
+               &#34;the half_cell_reactions table. This table is an attribute in the &#34;
+               &#34;class AqEquil.&#34;)
         if isinstance(redox_pairs, str):
             if redox_pairs == &#34;all&#34;:
                 redox_pairs = list(range(0, self.half_cell_reactions.shape[0]))
+            else:
+                self.err_handler.raise_exception(err_msg)
+        elif isinstance(redox_pairs, list):
+            if not all([isinstance(i, int) for i in redox_pairs]):
+                self.err_handler.raise_exception(err_msg)
+        else:
+            self.err_handler.raise_exception(err_msg)
         
         self.redox_pairs = redox_pairs
         
@@ -8160,8 +8183,8 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
     if os.path.exists(&#34;data0.&#34;+db) and os.path.isfile(&#34;data0.&#34;+db):
         pass
     else:
-        raise Exception(&#34;Error: could not locate custom database&#34;,
-                        &#34;data0.{} in {}.&#34;.format(db, os.getcwd()))
+        self.err_handler.raise_exception(&#34; &#34;.join([&#34;Error: could not locate custom database&#34;,
+                        &#34;data0.{} in {}.&#34;.format(db, os.getcwd())]))
 
     if os.path.exists(&#34;data1.&#34;+db) and os.path.isfile(&#34;data1.&#34;+db):
         os.remove(&#34;data1.&#34;+db)
@@ -8176,7 +8199,7 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
         self.__run_script_and_wait(args) # run EQPT
     except:
         os.environ[&#39;EQ36DA&#39;] = self.eq36da
-        raise Exception(
+        self.err_handler.raise_exception(
             &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
 
     if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
@@ -8194,12 +8217,169 @@ eqpt_log.txt, data1f.txt, and slist.txt.</dd>
     else:
         msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
 
     if not extra_eqpt_output:
         self.__clear_eqpt_extra_output()
 
     os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.AqSpeciation.AqEquil.show_redox_reactions"><code class="name flex">
+<span>def <span class="ident">show_redox_reactions</span></span>(<span>self, formatted=True, charge_sign_at_end=False, hide_subreactions=True, simplify=True, show=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Show a table of redox reactions generated with the function
+<code>make_redox_reactions</code>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>formatted</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Should reactions be formatted for html output?</dd>
+<dt><strong><code>charge_sign_at_end</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Display charge with sign after the number (e.g. SO4 2-)? Ignored if
+<code>formatted</code> is False.</dd>
+<dt><strong><code>hide_subreactions</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Hide subreactions?</dd>
+<dt><strong><code>show</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Show the table of reactions? Ignored if not run in a Jupyter
+notebook.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A pandas dataframe containing balanced redox reactions written in full.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">    def show_redox_reactions(self, formatted=True, charge_sign_at_end=False,
+                                  hide_subreactions=True, simplify=True,
+                                  show=True):
+        
+        &#34;&#34;&#34;
+        Show a table of redox reactions generated with the function
+        `make_redox_reactions`.
+        
+        Parameters
+        ----------
+        formatted : bool, default True
+            Should reactions be formatted for html output?
+            
+        charge_sign_at_end : bool, default False
+            Display charge with sign after the number (e.g. SO4 2-)? Ignored if
+            `formatted` is False.
+        
+        hide_subreactions : bool, default True
+            Hide subreactions?
+        
+        show : bool, default False
+            Show the table of reactions? Ignored if not run in a Jupyter
+            notebook.
+        
+        Returns
+        ----------
+        A pandas dataframe containing balanced redox reactions written in full.
+        &#34;&#34;&#34;
+        
+        self.affinity_energy_formatted_reactions = copy.copy(self.affinity_energy_reactions_table.iloc[:, 0:1])
+        
+        df = copy.copy(self.affinity_energy_reactions_table)
+        
+        if simplify:
+            main_rxn_names = df.loc[[ind for ind in df.index if &#34;_sub&#34; not in ind[-4:]]].index
+            df = df.iloc[[i-1 for i in range(0, len(df.index)) if &#34;_sub&#34; not in df.index[i][-4:]]]
+            
+            self.affinity_energy_formatted_reactions = copy.copy(df.iloc[:, 0:1])
+            
+            reactions = []
+            for irow in range(0, df.shape[0]):
+                redox_pair = df.loc[df.index[irow], &#34;redox_pairs&#34;]
+
+                oxidant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_1&#34;]
+                oxidant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_2&#34;]
+                oxidant_3 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], &#34;Oxidant_3&#34;]
+                reductant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], &#34;Reductant_1&#34;]
+                reductant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], &#34;Reductant_2&#34;]
+                
+                oxidants = [ox for ox in [oxidant_1, oxidant_2, oxidant_3] if str(ox) != &#39;nan&#39;]
+                reductants = [rd for rd in [reductant_1, reductant_2] if str(rd) != &#39;nan&#39;]
+                
+                if len(oxidants) &gt; 1:
+                    oxidant_sigma_needed = True
+                else:
+                    oxidant_sigma_needed = False
+                if len(reductants) &gt; 1:
+                    reductant_sigma_needed = True
+                else:
+                    reductant_sigma_needed = False
+                    
+                rxn_row = df.iloc[irow, 2:]
+                rxn = rxn_row[rxn_row.notna()]
+                coeffs = copy.copy(rxn[::2]).tolist()
+                names = copy.copy(rxn[1::2]).tolist()
+                
+#                 print(rxn.name)
+                
+                if oxidant_sigma_needed or reductant_sigma_needed:
+
+                    reactant_names = [names[i] for i in range(0, len(names)) if float(coeffs[i]) &lt; 0]
+                    for sp in reactant_names:
+                        if sp in oxidants and oxidant_sigma_needed:
+                            i = names.index(sp)
+                            names[i] = u&#34;\u03A3&#34;+sp
+                        if sp in reductants and reductant_sigma_needed:
+                            i = names.index(sp)
+                            names[i] = u&#34;\u03A3&#34;+sp
+                    
+                react_grid = pd.DataFrame({&#34;coeff&#34;:coeffs, &#34;name&#34;:names})
+                react_grid[&#34;coeff&#34;] = pd.to_numeric(react_grid[&#34;coeff&#34;])
+                react_grid = react_grid.astype({&#39;coeff&#39;: &#39;float&#39;})
+
+                reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                if formatted:
+                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                reaction = reactants + &#34; = &#34; + products
+                reactions.append(reaction)
+
+            self.affinity_energy_formatted_reactions[&#34;reaction&#34;] = reactions[1:] + reactions[:1] # because reactions got rotated with respect to reaction names, rotate the other way
+            self.affinity_energy_formatted_reactions.index = main_rxn_names
+            
+        else:
+            reactions = []
+            for irow in range(0, df.shape[0]):
+                redox_pair = df.loc[self.affinity_energy_reactions_table.index[irow], &#34;redox_pairs&#34;]
+
+                oxidant = redox_pair[0]
+                reductant = redox_pair[1]
+
+                rxn_row = df.iloc[irow, 2:]
+                rxn = rxn_row[rxn_row.notna()]
+                coeffs = copy.copy(rxn[::2]).tolist()
+                names = copy.copy(rxn[1::2]).tolist()
+                react_grid = pd.DataFrame({&#34;coeff&#34;:coeffs, &#34;name&#34;:names})
+                react_grid[&#34;coeff&#34;] = pd.to_numeric(react_grid[&#34;coeff&#34;])
+                react_grid = react_grid.astype({&#39;coeff&#39;: &#39;float&#39;})
+
+                reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                if formatted:
+                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                reaction = reactants + &#34; = &#34; + products
+                reactions.append(reaction)
+        
+            self.affinity_energy_formatted_reactions[&#34;reaction&#34;] = reactions
+        
+
+        df_out = copy.copy(self.affinity_energy_formatted_reactions)
+
+        if hide_subreactions and not simplify:
+            df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if &#34;_sub&#34; not in ind[-4:]]]
+        
+        if isnotebook() and show:
+            display(HTML(df_out.to_html(escape=False)))
+        
+        return df_out</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
@@ -8705,7 +8885,7 @@ Needed for affinity and energy calculations.</dd>
         elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
             redox_flag = 1
         else:
-            raise Exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+            self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                             &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
             
         # handle batch_3o naming
@@ -8725,7 +8905,7 @@ Needed for affinity and energy calculations.</dd>
                 pass
             else:
                 err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
         else:
             custom_obigt = ro.r(&#34;NULL&#34;)
             
@@ -8737,7 +8917,7 @@ Needed for affinity and energy calculations.</dd>
                     &#34;is: [ &#34; + os.getcwd() + &#34; ]. Remove or &#34;
                     &#34;replace spaces in folder names for this &#34;
                     &#34;feature. Example: [ &#34; + os.getcwd().replace(&#34; &#34;, &#34;-&#34;) + &#34; ].&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             self.runeqpt(db, extra_eqpt_output)
             os.environ[&#39;EQ36DA&#39;] = os.getcwd()
@@ -8783,7 +8963,7 @@ Needed for affinity and energy calculations.</dd>
                 err = (&#34;get_affinity_energy is set to True but a reaction &#34;
                        &#34;file is not specified or redox reactions have not yet &#34;
                        &#34;been generated with generate_redox_reactions()&#34;)
-                raise Exception(err)
+                self.err_handler.raise_exception(err)
             elif rxn_filename != None:
                 self.__file_exists(rxn_filename, &#39;.txt&#39;)
                 
@@ -8901,7 +9081,7 @@ Needed for affinity and energy calculations.</dd>
         for line in self.stderr: print(line)
         
         if len(batch_3o) == 0:
-            raise Exception(&#34;Could not compile a speciation report. This is &#34;
+            self.err_handler.raise_exception(&#34;Could not compile a speciation report. This is &#34;
                             &#34;likely because errors occurred during &#34;
                             &#34;the speciation calculation.&#34;)
             return
@@ -8971,7 +9151,7 @@ Needed for affinity and energy calculations.</dd>
             elif mineral_sat_type == &#34;logQoverK&#34;:
                 mineral_sat_unit = &#34;logQ/K&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
 
             headers = df_mineral_sat.columns
@@ -8997,7 +9177,7 @@ Needed for affinity and energy calculations.</dd>
             elif redox_type == &#34;Ah&#34;:
                 redox_unit = &#34;Ah_kcal&#34;
             else:
-                raise Exception(
+                self.err_handler.raise_exception(
                     &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
 
             headers = df_redox.columns
@@ -9183,13 +9363,13 @@ Needed for affinity and energy calculations.</dd>
         
         out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temp&#34;:grid_temp, &#34;grid_press&#34;:grid_press})
         
-        speciation = Speciation(out_dict)
+        speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
         
         if get_affinity_energy:
             speciation.half_cell_reactions = self.half_cell_reactions
             speciation.affinity_energy_reactions_table = self.affinity_energy_reactions_table
             speciation.affinity_energy_formatted_reactions = self.affinity_energy_formatted_reactions
-            speciation.get_redox_reactions = self.get_redox_reactions
+            speciation.show_redox_reactions = self.show_redox_reactions
         
         if report_filename != None:
             if &#34;.csv&#34; in report_filename[-4:]:
@@ -9208,9 +9388,142 @@ Needed for affinity and energy calculations.</dd>
 </dd>
 </dl>
 </dd>
+<dt id="AqEquil.AqSpeciation.Error_Handler"><code class="flex name class">
+<span>class <span class="ident">Error_Handler</span></span>
+<span>(</span><span>clean=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Handles how errors are printed in Jupyter notebooks. By default, errors that
+are handled by AqEquil are printed with an error message, but no traceback.
+Errors that are not handled by AqEquil, such as those thrown if the user
+encounters a bug, will display a full traceback.</p>
+<p>If the error handler prints an error message without traceback, all future
+errors regardless of origin will be shown without traceback until the
+notebook kernel is restarted.</p>
+<h2 id="attributes">Attributes</h2>
+<dl>
+<dt><strong><code>clean</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Report exceptions without traceback? If True, only the error message is
+shown. If False, the entire error message, including traceback, is
+shown. Ignored if AqEquil is not being run in a Jupyter notebook.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Error_Handler:
+    
+    &#34;&#34;&#34;
+    Handles how errors are printed in Jupyter notebooks. By default, errors that
+    are handled by AqEquil are printed with an error message, but no traceback.
+    Errors that are not handled by AqEquil, such as those thrown if the user
+    encounters a bug, will display a full traceback.
+    
+    If the error handler prints an error message without traceback, all future
+    errors regardless of origin will be shown without traceback until the
+    notebook kernel is restarted.
+    
+    Attributes
+    ----------
+    clean : bool
+        Report exceptions without traceback? If True, only the error message is
+        shown. If False, the entire error message, including traceback, is
+        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
+    
+    &#34;&#34;&#34;
+    def __init__(self, clean=True):
+        self.clean = clean # bool: hide traceback?
+        pass
+    
+    
+    @staticmethod
+    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                       exception_only=False, running_compiled_code=False):
+        
+        &#34;&#34;&#34;
+        Return a modified ipython showtraceback function that does not display
+        traceback when encountering an error.
+        &#34;&#34;&#34;
+        
+        ipython = get_ipython()
+        etype, value, tb = sys.exc_info()
+        value.__cause__ = None  # suppress chained exceptions
+        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
+        
+
+    def raise_exception(self, msg):
+        
+        &#34;&#34;&#34;
+        Raise an exception that displays the error message without traceback. This
+        happens only when the exception is predicted by the AqEquil package
+        (e.g., for common user errors).
+        &#34;&#34;&#34;
+        
+        if self.clean and isnotebook():
+            ipython = get_ipython()
+            ipython.showtraceback = self.hide_traceback
+        raise Exception(msg)</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="AqEquil.AqSpeciation.Error_Handler.hide_traceback"><code class="name flex">
+<span>def <span class="ident">hide_traceback</span></span>(<span>exc_tuple=None, filename=None, tb_offset=None, exception_only=False, running_compiled_code=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return a modified ipython showtraceback function that does not display
+traceback when encountering an error.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                   exception_only=False, running_compiled_code=False):
+    
+    &#34;&#34;&#34;
+    Return a modified ipython showtraceback function that does not display
+    traceback when encountering an error.
+    &#34;&#34;&#34;
+    
+    ipython = get_ipython()
+    etype, value, tb = sys.exc_info()
+    value.__cause__ = None  # suppress chained exceptions
+    return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="AqEquil.AqSpeciation.Error_Handler.raise_exception"><code class="name flex">
+<span>def <span class="ident">raise_exception</span></span>(<span>self, msg)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raise an exception that displays the error message without traceback. This
+happens only when the exception is predicted by the AqEquil package
+(e.g., for common user errors).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def raise_exception(self, msg):
+    
+    &#34;&#34;&#34;
+    Raise an exception that displays the error message without traceback. This
+    happens only when the exception is predicted by the AqEquil package
+    (e.g., for common user errors).
+    &#34;&#34;&#34;
+    
+    if self.clean and isnotebook():
+        ipython = get_ipython()
+        ipython.showtraceback = self.hide_traceback
+    raise Exception(msg)</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
 <dt id="AqEquil.AqSpeciation.Speciation"><code class="flex name class">
 <span>class <span class="ident">Speciation</span></span>
-<span>(</span><span>args)</span>
+<span>(</span><span>args, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stores the output of a speciation calculation.</p>
@@ -9268,7 +9581,8 @@ speciation report.</dd>
     
     &#34;&#34;&#34;
     
-    def __init__(self, args):
+    def __init__(self, args, hide_traceback=True):
+        self.err_handler = Error_Handler(clean=hide_traceback)
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -9304,7 +9618,7 @@ speciation report.</dd>
             filename = filename + &#39;.speciation&#39;
         
         with open(filename, &#39;wb&#39;) as handle:
-            pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            dill.dump(self, handle, protocol=dill.HIGHEST_PROTOCOL)
             if messages:
                 print(&#34;Saved as &#39;{}&#39;&#34;.format(filename))
 
@@ -9312,7 +9626,7 @@ speciation report.</dd>
     @staticmethod
     def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
-            raise Exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
+            self.err_handler.raise_exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
                             &#34;save format. Supported formats include &#39;png&#39;, &#34;
                             &#34;&#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#34;
                             &#34;&#39;json&#39;, or &#39;html&#39;&#34;)
@@ -9408,10 +9722,12 @@ speciation report.</dd>
             columns in a section (if a section name is provided).
         &#34;&#34;&#34;
         
-        if col==None and self.report_divs.named:
+        names_length = len(self.report_divs.names)
+        
+        if col==None and names_length&gt;0:
             return list(self.report_divs.names)
         
-        if self.report_divs.named:
+        if names_length&gt;0:
             if col in list(self.report_divs.names):
                 return list(self.report_divs.rx2(col))
         
@@ -9450,7 +9766,7 @@ speciation report.</dd>
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=[&#34;blue&#34;, &#34;orange&#34;],
                                 save_as=None, save_format=None, save_scale=1,
-                                interactive=True):
+                                interactive=True, hide_traceback=True):
         &#34;&#34;&#34;
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -9495,7 +9811,7 @@ speciation report.</dd>
             msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                    &#34;names in the speciation report. Sample names include &#34;
                    &#34;{}&#34;.format(list(self.report.index)))
-            raise Exception(msg)
+            err_handler.raise_exception(msg)
         
         if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -9505,7 +9821,7 @@ speciation report.</dd>
                    &#34;To generate this data, ensure get_mineral_sat=True when &#34;
                    &#34;running speciate(), or ensure this sample has &#34;
                    &#34;mineral-forming basis species.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         color_list = [colors[0] if m &gt;= 0 else colors[1] for m in mineral_data]
             
@@ -9653,19 +9969,19 @@ speciation report.</dd>
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
                       &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             try:
                 unit_type, unit = self.__get_unit_info(subheader)
             except:
                 unit_type = &#34;&#34;
                 unit = &#34;&#34;
-
+                
             try:
                 y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
             except:
                 msg = (&#34;One or more the values belonging to &#34;
                        &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             if convert_log and [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
                 if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_fugacity&#34;]:
@@ -9678,25 +9994,26 @@ speciation report.</dd>
 
             if i == 0:
                 subheader_previous = subheader
-                unit_previous = unit
-            if unit != unit_previous and i != 0:
+                unit_type_previous = unit_type
+            if unit_type != unit_type_previous and i != 0:
+                
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_type_previous)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
 
             yi_previous = copy.deepcopy(yi)
-            unit_previous = copy.deepcopy(unit)
+            unit_type_previous = copy.deepcopy(unit_type)
             subheader_previous = copy.deepcopy(subheader)
             
             df.loc[:, yi] = y_plot
@@ -9730,7 +10047,7 @@ speciation report.</dd>
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
-                self.reactions_for_plotting = self.get_redox_reactions(formatted=True,
+                self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                        charge_sign_at_end=False,
                                                                        show=False, simplify=True)
             
@@ -9857,7 +10174,7 @@ speciation report.</dd>
             y = [y]
         
         if not isinstance(x, str):
-            raise Exception(&#34;x must be a string.&#34;)
+            self.err_handler.raise_exception(&#34;x must be a string.&#34;)
         
         x_col = self.lookup(x)
         
@@ -9867,14 +10184,14 @@ speciation report.</dd>
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
                    &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         try:
             x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
                    &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         try:
             xunit_type, xunit = self.__get_unit_info(xsubheader)
@@ -9893,7 +10210,7 @@ speciation report.</dd>
                 msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                        &#34;report. Available variables include &#34;
                       &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             try:
                 unit_type, unit = self.__get_unit_info(subheader)
             except:
@@ -9905,29 +10222,29 @@ speciation report.</dd>
             except:
                 msg = (&#34;One or more the values belonging to &#34;
                        &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
                 
             if i == 0:
                 subheader_previous = subheader
-                unit_previous = unit
-            if unit != unit_previous and i != 0:
+                unit_type_previous = unit_type
+            if unit_type != unit_type_previous and i != 0:
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                       &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                       &#34;({}) than {} ({}). &#34;.format(unit_type, yi_previous, unit_type_previous)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
                 msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                        &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                        &#34;Plotted variables must share units.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
                 
             yi_previous = copy.deepcopy(yi)
-            unit_previous = copy.deepcopy(unit)
+            unit_type_previous = copy.deepcopy(unit_type)
             subheader_previous = copy.deepcopy(subheader)
 
         if len(y) &gt; 1:
@@ -9974,19 +10291,39 @@ speciation report.</dd>
         df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+            # get formatted reactions to display
+            if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+                self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
+                                                                       charge_sign_at_end=False,
+                                                                       show=False, simplify=True)
+            
+            y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
+            
+            
+            rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
+            rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
+            if len(y) == 1:
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+            
+            df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
+        else:
+            df[&#34;formatted_rxn&#34;] = &#34;&#34;
+        
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        
         fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
+                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
                          width=plot_width*ppi, height=plot_height*ppi,
                          labels={x: xlabel,  &#34;y_value&#34;: ylabel},
                          category_orders={&#34;species&#34;: y},
                          color_discrete_map=dict_species_color,
                          opacity=fill_alpha,
-                         custom_data=[&#39;name&#39;],
+                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
                          template=&#34;simple_white&#34;)
         fig.update_traces(marker=dict(size=point_size),
-                          hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;)
+                          hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
         fig.update_layout(legend_title=None,
                           title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
                           margin={&#34;t&#34;: 40},
@@ -10094,13 +10431,13 @@ speciation report.</dd>
             msg = (&#34;Results for basis species contributions to aqueous mass &#34;
                    &#34;balance could not be found. Ensure that &#34;
                    &#34;get_mass_contribution = True when running speciate().&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if basis not in set(self.mass_contribution[&#39;basis&#39;]):
             msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                    &#34;among available basis species: &#34;
                    &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
@@ -10120,7 +10457,7 @@ speciation report.</dd>
                 msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
                        &#34;speciation report. Available variables include &#34;
                        &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
         
         df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
         
@@ -10145,17 +10482,17 @@ speciation report.</dd>
                         msg = (&#34;sort_y_by is missing the following species: &#34;
                                &#34;{}&#34;.format(valid_needed)+&#34; and was provided &#34;
                                &#34;these invalid species: {}&#34;.format(invalid))
-                        raise Exception(msg)
+                        self.err_handler.raise_exception(msg)
                         
                 elif len(sort_y_by) &lt; len(unique_species):
                     msg = (&#34;sort_y_by must have of all of the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
                            &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
-                    raise Exception(msg)
+                    self.err_handler.raise_exception(msg)
                 else:
                     msg = (&#34;sort_y_by can only have the &#34;
                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                    raise Exception(msg)
+                    self.err_handler.raise_exception(msg)
             elif sort_y_by == &#34;alphabetical&#34;:
                 if &#34;Other&#34; in unique_species:
                     unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
@@ -10164,7 +10501,7 @@ speciation report.</dd>
                 else:
                     unique_species = sorted(unique_species)
             else:
-                raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                                 &#34;or a list of species names.&#34;)
 
         # get colormap
@@ -10281,7 +10618,7 @@ speciation report.</dd>
         if sample not in self.sample_data.keys():
             msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
                    &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         try:
             self.sample_data[sample][&#34;solid_solutions&#34;]
@@ -10289,7 +10626,7 @@ speciation report.</dd>
             msg = (&#34;Results for solid solutions could not be found for this &#34;
                    &#34;sample. Samples with solid solutions in this speciation &#34;
                    &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if title == None:
             title = &#34;Hypothetical solid solutions in &#34; + sample
@@ -10497,19 +10834,19 @@ the figure.</dd>
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         try:
             unit_type, unit = self.__get_unit_info(subheader)
         except:
             unit_type = &#34;&#34;
             unit = &#34;&#34;
-
+            
         try:
             y_vals = [float(y0[0]) if y0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for y0 in y_col.values.tolist()]
         except:
             msg = (&#34;One or more the values belonging to &#34;
                    &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if convert_log and [abs(y0) for y0 in y_vals] != y_vals: # convert to bar-friendly units if possible
             if subheader in [&#34;log_activity&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_fugacity&#34;]:
@@ -10522,25 +10859,26 @@ the figure.</dd>
 
         if i == 0:
             subheader_previous = subheader
-            unit_previous = unit
-        if unit != unit_previous and i != 0:
+            unit_type_previous = unit_type
+        if unit_type != unit_type_previous and i != 0:
+            
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                   &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                   &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_type_previous)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                    &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                    &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
 
         yi_previous = copy.deepcopy(yi)
-        unit_previous = copy.deepcopy(unit)
+        unit_type_previous = copy.deepcopy(unit_type)
         subheader_previous = copy.deepcopy(subheader)
         
         df.loc[:, yi] = y_plot
@@ -10574,7 +10912,7 @@ the figure.</dd>
         
         # get formatted reactions to display
         if not isinstance(self.reactions_for_plotting, pd.DataFrame):
-            self.reactions_for_plotting = self.get_redox_reactions(formatted=True,
+            self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                    charge_sign_at_end=False,
                                                                    show=False, simplify=True)
         
@@ -10690,10 +11028,12 @@ columns in a section (if a section name is provided).</dd>
         columns in a section (if a section name is provided).
     &#34;&#34;&#34;
     
-    if col==None and self.report_divs.named:
+    names_length = len(self.report_divs.names)
+    
+    if col==None and names_length&gt;0:
         return list(self.report_divs.names)
     
-    if self.report_divs.named:
+    if names_length&gt;0:
         if col in list(self.report_divs.names):
             return list(self.report_divs.rx2(col))
     
@@ -10841,13 +11181,13 @@ the figure.</dd>
         msg = (&#34;Results for basis species contributions to aqueous mass &#34;
                &#34;balance could not be found. Ensure that &#34;
                &#34;get_mass_contribution = True when running speciate().&#34;)
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
         
     if basis not in set(self.mass_contribution[&#39;basis&#39;]):
         msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
                &#34;among available basis species: &#34;
                &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
         
     df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
     
@@ -10867,7 +11207,7 @@ the figure.</dd>
             msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
                    &#34;speciation report. Available variables include &#34;
                    &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
     
     df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
     
@@ -10892,17 +11232,17 @@ the figure.</dd>
                     msg = (&#34;sort_y_by is missing the following species: &#34;
                            &#34;{}&#34;.format(valid_needed)+&#34; and was provided &#34;
                            &#34;these invalid species: {}&#34;.format(invalid))
-                    raise Exception(msg)
+                    self.err_handler.raise_exception(msg)
                     
             elif len(sort_y_by) &lt; len(unique_species):
                 msg = (&#34;sort_y_by must have of all of the &#34;
                        &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
                        &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
             else:
                 msg = (&#34;sort_y_by can only have the &#34;
                        &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                raise Exception(msg)
+                self.err_handler.raise_exception(msg)
         elif sort_y_by == &#34;alphabetical&#34;:
             if &#34;Other&#34; in unique_species:
                 unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
@@ -10911,7 +11251,7 @@ the figure.</dd>
             else:
                 unique_species = sorted(unique_species)
         else:
-            raise Exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+            self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                             &#34;or a list of species names.&#34;)
 
     # get colormap
@@ -10969,7 +11309,7 @@ the figure.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mineral_saturation"><code class="name flex">
-<span>def <span class="ident">plot_mineral_saturation</span></span>(<span>self, sample_name, title=None, mineral_sat_type='affinity', plot_width=4, plot_height=3, ppi=122, colors=['blue', 'orange'], save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">plot_mineral_saturation</span></span>(<span>self, sample_name, title=None, mineral_sat_type='affinity', plot_width=4, plot_height=3, ppi=122, colors=['blue', 'orange'], save_as=None, save_format=None, save_scale=1, interactive=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Vizualize mineral saturation states in a sample as a bar plot.</p>
@@ -11011,7 +11351,7 @@ the figure.</dd>
                             plot_width=4, plot_height=3, ppi=122,
                             colors=[&#34;blue&#34;, &#34;orange&#34;],
                             save_as=None, save_format=None, save_scale=1,
-                            interactive=True):
+                            interactive=True, hide_traceback=True):
     &#34;&#34;&#34;
     Vizualize mineral saturation states in a sample as a bar plot.
     
@@ -11056,7 +11396,7 @@ the figure.</dd>
         msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                &#34;names in the speciation report. Sample names include &#34;
                &#34;{}&#34;.format(list(self.report.index)))
-        raise Exception(msg)
+        err_handler.raise_exception(msg)
     
     if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
         mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -11066,7 +11406,7 @@ the figure.</dd>
                &#34;To generate this data, ensure get_mineral_sat=True when &#34;
                &#34;running speciate(), or ensure this sample has &#34;
                &#34;mineral-forming basis species.&#34;)
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
     
     color_list = [colors[0] if m &gt;= 0 else colors[1] for m in mineral_data]
         
@@ -11223,7 +11563,7 @@ the figure.</dd>
     if sample not in self.sample_data.keys():
         msg = (&#34;The sample &#34;+sample+&#34; was not found in this speciation dataset.&#34;
                &#34; Samples with solid solutions in this dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
     
     try:
         self.sample_data[sample][&#34;solid_solutions&#34;]
@@ -11231,7 +11571,7 @@ the figure.</dd>
         msg = (&#34;Results for solid solutions could not be found for this &#34;
                &#34;sample. Samples with solid solutions in this speciation &#34;
                &#34;dataset include:&#34;+str([s for s in self.sample_data.keys() if &#34;solid_solutions&#34; in self.sample_data[s].keys()]))
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
     
     if title == None:
         title = &#34;Hypothetical solid solutions in &#34; + sample
@@ -11324,7 +11664,7 @@ directory. This file can be loaded with <code>AqEquil.load(filename)</code>.</p>
         filename = filename + &#39;.speciation&#39;
     
     with open(filename, &#39;wb&#39;) as handle:
-        pickle.dump(self, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        dill.dump(self, handle, protocol=dill.HIGHEST_PROTOCOL)
         if messages:
             print(&#34;Saved as &#39;{}&#39;&#34;.format(filename))</code></pre>
 </details>
@@ -11446,7 +11786,7 @@ the figure.</dd>
         y = [y]
     
     if not isinstance(x, str):
-        raise Exception(&#34;x must be a string.&#34;)
+        self.err_handler.raise_exception(&#34;x must be a string.&#34;)
     
     x_col = self.lookup(x)
     
@@ -11456,14 +11796,14 @@ the figure.</dd>
         msg = (&#34;Could not find &#39;{}&#39; &#34;.format(x)+&#34;in the speciation &#34;
                &#34;report. Available variables include &#34;
                &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
         
     try:
         x_plot = [float(x0[0]) if x0[0] != &#39;NA&#39; else float(&#34;nan&#34;) for x0 in x_col.values.tolist()]
     except:
         msg = (&#34;One or more the values belonging to &#34;
                &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(x_col.columns.get_level_values(0)[0]))
-        raise Exception(msg)
+        self.err_handler.raise_exception(msg)
     
     try:
         xunit_type, xunit = self.__get_unit_info(xsubheader)
@@ -11482,7 +11822,7 @@ the figure.</dd>
             msg = (&#34;Could not find &#39;{}&#39; &#34;.format(yi)+&#34;in the speciation &#34;
                    &#34;report. Available variables include &#34;
                   &#34;{}&#34;.format(list(set(self.report.columns.get_level_values(0)))))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         try:
             unit_type, unit = self.__get_unit_info(subheader)
         except:
@@ -11494,29 +11834,29 @@ the figure.</dd>
         except:
             msg = (&#34;One or more the values belonging to &#34;
                    &#34;&#39;{}&#39; are non-numeric and cannot be plotted.&#34;.format(y_col.columns.get_level_values(0)[0]))
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if i == 0:
             subheader_previous = subheader
-            unit_previous = unit
-        if unit != unit_previous and i != 0:
+            unit_type_previous = unit_type
+        if unit_type != unit_type_previous and i != 0:
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
-                   &#34;({}) than {} ({}). &#34;.format(unit, yi_previous, unit_previous)+&#34;&#34;
+                   &#34;({}) than {} ({}). &#34;.format(unit_type, yi_previous, unit_type_previous)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         elif &#34;activity&#34; in subheader.lower() and &#34;molality&#34; in subheader_previous.lower():
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                    &#34;({}) than {} ({}). &#34;.format(&#34;activity&#34;, yi_previous, &#34;molality&#34;)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
         elif &#34;molality&#34; in subheader.lower() and &#34;activity&#34; in subheader_previous.lower():
             msg = (&#34;{} has a different unit of measurement &#34;.format(yi)+&#34;&#34;
                    &#34;({}) than {} ({}). &#34;.format(&#34;molality&#34;, yi_previous, &#34;activity&#34;)+&#34;&#34;
                    &#34;Plotted variables must share units.&#34;)
-            raise Exception(msg)
+            self.err_handler.raise_exception(msg)
             
         yi_previous = copy.deepcopy(yi)
-        unit_previous = copy.deepcopy(unit)
+        unit_type_previous = copy.deepcopy(unit_type)
         subheader_previous = copy.deepcopy(subheader)
 
     if len(y) &gt; 1:
@@ -11563,19 +11903,39 @@ the figure.</dd>
     df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
     df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+    if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+        # get formatted reactions to display
+        if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+            self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
+                                                                   charge_sign_at_end=False,
+                                                                   show=False, simplify=True)
+        
+        y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
+        
+        
+        rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
+        rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
+        if len(y) == 1:
+            ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+        
+        df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
+    else:
+        df[&#34;formatted_rxn&#34;] = &#34;&#34;
+    
+    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+    
     fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                     hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;],
+                     hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
                      width=plot_width*ppi, height=plot_height*ppi,
                      labels={x: xlabel,  &#34;y_value&#34;: ylabel},
                      category_orders={&#34;species&#34;: y},
                      color_discrete_map=dict_species_color,
                      opacity=fill_alpha,
-                     custom_data=[&#39;name&#39;],
+                     custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
                      template=&#34;simple_white&#34;)
     fig.update_traces(marker=dict(size=point_size),
-                      hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;)
+                      hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
     fig.update_layout(legend_title=None,
                       title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
                       margin={&#34;t&#34;: 40},
@@ -11641,12 +12001,19 @@ the figure.</dd>
 <h4><code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code></h4>
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.get_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.get_redox_reactions">get_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.make_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.make_redox_reactions">make_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq3" href="#AqEquil.AqSpeciation.AqEquil.runeq3">runeq3</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq6" href="#AqEquil.AqSpeciation.AqEquil.runeq6">runeq6</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeqpt" href="#AqEquil.AqSpeciation.AqEquil.runeqpt">runeqpt</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.AqEquil.show_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.show_redox_reactions">show_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.speciate" href="#AqEquil.AqSpeciation.AqEquil.speciate">speciate</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="AqEquil.AqSpeciation.Error_Handler" href="#AqEquil.AqSpeciation.Error_Handler">Error_Handler</a></code></h4>
+<ul class="">
+<li><code><a title="AqEquil.AqSpeciation.Error_Handler.hide_traceback" href="#AqEquil.AqSpeciation.Error_Handler.hide_traceback">hide_traceback</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Error_Handler.raise_exception" href="#AqEquil.AqSpeciation.Error_Handler.raise_exception">raise_exception</a></code></li>
 </ul>
 </li>
 <li>
