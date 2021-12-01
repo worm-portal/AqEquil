@@ -23,6 +23,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import plotly.express as px
 import plotly.io as pio
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 # rpy2 for Python and R integration
 import rpy2.rinterface_lib.callbacks
@@ -944,10 +946,11 @@ class Speciation(object):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                        charge_sign_at_end=False,
                                                                        show=False, simplify=True)
-            
+
             y_find = [yi.replace("_energy", "").replace("_affinity", "") for yi in y]
             
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()*len(x)
@@ -1187,8 +1190,8 @@ class Speciation(object):
         df.columns = df.columns.get_level_values(0)
         df = pd.melt(df, id_vars=["name", x], value_vars=y)
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
-
-        if unit_type == "energy supply" or unit_type == "affinity":
+        
+        if (unit_type == "energy supply" or unit_type == "affinity") and self.reactions_for_plotting!=None:
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
@@ -1457,7 +1460,9 @@ class Speciation(object):
 
     def plot_solid_solutions(self, sample, title=None,
                                    width=0.9, colormap="WORM",
-                                   plot_width=4, plot_height=3, ppi=122,
+                                   affinity_plot=True,
+                                   affinity_plot_colors=["blue", "orange"],
+                                   plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
                                    save_scale=1, interactive=True):
         
@@ -1528,9 +1533,10 @@ class Speciation(object):
         if title == None:
             title = "Hypothetical solid solutions in " + sample
         
-        df = copy.deepcopy(self.sample_data[sample]["solid_solutions"])
+        df_full = copy.deepcopy(self.sample_data[sample]["solid_solutions"])
 
-        df = df.dropna(subset=['x'])
+        df = copy.deepcopy(df_full.dropna(subset=['x']))
+        df = df[df['x'] != 0]
 
         unique_minerals = self.__unique(df["mineral"])
         
@@ -1543,19 +1549,59 @@ class Speciation(object):
         # map each species to its color, e.g.,
         # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
         dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+
+        solid_solutions = list(dict.fromkeys(df["solid solution"]))
         
-        fig = px.bar(df, x="solid solution", y="x", color="mineral",
-                     width=plot_width*ppi, height=plot_height*ppi,
-                     color_discrete_map=dict_minerals_color,
-                     template="simple_white",
-                    )
+        df_ss_only = df_full[df_full["x"].isnull()]
+        
+        mineral_dict = {m:[] for m in unique_minerals}
+        for ss in solid_solutions:
+            for m in unique_minerals:
+                df_sub = df.loc[df["solid solution"] == ss,]
+                frac = df_sub.loc[df_sub["mineral"] == m, "x"]
+                if len(frac) > 0:
+                    mineral_dict[m] = mineral_dict[m] + list(frac)
+                else:
+                    mineral_dict[m].append(0)
 
-        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                          title={'text':title, 'x':0.5, 'xanchor':'center'},
+        if affinity_plot:
+            rows = 2
+            specs = [[{"type": "bar"}], [{"type": "bar"}]]
+        else:
+            rows = 1
+            specs = [[{"type": "bar"}]]
+                    
+        fig = make_subplots(
+            rows=rows, cols=1,
+            specs=specs,
+            vertical_spacing = 0.05
+        )
+
+        # subplot 1
+        for m in unique_minerals[::-1]:
+            fig.add_trace(go.Bar(name=m, x=solid_solutions, y=mineral_dict[m], marker_color=dict_minerals_color[m]), row=1, col=1)
+        
+        # subplot 2
+        if affinity_plot:
+            fig.add_trace(go.Bar(name="ss", x=solid_solutions, y=df_ss_only["Aff, kcal"],
+                                 marker_color=[affinity_plot_colors[0] if val > 0 else affinity_plot_colors[1] for val in df_ss_only["Aff, kcal"]],
+                                 showlegend=False),
+                          row=2, col=1)
+
+        fig.update_layout(barmode='stack', xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={'text':title, 'x':0.5, 'xanchor':'center'}, autosize=False,
+                          width=plot_width*ppi, height=plot_height*ppi,
                           margin={"t": 40}, bargap=0, xaxis={'fixedrange':True},
-                          yaxis={'fixedrange':True})
+                          yaxis={'fixedrange':True}, template="simple_white")
 
-        fig.update_traces(width=width, marker_line_width=0)
+
+        fig.update_xaxes(tickangle=-45)
+        fig['layout']['yaxis']['title']='Mole Fraction'
+        if affinity_plot:
+            fig['layout']['yaxis2']['title']='Affinity, kcal/mol'
+            fig.update_xaxes(showticklabels=False) # hide all the xticks
+            fig.update_xaxes(showticklabels=True, row=2, col=1)
+            
         
         save_as, save_format = self.__save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
