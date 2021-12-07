@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 
 import os
 import re
@@ -1488,6 +1488,13 @@ class Speciation(object):
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
             
+        affinity_plot : bool, default True
+            Include the affinity subplot?
+        
+        affinity_plot_colors : list of two str, default ["blue", "orange"]
+            Colors indicating positive and negative values in the affinity
+            subplot, respectively.
+            
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -2545,6 +2552,16 @@ class AqEquil:
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if aq_dist_type not in ["molality", "log_molality", "log_gamma", "log_activity"]:
+            self.err_handler.raise_exception("Unrecognized aq_dist_type. Valid "
+                "options are 'molality', 'log_molality', 'log_gamma', 'log_activity'")
+        if mineral_sat_type not in ["logQoverK", "affinity"]:
+            self.err_handler.raise_exception("Unrecognized mineral_sat_type. Valid "
+                "options are 'logQoverK' or 'affinity'")
+        if redox_type not in ["Eh", "pe", "logfO2", "Ah"]:
+            self.err_handler.raise_exception("Unrecognized redox_type. Valid "
+                "options are 'Eh', 'pe', 'logfO2', or 'Ah'")
+        
         if redox_flag == "O2(g)" or redox_flag == -3:
             redox_flag = -3
         elif redox_flag == "pe" or redox_flag == -2:
@@ -2792,14 +2809,15 @@ class AqEquil:
             aq_distribution_cols = list(report_divs.rx2('aq_distribution'))
             df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors='coerce')
-
+            
             # create a pH column from H+
-            df_aq_distribution["pH"] = -df_aq_distribution["H+"]
+            df_aq_distribution["pH"] = np.nan # pH values are assigned when sample data is assembled later
             
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
             subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
             subheaders = subheaders + ["pH"]
+            
             multicolumns = pd.MultiIndex.from_arrays(
                 [headers, subheaders], names=['Sample', ''])
             df_aq_distribution.columns = multicolumns
@@ -2962,6 +2980,10 @@ class AqEquil:
             if get_aq_dist:
                 sample_aq_dist = ro.conversion.rpy2py(sample.rx2('aq_distribution'))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors='coerce')
+                
+                sample_pH = -sample_aq_dist.loc["H+", "log_activity"]
+                out_dict["report"].loc[str(sample.rx2('name')[0]), "pH"] = sample_pH
+                
                 dict_sample_data.update({"aq_distribution": sample_aq_dist})
 
             if get_mass_contribution:

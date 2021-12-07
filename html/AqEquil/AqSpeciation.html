@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = False
+<pre><code class="python">DEBUGGING_R = True
 
 import os
 import re
@@ -51,6 +51,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import plotly.express as px
 import plotly.io as pio
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 # rpy2 for Python and R integration
 import rpy2.rinterface_lib.callbacks
@@ -972,10 +974,11 @@ class Speciation(object):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                        charge_sign_at_end=False,
                                                                        show=False, simplify=True)
-            
+
             y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
             
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
@@ -1215,8 +1218,8 @@ class Speciation(object):
         df.columns = df.columns.get_level_values(0)
         df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
-        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+        
+        if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and self.reactions_for_plotting!=None:
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
@@ -1485,7 +1488,9 @@ class Speciation(object):
 
     def plot_solid_solutions(self, sample, title=None,
                                    width=0.9, colormap=&#34;WORM&#34;,
-                                   plot_width=4, plot_height=3, ppi=122,
+                                   affinity_plot=True,
+                                   affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
+                                   plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
                                    save_scale=1, interactive=True):
         
@@ -1510,6 +1515,13 @@ class Speciation(object):
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
+            
+        affinity_plot : bool, default True
+            Include the affinity subplot?
+        
+        affinity_plot_colors : list of two str, default [&#34;blue&#34;, &#34;orange&#34;]
+            Colors indicating positive and negative values in the affinity
+            subplot, respectively.
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -1556,9 +1568,10 @@ class Speciation(object):
         if title == None:
             title = &#34;Hypothetical solid solutions in &#34; + sample
         
-        df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+        df_full = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
 
-        df = df.dropna(subset=[&#39;x&#39;])
+        df = copy.deepcopy(df_full.dropna(subset=[&#39;x&#39;]))
+        df = df[df[&#39;x&#39;] != 0]
 
         unique_minerals = self.__unique(df[&#34;mineral&#34;])
         
@@ -1571,19 +1584,59 @@ class Speciation(object):
         # map each species to its color, e.g.,
         # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
         dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+
+        solid_solutions = list(dict.fromkeys(df[&#34;solid solution&#34;]))
         
-        fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
-                     width=plot_width*ppi, height=plot_height*ppi,
-                     color_discrete_map=dict_minerals_color,
-                     template=&#34;simple_white&#34;,
-                    )
+        df_ss_only = df_full[df_full[&#34;x&#34;].isnull()]
+        
+        mineral_dict = {m:[] for m in unique_minerals}
+        for ss in solid_solutions:
+            for m in unique_minerals:
+                df_sub = df.loc[df[&#34;solid solution&#34;] == ss,]
+                frac = df_sub.loc[df_sub[&#34;mineral&#34;] == m, &#34;x&#34;]
+                if len(frac) &gt; 0:
+                    mineral_dict[m] = mineral_dict[m] + list(frac)
+                else:
+                    mineral_dict[m].append(0)
 
-        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+        if affinity_plot:
+            rows = 2
+            specs = [[{&#34;type&#34;: &#34;bar&#34;}], [{&#34;type&#34;: &#34;bar&#34;}]]
+        else:
+            rows = 1
+            specs = [[{&#34;type&#34;: &#34;bar&#34;}]]
+                    
+        fig = make_subplots(
+            rows=rows, cols=1,
+            specs=specs,
+            vertical_spacing = 0.05
+        )
+
+        # subplot 1
+        for m in unique_minerals[::-1]:
+            fig.add_trace(go.Bar(name=m, x=solid_solutions, y=mineral_dict[m], marker_color=dict_minerals_color[m]), row=1, col=1)
+        
+        # subplot 2
+        if affinity_plot:
+            fig.add_trace(go.Bar(name=&#34;ss&#34;, x=solid_solutions, y=df_ss_only[&#34;Aff, kcal&#34;],
+                                 marker_color=[affinity_plot_colors[0] if val &gt; 0 else affinity_plot_colors[1] for val in df_ss_only[&#34;Aff, kcal&#34;]],
+                                 showlegend=False),
+                          row=2, col=1)
+
+        fig.update_layout(barmode=&#39;stack&#39;, xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;}, autosize=False,
+                          width=plot_width*ppi, height=plot_height*ppi,
                           margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
-                          yaxis={&#39;fixedrange&#39;:True})
+                          yaxis={&#39;fixedrange&#39;:True}, template=&#34;simple_white&#34;)
 
-        fig.update_traces(width=width, marker_line_width=0)
+
+        fig.update_xaxes(tickangle=-45)
+        fig[&#39;layout&#39;][&#39;yaxis&#39;][&#39;title&#39;]=&#39;Mole Fraction&#39;
+        if affinity_plot:
+            fig[&#39;layout&#39;][&#39;yaxis2&#39;][&#39;title&#39;]=&#39;Affinity, kcal/mol&#39;
+            fig.update_xaxes(showticklabels=False) # hide all the xticks
+            fig.update_xaxes(showticklabels=True, row=2, col=1)
+            
         
         save_as, save_format = self.__save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
@@ -2527,6 +2580,16 @@ class AqEquil:
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
+                &#34;options are &#39;molality&#39;, &#39;log_molality&#39;, &#39;log_gamma&#39;, &#39;log_activity&#39;&#34;)
+        if mineral_sat_type not in [&#34;logQoverK&#34;, &#34;affinity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized mineral_sat_type. Valid &#34;
+                &#34;options are &#39;logQoverK&#39; or &#39;affinity&#39;&#34;)
+        if redox_type not in [&#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, &#34;Ah&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized redox_type. Valid &#34;
+                &#34;options are &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+        
         if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
             redox_flag = -3
         elif redox_flag == &#34;pe&#34; or redox_flag == -2:
@@ -2774,14 +2837,15 @@ class AqEquil:
             aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
             df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
+            
             # create a pH column from H+
-            df_aq_distribution[&#34;pH&#34;] = -df_aq_distribution[&#34;H+&#34;]
+            df_aq_distribution[&#34;pH&#34;] = np.nan # pH values are assigned when sample data is assembled later
             
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
             subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
             subheaders = subheaders + [&#34;pH&#34;]
+            
             multicolumns = pd.MultiIndex.from_arrays(
                 [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
             df_aq_distribution.columns = multicolumns
@@ -2944,6 +3008,10 @@ class AqEquil:
             if get_aq_dist:
                 sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+                
+                sample_pH = -sample_aq_dist.loc[&#34;H+&#34;, &#34;log_activity&#34;]
+                out_dict[&#34;report&#34;].loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;pH&#34;] = sample_pH
+                
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
             if get_mass_contribution:
@@ -5617,6 +5685,16 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
+                &#34;options are &#39;molality&#39;, &#39;log_molality&#39;, &#39;log_gamma&#39;, &#39;log_activity&#39;&#34;)
+        if mineral_sat_type not in [&#34;logQoverK&#34;, &#34;affinity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized mineral_sat_type. Valid &#34;
+                &#34;options are &#39;logQoverK&#39; or &#39;affinity&#39;&#34;)
+        if redox_type not in [&#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, &#34;Ah&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized redox_type. Valid &#34;
+                &#34;options are &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+        
         if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
             redox_flag = -3
         elif redox_flag == &#34;pe&#34; or redox_flag == -2:
@@ -5864,14 +5942,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
             df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
+            
             # create a pH column from H+
-            df_aq_distribution[&#34;pH&#34;] = -df_aq_distribution[&#34;H+&#34;]
+            df_aq_distribution[&#34;pH&#34;] = np.nan # pH values are assigned when sample data is assembled later
             
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
             subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
             subheaders = subheaders + [&#34;pH&#34;]
+            
             multicolumns = pd.MultiIndex.from_arrays(
                 [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
             df_aq_distribution.columns = multicolumns
@@ -6034,6 +6113,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             if get_aq_dist:
                 sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+                
+                sample_pH = -sample_aq_dist.loc[&#34;H+&#34;, &#34;log_activity&#34;]
+                out_dict[&#34;report&#34;].loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;pH&#34;] = sample_pH
+                
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
             if get_mass_contribution:
@@ -8874,6 +8957,16 @@ Needed for affinity and energy calculations.</dd>
         self._check_sample_input_file(input_filename, exclude, db, custom_db,
                                       charge_balance_on, suppress_missing)
         
+        if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
+                &#34;options are &#39;molality&#39;, &#39;log_molality&#39;, &#39;log_gamma&#39;, &#39;log_activity&#39;&#34;)
+        if mineral_sat_type not in [&#34;logQoverK&#34;, &#34;affinity&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized mineral_sat_type. Valid &#34;
+                &#34;options are &#39;logQoverK&#39; or &#39;affinity&#39;&#34;)
+        if redox_type not in [&#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, &#34;Ah&#34;]:
+            self.err_handler.raise_exception(&#34;Unrecognized redox_type. Valid &#34;
+                &#34;options are &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+        
         if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
             redox_flag = -3
         elif redox_flag == &#34;pe&#34; or redox_flag == -2:
@@ -9121,14 +9214,15 @@ Needed for affinity and energy calculations.</dd>
             aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
             df_aq_distribution = df_report[aq_distribution_cols]
             df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
+            
             # create a pH column from H+
-            df_aq_distribution[&#34;pH&#34;] = -df_aq_distribution[&#34;H+&#34;]
+            df_aq_distribution[&#34;pH&#34;] = np.nan # pH values are assigned when sample data is assembled later
             
             # handle headers of aq_distribution section
             headers = df_aq_distribution.columns
             subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
             subheaders = subheaders + [&#34;pH&#34;]
+            
             multicolumns = pd.MultiIndex.from_arrays(
                 [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
             df_aq_distribution.columns = multicolumns
@@ -9291,6 +9385,10 @@ Needed for affinity and energy calculations.</dd>
             if get_aq_dist:
                 sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
                 sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+                
+                sample_pH = -sample_aq_dist.loc[&#34;H+&#34;, &#34;log_activity&#34;]
+                out_dict[&#34;report&#34;].loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;pH&#34;] = sample_pH
+                
                 dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
 
             if get_mass_contribution:
@@ -10047,10 +10145,11 @@ speciation report.</dd>
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                        charge_sign_at_end=False,
                                                                        show=False, simplify=True)
-            
+
             y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
             
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
@@ -10290,8 +10389,8 @@ speciation report.</dd>
         df.columns = df.columns.get_level_values(0)
         df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
-        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+        
+        if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and self.reactions_for_plotting!=None:
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
@@ -10560,7 +10659,9 @@ speciation report.</dd>
 
     def plot_solid_solutions(self, sample, title=None,
                                    width=0.9, colormap=&#34;WORM&#34;,
-                                   plot_width=4, plot_height=3, ppi=122,
+                                   affinity_plot=True,
+                                   affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
+                                   plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
                                    save_scale=1, interactive=True):
         
@@ -10585,6 +10686,13 @@ speciation report.</dd>
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
+            
+        affinity_plot : bool, default True
+            Include the affinity subplot?
+        
+        affinity_plot_colors : list of two str, default [&#34;blue&#34;, &#34;orange&#34;]
+            Colors indicating positive and negative values in the affinity
+            subplot, respectively.
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -10631,9 +10739,10 @@ speciation report.</dd>
         if title == None:
             title = &#34;Hypothetical solid solutions in &#34; + sample
         
-        df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+        df_full = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
 
-        df = df.dropna(subset=[&#39;x&#39;])
+        df = copy.deepcopy(df_full.dropna(subset=[&#39;x&#39;]))
+        df = df[df[&#39;x&#39;] != 0]
 
         unique_minerals = self.__unique(df[&#34;mineral&#34;])
         
@@ -10646,19 +10755,59 @@ speciation report.</dd>
         # map each species to its color, e.g.,
         # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
         dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+
+        solid_solutions = list(dict.fromkeys(df[&#34;solid solution&#34;]))
         
-        fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
-                     width=plot_width*ppi, height=plot_height*ppi,
-                     color_discrete_map=dict_minerals_color,
-                     template=&#34;simple_white&#34;,
-                    )
+        df_ss_only = df_full[df_full[&#34;x&#34;].isnull()]
+        
+        mineral_dict = {m:[] for m in unique_minerals}
+        for ss in solid_solutions:
+            for m in unique_minerals:
+                df_sub = df.loc[df[&#34;solid solution&#34;] == ss,]
+                frac = df_sub.loc[df_sub[&#34;mineral&#34;] == m, &#34;x&#34;]
+                if len(frac) &gt; 0:
+                    mineral_dict[m] = mineral_dict[m] + list(frac)
+                else:
+                    mineral_dict[m].append(0)
 
-        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+        if affinity_plot:
+            rows = 2
+            specs = [[{&#34;type&#34;: &#34;bar&#34;}], [{&#34;type&#34;: &#34;bar&#34;}]]
+        else:
+            rows = 1
+            specs = [[{&#34;type&#34;: &#34;bar&#34;}]]
+                    
+        fig = make_subplots(
+            rows=rows, cols=1,
+            specs=specs,
+            vertical_spacing = 0.05
+        )
+
+        # subplot 1
+        for m in unique_minerals[::-1]:
+            fig.add_trace(go.Bar(name=m, x=solid_solutions, y=mineral_dict[m], marker_color=dict_minerals_color[m]), row=1, col=1)
+        
+        # subplot 2
+        if affinity_plot:
+            fig.add_trace(go.Bar(name=&#34;ss&#34;, x=solid_solutions, y=df_ss_only[&#34;Aff, kcal&#34;],
+                                 marker_color=[affinity_plot_colors[0] if val &gt; 0 else affinity_plot_colors[1] for val in df_ss_only[&#34;Aff, kcal&#34;]],
+                                 showlegend=False),
+                          row=2, col=1)
+
+        fig.update_layout(barmode=&#39;stack&#39;, xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;}, autosize=False,
+                          width=plot_width*ppi, height=plot_height*ppi,
                           margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
-                          yaxis={&#39;fixedrange&#39;:True})
+                          yaxis={&#39;fixedrange&#39;:True}, template=&#34;simple_white&#34;)
 
-        fig.update_traces(width=width, marker_line_width=0)
+
+        fig.update_xaxes(tickangle=-45)
+        fig[&#39;layout&#39;][&#39;yaxis&#39;][&#39;title&#39;]=&#39;Mole Fraction&#39;
+        if affinity_plot:
+            fig[&#39;layout&#39;][&#39;yaxis2&#39;][&#39;title&#39;]=&#39;Affinity, kcal/mol&#39;
+            fig.update_xaxes(showticklabels=False) # hide all the xticks
+            fig.update_xaxes(showticklabels=True, row=2, col=1)
+            
         
         save_as, save_format = self.__save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
@@ -10912,10 +11061,11 @@ the figure.</dd>
         
         # get formatted reactions to display
         if not isinstance(self.reactions_for_plotting, pd.DataFrame):
+
             self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
                                                                    charge_sign_at_end=False,
                                                                    show=False, simplify=True)
-        
+
         y_find = [yi.replace(&#34;_energy&#34;, &#34;&#34;).replace(&#34;_affinity&#34;, &#34;&#34;) for yi in y]
         
         rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
@@ -11457,7 +11607,7 @@ the figure.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_solid_solutions"><code class="name flex">
-<span>def <span class="ident">plot_solid_solutions</span></span>(<span>self, sample, title=None, width=0.9, colormap='WORM', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">plot_solid_solutions</span></span>(<span>self, sample, title=None, width=0.9, colormap='WORM', affinity_plot=True, affinity_plot_colors=['blue', 'orange'], plot_width=4, plot_height=4, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot fractions of minerals of hypothetical solid solutions in a sample.</p>
@@ -11476,6 +11626,11 @@ See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">http
 The "colorblind" colormap is referenced from Wong, B. Points of view:
 Color blindness. Nat Methods 8, 441 (2011).
 <a href="https://doi.org/10.1038/nmeth.1618">https://doi.org/10.1038/nmeth.1618</a></dd>
+<dt><strong><code>affinity_plot</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Include the affinity subplot?</dd>
+<dt><strong><code>affinity_plot_colors</code></strong> :&ensp;<code>list</code> of <code>two str</code>, default <code>["blue", "orange"]</code></dt>
+<dd>Colors indicating positive and negative values in the affinity
+subplot, respectively.</dd>
 <dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
 <dd>Width and height of the plot, in inches. Size of interactive plots
 is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
@@ -11505,7 +11660,9 @@ the figure.</dd>
 </summary>
 <pre><code class="python">def plot_solid_solutions(self, sample, title=None,
                                width=0.9, colormap=&#34;WORM&#34;,
-                               plot_width=4, plot_height=3, ppi=122,
+                               affinity_plot=True,
+                               affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
+                               plot_width=4, plot_height=4, ppi=122,
                                save_as=None, save_format=None,
                                save_scale=1, interactive=True):
     
@@ -11530,6 +11687,13 @@ the figure.</dd>
         The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
         Color blindness. Nat Methods 8, 441 (2011).
         https://doi.org/10.1038/nmeth.1618
+        
+    affinity_plot : bool, default True
+        Include the affinity subplot?
+    
+    affinity_plot_colors : list of two str, default [&#34;blue&#34;, &#34;orange&#34;]
+        Colors indicating positive and negative values in the affinity
+        subplot, respectively.
         
     plot_width, plot_height : numeric, default 4 by 3
         Width and height of the plot, in inches. Size of interactive plots
@@ -11576,9 +11740,10 @@ the figure.</dd>
     if title == None:
         title = &#34;Hypothetical solid solutions in &#34; + sample
     
-    df = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
+    df_full = copy.deepcopy(self.sample_data[sample][&#34;solid_solutions&#34;])
 
-    df = df.dropna(subset=[&#39;x&#39;])
+    df = copy.deepcopy(df_full.dropna(subset=[&#39;x&#39;]))
+    df = df[df[&#39;x&#39;] != 0]
 
     unique_minerals = self.__unique(df[&#34;mineral&#34;])
     
@@ -11591,19 +11756,59 @@ the figure.</dd>
     # map each species to its color, e.g.,
     # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
     dict_minerals_color = {sp:color for sp,color in zip(unique_minerals, colors)}
+
+    solid_solutions = list(dict.fromkeys(df[&#34;solid solution&#34;]))
     
-    fig = px.bar(df, x=&#34;solid solution&#34;, y=&#34;x&#34;, color=&#34;mineral&#34;,
-                 width=plot_width*ppi, height=plot_height*ppi,
-                 color_discrete_map=dict_minerals_color,
-                 template=&#34;simple_white&#34;,
-                )
+    df_ss_only = df_full[df_full[&#34;x&#34;].isnull()]
+    
+    mineral_dict = {m:[] for m in unique_minerals}
+    for ss in solid_solutions:
+        for m in unique_minerals:
+            df_sub = df.loc[df[&#34;solid solution&#34;] == ss,]
+            frac = df_sub.loc[df_sub[&#34;mineral&#34;] == m, &#34;x&#34;]
+            if len(frac) &gt; 0:
+                mineral_dict[m] = mineral_dict[m] + list(frac)
+            else:
+                mineral_dict[m].append(0)
 
-    fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                      title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+    if affinity_plot:
+        rows = 2
+        specs = [[{&#34;type&#34;: &#34;bar&#34;}], [{&#34;type&#34;: &#34;bar&#34;}]]
+    else:
+        rows = 1
+        specs = [[{&#34;type&#34;: &#34;bar&#34;}]]
+                
+    fig = make_subplots(
+        rows=rows, cols=1,
+        specs=specs,
+        vertical_spacing = 0.05
+    )
+
+    # subplot 1
+    for m in unique_minerals[::-1]:
+        fig.add_trace(go.Bar(name=m, x=solid_solutions, y=mineral_dict[m], marker_color=dict_minerals_color[m]), row=1, col=1)
+    
+    # subplot 2
+    if affinity_plot:
+        fig.add_trace(go.Bar(name=&#34;ss&#34;, x=solid_solutions, y=df_ss_only[&#34;Aff, kcal&#34;],
+                             marker_color=[affinity_plot_colors[0] if val &gt; 0 else affinity_plot_colors[1] for val in df_ss_only[&#34;Aff, kcal&#34;]],
+                             showlegend=False),
+                      row=2, col=1)
+
+    fig.update_layout(barmode=&#39;stack&#39;, xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                      title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;}, autosize=False,
+                      width=plot_width*ppi, height=plot_height*ppi,
                       margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
-                      yaxis={&#39;fixedrange&#39;:True})
+                      yaxis={&#39;fixedrange&#39;:True}, template=&#34;simple_white&#34;)
 
-    fig.update_traces(width=width, marker_line_width=0)
+
+    fig.update_xaxes(tickangle=-45)
+    fig[&#39;layout&#39;][&#39;yaxis&#39;][&#39;title&#39;]=&#39;Mole Fraction&#39;
+    if affinity_plot:
+        fig[&#39;layout&#39;][&#39;yaxis2&#39;][&#39;title&#39;]=&#39;Affinity, kcal/mol&#39;
+        fig.update_xaxes(showticklabels=False) # hide all the xticks
+        fig.update_xaxes(showticklabels=True, row=2, col=1)
+        
     
     save_as, save_format = self.__save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
@@ -11902,8 +12107,8 @@ the figure.</dd>
     df.columns = df.columns.get_level_values(0)
     df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
     df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
-    if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+    
+    if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and self.reactions_for_plotting!=None:
         # get formatted reactions to display
         if not isinstance(self.reactions_for_plotting, pd.DataFrame):
             self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
