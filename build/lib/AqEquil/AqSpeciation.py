@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 
 import os
 import re
@@ -3305,6 +3305,7 @@ class AqEquil:
         self.affinity_energy_reactions_raw = None
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
+        
         if self.verbose != 0:
             print("Generating redox reactions...")
 
