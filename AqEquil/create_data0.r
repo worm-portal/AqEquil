@@ -1353,7 +1353,8 @@ main_create_data0 <- function(filename,
   
   # load thermodynamic data
   thermo_df <- read.csv(filename, stringsAsFactors=F)
-  rownames(thermo_df) <- thermo_df$name
+  rownames(thermo_df) <- thermo_df$name # GB: this line is problematic for mineral polymorphs
+    
     
   # TODO: ensure that Cl- (and perhaps other hard-coded species) are in thermo_df
   # and return an error if not.
@@ -1610,7 +1611,7 @@ main_create_data0 <- function(filename,
                             "omega.lambda", "z.T")
 
   suppressMessages({
-    thermo(OBIGT=thermo()$OBIGT[unique(info(FIXED_SPECIES)), ])
+    #thermo(OBIGT=thermo()$OBIGT[unique(info(FIXED_SPECIES)), ])
     db_idx <- mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
   })
 

@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 
 import os
 import re
