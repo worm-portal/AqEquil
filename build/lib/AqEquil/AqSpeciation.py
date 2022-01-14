@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 
 import os
 import re
@@ -710,7 +710,7 @@ class Speciation(object):
             msg = ("Could not find '{}'".format(sample_name)+" among sample "
                    "names in the speciation report. Sample names include "
                    "{}".format(list(self.report.index)))
-            err_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if isinstance(self.sample_data[sample_name].get('mineral_sat', None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name]['mineral_sat'][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -1746,7 +1746,7 @@ class AqEquil:
             ".txt" : "standard text (.txt)",
             ".rds" : "R Data (.rds)",
         }
-        
+
         if ext in filename[-4:]:
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
@@ -2091,7 +2091,7 @@ class AqEquil:
             print('Using ' + db + ' to speciate ' + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = ['/bin/csh', self.eq36co+'/runeq3', db, filename_3i]
-
+        
         self.__run_script_and_wait(args) # run EQ3
 
         # restore working dir
@@ -3094,6 +3094,7 @@ class AqEquil:
                      generate_template=True,
                      template_name=None,
                      template_type="strict",
+                     exclude_category={},
                      verbose=1):
         """
         Create a data0 file from a custom thermodynamic dataset.
@@ -3160,6 +3161,13 @@ class AqEquil:
             - 'all basis' includes strict and auxiliary basis species
             - 'all species' includes all species in the thermodynamic database
             Ignored if `generate_template` is False.
+        
+        exclude_category : dict
+            Exclude species from the custom thermodynamic dataset based on
+            column values. For instance,
+            `exclude_category={'category_1':["organic_aq", "organic_cr"]}`
+            will exclude all species that have "organic_aq" or "organic_cr" in
+            the column "category_1".
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -3251,6 +3259,12 @@ class AqEquil:
             self.err_handler.raise_exception("template_type {} ".format(template_type)+"is not"
                             "recognized. Try 'strict', 'all basis', or 'all species'")
 
+        if len(exclude_category) > 0:
+            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+        else:
+            exclude_category_R = {}
+        exclude_category_R = ro.ListVector(exclude_category_R)
+            
         self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
@@ -3270,6 +3284,7 @@ class AqEquil:
                                generate_template=generate_template,
                                template_name=template_name,
                                template_type=template_type,
+                               exclude_category=exclude_category_R,
                                verbose=self.verbose)
     
         for line in self.stderr: print(line)

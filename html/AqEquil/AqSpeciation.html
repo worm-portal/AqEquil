@@ -738,7 +738,7 @@ class Speciation(object):
             msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                    &#34;names in the speciation report. Sample names include &#34;
                    &#34;{}&#34;.format(list(self.report.index)))
-            err_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -1774,7 +1774,7 @@ class AqEquil:
             &#34;.txt&#34; : &#34;standard text (.txt)&#34;,
             &#34;.rds&#34; : &#34;R Data (.rds)&#34;,
         }
-        
+
         if ext in filename[-4:]:
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
@@ -2119,7 +2119,7 @@ class AqEquil:
             print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
-
+        
         self.__run_script_and_wait(args) # run EQ3
 
         # restore working dir
@@ -3122,6 +3122,7 @@ class AqEquil:
                      generate_template=True,
                      template_name=None,
                      template_type=&#34;strict&#34;,
+                     exclude_category={},
                      verbose=1):
         &#34;&#34;&#34;
         Create a data0 file from a custom thermodynamic dataset.
@@ -3188,6 +3189,13 @@ class AqEquil:
             - &#39;all basis&#39; includes strict and auxiliary basis species
             - &#39;all species&#39; includes all species in the thermodynamic database
             Ignored if `generate_template` is False.
+        
+        exclude_category : dict
+            Exclude species from the custom thermodynamic dataset based on
+            column values. For instance,
+            `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
+            will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
+            the column &#34;category_1&#34;.
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -3279,6 +3287,12 @@ class AqEquil:
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        if len(exclude_category) &gt; 0:
+            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+        else:
+            exclude_category_R = {}
+        exclude_category_R = ro.ListVector(exclude_category_R)
+            
         self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
@@ -3298,6 +3312,7 @@ class AqEquil:
                                generate_template=generate_template,
                                template_name=template_name,
                                template_type=template_type,
+                               exclude_category=exclude_category_R,
                                verbose=self.verbose)
     
         for line in self.stderr: print(line)
@@ -4880,7 +4895,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             &#34;.txt&#34; : &#34;standard text (.txt)&#34;,
             &#34;.rds&#34; : &#34;R Data (.rds)&#34;,
         }
-        
+
         if ext in filename[-4:]:
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
@@ -5225,7 +5240,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
         os.chdir(path_3i)  # step into 3i folder
         args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
-
+        
         self.__run_script_and_wait(args) # run EQ3
 
         # restore working dir
@@ -6228,6 +6243,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                      generate_template=True,
                      template_name=None,
                      template_type=&#34;strict&#34;,
+                     exclude_category={},
                      verbose=1):
         &#34;&#34;&#34;
         Create a data0 file from a custom thermodynamic dataset.
@@ -6294,6 +6310,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             - &#39;all basis&#39; includes strict and auxiliary basis species
             - &#39;all species&#39; includes all species in the thermodynamic database
             Ignored if `generate_template` is False.
+        
+        exclude_category : dict
+            Exclude species from the custom thermodynamic dataset based on
+            column values. For instance,
+            `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
+            will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
+            the column &#34;category_1&#34;.
         
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
@@ -6385,6 +6408,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        if len(exclude_category) &gt; 0:
+            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+        else:
+            exclude_category_R = {}
+        exclude_category_R = ro.ListVector(exclude_category_R)
+            
         self.__capture_r_output()
         
         r_create_data0 = pkg_resources.resource_string(
@@ -6404,6 +6433,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                generate_template=generate_template,
                                template_name=template_name,
                                template_type=template_type,
+                               exclude_category=exclude_category_R,
                                verbose=self.verbose)
     
         for line in self.stderr: print(line)
@@ -7145,7 +7175,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
-<span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', verbose=1)</span>
+<span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', exclude_category={}, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a data0 file from a custom thermodynamic dataset.</p>
@@ -7199,6 +7229,12 @@ is False.</dd>
 - 'all basis' includes strict and auxiliary basis species
 - 'all species' includes all species in the thermodynamic database
 Ignored if <code>generate_template</code> is False.</dd>
+<dt><strong><code>exclude_category</code></strong> :&ensp;<code>dict</code></dt>
+<dd>Exclude species from the custom thermodynamic dataset based on
+column values. For instance,
+<code>exclude_category={'category_1':["organic_aq", "organic_cr"]}</code>
+will exclude all species that have "organic_aq" or "organic_cr" in
+the column "category_1".</dd>
 <dt><strong><code>verbose</code></strong> :&ensp;<code>int, 0, 1,</code> or <code>2</code>, default <code>1</code></dt>
 <dd>Level determining how many messages are returned during a
 calculation. 2 for all messages, 1 for errors or warnings only,
@@ -7223,6 +7259,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  generate_template=True,
                  template_name=None,
                  template_type=&#34;strict&#34;,
+                 exclude_category={},
                  verbose=1):
     &#34;&#34;&#34;
     Create a data0 file from a custom thermodynamic dataset.
@@ -7289,6 +7326,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         - &#39;all basis&#39; includes strict and auxiliary basis species
         - &#39;all species&#39; includes all species in the thermodynamic database
         Ignored if `generate_template` is False.
+    
+    exclude_category : dict
+        Exclude species from the custom thermodynamic dataset based on
+        column values. For instance,
+        `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
+        will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
+        the column &#34;category_1&#34;.
     
     verbose : int, 0, 1, or 2, default 1
         Level determining how many messages are returned during a
@@ -7380,6 +7424,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+    if len(exclude_category) &gt; 0:
+        exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+    else:
+        exclude_category_R = {}
+    exclude_category_R = ro.ListVector(exclude_category_R)
+        
     self.__capture_r_output()
     
     r_create_data0 = pkg_resources.resource_string(
@@ -7399,6 +7449,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                            generate_template=generate_template,
                            template_name=template_name,
                            template_type=template_type,
+                           exclude_category=exclude_category_R,
                            verbose=self.verbose)
 
     for line in self.stderr: print(line)
@@ -8089,7 +8140,7 @@ cell reactions.</dd>
         print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
     os.chdir(path_3i)  # step into 3i folder
     args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq3&#39;, db, filename_3i]
-
+    
     self.__run_script_and_wait(args) # run EQ3
 
     # restore working dir
@@ -9912,7 +9963,7 @@ speciation report.</dd>
             msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                    &#34;names in the speciation report. Sample names include &#34;
                    &#34;{}&#34;.format(list(self.report.index)))
-            err_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
             mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)
@@ -11549,7 +11600,7 @@ the figure.</dd>
         msg = (&#34;Could not find &#39;{}&#39;&#34;.format(sample_name)+&#34; among sample &#34;
                &#34;names in the speciation report. Sample names include &#34;
                &#34;{}&#34;.format(list(self.report.index)))
-        err_handler.raise_exception(msg)
+        self.err_handler.raise_exception(msg)
     
     if isinstance(self.sample_data[sample_name].get(&#39;mineral_sat&#39;, None), pd.DataFrame):
         mineral_data = self.sample_data[sample_name][&#39;mineral_sat&#39;][mineral_sat_type].astype(float).sort_values(ascending=False)

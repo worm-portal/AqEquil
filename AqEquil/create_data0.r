@@ -344,22 +344,27 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
                         HOZ_balancers=c("H+", "O2", "H2O"),
                         thermo_df=NULL, verbose=2){
     
+  if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
+    sp_name = unique(sp_name)
+  }
+    
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
-    basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (rownames(thermo_df))
+    basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (thermo_df[, "name"])
     basis_elem <- c(basis_elem, names(basis_pref))
   }else{
     # if there are no species, define basis list in dissrxns and exit the function
     dissrxns <- list(basis_list = basis_pref)
     return(dissrxns)
   }
-  basis_elem <- unique(basis_elem)
                    
+  basis_elem <- unique(basis_elem)
+
   sp <- thermo_df
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
   names(sp_formula_makeup) <- sp$name
-
+                   
   # loop through each element and assign preferred basis species (if supplied)
   # or automatically choose compatible basis species
   basis_list <- list()
@@ -369,7 +374,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 #     missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
 #     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
 #   }
-                   
+
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
@@ -433,7 +438,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
   # determine a balanced dissociation reaction into basis species
 
   # get the elemental composition
-  comp <- makeup(thermo_df[thermo_df["name"]==sp, "formula_modded"])
+  comp <- makeup(thermo_df[thermo_df["name"]==sp, "formula_modded"][1])
     
   # get the elements that are not H, O, Z (charge)
   basis_elem <- setdiff(names(comp), c("H", "O", "Z"))
@@ -450,7 +455,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
     
   if(!is.null(thermo_df)){
       
-    sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"]
+    sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"][1]
       
     for(elem in basis_elem){
         
@@ -467,15 +472,15 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
       step1 <- sp_formula_ox_split[[1]]
       step2 <- step1[grepl(paste0(elem,"([^a-z]|$)"), step1)]
       step3 <- gsub("^[[:digit:]]+(\\.[[:digit:]]+)?", "", step2)
-    
-      sp_ox_elem <- makeup(step3)
         
+      sp_ox_elem <- makeup(step3)
+
       sp_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]], perl=T)], perl=T))
       sp_num_elem <- ifelse(is.na(sp_num_elem), 1, sp_num_elem)
       names(sp_num_elem) <- rep(simplest_basis[[elem]], length(sp_num_elem))
       n_elem_in_basis <- sp_formula_makeup[[simplest_basis[elem]]][elem]
       chosen_basis[[elem]] <- sp_num_elem/n_elem_in_basis
-        
+
       if(elem %in% names(simplest_basis) && elem %in% names(aux_pref)){
         # get oxidation states of this element available in strict and aux basis species
         strict_df = thermo_df %>%
@@ -573,7 +578,8 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
       chosen_basis[[elem]] <- tapply(unlist(chosen_basis[[elem]]), names(unlist(chosen_basis[[elem]])), sum)
     }
   }
-   
+
+#   print(sp)
 #   print("Chosen basis")
 #   print(chosen_basis)
     
@@ -587,8 +593,10 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 
   autobalance <- subcrt_bal(isp, c(-1, coeffs_to_include))
   spec_names <- thermo()$OBIGT[autobalance$newspecies, "name"]
+    
   spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
-  sp_dissrxn <- autobalance$newcoeff
+  sp_dissrxn <- autobalance$newcoeff  
+    
   names(sp_dissrxn) <- spec_names
     
   sp_dissrxn <- paste(c(rbind(sprintf("%.4f", round(sp_dissrxn, 4)), names(sp_dissrxn))), collapse=" ")
@@ -692,6 +700,9 @@ create_data0 <- function(thermo_df,
       vmessage("O2(g) is included as a basis species by default. Moving to the next species...", 2, verbose)
       next
     }
+    if (entry$state %in% paste0("cr", 2:20)){
+      next
+    }
       
     date <- entry$date
     date <- strtrim(date, 9) # truncates date if greater than 9 letters
@@ -702,11 +713,11 @@ create_data0 <- function(thermo_df,
       # if this species is marked as a preferred basis species, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[which(thermo_df["name"]==name), "tag"] == "basis"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "basis"){
       # if this is marked as a basis in the data0 supplemental file, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[which(thermo_df["name"]==name), "tag"] == "aux"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "aux"){
       # if this species is an auxiliary basis species, flag and continue with aqueous formatting
       aux_basis <- TRUE
     }
@@ -769,8 +780,8 @@ create_data0 <- function(thermo_df,
     logK_grid <- rep(0, 8)
     tryCatch({
       # the subcrt() calculation for each P-T in the grid
-      if(thermo_df[entry$name, "tag"] != "basis"){
-        logK_grid <- suppressMessages(subcrt(species_name_list, species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr)$out$logK)
+      if(thermo_df[thermo_df[, "name"] == entry$name, "tag"] != "basis"){
+        logK_grid <- suppressMessages(subcrt(species_name_list, species_val_list, T=grid_temps, P=grid_press, exceed.Ttr=exceed_Ttr, property="logK")$out$logK)
       }
       # if CHNOSZ can't perform a calculation, assign a logK grid of zeros
       }, error=function(e){
@@ -926,7 +937,7 @@ create_data0 <- function(thermo_df,
     })
 
     # get the basis species formula
-    basis_formula <- add_obigt_df[which(add_obigt_df[, "name"] == basis), "formula_modded"]
+    basis_formula <- add_obigt_df[add_obigt_df[, "name"] == basis, "formula_modded"][1]
 
     # get the elemental makeup of the basis species
     elem_list_basis <- makeup(basis_formula)
@@ -939,7 +950,7 @@ create_data0 <- function(thermo_df,
     } else {
       formatted_charge_basis <- "0.0"
     }
-
+      
     # begin formatting for data0 entry
     n_elem_basis <- length(elem_list_basis)
     elem_list_basis_names <- names(elem_list_basis)
@@ -1265,6 +1276,7 @@ main_create_data0 <- function(filename,
                               generate_template,
                               template_name,
                               template_type,
+                              exclude_category,
                               verbose){
   
   # set water model
@@ -1353,8 +1365,14 @@ main_create_data0 <- function(filename,
   
   # load thermodynamic data
   thermo_df <- read.csv(filename, stringsAsFactors=F)
-  rownames(thermo_df) <- thermo_df$name # GB: this line is problematic for mineral polymorphs
-    
+
+  # exclude rows based on categories
+  if(length(exclude_category) > 0){
+    for(cat in names(exclude_category)){
+      thermo_df <- thermo_df %>%
+        filter(!(!!as.name(cat)) %in% exclude_category[[cat]])
+    }
+  }
     
   # TODO: ensure that Cl- (and perhaps other hard-coded species) are in thermo_df
   # and return an error if not.
@@ -1448,9 +1466,9 @@ main_create_data0 <- function(filename,
         out <- to_vec(for(x in elem_other) if(makeup_list[[entry]][x] != 1) paste0(makeup_list[[entry]][x], x, known_oxstates[x]) else(paste0(x, known_oxstates[x])))
         inferred_formula_ox[[entry]] <- paste(out_elem, paste(out, collapse=" "))
 
-        thermo_df[entry, "formula_ox"] <- inferred_formula_ox[[entry]]
+        thermo_df[thermo_df[, "name"] == entry, "formula_ox"] <- inferred_formula_ox[[entry]]
       } else if (entry %in% known_species){
-        thermo_df[entry, "formula_ox"] <- entry
+        thermo_df[thermo_df[, "name"] == entry, "formula_ox"] <- entry
       }
     }
     write.csv(thermo_df, data0_formula_ox_name, row.names=F, na="")
@@ -1466,9 +1484,10 @@ main_create_data0 <- function(filename,
     for(idx in 1:nrow(thermo_df)){
 
       species_name <- thermo_df[idx, "name"]
-
+        
       # get makeup and charge of this species
       this_makeup <- makeup(thermo_df[idx, "formula"])
+        
       elems <- names(this_makeup)
       charge <- this_makeup["Z"]
       if(is.na(charge)){
@@ -1481,12 +1500,12 @@ main_create_data0 <- function(filename,
         
         if(elem %in% names(redox_elem_states)){
             
-          sp_formula_ox <- thermo_df[species_name, "formula_ox"]
+          sp_formula_ox <- thermo_df[thermo_df[, "name"] == species_name, "formula_ox"]
 
           # get oxidation state info
           formula_ox <- strsplit(sp_formula_ox, " ")
           names(formula_ox) <- species_name
-
+            
           # assign abundances to each ox elem
           for(elem_ox in formula_ox[[species_name]]){
 
@@ -1503,7 +1522,7 @@ main_create_data0 <- function(filename,
             this_formula[e] <- this_coeff
             
           }
-        
+            
           # create a modified formula_ox column in the modified_thermo_df if there
           # is redox suppression, such that "Fe+2 2Cl-" becomes "Feii+2 2Cl-"
           this_formula_modded <- this_formula
@@ -1552,7 +1571,7 @@ main_create_data0 <- function(filename,
           }
           this_formula_ox_modded <- paste(to_collapse, collapse=" ")
 
-          thermo_df[species_name, "formula_ox_modded"] <- this_formula_ox_modded
+          thermo_df[thermo_df[, "name"] == species_name, "formula_ox_modded"] <- this_formula_ox_modded
             
         }
       }
@@ -1584,10 +1603,10 @@ main_create_data0 <- function(filename,
         formula <- paste0(formula, format_charge(charge))
       }
                                    
-      thermo_df[species_name, "formula_modded"] <- formula
+      thermo_df[thermo_df[, "name"] == species_name, "formula_modded"] <- formula
     }
   }
-
+                                   
   # reorder thermo_df so that strict basis are first, then aux that depend only
   # on strict basis, then aux that depend on other aux, then everything else.
   # Prevents EQPT errors.
@@ -1611,7 +1630,7 @@ main_create_data0 <- function(filename,
                             "omega.lambda", "z.T")
 
   suppressMessages({
-    #thermo(OBIGT=thermo()$OBIGT[unique(info(FIXED_SPECIES)), ])
+    thermo(OBIGT=thermo()$OBIGT[unique(info(FIXED_SPECIES)), ]) # replaces the default OBIGT database with user-supplied database
     db_idx <- mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
   })
 
@@ -1644,7 +1663,7 @@ main_create_data0 <- function(filename,
   #     E.g., remove S2-2, S2O3-2, etc.
   keep <- c()
   for(i in 1:length(aux_pref)){
-    if(makeup(thermo_df[thermo_df["name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
+    if(makeup(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
       keep <- c(keep, i)
     }
   }
@@ -1686,7 +1705,7 @@ main_create_data0 <- function(filename,
         basis_pref <- c(basis_pref, valid_aux[1]) # add valid aux to basis prefs. The [1] just selects the first valid aux species if there are multiple. Selection method can probably be improved.
         aux_pref <- aux_pref[aux_pref != valid_aux]
         
-        thermo_df[valid_aux, "tag"] <- "basis"
+        thermo_df[thermo_df[, "name"] == valid_aux, "tag"] <- "basis"
 
       }else{
         # Pick a basis species from valid non-basis...
@@ -1704,11 +1723,11 @@ main_create_data0 <- function(filename,
   
   # for each dissrxn, determine if unbalanced. If so, flag a thermo_df 'need_dissrxn' column.
   thermo_df[, "regenerate_dissrxn"] <- F
-  for(species in rownames(thermo_df)){
+  for(species in thermo_df[, "name"]){
     
-    tag <- thermo_df[species, "tag"]
+    tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
     if(tag != "basis"){
-      dissrxn <- thermo_df[species, "dissrxn"]
+      dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
       dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
       dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
       dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
@@ -1717,7 +1736,7 @@ main_create_data0 <- function(filename,
       tryCatch({
         subcrt_bal(dissrxn_ispecies, dissrxn_coefs)
       }, error=function(e){
-        thermo_df[species, "regenerate_dissrxn"] <<- T # assign global variable with <<- because this is within the error function
+        thermo_df[thermo_df[, "name"] == species, "regenerate_dissrxn"] <<- T # assign global variable with <<- because this is within the error function
       })
     }
   }
@@ -1729,10 +1748,10 @@ main_create_data0 <- function(filename,
   if(nrow(df_needs_dissrxns) > 0){
     if(length(suppress_redox) == 0){
       needs_dissrxns_message <- paste("Balanced dissociation reactions are missing for species:",
-                                      paste(unlist(df_needs_dissrxns["name"]), collapse=", "))
+                                      paste(unique(unlist(df_needs_dissrxns["name"])), collapse=", "))
     }else{
       needs_dissrxns_message <- paste("Balanced and/or redox-suppressed dissociation reactions are missing for species:",
-                                      paste(unlist(df_needs_dissrxns["name"]), collapse=", "))
+                                      paste(unique(unlist(df_needs_dissrxns["name"])), collapse=", "))
     }
       
     vmessage(needs_dissrxns_message, 1, verbose)
@@ -1755,11 +1774,12 @@ main_create_data0 <- function(filename,
     nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4))
     basis_idx <- !nonbasis_idx
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
+    nonbasis_names <- unique(nonbasis_names)
     basis_names <- names(basis_idx)[basis_idx]
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
-    vmessage(paste("Species that have been converted into strict basis:", paste(basis_names, collapse=", ")), 1, verbose)
+    vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
   }
-                                  
+  
   create_data0(thermo_df,
                filename_ss,
                grid_temps,
@@ -1772,7 +1792,7 @@ main_create_data0 <- function(filename,
                basis_pref,
                exceed_Ttr,
                verbose)
-                                  
+  
   if(generate_template){
     # create a template for sample input
       
