@@ -132,6 +132,8 @@ def load(filename, messages=True, hide_traceback=True):
         msg = "Cannot open " + str(filename) + " because the file is empty."
         err_handler.raise_exception(msg)
 
+def test():
+    print("TEST TEST")
     
 def isnotebook():
     
@@ -1980,21 +1982,21 @@ class AqEquil:
         return
         
         
-    def __clear_eqpt_extra_output(self):
+    def __move_eqpt_extra_output(self):
         
         """
-        Deletes all EQPT output except data1.
+        Moves all EQPT output and data0 into the eqpt_files folder
         """
         
         if os.path.exists("eqpt_log.txt") and os.path.isfile("eqpt_log.txt"):
-            os.remove("eqpt_log.txt")
+            shutil.move("eqpt_log.txt", "eqpt_files/eqpt_log.txt")
         if os.path.exists("data1f.txt") and os.path.isfile("data1f.txt"):
-            os.remove("data1f.txt")
+            shutil.move("data1f.txt", "eqpt_files/data1f.txt")
         if os.path.exists("slist.txt") and os.path.isfile("slist.txt"):
-            os.remove("slist.txt")
+            shutil.move("slist.txt", "eqpt_files/slist.txt")
 
             
-    def runeqpt(self, db, extra_eqpt_output=False):
+    def runeqpt(self, db):
         
         """
         Convert a data0 into a data1 file with EQPT.
@@ -2003,10 +2005,6 @@ class AqEquil:
         ----------
         db : str
             Three letter code of database.
-        
-        extra_eqpt_output : bool, default False
-            Keep additional output files from EQPT? These files include
-            eqpt_log.txt, data1f.txt, and slist.txt.
         """
 
         if os.path.exists("data0."+db) and os.path.isfile("data0."+db):
@@ -2018,7 +2016,7 @@ class AqEquil:
         if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
             os.remove("data1."+db)
 
-        self.__clear_eqpt_extra_output()
+        self.__move_eqpt_extra_output()
 
         os.environ['EQ36DA'] = os.getcwd()
 
@@ -2048,8 +2046,7 @@ class AqEquil:
                    "data0."+db+". Check eqpt_log.txt for details.")
             self.err_handler.raise_exception(msg)
 
-        if not extra_eqpt_output:
-            self.__clear_eqpt_extra_output()
+        self.__move_eqpt_extra_output()
 
         os.environ['EQ36DA'] = self.eq36da  # reset default EQ36 db path
 
@@ -2089,27 +2086,24 @@ class AqEquil:
         
         if self.verbose > 0:
             print('Using ' + db + ' to speciate ' + samplename)
-        os.chdir(path_3i)  # step into 3i folder
-        args = ['/bin/csh', self.eq36co+'/runeq3', db, filename_3i]
+
+        args = ['/bin/csh', self.eq36co+'/runeq3', db, path_3i + "/" + filename_3i]
         
         self.__run_script_and_wait(args) # run EQ3
-
-        # restore working dir
-        os.chdir(cwd)
 
         filename_3o = filename_3i[:-1] + 'o'
         filename_3p = filename_3i[:-1] + 'p'
 
         try:
             # rename output
-            os.rename(path_3i + '/output', path_3i + "/" + filename_3o)
+            os.rename('output', filename_3o)
         except:
             if self.verbose > 0:
                 print('Error: EQ3 failed to produce output for ' + filename_3i)
 
         try:
             # move output
-            shutil.move(path_3i + "/" + filename_3o,
+            shutil.move(filename_3o,
                         path_3o + "/" + filename_3o)
         except:
             if self.verbose > 0:
@@ -2117,7 +2111,7 @@ class AqEquil:
 
         try:
             # rename pickup
-            os.rename(path_3i + '/pickup', path_3i + "/" + filename_3p)
+            os.rename('pickup', filename_3p)
             move_pickup = True
         except:
             if self.verbose > 0:
@@ -2127,7 +2121,7 @@ class AqEquil:
         if move_pickup:
             try:
                 # move pickup
-                shutil.move(path_3i + "/" + filename_3p,
+                shutil.move(filename_3p,
                             path_3p + "/" + filename_3p)
             except:
                 if self.verbose > 0:
@@ -2273,6 +2267,8 @@ class AqEquil:
             shutil.rmtree('rxn_6o')
         if os.path.exists('rxn_6p') and os.path.isdir('rxn_6p'):
             shutil.rmtree('rxn_6p')
+        if os.path.exists('eqpt_files') and os.path.isdir('eqpt_files'):
+            shutil.rmtree('eqpt_files')
             
 
     def speciate(self,
@@ -2305,7 +2301,6 @@ class AqEquil:
                  not_limiting=["H+", "OH-", "H2O"],
                  get_charge_balance=True,
                  custom_db=False,
-                 extra_eqpt_output=False,
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  custom_obigt=None):
@@ -2521,19 +2516,15 @@ class AqEquil:
             machine-readable file called data1 by software called EQPT. This
             data1 file is then used in speciation calculations.
         
-        extra_eqpt_output : bool, default False
-            Keep additional output files created by EQPT (see `custom_db`)?
-            Ignored if `custom_db` is False.
-        
         batch_3o_filename : str, optional
             Name of rds (R object) file exported after the speciation
             calculation? No file will be generated if this argument is not
             defined.
             
         delete_generated_folders : bool, default False
-            Delete the 'rxn_3i', 'rxn_3o', and 'rxn_3p' folders containing raw
-            EQ3NR input, output, and pickup files once the speciation
-            calculation is complete?
+            Delete the 'rxn_3i', 'rxn_3o', 'rxn_3p', and 'eqpt_files' folders
+            containing raw EQ3NR input, output, pickup, and EQPT files once the
+            speciation calculation is complete?
         
         custom_obigt : str, optional unless `get_affinity_energy` is True
             Path of custom database csv used to generate a custom data0 file.
@@ -2598,17 +2589,18 @@ class AqEquil:
             custom_obigt = ro.r("NULL")
             
         if custom_db:
-            # EQ3/6 cannot handle spaces in the 'EQ36DA' path name.
-            if " " in os.getcwd():
-                msg = ("Error: the path to the custom database "
-                    "cannot contain spaces. The current path "
-                    "is: [ " + os.getcwd() + " ]. Remove or "
-                    "replace spaces in folder names for this "
-                    "feature. Example: [ " + os.getcwd().replace(" ", "-") + " ].")
-                self.err_handler.raise_exception(msg)
-
-            self.runeqpt(db, extra_eqpt_output)
-            os.environ['EQ36DA'] = os.getcwd()
+            self.__mk_check_del_directory('eqpt_files')
+            self.runeqpt(db)
+            
+            if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
+                try:
+                    # move data1
+                    shutil.move("data1."+db, "eqpt_files/data1."+db)
+                except:
+                    if self.verbose > 0:
+                        print('Error: Could not move', "data1."+db, "to eqpt_files")
+            
+            os.environ['EQ36DA'] = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
             
             data0_path = "data0." + db
             
@@ -2710,9 +2702,9 @@ class AqEquil:
         self.__mk_check_del_directory('rxn_3p')
         files_3i, files_3i_paths = self.__read_inputs('3i', 'rxn_3i')
 
-        input_dir = cwd + "/rxn_3i/"
-        output_dir = cwd + "/rxn_3o/"
-        pickup_dir = cwd + "/rxn_3p/"
+        input_dir = "rxn_3i"
+        output_dir = "rxn_3o"
+        pickup_dir = "rxn_3p"
         
         for file in files_3i:
             samplename = self.df_input_processed.loc[file[:-3], "Sample"]
@@ -2722,6 +2714,9 @@ class AqEquil:
 
         if custom_db:
             os.environ['EQ36DA'] = self.eq36da
+            # delete straggling data1 files generated after running eq3
+            if os.path.exists("data1") and os.path.isfile("data1"):
+                os.remove("data1")
 
         files_3o = [file+".3o" for file in self.df_input_processed.index]
         

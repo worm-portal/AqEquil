@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: AqEquil
-Version: 0.14.0
+Version: 0.14.1
 Summary: Python tools for aqueous chemical speciation.
 Home-page: UNKNOWN
 Author: Grayson Boyer
@@ -8,7 +8,7 @@ Author-email: gmboyer@asu.edu
 License: UNKNOWN
 Description: # AqEquil
         
-        [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5534832.svg)](https://doi.org/10.5281/zenodo.5534832)
+        [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5851361.svg)](https://doi.org/10.5281/zenodo.5851361)
         
         Boyer, G., Robare, J., Ely, T., Shock, E.L.
         
