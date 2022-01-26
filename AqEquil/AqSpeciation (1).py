@@ -16,6 +16,7 @@ import pandas as pd
 import numpy as np
 from chemparse import parse_formula
 from IPython.core.display import display, HTML
+import periodictable #jordyn
 
 # matplotlib for static plots
 import matplotlib
@@ -1698,7 +1699,7 @@ class AqEquil:
         self.eq36co = eq36co
         self.df_input_processed = None
         
-        half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
+        half_rxn_data = pkg_resources.resource_stream(__name__, "correct_names_input.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
         self.redox_pairs = None
         self.affinity_energy_reactions_raw = None
@@ -3286,9 +3287,11 @@ class AqEquil:
         
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
-
             
-    def make_redox_reactions(self, redox_pairs="all"):
+            
+###PUT NEW make_redox_reactions CODE HERE
+
+    def make_redox_reactions(self, custom_obigt, redox_pairs="all"): #### START COPYING HERE
         
         """
         Generate an organized collection of redox reactions for calculating
@@ -3341,6 +3344,30 @@ class AqEquil:
         
         df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
         
+        wrm_data = pd.read_csv(custom_obigt) #jordyn
+        basis_df = wrm_data.loc[wrm_data['tag'] == 'basis']
+        
+        db_names = []
+        formulas = []
+        for column in list(df.columns)[1:]:
+            for item in list(df[column]):
+                if item != 'nan':
+                    if item in list(wrm_data.name):
+                        index = wrm_data.loc[wrm_data['name'] == item].index[0]
+                        formula = wrm_data.loc[wrm_data['name'] == item]['formula'][index]
+                        df.replace(item, formula, inplace=True)
+                        if item not in db_names:
+                            db_names.append(item)
+                            formulas.append(formula)
+
+        df.replace('sulfur', 'S', inplace = True) ### remove this eventually
+        db_names.append('sulfur') ### remove this eventually
+        formulas.append('S') ### remove this eventually
+        db_names.append('H+')
+        formulas.append('H+')
+        db_names.append('H2O')
+        formulas.append('H2O')
+        
         Oxidant_1 = df['Oxidant_1']
         Oxidant_2 = df['Oxidant_2']
         Oxidant_3 = df['Oxidant_3']
@@ -3348,21 +3375,14 @@ class AqEquil:
         Reductant_2 = df['Reductant_2']
         
         #CREATING A LIST OF ALL SPECIES AND THEIR ELEMENT DICTIONARIES
-        df_oxidants_and_reductants = self.half_cell_reactions.loc[:, "Oxidant_1":].values.tolist()
-        flat_list = flatten_list(df_oxidants_and_reductants)
-        oxidants_and_reductants = [sp for sp in list(dict.fromkeys(flat_list)) if str(sp) != 'nan']
-        elements = [list(parse_formula(sp).keys()) for sp in oxidants_and_reductants]
-        elements = flatten_list(elements)
-        elements = list(dict.fromkeys(elements))
-        
-        # get a dictionary of species and their elemental makeup:
-        # {'HNO3': {'H': 1.0, 'N': 1.0, 'O': 3.0, '-': 0, 'Fe': 0, 'C': 0, 'S': 0, '+': 0}, ...}
+        elements = [str(e) for e in list(periodictable.elements)[1:]]+['+','-']
         element_dictionary = dict()
-        for sp in oxidants_and_reductants:
-                element_dictionary[sp] = parse_formula(sp)
+        for i in formulas:
+                parsed_formula = parse_formula(i)
+                element_dictionary[i] = parsed_formula
                 for e in elements:
-                    if element_dictionary[sp].get(e, 0) == 0:
-                        element_dictionary[sp][e] = 0
+                    if element_dictionary[i].get(e, 0) == 0:
+                        element_dictionary[i][e] = 0
                         
         df_reax = pd.DataFrame() # empty df of reactions
         df_reax['rO_coeff'] = ''
@@ -3374,17 +3394,18 @@ class AqEquil:
         df_reax['pR_coeff'] = ''
         df_reax['pR'] = ''
         df_reax['Reaction'] = ''
+        df_reax['redox_pair'] = ''
         index = 0
 
         reaction = [] 
-        indices = np.arange(0, len(df['Oxidant_1']), 1).tolist()*2 # how to loop back through the redox pairs to not run into out-of-range index
+        indices = np.arange(0, len(Oxidant_1), 1).tolist()*2 # how to loop back through the redox pairs to not run into out-of-range index
         rxn_num = 0 # counting unique reactions
         rxn_list = [] # list of unique reactions
         rxn_names = []
         rxn_pairs = [] # list of paired half reactions
 
-        for i in range(0, len(df['Oxidant_1']),1): # length of redox pairs - columns
-            for n in range(0, len(df['Oxidant_1']), 1):
+        for i in range(0, len(Oxidant_1),1): # length of redox pairs - columns
+            for n in range(0, len(Oxidant_1), 1):
                 if Reductant_1[i] == Reductant_1[indices[i+n]] or Reductant_1[i] == Reductant_2[indices[i+n]]: # if both reductants are the same thing, skip
                     continue
                 if Oxidant_1[i] == Oxidant_1[indices[i+n]] or Oxidant_1[i] == Oxidant_2[indices[i+n]] or Oxidant_1[i] == Oxidant_3[indices[i+n]]:
@@ -3461,9 +3482,6 @@ class AqEquil:
                         rxn_pairs.append([i, indices[i+n]])
                         index +=1
         
-#         rxn_pairs_orig = [[redox_pairs[pair[0]], redox_pairs[pair[1]]] for pair in rxn_pairs]
-#         self.rxn_pairs_main = np.unique(np.array(rxn_pairs_orig), axis=0).tolist()
-        
         df_reax['Reaction'] = rxn_list
         df_reax['Names'] = rxn_names
         df_reax['Temp_Pairs'] = rxn_pairs
@@ -3486,40 +3504,46 @@ class AqEquil:
         ### BALANCING NON-O, H ELEMENTS
         for r in range(0, len(df_reax['rO'])):
             count = 0 #to restart the loop through the elements
-            temp_rO_coeff = [1] *4 #C, N, S, Fe
-            temp_rR_coeff = [1] *4 #C, N, S, Fe
-            temp_pO_coeff = [1] *4 #C, N, S, Fe
-            temp_pR_coeff = [1] *4 #C, N, S, Fe
-            for e in ['C','N','S','Fe']:
-                temp1 = int(element_dictionary[df_reax['rO'][r]][e]) #count for the element in the list for rO at index r
-                temp2 = int(element_dictionary[df_reax['pR'][r]][e])
-                temp3 = int(element_dictionary[df_reax['rR'][r]][e])
-                temp4 = int(element_dictionary[df_reax['pO'][r]][e])
-                if temp1 == temp2:
-                    temp_rO_coeff[count] = 1
-                    temp_pR_coeff[count] = 1
-                if temp1 != temp2:
-                    if temp1 ==0:
+            temp_rO_coeff = [1] *(len(elements)-4) #loop through all elements except O, H, +, and -
+            temp_rR_coeff = [1] *(len(elements)-4) #loop through all elements except O, H, +, and -
+            temp_pO_coeff = [1] *(len(elements)-4) #loop through all elements except O, H, +, and -
+            temp_pR_coeff = [1] *(len(elements)-4) #loop through all elements except O, H, +, and -
+
+            
+            for e in elements:
+                if e in ['O','H','+','-']:
+                    continue
+                else:
+            
+                    temp1 = int(element_dictionary[df_reax['rO'][r]][e]) #count for the element in the list for rO at index r
+                    temp2 = int(element_dictionary[df_reax['pR'][r]][e])
+                    temp3 = int(element_dictionary[df_reax['rR'][r]][e])
+                    temp4 = int(element_dictionary[df_reax['pO'][r]][e])
+                    if temp1 == temp2:
                         temp_rO_coeff[count] = 1
-                    if temp1 != 0:
-                        temp_rO_coeff[count] = np.lcm(temp1,temp2)/temp1
-                    if temp2 == 0:
                         temp_pR_coeff[count] = 1
-                    if temp2 != 0:
-                        temp_pR_coeff[count] = np.lcm(temp1,temp2)/temp2
-                if temp3 == temp4:
-                    temp_rR_coeff[count] = 1
-                    temp_pO_coeff[count] = 1
-                if temp4 != temp3:
-                    if temp3 == 0:
+                    if temp1 != temp2:
+                        if temp1 ==0:
+                            temp_rO_coeff[count] = 1
+                        if temp1 != 0:
+                            temp_rO_coeff[count] = np.lcm(temp1,temp2)/temp1
+                        if temp2 == 0:
+                            temp_pR_coeff[count] = 1
+                        if temp2 != 0:
+                            temp_pR_coeff[count] = np.lcm(temp1,temp2)/temp2
+                    if temp3 == temp4:
                         temp_rR_coeff[count] = 1
-                    if temp3 != 0:
-                        temp_rR_coeff[count] = np.lcm(temp3,temp4)/temp3
-                    if temp4 == 0.0:
                         temp_pO_coeff[count] = 1
-                    if temp4 !=0.0:
-                        temp_pO_coeff[count] = np.lcm(temp3,temp4)/temp4
-                count +=1
+                    if temp4 != temp3:
+                        if temp3 == 0:
+                            temp_rR_coeff[count] = 1
+                        if temp3 != 0:
+                            temp_rR_coeff[count] = np.lcm(temp3,temp4)/temp3
+                        if temp4 == 0.0:
+                            temp_pO_coeff[count] = 1
+                        if temp4 !=0.0:
+                            temp_pO_coeff[count] = np.lcm(temp3,temp4)/temp4
+                    count +=1
             df_reax.loc[r, 'rO_coeff'] = -max(temp_rO_coeff)
             df_reax.loc[r, 'rR_coeff'] = -max(temp_rR_coeff)
             df_reax.loc[r, 'pR_coeff'] = max(temp_pR_coeff)
@@ -3677,99 +3701,121 @@ class AqEquil:
                     all_reax.loc[temp-0.5,'rR_2_coeff'] = rR_coeff/2
 
         all_reax = all_reax.sort_index().reset_index(drop=True)
+        
         pair_list = []
         for i in range(0, len(all_reax['Temp_Pairs'])):
             pair_list.append([redox_pairs[all_reax.loc[i, 'Temp_Pairs'][0]], redox_pairs[all_reax.loc[i, 'Temp_Pairs'][1]]])
         all_reax['pairs'] = pair_list
 
+        new_elements = []
+        for r in range(0, len(all_reax['rO'])):
+            for e in elements:
+                if e in ['O','H','+','-']:
+                    continue
+                else:
+                    temp1 = int(element_dictionary[all_reax['rO'][r]][e]) #count for the element in the list for rO at index r
+                    temp2 = int(element_dictionary[all_reax['pR'][r]][e])
+                    temp3 = int(element_dictionary[all_reax['rR'][r]][e])
+                    temp4 = int(element_dictionary[all_reax['pO'][r]][e])
+                    if temp1 != temp2:
+                        if temp1 ==0:
+                            all_reax.loc[r, 'red_'+e+'_coeff'] = -temp2
+                            elmnt = basis_df.loc[basis_df['name'].str.contains(e)]['formula'].tolist()[0]
+                            all_reax.loc[r, 'red_'+e] = elmnt
+                            if elmnt not in new_elements:
+                                new_elements.append(elmnt)
+                        if temp2 == 0:
+                            all_reax.loc[r, 'red_'+e+'_coeff'] = temp1
+                            elmnt = basis_df.loc[basis_df['name'].str.contains(e)]['formula'].tolist()[0]
+                            all_reax.loc[r, 'red_'+e] = elmnt
+                            if elmnt not in new_elements:
+                                new_elements.append(elmnt)
+                    if temp4 != temp3:
+                        if temp3 == 0:
+                            all_reax.loc[r, 'ox_'+e+'_coeff'] = -temp4
+                            elmnt = basis_df.loc[basis_df['name'].str.contains(e)]['formula'].tolist()[0]
+                            all_reax.loc[r, 'ox_'+e] = elmnt
+                            if elmnt not in new_elements:
+                                new_elements.append(elmnt)
+                        if temp4 == 0.0:
+                            all_reax.loc[r, 'ox_'+e+'_coeff'] = temp3
+                            elmnt = basis_df.loc[basis_df['name'].str.contains(e)]['formula'].tolist()[0]
+                            all_reax.loc[r, 'ox_'+e] = elmnt
+                            if elmnt not in new_elements:
+                                new_elements.append(elmnt)
+
+
+        for i in new_elements:
+                parsed_formula = parse_formula(i)
+                element_dictionary[i] = parsed_formula
+                for e in elements:
+                    if element_dictionary[i].get(e, 0) == 0:
+                        element_dictionary[i][e] = 0
+
         reax = all_reax.copy(deep=True)
         reax.drop('Temp_Pairs', axis=1, inplace=True)
         reax.drop('pairs', axis=1, inplace=True)
         reax.reset_index(drop=True, inplace=True)
-        for s in ['Fe', 'O', 'H','-','+']:
+        for s in ['O', 'H','-','+']:
             for i in range(0,len(reax['rO'])):
+        #     for i in range(0,1):
+                red = 0
+                ox=0
+                for j in reax.columns.tolist():
+                    if '_coeff' in j:
+                        if 'rO_' in j or 'pR_' in j or 'red_' in j:
+                            if str(reax[j][i]) != 'nan' and str(reax[j][i]) != '':
+                                red_temp_coeff = reax[j][i]
+                                red_temp = element_dictionary[reax[j.split('_coeff')[0]][i]][s]
+                                red -= red_temp_coeff*red_temp
 
-                ### assigning temporary values to each species
-                temp_rO_coeff = reax['rO_coeff'][i]
-                temp_rO = element_dictionary[reax['rO'][i]][s]
-                if reax['rO_2_coeff'][i] != '':
-                    temp_rO_2_coeff = reax['rO_2_coeff'][i]
-                    temp_rO_2 = element_dictionary[reax['rO_2'][i]][s]
-                else:
-                    temp_rO_2_coeff = 0 
-                    temp_rO_2 = 0 
-                if reax['rO_3_coeff'][i] != '':
-                    temp_rO_3_coeff = reax['rO_3_coeff'][i]
-                    temp_rO_3 = element_dictionary[reax['rO_3'][i]][s]
-                else:
-                    temp_rO_3_coeff = 0
-                    temp_rO_3 = 0
-                temp_rR_coeff = reax['rR_coeff'][i]
-                temp_rR = element_dictionary[reax['rR'][i]][s]
-                if reax['rR_2_coeff'][i] != '':
-                    temp_rR_2_coeff = reax['rR_2_coeff'][i]
-                    temp_rR_2 = element_dictionary[reax['rR_2'][i]][s]
-                else:
-                    temp_rR_2_coeff = 0
-                    temp_rR_2 = 0
-                temp_pO_coeff = reax['pO_coeff'][i]
-                temp_pO = element_dictionary[reax['pO'][i]][s]
-                temp_pR_coeff = reax['pR_coeff'][i]
-                temp_pR = element_dictionary[reax['pR'][i]][s]
+                        if 'rR_' in j or 'pO_' in j or 'ox_' in j:
+                            if str(reax[j][i]) != 'nan' and str(reax[j][i]) != '':
+                                ox_temp_coeff = reax[j][i]
+                                ox_temp = element_dictionary[reax[j.split('_coeff')[0]][i]][s]
+                                ox -= ox_temp_coeff*ox_temp      
 
-                r = 0-(temp_rO*temp_rO_coeff+temp_pR*temp_pR_coeff+temp_rO_2*temp_rO_2_coeff+temp_rO_3*temp_rO_3_coeff)
-                o = 0-(temp_rR*temp_rR_coeff+temp_rR_2*temp_rR_2_coeff+temp_pO*temp_pO_coeff)
-                reax.loc[i, 'r_'+s] = r
-                reax.loc[i, 'o_'+s] = o
+                reax.loc[i, 'r_'+s] = red
+                reax.loc[i, 'o_'+s] = ox
 
         reax['r_H'] = reax['r_H'] - 2*reax['r_O']
         reax['o_H'] = reax['o_H'] - 2*reax['o_O']
-        reax['r_+'] = reax['r_+'] - 2*reax['r_Fe'] - reax['r_H']
-        reax['o_+'] = reax['o_+'] - 2*reax['o_Fe'] - reax['o_H']
+        reax['r_+'] = reax['r_+'] - reax['r_H']
+        reax['o_+'] = reax['o_+'] - reax['o_H']
         reax['r_e-'] = reax['r_+'] - reax['r_-'] 
         reax['o_e-'] = reax['o_+'] - reax['o_-'] 
-        reax.rename({'r_Fe': 'r_Fe+2', 'r_O': 'r_H2O', 'r_H': 'r_H+', 'o_Fe': 'o_Fe+2', 'o_O': 'o_H2O', 'o_H': 'o_H+'}, axis=1, inplace = True)
-
+        reax.rename({'r_O': 'r_H2O', 'r_H': 'r_H+', 'o_O': 'o_H2O', 'o_H': 'o_H+'}, axis=1, inplace = True)
+        
         ### MULTIPLYING SUB-REACTIONS
         lcm_charge = []
         electrons = []
         for i in range(0, len(reax['rO'])):
-        # # for i in range(0, 10):
+        # for i in range(0, 1):
             lcm_charge = np.lcm(round(reax['r_e-'][i]), round(reax['o_e-'][i]))
             electrons.append(str(lcm_charge)+'e')
             r_multiplier = abs(lcm_charge/int(reax['r_e-'][i]))
             o_multiplier = abs(lcm_charge/int(reax['o_e-'][i]))
-            for r in ['rO_coeff', 'pR_coeff', 'r_H2O', 'r_Fe+2', 'r_H+']:
-                reax.loc[i, r] = reax.loc[i, r]*r_multiplier
-            for o in ['rR_coeff', 'pO_coeff', 'o_H2O', 'o_Fe+2', 'o_H+']:
-                reax.loc[i, o] = reax.loc[i, o]*o_multiplier
-            if reax.loc[i, 'rO_2_coeff'] != '':
-                reax.loc[i, 'rO_2_coeff'] = reax.loc[i, 'rO_2_coeff']*r_multiplier
-            if reax.loc[i, 'rO_3_coeff'] != '':
-                reax.loc[i, 'rO_3_coeff'] = reax.loc[i, 'rO_3_coeff']*r_multiplier
-            if reax.loc[i, 'rR_2_coeff'] != '':
-                reax.loc[i, 'rR_2_coeff'] = reax.loc[i, 'rR_2_coeff']*o_multiplier
-
+            for s in list(reax.columns):
+                if ('red_' in s and 'coeff' in s) or ('rO_' in s and 'coeff' in s) or ('pR_' in s and 'coeff' in s) or 'r_H2O' in s or 'r_H+' in s:
+                    reax.loc[i, s] = reax.loc[i, s]*int(r_multiplier )
+                if ('ox_' in s and 'coeff' in s) or ('rR_' in s and 'coeff' in s) or ('pO_' in s and 'coeff' in s) or 'o_H2O' in s or 'o_H+' in s:
+                    reax.loc[i, s] = reax.loc[i, s]*int(o_multiplier)
         reax['H+'] = reax['r_H+'] + reax['o_H+']
         reax['protons'] = 'H+'
         reax['H2O'] = reax['r_H2O'] + reax['o_H2O']
         reax['water'] = 'H2O'
-        reax['Fe+2'] = reax['r_Fe+2'] + reax['o_Fe+2']
-        reax['iron'] = 'Fe+2'
-        reax.drop(columns = ['r_Fe+2', 'r_H2O', 'r_H+', 'r_-', 'r_+', 'r_e-', 'o_Fe+2', 'o_H2O', 'o_H+', 'o_-', 'o_+', 'o_e-'], axis=1, inplace=True)
+        reax.drop(columns = ['r_H2O', 'r_H+', 'r_-', 'r_+', 'r_e-', 'o_H2O', 'o_H+', 'o_-', 'o_+', 'o_e-'],axis = 1, inplace = True)
 
-        old_new_dict = {'SO4-2':'SO4-2', 'HSO4-':'HSO4-','FeS2':'pyrite',
-                        'H2S':'H2S', 'H2O':'H2O', 'O2':'O2', 'H2':'H2',
-                        'Fe2O3':'hematite','Fe3O4':'magnetite', 'CO2':'CO2',
-                        'CH4':'METHANE', 'HCO3-':'HCO3-','CO3-2':'CO3-2',
-                        'NH3':'NH3', 'NH4+':'NH4+', 'NO2-':'NO2-', 'HNO2':'HNO2',
-                        'NO3-':'NO3-', 'HNO3':'HNO3', 'S':'sulfur',
-                        'FeOOH':'goethite', 'CO':'CO', 'H+':'H+', 'Fe+2':'Fe+2',
-                        'HS-':'HS-'}
-        
-        old_new_dict = {old:'start'+new+'end' for old,new in zip(old_new_dict.keys(), old_new_dict.values())}
+        count = 0
+        for i in db_names:
+            db_names[count] = 'start'+i+'end'
+            count += 1
 
-        real_reax = reax.replace(old_new_dict.keys(), old_new_dict.values())
+        real_reax = reax.replace(formulas,db_names)
+        real_reax['rO_coeff'] = real_reax['rO_coeff'].astype('float') 
+        real_reax['rR_coeff'] = real_reax['rR_coeff'].astype('float') 
+        real_reax['pO_coeff'] = real_reax['pO_coeff'].astype('float') 
+        real_reax['pR_coeff'] = real_reax['pR_coeff'].astype('float') 
         
         count = 0
         rxn_count = []
@@ -3778,14 +3824,11 @@ class AqEquil:
         for i in real_reax['Reaction']:
             if i not in rxn_count:
                 rxn_count.append(i)
-                rxn_number.append(real_reax['Names'][count])
-                name_count = 1
+                rxn_number.append(real_reax['Names'][count]+ '_'+str(count))
             else:
-                rxn_number.append(real_reax['Names'][count]+ '_'+str(name_count)+'_sub')
-                name_count += 1
+                rxn_number.append(real_reax['Names'][count]+ '_'+str(count)+'_sub')
             count += 1
         real_reax.insert(0, 'Reaction Number', rxn_number)
-        # # real_reax.insert(1, 'electrons', '1e')
         real_reax.insert(1, 'electrons', electrons)
 
         lst3 = [] #list of reaction numbers
@@ -3804,23 +3847,37 @@ class AqEquil:
 
         real_reax.drop(labels='Reaction', axis=1, inplace = True)
         real_reax.drop(columns = 'Names', inplace = True)
+        pairs = real_reax['redox_pair']
+        real_reax.drop(columns = 'redox_pair', inplace = True)
         
         #real_reax.to_csv('template.txt', sep ='\t', header=False, index=False)
         file = real_reax.to_csv(sep='\t', header=False, index=False, line_terminator='\n')
         file = file.split("\n")
 
         # Formatting species to preserve charges while using regex package
-        new2 = []
-        for i in old_new_dict.values():
+        new = []
+        for i in db_names:
             i = i.replace('+','\+')
             i = i.replace('-','\-')
-            new2.append(i)
+            new.append(i)
 
         newlines = []
         for line in file:        
             line = line.strip()
 
-            for s in new2:
+            for o in re.findall('(\d+\.\d+)\t', line):
+                if '.9999' in o:
+                    line = line.replace(o, str(round(float(o))))
+
+            for p in re.findall('\d+(\.\d+)\t', line):
+                if '.4999' in p:
+                    line = line.replace(p, '.5')
+
+            for q in re.findall('\t(\S*\d+\.\d+\w\S\d+)\t', line):
+                if abs(float(q)) < 0.0001:
+                    line = line.replace(q , '0')
+
+            for s in new:
                 number = 0
                 match = re.findall('\W+\d+\.\d+\t'+s, line)
                 if len(match) > 1:
@@ -3837,7 +3894,10 @@ class AqEquil:
                 if len(new_match) > 0:
                     for n in new_match:
                         line = line.replace(n, '')
-            line = re.sub('\t+', '\t', line)
+            line = line.replace('\t'+'\t', '\t')
+            line = line.replace('\t'+'\t', '\t')
+            line = line.replace('\t'+'\t', '\t')
+            line = line.replace('\t'+'\t', '\t')
             line = line.replace('\t0.0\tH\t', '\t')
             line = line.replace('\tH\t','\tH+\t')
             line = line.replace('\\', '')      
@@ -3853,22 +3913,6 @@ class AqEquil:
         df_rxn = df_rxn.set_index("reaction_name")
         df_rxn = df_rxn[df_rxn['mol_e-_transferred_per_mol_rxn'].notna()]
         self.affinity_energy_reactions_table = df_rxn
-
-#         rxn_pairs_all = []
-#         n = 0
-#         prev_was_sub = False
-#         for i, rxn in enumerate(self.affinity_energy_reactions_table.index.tolist()):
-#             if "_sub" not in rxn[-4:]:
-#                 if prev_was_sub:
-#                     n += 1
-#                     prev_was_sub = False
-#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
-#             else:
-#                 rxn_pairs_all.append(self.rxn_pairs_main[n])
-#                 prev_was_sub = True
-#         self.rxn_pairs_all = rxn_pairs_all
-        
-#         self.affinity_energy_reactions_table.insert(0, "redox_pairs", rxn_pairs_all)
         
         prev_was_coeff = False
         n = 1
@@ -3886,6 +3930,7 @@ class AqEquil:
         if self.verbose != 0:
             print("{} redox reactions have been generated.".format(len(nonsub_reaction_names)))
         
+        ###STOP COPYING HERE      
         
     def show_redox_reactions(self, formatted=True, charge_sign_at_end=False,
                                   hide_subreactions=True, simplify=True,
