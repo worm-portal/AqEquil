@@ -1194,7 +1194,8 @@ class Speciation(object):
         df = pd.melt(df, id_vars=["name", x], value_vars=y)
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
         
-        if (unit_type == "energy supply" or unit_type == "affinity") and self.reactions_for_plotting!=None:
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
+            
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
@@ -1699,7 +1700,7 @@ class AqEquil:
         self.eq36co = eq36co
         self.df_input_processed = None
         
-        half_rxn_data = pkg_resources.resource_stream(__name__, "correct_names_input.csv")
+        half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
         self.redox_pairs = None
         self.affinity_energy_reactions_raw = None
@@ -3352,21 +3353,28 @@ class AqEquil:
         for column in list(df.columns)[1:]:
             for item in list(df[column]):
                 if item != 'nan':
-                    if item in list(wrm_data.name):
+                    if item in list(wrm_data.name) and isinstance(item, str):
                         index = wrm_data.loc[wrm_data['name'] == item].index[0]
                         formula = wrm_data.loc[wrm_data['name'] == item]['formula'][index]
                         df.replace(item, formula, inplace=True)
                         if item not in db_names:
                             db_names.append(item)
                             formulas.append(formula)
+                    elif item in list(wrm_data.abbrv) and isinstance(item, str):
+                        index = wrm_data.loc[wrm_data['abbrv'] == item].index[0]
+                        formula = wrm_data.loc[wrm_data['abbrv'] == item]['formula'][index]
+                        df.replace(item, formula, inplace=True)
+                        if item not in db_names:
+                            db_names.append(item)
+                            formulas.append(formula)
 
-        df.replace('sulfur', 'S', inplace = True) ### remove this eventually
-        db_names.append('sulfur') ### remove this eventually
-        formulas.append('S') ### remove this eventually
-        db_names.append('H+')
-        formulas.append('H+')
-        db_names.append('H2O')
-        formulas.append('H2O')
+        # append H+ and H2O to db for balancing
+        if not 'H+' in db_names:
+            db_names.append('H+')
+            formulas.append('H+')
+        if not 'H2O' in db_names:
+            db_names.append('H2O')
+            formulas.append('H2O')
         
         Oxidant_1 = df['Oxidant_1']
         Oxidant_2 = df['Oxidant_2']
@@ -4013,8 +4021,6 @@ class AqEquil:
                 coeffs = copy.copy(rxn[::2]).tolist()
                 names = copy.copy(rxn[1::2]).tolist()
                 
-#                 print(rxn.name)
-                
                 if oxidant_sigma_needed or reductant_sigma_needed:
 
                     reactant_names = [names[i] for i in range(0, len(names)) if float(coeffs[i]) < 0]
@@ -4023,8 +4029,9 @@ class AqEquil:
                             i = names.index(sp)
                             names[i] = u"\u03A3"+sp
                         if sp in reductants and reductant_sigma_needed:
-                            i = names.index(sp)
-                            names[i] = u"\u03A3"+sp
+                            if u"\u03A3"+sp not in names:
+                                i = names.index(sp)
+                                names[i] = u"\u03A3"+sp
                     
                 react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
                 react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
