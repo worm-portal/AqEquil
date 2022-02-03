@@ -3427,7 +3427,7 @@ class AqEquil:
                     index+=1
 
                 # REACTIONS INVOLVING OTHER PH-DEPENDENT SPECIES
-                if pd.isnull(Oxidant_2[i]) != True:
+                if pd.isnull(Oxidant_2[i]) != True and Oxidant_2[i] != Reductant_2[indices[i+n]]:
                     reaction.append(Oxidant_2[i] + ' \t ' + Reductant_1[indices[i+n]] + '=' + Reductant_1[i] + ' \t ' + Oxidant_1[indices[i+n]])
                     rxn_list.append(rxn_num)
                     rxn_names.append('red_'+Oxidant_1[i]+'_'+Reductant_1[i]+'_ox_'+Reductant_1[indices[i+n]]+'_'+Oxidant_1[indices[i+n]])
@@ -3448,8 +3448,19 @@ class AqEquil:
                         df_reax.loc[index, 'pO'] = Oxidant_1[indices[i+n]]
                         rxn_pairs.append([i, indices[i+n]])
                         index +=1
+                        
+                if pd.isnull(Oxidant_2[i]) != True and Oxidant_2[i] == Reductant_2[indices[i+n]]:
+                    reaction.append(Oxidant_2[i] + ' \t ' + Reductant_2[indices[i+n]] + '=' + Reductant_1[i] + ' \t ' + Oxidant_1[indices[i+n]])
+                    rxn_list.append(rxn_num)
+                    rxn_names.append('red_'+Oxidant_1[i]+'_'+Reductant_1[i]+'_ox_'+Reductant_1[indices[i+n]]+'_'+Oxidant_1[indices[i+n]])
+                    df_reax.loc[index, 'rO'] = Oxidant_2[i]
+                    df_reax.loc[index, 'rR'] = Reductant_2[indices[i+n]]
+                    df_reax.loc[index, 'pR'] = Reductant_1[i]
+                    df_reax.loc[index, 'pO'] = Oxidant_1[indices[i+n]]
+                    rxn_pairs.append([i, indices[i+n]])
+                    index +=1
 
-                if pd.isnull(Reductant_2[indices[i+n]]) != True:
+                if pd.isnull(Reductant_2[indices[i+n]]) != True and Oxidant_2[i] != Reductant_2[indices[i+n]]:
                     reaction.append(Oxidant_1[i] + ' \t ' + Reductant_2[indices[i+n]] + '=' + Reductant_1[i] + ' \t ' + Oxidant_1[indices[i+n]])
                     rxn_list.append(rxn_num)
                     rxn_names.append('red_'+Oxidant_1[i]+'_'+Reductant_1[i]+'_ox_'+Reductant_1[indices[i+n]]+'_'+Oxidant_1[indices[i+n]])
@@ -3679,22 +3690,26 @@ class AqEquil:
                     if rR_2 != '': #IF THERE ARE TWO REDUCTANT OPTIONS
                         all_reax.loc[temp-0.5,'rR_coeff'] = rR_coeff/2
                         all_reax.loc[temp-0.5,'rR_2_coeff'] = rR_coeff/2
+                        
+                        if rR_2 == rO_2:
+                            continue
+                        else:
 
-                        all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR
-                        all_reax.loc[temp-0.4, 'rR_2_coeff'] = 0
-                        all_reax.loc[temp-0.4, 'rR_coeff'] = rR_coeff
+                            all_reax.loc[temp-0.4] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR
+                            all_reax.loc[temp-0.4, 'rR_2_coeff'] = 0
+                            all_reax.loc[temp-0.4, 'rR_coeff'] = rR_coeff
 
-                        all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2
-                        all_reax.loc[temp-0.3, 'rR_2_coeff'] = rR_coeff
-                        all_reax.loc[temp-0.3, 'rR_coeff'] = 0
+                            all_reax.loc[temp-0.3] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rR_2
+                            all_reax.loc[temp-0.3, 'rR_2_coeff'] = rR_coeff
+                            all_reax.loc[temp-0.3, 'rR_coeff'] = 0
 
-                        all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO_2
-                        all_reax.loc[temp-0.2, 'rO_2_coeff'] = rO_coeff
-                        all_reax.loc[temp-0.2, 'rO_coeff'] = 0
+                            all_reax.loc[temp-0.2] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO_2
+                            all_reax.loc[temp-0.2, 'rO_2_coeff'] = rO_coeff
+                            all_reax.loc[temp-0.2, 'rO_coeff'] = 0
 
-                        all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO
-                        all_reax.loc[temp-0.1, 'rO_2_coeff'] = 0
-                        all_reax.loc[temp-0.1, 'rO_coeff'] = rO_coeff
+                            all_reax.loc[temp-0.1] = all_reax.loc[temp-0.5] #NEW ROW WITH ONLY rO
+                            all_reax.loc[temp-0.1, 'rO_2_coeff'] = 0
+                            all_reax.loc[temp-0.1, 'rO_coeff'] = rO_coeff
 
                 if rO_2 == '' and rO_3 == '' and rR_2 != '': # IF THERE IS ONLY ONE OXIDANT BUT TWO REDUCTANTS
                     all_reax.loc[temp-0.5,'rR_coeff'] = rR_coeff/2
