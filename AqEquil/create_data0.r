@@ -1181,7 +1181,9 @@ create_data0 <- function(thermo_df,
                             c(-2, 1, 4, 4),
                             c("liq", "gas", "aq", "aq"),
                             T=grid_temps,
-                            P=grid_press)$out$logK
+                            P=grid_press,
+                            exceed.rhomin=TRUE,
+                            exceed.Ttr=TRUE)$out$logK
   })
 
   logk_grid_f <- as.character(format(round(logK_Eh_vals, 4), nsmall = 4))
