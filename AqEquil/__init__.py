@@ -1,1 +1,2 @@
-from .AqSpeciation import AqEquil, load, compare, test
+from .AqSpeciation import AqEquil, load, compare
+from .HKF_cgl import calc_logK
