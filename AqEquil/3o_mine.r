@@ -908,10 +908,13 @@ main_3o_mine <- function(files_3o,
                          df_input_processed,
                          df_input_processed_names,
                          custom_obigt,
+                         water_model,
                          verbose){
     
   start_time <- Sys.time()
-    
+
+  water(water_model)
+
   # allow user to add their custom data as an OBIGT
   if(!is.null(custom_obigt)){
     custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)

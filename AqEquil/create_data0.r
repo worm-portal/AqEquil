@@ -31,39 +31,10 @@ fillspace <- function(str, nspaces, spaces_after=TRUE){
 # e.g. 12.433 becomes "12.4330" if k=4
 s_d <- function(x, k) trimws(format(round(x, k), nsmall=k, scientific=F))
 
-# calc_bdot <- function(T){
-#   # Calculate bdot parameter at a given temperature.
-
-#   # GB notes:
-#   # The equation used by dbcreate to approximate the curve in Fig 3
-#   # of Helgeson 1969 results in numbers that are close to, but not
-#   # exactly the same as those in data0.jus:
-
-#   # Bdot parameter grid:
-#   #  0.0376   0.0443   0.0505   0.0529   0.0479   0.0322   0.0000   0.0000  # from dbcreate
-#   #  0.0374   0.0430   0.0460   0.0470   0.0470   0.0340   0.0000   0.0000  # from data0.jus
-
-#   # Close but not exact! data0.jus is closer to what is depicted in Fig 3 of Helgeson 1969.
-#   # Not sure what other equation to use, though. Will keep the dbcreate equation for now.
-#   # TODO: look into alternative equations.
-
-#   b1 <-  0.0374
-#   b2 <-  1.3569e-4
-#   b3 <-  2.6411e-7
-#   b4 <- -4.6103e-9  
-
-#   result <- b1 + b2*T + b3*(T-25.0)^2 + b4*(T-25.0)^3
-
-#   return(ifelse(T >= 300, 0, result))
-
-# }
 
 # main function
 create_data0 <- function(thermo_df,
-#                          dissrxn_logK,
                          filename_ss=NULL,
-#                          grid_temps,
-#                          grid_press,
                          db,
                          water_model,
                          template,
@@ -73,32 +44,8 @@ create_data0 <- function(thermo_df,
                          fixed_species=c("H2O", "H+", "O2(g)", "water", "Cl-", "e-"),
                          verbose){
     
-  # Start the clock!
-  ptm <- proc.time()
-    
   # set water model
   water(water_model)
-    
-  print(paste("\t set water model (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-    
-#   # remove duplicate rows (e.g., for mineral polymorphs)
-#   dissrxn_logK = dissrxn_logK[!duplicated(dissrxn_logK$name),]
-
-  print(paste("\t remove duplicates (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-    
-#   # make sure the TP grid is in the correct form, esp. for single TP values
-#   grid_temps <- unlist(grid_temps)
-#   grid_press <- unlist(grid_press)
-#   grid_temps_original <- grid_temps
-#   if(length(grid_temps) == 1){
-#     grid_temps <- grid_temps + 0:7 # only the first T value is valid, but this is needed for EQ3
-#     grid_press <- rep(grid_press, 8)
-#   }
-    
-  print(paste("\t ensure TP is correct form (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
     
   # initialize lists and vectors
   azero_vec <- c()
@@ -150,9 +97,6 @@ create_data0 <- function(thermo_df,
       tag_vec <- c(tag_vec, tag_temp)
   }
     
-  print(paste("\t row lookups (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-    
 
   if(!is.null(filename_ss)){
     ss_params <- read.csv(filename_ss, stringsAsFactors=FALSE)
@@ -171,9 +115,6 @@ create_data0 <- function(thermo_df,
   # initialize a vector to store names of species that must be skipped
   # due to one or more NA in its dissrxn logK grid
   skipped_species <- c()
-
-  print(paste("\t read ss csv and gsub data0.min (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
     
   # loop through species in OBIGT file
   for(idx in 1:nrow(thermo_df)){
@@ -261,57 +202,14 @@ create_data0 <- function(thermo_df,
 
     n_species <- length(species_name_list)
 
-      
-#     # format the logK reaction block of this species' data0 entry
-#     # This is done within a tryCatch() in case this fails.
-#     logK_grid <- rep(0, 8)
-#     tryCatch({
-
-#       if(thermo_df[thermo_df[, "name"] == entry$name, "tag"] != "basis"){
-#         logK_grid <- as.vector(dissrxn_logK[dissrxn_logK[, "name"] == entry$name, 2:9])
-#       }
-#       # if the logK grid can't be assigned, assign a logK grid of zeros
-#       }, error=function(e){
-#         vmessage(paste0("Warning: CHNOSZ is unable to calculate a logK grid ",
-#                         "for the formation reaction of ", name,
-#                         ". A logK grid of zeros will be output."), 1, verbose)
-#         logK_grid <<- rep(0, length(grid_temps)) # assign global variable with <<- because this is within tryCatch's error function
-#     })
     nchar <- 25 # spaces taken by entries in dissociation reaction (25 char)
-#     if(TRUE %in% is.na(logK_grid)){
-#       skipped_species <- c(skipped_species, species_name_list[1])
-#       vmessage(paste0("WARNING: One or more missing values are present in the logK grid calculated for ", species_name_list[1], ". This species will be skipped."), 1, verbose)
-#       next
-#     }
+
     # convert species names to their data0 counterparts
     for(species in species_name_list){
       if(species %in% names(CHNOSZ_data0_name_diff)){
         species_name_list[which(species_name_list == species)] <- CHNOSZ_data0_name_diff[species]
       }
     }
-      
-#     # loop through logK values and format for data0
-#     logK_list <- c()
-#     for(i in 1:length(logK_grid)){
-#       logK_val <- s_d(logK_grid[i], 4)
-#       # conditional formatting based on position
-#       if(i == 1 | i %% 5 == 0){ # first entry of a line
-#         max_length <- 11
-#         end_char <- ""
-#       }else if(i %% 4 == 0 && i != length(logK_grid)){ # last entry of a line
-#         max_length <- 6
-#         end_char <- "\n"
-#       } else {
-#         max_length <- 6
-#         end_char <- ""
-#       }
-#       # get decimal position and format spaces accordingly
-#       decimal_position <- gregexpr(pattern ='\\.', logK_val)[[1]]
-#       logK_val <- paste0(paste(rep(" ", max_length-decimal_position), collapse=""), logK_val, end_char)
-#       # append to logk list
-#       logK_list <- c(logK_list, logK_val)
-#     }
-#     logK_list <- paste(logK_list, collapse="")
     
     logK_list <- paste0("logK_grid_", name, "")
       
@@ -409,9 +307,6 @@ create_data0 <- function(thermo_df,
       
     vmessage(paste0("'", name, "' processed successfully."), 2, verbose)
   }
-
-  print(paste("\t format species (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
     
   # handle basis species
   basis_entry_template <- "+--------------------------------------------------------------------\n%s\n    date last revised =  %s\n keys   = basis            active\n     charge  =   %s\n     %s element(s):\n%s"
@@ -468,9 +363,6 @@ create_data0 <- function(thermo_df,
     data0_template <- sub(basis_insertline_regex, paste0(basis_entry, "\n", basis_insertline), data0_template)
   }
 
-  print(paste("\t handle basis species (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-
   # handle elements
 
   # check for elements not already in data0.min template and append
@@ -503,10 +395,6 @@ create_data0 <- function(thermo_df,
   data0_template <- sub("elements\n\\+-+\n.*\n\\+-+\nbasis species",
                         paste0("elements\n+--------------------------------------------------------------------", elem_block, "\n+--------------------------------------------------------------------\nbasis species"),
                         data0_template)
-
-
-  print(paste("\t handle elements (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
     
 
   vmessage("Handling solid solutions...", 2, verbose)
@@ -626,9 +514,6 @@ create_data0 <- function(thermo_df,
     vmessage("No solid solutions supplied. Moving on...", 2, verbose)
   }
 
-  print(paste("\t handle solid solutions (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-
   # format basis and non-basis species for bdot parameter section
   bdot_formatted <- c()
   for(i in 1:length(azero_vec)){
@@ -654,146 +539,7 @@ create_data0 <- function(thermo_df,
 
       }
   }
-    
-  print(paste("\t format species for bdot param section (create_data0):", (proc.time() - ptm)[3]))
-  ptm <- proc.time()
-    
-#   # calculate debye huckel a and b parameters for the grid
-#   if(length(grid_temps_original) == 8){
-#     A_DH_grid <- unlist(water("A_DH", T=273.15+grid_temps, P=grid_press))
-#     B_DH_grid <- unlist(water("B_DH", T=273.15+grid_temps, P=grid_press)*10^-8)
-#   }else if(length(grid_temps_original) == 1){
-#     A_DH_grid <- unlist(water("A_DH", T=273.15+grid_temps[1], P=grid_press[1]))
-#     A_DH_grid <- c(A_DH_grid, rep(0, 7))
-#     B_DH_grid <- unlist(water("B_DH", T=273.15+grid_temps[1], P=grid_press[1])*10^-8)
-#     B_DH_grid <- c(B_DH_grid, rep(0, 7))
-#   }
 
-#   print(paste("\t calculate debye huckel params (create_data0):", (proc.time() - ptm)[3]))
-#   ptm <- proc.time()
-      
-#   # format grid values
-#   grid_temps_f <- as.character(format(round(grid_temps, 4), nsmall = 4, scientific=F))
-#   grid_press_f <- as.character(format(round(grid_press, 4), nsmall = 4, scientific=F))
-#   A_DH_grid_f <- as.character(format(round(A_DH_grid, 4), nsmall = 4, scientific=F))
-#   B_DH_grid_f <- as.character(format(round(B_DH_grid, 4), nsmall = 4, scientific=F))
-
-#   # calculate bdot parameter
-#   if(length(grid_temps_original) == 1){
-#     bdot_grid_f <- c(as.character(format(round(calc_bdot(grid_temps[1]), 4), nsmall = 4, scientific=F)), rep("0.0000", 7))
-#   }else{
-#     bdot_grid_f <- as.character(format(round(calc_bdot(grid_temps), 4), nsmall = 4, scientific=F))
-#   }
-
-#   print(paste("\t calculate bdot params (create_data0):", (proc.time() - ptm)[3]))
-#   ptm <- proc.time()
-    
-  # cco2 (coefficients for the drummond (1981) polynomial)
-  # GB note: might not change with T or P?
-  # Examination of various data0 files seems to indicate that DBcreate does not change these values.
-
-#   # Calculate the "log k for eh reaction" grid.
-#   # From eq. 9 in EQPT (version 7.0) user manual, part 2, by Wolery:
-#   if(length(grid_temps_original) == 8){
-#     logK_Eh_vals <- subcrt(c("H2O", "O2", "e-", "H+"),
-#                            c(-2, 1, 4, 4),
-#                            c("liq", "gas", "aq", "aq"),
-#                            T=grid_temps,
-#                            P=round(grid_press, 9),
-#                            exceed.rhomin=TRUE,
-#                            exceed.Ttr=TRUE)$out$logK
-#   }else if(length(grid_temps_original) == 1){
-#     logK_Eh_vals <- subcrt(c("H2O", "O2", "e-", "H+"),
-#                            c(-2, 1, 4, 4),
-#                            c("liq", "gas", "aq", "aq"),
-#                            T=grid_temps[1],
-#                            P=round(grid_press[1], 9),
-#                            exceed.rhomin=TRUE,
-#                            exceed.Ttr=TRUE)$out$logK
-#     logK_Eh_vals <- c(logK_Eh_vals, rep(0, 7))
-#   }
-      
-#   logk_grid_f <- as.character(format(round(logK_Eh_vals, 4), nsmall = 4))
-
-#   print(paste("\t calculate logK Eh vals (create_data0):", (proc.time() - ptm)[3]))
-#   ptm <- proc.time()
-    
-#   tempgrid <- c("     ")
-#   presgrid <- c("     ")
-#   A_DHgrid <- c("     ")
-#   B_DHgrid <- c("     ")
-#   bdotgrid <- c("     ")
-#   logkgrid <- c("     ")
-#   for(i in 1:8){
-#       if(i == 5){
-#           tempgrid <- c(tempgrid, "\n     ")
-#           presgrid <- c(presgrid, "\n     ")
-#           A_DHgrid <- c(A_DHgrid, "\n     ")
-#           B_DHgrid <- c(B_DHgrid, "\n     ")
-#           bdotgrid <- c(bdotgrid, "\n     ")
-#           logkgrid <- c(logkgrid, "\n     ")
-#       }
-#       tempgrid <- c(tempgrid, paste0(paste(rep(" ", 10-nchar(grid_temps_f[i])), collapse=""), grid_temps_f[i]))
-#       presgrid <- c(presgrid, paste0(paste(rep(" ", 10-nchar(grid_press_f[i])), collapse=""), grid_press_f[i]))
-#       A_DHgrid <- c(A_DHgrid, paste0(paste(rep(" ", 10-nchar(A_DH_grid_f[i])), collapse=""), A_DH_grid_f[i]))
-#       B_DHgrid <- c(B_DHgrid, paste0(paste(rep(" ", 10-nchar(B_DH_grid_f[i])), collapse=""), B_DH_grid_f[i]))
-#       bdotgrid <- c(bdotgrid, paste0(paste(rep(" ", 10-nchar(bdot_grid_f[i])), collapse=""), bdot_grid_f[i]))
-#       logkgrid <- c(logkgrid, paste0(paste(rep(" ", 10-nchar(logk_grid_f[i])), collapse=""), logk_grid_f[i]))
-
-#   }
-#   tempgrid <- paste(tempgrid, collapse="")
-#   presgrid <- paste(presgrid, collapse="")
-#   A_DHgrid <- paste(A_DHgrid, collapse="")
-#   B_DHgrid <- paste(B_DHgrid, collapse="")
-#   bdotgrid <- paste(bdotgrid, collapse="")
-#   logkgrid <- paste(logkgrid, collapse="")
-
-#   # insert minimum and maximum temperature values into data0 template
-#   temp_min_max_insertlines <- "\nTemperature limits \\(degC\\)\n.*\ntemperatures\n"
-#   t_min <- min(grid_temps)
-#   t_max <- max(grid_temps)
-#   t_min_f <- as.character(format(round(t_min, 4), nsmall = 4, scientific=F))
-#   t_max_f <- as.character(format(round(t_max, 4), nsmall = 4, scientific=F))
-#   t_min_max <- paste0(paste(rep(" ", 10-nchar(t_min_f)), collapse=""), t_min_f)
-#   t_min_max <- paste0(t_min_max, paste(rep(" ", 10-nchar(t_max_f)), collapse=""), t_max_f)
-#   t_min_max <- paste0("     ", t_min_max)
-#   data0_template <- sub(temp_min_max_insertlines, paste0("\nTemperature limits (degC)\n", t_min_max, "\ntemperatures\n"), data0_template)
-
-#   # insert temperature grid values into data0 template
-#   tempgrid_insertlines <- "\ntemperatures\n.*\npressures\n"
-#   data0_template <- sub(tempgrid_insertlines, paste0("\ntemperatures\n", tempgrid, "\npressures\n"), data0_template)
-
-#   # insert pressure grid values into data0 template
-#   presgrid_insertlines <- "\npressures\n.*\ndebye huckel a \\(adh\\)\n"
-#   data0_template <- sub(presgrid_insertlines, paste0("\npressures\n", presgrid, "\ndebye huckel a (adh)\n"), data0_template)
-
-#   # insert Debeye Huckel A and B parameter values into data0 template
-#   A_DHgrid_insertlines <- "\ndebye huckel a \\(adh\\)\n.*\ndebye huckel b \\(bdh\\)\n"
-#   data0_template <- sub(A_DHgrid_insertlines, paste0("\ndebye huckel a (adh)\n", A_DHgrid, "\ndebye huckel b (bdh)\n"), data0_template)
-#   B_DHgrid_insertlines <- "\ndebye huckel b \\(bdh\\)\n.*\nbdot\n"
-#   data0_template <- sub(B_DHgrid_insertlines, paste0("\ndebye huckel b (bdh)\n", B_DHgrid, "\nbdot\n"), data0_template)
-
-#   # insert bdot grid values into data0 template
-#   bdotgrid_insertlines <- "\nbdot\n.*\ncco2"
-#   data0_template <- sub(bdotgrid_insertlines, paste0("\nbdot\n", bdotgrid, "\ncco2"), data0_template)
-
-#   # insert logk (eh) grid values into data0 template
-#   logkgrid_insertlines <- "\nlog k for eh reaction\n.*\n\\+-+\nbdot parameters"
-#   logkgrid_end_insert <- "\n+--------------------------------------------------------------------\nbdot parameters"
-#   data0_template <- sub(logkgrid_insertlines, paste0("\nlog k for eh reaction\n", logkgrid, logkgrid_end_insert), data0_template)
-
-#   print(paste("\t misc formatting (create_data0):", (proc.time() - ptm)[3]))
-#   ptm <- proc.time()
-    
-#   # modify the data0 header lines
-#   desc <- "data0.%s\nWater model: %s\nTP points: %s"
-#   min_desc <- "data0.min\nminimal working data0 file"
-#   data0_template <- sub(min_desc, sprintf(desc, db, water_model, length(grid_temps_original)), data0_template)
-#   vmessage("Finished.", 2, verbose)
-#   write(data0_template, paste0("data0.", db))
-
-  print(paste("\t write file (create_data0):", (proc.time() - ptm)[3]))
   return(data0_template)
-  ptm <- proc.time()
     
 }

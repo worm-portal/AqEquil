@@ -1,7 +1,5 @@
 DEBUGGING_R = True
 
-import time
-
 import os
 import re
 import sys
@@ -10,6 +8,8 @@ import copy
 import collections
 import dill
 import math
+
+from urllib.request import urlopen
 
 import warnings
 import subprocess
@@ -2004,7 +2004,7 @@ class AqEquil:
             shutil.move("slist.txt", "eqpt_files/slist.txt")
 
             
-    def runeqpt(self, db):
+    def runeqpt(self, db, dynamic_db=False):
         
         """
         Convert a data0 into a data1 file with EQPT.
@@ -2048,10 +2048,15 @@ class AqEquil:
 
         if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
             if self.verbose > 0:
-                print("Successfully created a data1."+db+" from data0."+db)
+                if not dynamic_db:
+                    print("Successfully created a data1."+db+" from data0."+db)
         else:
-            msg = ("EQPT could not create data1."+db+" from "
-                   "data0."+db+". Check eqpt_log.txt for details.")
+            if dynamic_db:
+                msg = ("EQPT has encounted a problem processing the database "
+                       "for this sample. Check eqpt_log.txt for details.")
+            else:
+                msg = ("EQPT could not create data1."+db+" from "
+                       "data0."+db+". Check eqpt_log.txt for details.")
             self.err_handler.raise_exception(msg)
 
         self.__move_eqpt_extra_output()
@@ -2063,7 +2068,9 @@ class AqEquil:
                samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
-               path_3p=os.getcwd()):
+               path_3p=os.getcwd(),
+               dynamic_db_name=None,
+               verbose=1):
         
         """
         Call EQ3 on a .3i input file.
@@ -2084,6 +2091,10 @@ class AqEquil:
         
         path_3p : path str, default current working directory
             Path of .3p pickup files.
+        
+        dynamic_db_name : str, default None
+            Name of database used by `speciate` to speciate samples dynamically.
+            If unsure, use None.
         """
 
         # get current working dir
@@ -2092,8 +2103,10 @@ class AqEquil:
         if samplename == None:
             samplename = filename_3i[:-3]
         
-        if self.verbose > 0:
+        if self.verbose > 0 and dynamic_db_name == None:
             print('Using ' + db + ' to speciate ' + samplename)
+        elif self.verbose > 0 and isinstance(dynamic_db_name, str):
+            print('Using ' + dynamic_db_name + ' to speciate ' + samplename)
 
         args = ['/bin/csh', self.eq36co+'/runeq3', db, path_3i + "/" + filename_3i]
         
@@ -2229,23 +2242,6 @@ class AqEquil:
             shutil.rmtree(path)
             os.makedirs(path)
 
-            
-#     def __read_inputs(self, file_type, location):
-        
-#         """
-#         Finds all files of a filetype in all downstream folders.
-#         """
-        
-#         file_name = []  # file names
-#         file_list = []  # file names with paths
-#         for root, dirs, files in os.walk(location):
-#             for file in files:
-#                 if file.endswith(file_type):
-#                     if "-checkpoint" not in file:
-#                         file_name.append(file)
-#                         file_list.append(os.path.join(root, file))
-#         return file_name, file_list
-
     
     def __run_script_and_wait(self, args):
         
@@ -2277,6 +2273,8 @@ class AqEquil:
             shutil.rmtree('rxn_6p')
         if os.path.exists('eqpt_files') and os.path.isdir('eqpt_files'):
             shutil.rmtree('eqpt_files')
+        if os.path.exists('rxn_data0') and os.path.isdir('rxn_data0'):
+            shutil.rmtree('rxn_data0')
 
 
     @staticmethod
@@ -2331,11 +2329,11 @@ class AqEquil:
                  }
 
         fig.show(config=config)
-    
 
     def speciate(self,
                  input_filename,
                  db="wrm",
+                 db_solid_solution=None,
                  redox_flag="logfO2",
                  redox_aux="Fe+3",
                  default_logfO2=-6,
@@ -2363,11 +2361,11 @@ class AqEquil:
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
                  get_charge_balance=True,
-                 custom_data0=False,
+                 custom_data0=False, # deprecated but used internally
                  batch_3o_filename=None,
                  delete_generated_folders=False,
-                 custom_obigt=None,
-                 dynamic_db_args={}):
+                 custom_obigt=None, # deprecated but used internally
+                 db_args={}):
         
         """
         Calculate the equilibrium distribution of chemical species in solution.
@@ -2417,14 +2415,35 @@ class AqEquil:
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : three letter str, default "wrm"
-            Three letter file extension for the desired data0 database.
-            If `custom_data0` is False, this database must be named data1.xyz
-            (where xyz is your desired three letter extension) and located
-            in the EQ3/6 'EQ36DA' path. Otherwise, the database must be named
-            data0.xyz and located in your current working directory. Note that
-            data1 files are already compiled by EQPT, while data0 files will be
-            automatically compiled for you if `custom_data0` is True.
+        db : str, default "wrm"
+            Determines which thermodynamic database is used in the speciation
+            calculation. There are several options available:
+            - Three letter file extension for the desired data1 database, e.g.,
+            "wrm". This will use a data1 file with this file extension, e.g.,
+            "data1.wrm" located in the path stored in the 'EQ36DA' environment
+            variable used by EQ3NR.
+            - The name of a data0 file located in the current working directory,
+            e.g., "data0.wrm". This data0 file will be compiled by EQPT
+            automatically during the speciation calculation.
+            - The name of a CSV file containing thermodynamic data located in
+            the current working directory, e.g., "wrm_data.csv". The CSV file
+            will be used to generate a data0 file for each sample (using
+            additional arguments from `db_args` if desired).
+            - The URL of a data0 file, e.g.,
+            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
+            - The URL of a CSV file containing thermodynamic data, e.g.,
+            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+        
+        db_solid_solution : str, optional
+            Used only if `db` points to a thermodynamic data CSV file (or the
+            URL of a CSV hosted online). Determines which thermodynamic database
+            is used for idealized solid solutions in the speciation calculation.
+            There are two options:
+            - The name of a CSV file containing solid solution parameters
+            located in the current working directory, e.g.,
+            "wrm_solid_solutions.csv"
+            - The URL of a CSV file containing solid solution parameters, e.g.,
+            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
         
         redox_flag : str, default "O2(g)"
             Determines which column in the sample input file sets the overall
@@ -2577,12 +2596,7 @@ class AqEquil:
             Calculate charge balance and ionic strength?
             
         custom_data0 : bool, default False
-            Is the database defined by `db` a custom user-supplied data0 file? If
-            this is set to True, searches for a data0.xyz file in the current
-            working directory, where 'xyz' corresponds to the three letter code
-            assigned to `db`. This data0 file is automatically converted into a
-            machine-readable file called data1 by software called EQPT. This
-            data1 file is then used in speciation calculations.
+            Deprecated.
         
         batch_3o_filename : str, optional
             Name of rds (R object) file exported after the speciation
@@ -2594,9 +2608,24 @@ class AqEquil:
             containing raw EQ3NR input, output, pickup, and EQPT files once the
             speciation calculation is complete?
         
-        custom_obigt : str, optional unless `get_affinity_energy` is True
-            Path of custom database csv used to generate a custom data0 file.
-            Needed for affinity and energy calculations.
+        custom_obigt : str, optional
+            Deprecated.
+           
+        db_args : dict, default {}
+            Dictionary of arguments to modify how the thermodynamic database is
+            processed. Only used when `db` points to thermodynamic data in a CSV
+            file. Ignored if `db` points to a data0 file (because a data0 file
+            is already ready for a speciation calculation). Options for
+            `db_args` are passed to the `create_data0` function, so refer to
+            `create_data0` for more information about what options are possible.
+            
+            - Example of `db_args` where organics are excluded and redox is
+            suppressed for Fe and S:
+            db_args = {
+               "exclude_category":{"category_1":["organic_aq"]},
+               "suppress_redox":["Fe", "S"],
+            }
+            
         
         Returns
         -------
@@ -2604,6 +2633,88 @@ class AqEquil:
             Contains the results of the speciation calculation.
         
         """
+        
+        if custom_data0 == True:
+            print("Warning: the parameter 'custom_data0' is deprecated."
+                  "Specify a custom data0 file with the 'db' parameter.")
+        if custom_obigt != None:
+            print("Warning: the parameter 'custom_obigt' is deprecated. Specify "
+                  "a custom thermodynamic database with the 'db' parameter. If "
+                  "a database is needed for affinity and energy calculations, "
+                  "use the parameter 'rxn_filename' to specify a CSV file of "
+                  "thermodynamic data or a TXT file with desired reactions.")
+           
+        
+        if len(db) == 3:
+            # e.g., "wrm"
+            custom_data0 = False
+            data0_lettercode = db.lower()
+            dynamic_db = False
+            
+        elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "data0.wrm"
+            custom_data0 = True
+            data0_lettercode = db[-3:].lower()
+            dynamic_db = False
+            
+        elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "wrm_data.csv"
+            
+            db_args["filename"] = db
+            db_args["db"] = "dyn"
+
+            dynamic_db = True
+            custom_data0 = False
+            custom_obigt = db
+            
+            db_csv_name = db.split("/")[-1].lower()
+            
+        elif "data0." in db[-9:].lower() and db[-4:].lower() != ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
+
+            # Download from URL and decode as UTF-8 text.
+            with urlopen(db) as webpage:
+                content = webpage.read().decode()
+                
+            # Save to data0 file.
+            with open("data0."+db[-3:].lower(), 'w') as output:
+                output.write(content)
+                
+            custom_data0 = True
+            data0_lettercode = db[-3:]
+            dynamic_db = False
+            
+        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+            
+            # e.g., "wrm_data.csv"
+            db_csv_name = db.split("/")[-1].lower()
+            
+            # Download from URL and decode as UTF-8 text.
+            with urlopen(db) as webpage:
+                content = webpage.read().decode()
+            # Save to CSV file.
+            with open(db_csv_name, 'w') as output:
+                output.write(content)
+                
+            db_args["filename"] = db_csv_name
+            db_args["db"] = "dyn"
+            
+            dynamic_db = True
+            custom_data0 = False
+            custom_obigt = db_csv_name
+            
+        else:
+            self.err_handler.raise_exception("Unrecognized thermodynamic "
+                "database '{}'".format(db)+" specified for db. A database can specified as:"
+                "\n - a three letter code designating a data0 file. e.g., db='wrm'"
+                "\n - a data0 file in your working directory. e.g., db='data0.wrm'"
+                "\n - a csv file in your working directory. e.g., db='wrm_data.csv'"
+                "\n - a URL directing to a data0 file. e.g.,"
+                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm'"
+                "\n\t (note the data0 file in the URL must have 'data0.' followed by a three letter code)"
+                "\n - a URL directing to a valid csv file. e.g.,"
+                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv'")
         
         self.verbose = verbose
         
@@ -2640,10 +2751,10 @@ class AqEquil:
             if ".rds" in batch_3o_filename[-4:]:
                 batch_3o_filename = batch_3o_filename
             else:
-                batch_3o_filename = "batch_3o_{}.rds".format(db)
+                batch_3o_filename = "batch_3o_{}.rds".format(data0_lettercode)
         else:
             batch_3o_filename = ro.r("NULL")
-
+            
         # custom obigt used for energy calculations (temporary fix to allow
         # custom data to be imported into CHNOSZ for energy calculations)
         # TODO: remove this and have code find custom data automatically. It's a tricky problem!
@@ -2657,36 +2768,57 @@ class AqEquil:
             custom_obigt = ro.r("NULL")
             
         # dynamic data0 creation per sample
-        if len(dynamic_db_args.keys()) > 0:
-            dynamic_db = True
-            dynamic_db_args["fill_data0"] = False
-            OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit = self.create_data0(**dynamic_db_args)
+        if dynamic_db:
+            db_args["fill_data0"] = False
+            db_args["dynamic_db"] = True
+            db_args["verbose"] = self.verbose
+            db_args["generate_template"] = False
             
-        else:
-            dynamic_db = False
+            if db_solid_solution != None:
+                if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
+                    if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
+                        db_args["filename_ss"] = db_solid_solution
+                    else:
+                        self.err_handler.raise_exception("Error: could not locate " + str(db_solid_solution))
+                else:
+                    db_solid_solution_csv_name = db_solid_solution.split("/")[-1].lower()
             
+                    # Download from URL and decode as UTF-8 text.
+                    with urlopen(db_solid_solution) as webpage:
+                        content = webpage.read().decode()
+                        
+                    # Save to CSV file.
+                    with open(db_solid_solution_csv_name, 'w') as output:
+                        output.write(content)
+                        
+                    db_args["filename_ss"] = db_solid_solution_csv_name
+                    
+            if self.verbose > 0:
+                print("Getting '"+db_csv_name+"' ready. This will take a moment...")
+    
+            OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
         if custom_data0 and not dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
-            self.runeqpt(db)
+            self.runeqpt(data0_lettercode)
             
-            if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
+            if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                 try:
                     # move data1
-                    shutil.move("data1."+db, "eqpt_files/data1."+db)
+                    shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
                 except:
                     if self.verbose > 0:
-                        print('Error: Could not move', "data1."+db, "to eqpt_files")
+                        print('Error: Could not move', "data1."+data0_lettercode, "to eqpt_files")
             
             os.environ['EQ36DA'] = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
             
-            data0_path = "data0." + db
+            data0_path = "data0." + data0_lettercode
             
         elif dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
             
         else:
-            data0_path = self.eq36da + "/data0." + db
+            data0_path = self.eq36da + "/data0." + data0_lettercode
         
         # gather information from data0 file and perform checks
         if not dynamic_db:
@@ -2725,7 +2857,7 @@ class AqEquil:
                         water_model = "SUPCRT92" # the default for EQ3/6
                         print("Water model given in {}".format(data0_path)+" was not "
                               "recognized. Defaulting to SUPCRT92 water model...")
-
+                    
             else: # if a data0 file can't be found, assume default water model, 0-350 C and PSAT
                 water_model = "SUPCRT92"
                 grid_temps = ["0.0100", "50.0000", "100.0000", "150.0000",
@@ -2760,6 +2892,7 @@ class AqEquil:
             poly_coeffs_1 = list_tp.rx2("poly_coeffs_1")
             poly_coeffs_2 = list_tp.rx2("poly_coeffs_2")
             
+            
         else:
             grid_temps = ro.r("NULL")
             grid_press = ro.r("NULL")
@@ -2769,9 +2902,9 @@ class AqEquil:
             
         if get_affinity_energy:
             if rxn_filename == None and self.affinity_energy_reactions_raw==None:
-                err = ("get_affinity_energy is set to True but a reaction "
+                err = ("get_affinity_energy is set to True but a reaction TXT "
                        "file is not specified or redox reactions have not yet "
-                       "been generated with generate_redox_reactions()")
+                       "been generated with make_redox_reactions()")
                 self.err_handler.raise_exception(err)
             elif rxn_filename != None:
                 self.__file_exists(rxn_filename, '.txt')
@@ -2809,14 +2942,15 @@ class AqEquil:
         ro.r(r_prescript)
         
         input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                             exclude=convert_to_RVector(exclude),
-                                             grid_temps=convert_to_RVector(grid_temps),
-                                             grid_press=convert_to_RVector(grid_press),
-                                             strict_minimum_pressure=strict_minimum_pressure,
-                                             dynamic_db=dynamic_db,
-                                             poly_coeffs_1=poly_coeffs_1,
-                                             poly_coeffs_2=poly_coeffs_2,
-                                             verbose=self.verbose)
+                                               exclude=convert_to_RVector(exclude),
+                                               grid_temps=convert_to_RVector(grid_temps),
+                                               grid_press=convert_to_RVector(grid_press),
+                                               strict_minimum_pressure=strict_minimum_pressure,
+                                               dynamic_db=dynamic_db,
+                                               poly_coeffs_1=poly_coeffs_1,
+                                               poly_coeffs_2=poly_coeffs_2,
+                                               water_model=water_model,
+                                               verbose=self.verbose)
         
         self.__print_captured_r_output()
         
@@ -2825,6 +2959,12 @@ class AqEquil:
         self.__mk_check_del_directory('rxn_3i')
         self.__mk_check_del_directory('rxn_3o')
         self.__mk_check_del_directory('rxn_3p')
+        if dynamic_db:
+            self.__mk_check_del_directory('rxn_data0')
+        
+        # Has the user been warned about redox column during write_3i_file()?
+        # Prevents repeated warnings.
+        warned_about_redox_column = False
         
         # create and run a 3i file for each sample
         for sample_row_index in range(0, self.df_input_processed.shape[0]):
@@ -2841,25 +2981,25 @@ class AqEquil:
                                 data0_file_lines=data0_file_lines,
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
-                                db=db,
+                                db=data0_lettercode,
                                 water_model=water_model,
                                 P1=P1,
                                 plot_poly_fit=plot_poly_fit,
                                 verbose=verbose)
                 
-                self.runeqpt(db)
+                self.runeqpt(data0_lettercode, dynamic_db=True)
 
-                if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
+                if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                     try:
                         # move data1
-                        shutil.move("data1."+db, "eqpt_files/data1."+db)
+                        shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
                     except:
                         if self.verbose > 0:
-                            print('Error: Could not move', "data1."+db, "to eqpt_files")
+                            print('Error: Could not move', "data1."+data0_lettercode, "to eqpt_files")
 
                 os.environ['EQ36DA'] = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
 
-                data0_path = "data0." + db
+                data0_path = "data0." + data0_lettercode
                 
             else:
                 pressure_bar = list(input_processed_list.rx2("pressure_bar"))[sample_row_index]
@@ -2869,7 +3009,7 @@ class AqEquil:
             # write 3i files
             self.__capture_r_output()
 
-            ro.r.write_3i_file(df=ro.conversion.py2rpy(df),
+            warned_about_redox_column = ro.r.write_3i_file(df=ro.conversion.py2rpy(df),
                                temp_degC=temp_degC,
                                pressure_bar=pressure_bar,
                                minimum_pressure=input_processed_list.rx2("minimum_pressure"),
@@ -2886,6 +3026,7 @@ class AqEquil:
                                redox_aux=redox_aux,
                                default_logfO2=default_logfO2,
                                water_model=water_model,
+                               warned_about_redox_column=warned_about_redox_column,
                                verbose=self.verbose)
 
             self.__print_captured_r_output()
@@ -2894,13 +3035,18 @@ class AqEquil:
             samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc("Sample")]
             filename_3i = self.df_input_processed.index[sample_row_index]+".3i"
             
-            self.runeq3(filename_3i=filename_3i, db=db, samplename=samplename,
+            
+            if dynamic_db:
+                dynamic_db_name = db_csv_name
+            else:
+                dynamic_db_name = None
+            
+            self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
-                        path_3p=pickup_dir)
-        
-
-#         files_3i, files_3i_paths = self.__read_inputs('3i', 'rxn_3i')
-
+                        path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+            
+            if dynamic_db:
+                shutil.move("data0.dyn", "rxn_data0/"+filename_3i[0:-3]+"_data0.dat")
 
         if custom_data0:
             os.environ['EQ36DA'] = self.eq36da
@@ -2948,6 +3094,7 @@ class AqEquil:
             #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
             custom_obigt=custom_obigt,
+            water_model=water_model,
             verbose=self.verbose,
         )
 
@@ -3257,6 +3404,11 @@ class AqEquil:
 
         if delete_generated_folders:
             self._delete_rxn_folders()
+            try:
+                # delete straggler data1 file
+                os.remove("data1")
+            except:
+                pass
         
         if self.verbose > 0:
             print("Finished!")
@@ -3282,8 +3434,6 @@ class AqEquil:
 
     
     def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose):
-
-        t0 = time.time()
         
         self.__capture_r_output()
         
@@ -3301,10 +3451,6 @@ class AqEquil:
         
         self.__print_captured_r_output()
         
-        t1 = time.time()
-        print("\tcheck TP grid:", t1-t0)
-        t0 = time.time()
-        
         grid_temps = list(list_tp.rx2("grid_temps"))
         grid_press = list(list_tp.rx2("grid_press"))
         
@@ -3317,19 +3463,10 @@ class AqEquil:
 
         self.__print_captured_r_output()
         
-        t1 = time.time()
-        print("\tplot TP grid polyfit:", t1-t0)
-        t0 = time.time()
-        
         # calculate logK at each T and P for every species
         out_dfs = []
         for i,Tc in enumerate(grid_temps):
-            print(Tc)
             out_dfs.append(calc_logK(OBIGT_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
-        
-        t1 = time.time()
-        print("\tcalc logK:", t1-t0)
-        t0 = time.time()
         
         dissrxn_logK_dict = {'name': out_dfs[0]["name"],
                              'logK_0': out_dfs[0]["dissrxn_logK_0"]}
@@ -3349,10 +3486,6 @@ class AqEquil:
         dissrxn_logK = pd.DataFrame(dissrxn_logK_dict)
         
 #         dissrxn_logK.to_csv("dissrxn_logK.csv", index=False)
-            
-        t1 = time.time()
-        print("\tassemble logK df:", t1-t0)
-        t0 = time.time()
         
         # remove duplicate rows (e.g., for mineral polymorphs)
         dissrxn_logK = dissrxn_logK.drop_duplicates("name")
@@ -3400,10 +3533,6 @@ class AqEquil:
 #             else:
 #                 self.err_handler.raise_exception("fill_data0() could not handle species "+name)
 
-        t1 = time.time()
-        print("\tformat logK grid:", t1-t0)
-        t0 = time.time()
-
         # handle data0 header section
         self.__capture_r_output()
         
@@ -3420,17 +3549,10 @@ class AqEquil:
         
         self.__print_captured_r_output()
         
-        t1 = time.time()
-        print("\tcalculate data0 header params:", t1-t0)
-        t0 = time.time()
-        
         with open("data0."+db, 'w') as f:
             for item in data0_file_lines:
                 f.write("%s" % item)
-                
-        t1 = time.time()
-        print("\twrite data0 file:", t1-t0)
-
+        
     
     def create_data0(self,
                      db,
@@ -3451,6 +3573,7 @@ class AqEquil:
                      template_type="strict",
                      exclude_category={},
                      fill_data0=True,
+                     dynamic_db=False,
                      verbose=1):
         """
         Create a data0 file from a custom thermodynamic dataset.
@@ -3532,16 +3655,15 @@ class AqEquil:
             will exclude all species that have "organic_aq" or "organic_cr" in
             the column "category_1".
         
+        dynamic_db : bool, default False
+            Are data0 files being created dynamically? If unsure, use False.
+            Used by `speciate` to display valid messages.
+        
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
             calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         """
-        
-
-        t00 = time.time()
-        t0_TP_ind = time.time()
-        t0 = time.time()
         
         FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-"]
         
@@ -3551,14 +3673,11 @@ class AqEquil:
         if filename_ss != None:
             self.__file_exists(filename_ss)
         
-        t1 = time.time()
-        print("input file check:", t1-t0)
-        t0 = time.time()
-        
         self.verbose = verbose
         
-        if self.verbose >= 1:
-            print("Creating data0.{}...".format(db), flush=True)
+        if not dynamic_db:
+            if self.verbose >= 1:
+                print("Creating data0.{}...".format(db), flush=True)
         
         if len(grid_temps) not in [1, 8]:
             self.err_handler.raise_exception("'grid_temps' must have either one or eight values.")
@@ -3649,11 +3768,6 @@ class AqEquil:
             exclude_category_R = {}
         exclude_category_R = ro.ListVector(exclude_category_R)
         
-        
-        t1 = time.time()
-        print("warnings and setup:", t1-t0)
-        t0 = time.time()
-        
         self.__capture_r_output()
 
         r_redox_dissrxns = pkg_resources.resource_string(
@@ -3676,10 +3790,6 @@ class AqEquil:
         
         self.__print_captured_r_output()
         
-        t1 = time.time()
-        print("suppress redox and generate dissrxns:", t1-t0)
-        t0 = time.time()
-        
         OBIGT_df = out_list.rx2("OBIGT_df")
         
         OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
@@ -3693,17 +3803,8 @@ class AqEquil:
                                                   "E_units", "tag", "dissrxn"],
                                         NA_string="")
         
-        t1 = time.time()
-        print("clean_rpy2_pandas_conversion:", t1-t0)
-        t0 = time.time()
-        
         # convert E units and calculate missing GHS values
         OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
-        
-        t1 = time.time()
-        print("OBIGT2eos:", t1-t0)
-        t0 = time.time()
-        
         
         self.__capture_r_output()
         
@@ -3727,11 +3828,7 @@ class AqEquil:
         self.__print_captured_r_output()
         
         data0_file_lines = data0_file_lines[0].split("\n")
-        
-        t1 = time.time()
-        print("create_data0:", t1-t0)
-        t0 = time.time()
-        
+
         if generate_template:
             
             r_generate_template = pkg_resources.resource_string(
@@ -3748,33 +3845,16 @@ class AqEquil:
 
             self.__print_captured_r_output()
         
-        t1 = time.time()
-        print("generate template:", t1-t0)
-        t0 = time.time()
-        
-        t1_TP_ind = time.time()
-        print("END OF TP-INDEPENDENT PROCESSES:", t1_TP_ind-t0_TP_ind)
-        t0_TP_dep = time.time()
-        
         if fill_data0:
 
             # begin TP-dependent processes
             self.fill_data0(OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)
-
-            t1 = time.time()
-            print("fill_data0:", t1-t0)
-            t0 = time.time()
     
         else:
             return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
-        t1_TP_dep = time.time()
-        print("END OF TP-DEPENDENT PROCESSES:", t1_TP_dep-t0_TP_dep)
-
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
-            
-        print("Total time:", time.time()-t00)
 
             
     def make_redox_reactions(self, redox_pairs="all"):

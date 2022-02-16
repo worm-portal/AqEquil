@@ -21,53 +21,28 @@ def entropy(formula):
 
 def calc_logK(OBIGT_df, Tc, P, TP_i, water_model):
     
-    import time
-    t0 = time.time()
-    
     OBIGT_TP, rows_added = calc_G_TP(OBIGT_df, Tc, P, water_model)
-    
-    t1 = time.time()
-    print("\t\tcalc_G_TP (calc_logK):", t1-t0)
-    t0 = time.time()
     
     dissrxn2logK_out = []
     for i in OBIGT_TP.index:
         dissrxn2logK_out.append(dissrxn2logK(OBIGT_TP, i, Tc))
     assert len(dissrxn2logK_out) == OBIGT_TP.shape[0]
     
-    t1 = time.time()
-    print("\t\tdissrxn2logK (calc_logK):", t1-t0)
-    t0 = time.time()
-    
     OBIGT_TP['dissrxn_logK_'+str(TP_i)] = dissrxn2logK_out
     
     # remove any rows added by calc_G_TP
     OBIGT_TP.drop(OBIGT_TP.tail(rows_added).index, inplace = True)
-    
-    t1 = time.time()
-    print("\t\tdrop extra rows (calc_logK):", t1-t0)
     
     return OBIGT_TP
 
 
 def calc_G_TP(OBIGT, Tc, P, water_model):
     
-    import time
-    t0 = time.time()
-    
     aq_out, H2O_Pt = hkf(property=["G"], parameters=OBIGT,
                          T=273.15+Tc, P=P, contrib=["n", "s", "o"],
                          H2O_props=["rho"], water_model=water_model)
     
-    t1 = time.time()
-    print("\t\t\thkf (calc_G_TP):", t1-t0)
-    t0 = time.time()
-    
     cgl_out = cgl(property=["G"], parameters=OBIGT, T=273.15+Tc, P=P)
-    
-    t1 = time.time()
-    print("\t\t\tcgl (calc_G_TP):", t1-t0)
-    t0 = time.time()
     
     aq_col = pd.DataFrame.from_dict(aq_out, orient="index")
     cgl_col = pd.DataFrame.from_dict(cgl_out, orient="index")
@@ -78,10 +53,6 @@ def calc_G_TP(OBIGT, Tc, P, water_model):
     OBIGT["G_TP"] = G_TP_df['aq'].combine_first(G_TP_df['cgl'])
     
     rows_added = 0
-    
-    t1 = time.time()
-    print("\t\t\tdf operations (calc_G_TP):", t1-t0)
-    t0 = time.time()
     
     # add a row for water
     if "H2O" not in list(OBIGT["name"]):
@@ -98,10 +69,6 @@ def calc_G_TP(OBIGT, Tc, P, water_model):
         OBIGT.iloc[-1, OBIGT.columns.get_loc('tag')] = "nan"
         OBIGT.iloc[-1, OBIGT.columns.get_loc('G_TP')] = 0
         rows_added += 1
-    
-    t1 = time.time()
-    print("\t\t\tadding extra rows (calc_G_TP):", t1-t0)
-    t0 = time.time()
     
     return OBIGT, rows_added
     
@@ -690,16 +657,8 @@ def quartz_coesite(PAR, T, P):
 
 def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
     
-    import time
-    E_unit_convert_time = 0
-    fix_GHS_time = 0
-    entropy_time = 0
-    
-    
     OBIGT_out = OBIGT.copy()
     for i in range(0, OBIGT.shape[0]):
-        
-        t0 = time.time()
         
         # we only convert column 20 for aqueous species (omega), not for cgl species (lambda)
         if tocal and OBIGT.iloc[i, :]["E_units"] == "J" and OBIGT.iloc[i, :]["state"] == "aq":
@@ -712,10 +671,6 @@ def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
             OBIGT_out.iloc[i, 13:19] = OBIGT.iloc[i, 13:19]/4.184
             OBIGT_out.iloc[i, OBIGT.columns.get_loc('E_units')] = "cal"
         
-        t1 = time.time()
-        E_unit_convert_time += t1-t0
-        t0 = time.time()
-        
         # fill in one of missing G, H, S
         # for use esp. by subcrt because NA for one of G, H or S 
         # will preclude calculations at high T
@@ -723,8 +678,6 @@ def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
             # which entries are missing just one
             imiss = [np.isnan(v) for v in OBIGT.iloc[i, 8:11]]
             if sum(imiss) == 1:
-                
-                t0_entropy = time.time()
                 
                 ii = np.where(imiss)[0][0]
                 
@@ -750,16 +703,5 @@ def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
                     G = H - T*(S - Selem)
                     S = Selem + (G - H)/T
                     OBIGT_out.iloc[i, 8+ii] = S
-                
-                t1_entropy = time.time()
-                entropy_time += t1_entropy-t0_entropy
-        
-        t1 = time.time()
-        fix_GHS_time += t1-t0
-
-    print("\t\t\tE unit convert time(OBIGT2eos):", E_unit_convert_time)
-    print("\t\t\t\tentropy time(OBIGT2eos):", entropy_time)
-    print("\t\t\tfix GHS time(OBIGT2eos):", fix_GHS_time)
     
-        
     return OBIGT_out
