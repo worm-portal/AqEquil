@@ -131,9 +131,6 @@ def load(filename, messages=True, hide_traceback=True):
     else:
         msg = "Cannot open " + str(filename) + " because the file is empty."
         err_handler.raise_exception(msg)
-
-def test():
-    print("TEST TEST")
     
 def isnotebook():
     
