@@ -3367,6 +3367,10 @@ class AqEquil:
                         if item not in db_names:
                             db_names.append(item)
                             formulas.append(formula)
+                            
+        df.replace('sulfur', 'S', inplace = True) ### remove this eventually
+        db_names.append('sulfur') ### remove this eventually
+        formulas.append('S') ### remove this eventually
 
         # append H+ and H2O to db for balancing
         if not 'H+' in db_names:
@@ -3567,7 +3571,7 @@ class AqEquil:
             df_reax.loc[r, 'rR_coeff'] = -max(temp_rR_coeff)
             df_reax.loc[r, 'pR_coeff'] = max(temp_pR_coeff)
             df_reax.loc[r, 'pO_coeff'] = max(temp_pO_coeff)
-
+        
         all_reax = df_reax.copy(deep=True)
         all_reax['rO_2_coeff'] = ''
         all_reax['rO_2'] = ''
@@ -3769,11 +3773,15 @@ class AqEquil:
 
 
         for i in new_elements:
-                parsed_formula = parse_formula(i)
-                element_dictionary[i] = parsed_formula
-                for e in elements:
-                    if element_dictionary[i].get(e, 0) == 0:
-                        element_dictionary[i][e] = 0
+            if i not in db_names:
+                db_names.append(i)
+            if i not in formulas:
+                formulas.append(i)
+            parsed_formula = parse_formula(i)
+            element_dictionary[i] = parsed_formula
+            for e in elements:
+                if element_dictionary[i].get(e, 0) == 0:
+                    element_dictionary[i][e] = 0
 
         reax = all_reax.copy(deep=True)
         reax.drop('Temp_Pairs', axis=1, inplace=True)
@@ -3781,7 +3789,6 @@ class AqEquil:
         reax.reset_index(drop=True, inplace=True)
         for s in ['O', 'H','-','+']:
             for i in range(0,len(reax['rO'])):
-        #     for i in range(0,1):
                 red = 0
                 ox=0
                 for j in reax.columns.tolist():
@@ -3873,61 +3880,60 @@ class AqEquil:
         pairs = real_reax['redox_pair']
         real_reax.drop(columns = 'redox_pair', inplace = True)
         
-        #real_reax.to_csv('template.txt', sep ='\t', header=False, index=False)
-        file = real_reax.to_csv(sep='\t', header=False, index=False, line_terminator='\n')
-        file = file.split("\n")
+        # 2-16-2022 CHANGES START HERE
+        for i in range(0, len(real_reax['Reaction Number'])):
+            for j in range(2, len(real_reax.columns)):
+                if str(real_reax.iloc[i, j]) == 'nan':
+                    real_reax.iloc[i, j] = ''
+        
+        test_df = real_reax.copy(deep=True)
+        count = 0
+        for i in range(0, len(test_df['Reaction Number'])):
+            coefficients = []
+            species = []
+            for j in range(2, len(test_df.columns)):
+                if count % 2 == 0: 
+                    if test_df.iloc[i, j] != '':
+                        test_df.iloc[i, j] = round(test_df.iloc[i, j], 14)
+                    if test_df.iloc[i, j] == 0 or test_df.iloc[i, j] == 0.0:
+                        test_df.iloc[i, j] = ''
+                        test_df.iloc[i, j+1] = ''
+                    coefficient = test_df.iloc[i, j]
+                    coefficients.append(test_df.iloc[i, j])
+                if count % 2 != 0:
+                    if test_df.iloc[i, j] != '':
+                        test_df.iloc[i, j] = str(test_df.iloc[i, j]).split('start')[1].split('end')[0]
+                    compound = test_df.iloc[i, j]
+                    if compound in species:
+                        og_location = species.index(compound) 
+                        df_location = 3+og_location*2 
+                        df_location_coeff = df_location - 1
+                        old_coeff = coefficients[og_location] 
+                        new_coeff = coefficient + old_coeff 
+                        test_df.iloc[i, j] = ''
+                        test_df.iloc[i, j-1] = ''
+                        df_value = test_df.iloc[i, df_location] #values from first occurence remaining
+                        test_df.iloc[i, df_location_coeff] = new_coeff
+                    species.append(compound)
+                count+=1
+        for m in range(0, 7):
+            for i in range(0, len(test_df['Reaction Number'])):
+                line = []
+                for j in range(2, len(test_df.columns)):
+                    line.append(test_df.iloc[i, j])
+                    if test_df.iloc[i, j] != '' and test_df.iloc[i, j-2] =='':
+                        test_df.iloc[i, j-2] = test_df.iloc[i, j]
+                        test_df.iloc[i, j] = ''
 
-        # Formatting species to preserve charges while using regex package
-        new = []
-        for i in db_names:
-            i = i.replace('+','\+')
-            i = i.replace('-','\-')
-            new.append(i)
+        file = test_df.to_csv(sep='\t', header=False, index=False, line_terminator='\n')
 
+        file = file.split("\n") #not sure if I should keep this
+        
         newlines = []
-        for line in file:        
-            line = line.strip()
-
-            for o in re.findall('(\d+\.\d+)\t', line):
-                if '.9999' in o:
-                    line = line.replace(o, str(round(float(o))))
-
-            for p in re.findall('\d+(\.\d+)\t', line):
-                if '.4999' in p:
-                    line = line.replace(p, '.5')
-
-            for q in re.findall('\t(\S*\d+\.\d+\w\S\d+)\t', line):
-                if abs(float(q)) < 0.0001:
-                    line = line.replace(q , '0')
-
-            for s in new:
-                number = 0
-                match = re.findall('\W+\d+\.\d+\t'+s, line)
-                if len(match) > 1:
-                    for m in match:
-                        pos = re.findall('\t(\d+\.\d+)', m)
-                        if len(pos) > 0:
-                            number += float(pos[0])
-                        neg = re.findall('-\d+\.\d+', m)
-                        if len(neg) > 0:
-                            number += float(neg[0])
-                        line = line.replace(m,'')
-                    line = line + '\t' + str(number) + '\t' + s
-                new_match = re.findall('\t0\.0\t'+s, line) + re.findall('\t0\t'+s, line) + re.findall('\t0\t'+s+'$', line)
-                if len(new_match) > 0:
-                    for n in new_match:
-                        line = line.replace(n, '')
-            line = line.replace('\t'+'\t', '\t')
-            line = line.replace('\t'+'\t', '\t')
-            line = line.replace('\t'+'\t', '\t')
-            line = line.replace('\t'+'\t', '\t')
-            line = line.replace('\t0.0\tH\t', '\t')
-            line = line.replace('\tH\t','\tH+\t')
-            line = line.replace('\\', '')      
-            line = line.replace('start', '')
-            line = line.replace('end', '')
+        for line in file:   
             line = line.strip()
             newlines.append(line)
+
         self.affinity_energy_reactions_raw = "\n".join(newlines)
         df_rxn = pd.DataFrame([x.split('\t') for x in self.affinity_energy_reactions_raw.split('\n')])
         df_rxn.columns = df_rxn.columns.map(str)
