@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 
 import os
 import re
@@ -18,7 +18,7 @@ import pandas as pd
 import numpy as np
 from chemparse import parse_formula
 from IPython.core.display import display, HTML
-import periodictable #jordyn
+import periodictable
 
 from .HKF_cgl import OBIGT2eos, calc_logK
 
@@ -2360,10 +2360,12 @@ class AqEquil:
                  get_basis_totals=True,
                  get_solid_solutions=True,
                  get_affinity_energy=False,
+                 negative_energy_supplies=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
                  get_charge_balance=True,
                  custom_data0=False, # deprecated but used internally
+                 custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  custom_obigt=None, # deprecated but used internally
@@ -2585,6 +2587,14 @@ class AqEquil:
             Calculate affinities and energy supplies of reactions listed in a
             separate user-supplied file?
         
+        negative_energy_supplies : bool, default False
+            Report negative energy supplies? If False, negative energy supplies
+            are reported as 0 cal/kg H2O. If True, negative energy supplies are
+            reported. A 'negative energy supply' represents the energy cost of
+            depleting the limiting reactant of a reaction. This metric is not
+            always helpful when examing energy supply results, so this option is
+            set to False by default.
+        
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
             and energy supplies. Ignored if `get_affinity_energy` is False.
@@ -2598,6 +2608,9 @@ class AqEquil:
             Calculate charge balance and ionic strength?
             
         custom_data0 : bool, default False
+            Deprecated.
+            
+        custom_db : bool, default False
             Deprecated.
         
         batch_3o_filename : str, optional
@@ -2636,8 +2649,11 @@ class AqEquil:
         
         """
         
+        if custom_db == True:
+            print("Warning: the parameter 'custom_db' is deprecated. "
+                  "Specify a custom data0 file with the 'db' parameter.")
         if custom_data0 == True:
-            print("Warning: the parameter 'custom_data0' is deprecated."
+            print("Warning: the parameter 'custom_data0' is deprecated. "
                   "Specify a custom data0 file with the 'db' parameter.")
         if custom_obigt != None:
             print("Warning: the parameter 'custom_obigt' is deprecated. Specify "
@@ -2653,14 +2669,55 @@ class AqEquil:
             data0_lettercode = db.lower()
             dynamic_db = False
             
+            # search for a data1 file in the eq36da directory
+            if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
+                self.thermo_db = None
+                self.thermo_db_type = "data1 file"
+                
+            elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
+                
+                if verbose > 0:
+                    print("data1." + db + " was not found in the EQ36DA directory "
+                          "but a data0."+db+" was found in the current working "
+                          "directory. Using it...")
+                
+                custom_data0 = True
+                data0_lettercode = db
+                dynamic_db = False
+                
+                # search for a data0 locally
+                with open("data0."+db) as data0_content:
+                    self.thermo_db = data0_content.read()
+                    self.thermo_db_type = "data0 file"
+                    
+            else:
+                msg = ("Could not locate a 'data1."+db+"' file in the EQ36DA "
+                      "directory, nor a 'data0."+db+"' file in the current "
+                      "working directory.")
+                self.err_handler.raise_exception(msg)
+            
+            
         elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "data0.wrm"
             custom_data0 = True
             data0_lettercode = db[-3:].lower()
             dynamic_db = False
             
+            if os.path.exists(db) and os.path.isfile(db):
+                with open(db) as data0_content:
+                    self.thermo_db = data0_content.read()
+                    self.thermo_db_type = "data0 file"
+            else:
+                self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
+            
         elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "wrm_data.csv"
+            
+            if os.path.exists(db) and os.path.isfile(db):
+                self.thermo_db = pd.read_csv(db)
+                self.thermo_db_type = "CSV file"
+            else:
+                self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
             
             db_args["filename"] = db
             db_args["db"] = "dyn"
@@ -2676,11 +2733,14 @@ class AqEquil:
 
             # Download from URL and decode as UTF-8 text.
             with urlopen(db) as webpage:
-                content = webpage.read().decode()
+                data0_content = webpage.read().decode()
                 
             # Save to data0 file.
             with open("data0."+db[-3:].lower(), 'w') as output:
-                output.write(content)
+                output.write(data0_content)
+                
+            self.thermo_db = data0_content
+            self.thermo_db_type = "data0 file"
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -2698,6 +2758,9 @@ class AqEquil:
             # Save to CSV file.
             with open(db_csv_name, 'w') as output:
                 output.write(content)
+                
+            self.thermo_db = pd.read_csv(db)
+            self.thermo_db_type = "CSV file"
                 
             db_args["filename"] = db_csv_name
             db_args["db"] = "dyn"
@@ -3084,6 +3147,7 @@ class AqEquil:
             get_basis_totals=get_basis_totals,
             get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
+            negative_energy_supplies=negative_energy_supplies,
             load_rxn_file=load_rxn_file,
             not_limiting=convert_to_RVector(not_limiting),
             batch_3o_filename=batch_3o_filename,
@@ -3225,17 +3289,19 @@ class AqEquil:
             df_join = df_join.join(df_charge_balance)
             
         if get_ion_activity_ratios:
-            ion_activity_ratio_cols = list(report_divs.rx2('ion_activity_ratios'))
-            df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
-            df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors='coerce')
-            
-            # handle headers of df_ion_activity_ratios section
-            headers = df_ion_activity_ratios.columns
-            subheaders = ["Log ion-H+ activity ratio"]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=['Sample', ''])
-            df_ion_activity_ratios.columns = multicolumns
-            df_join = df_join.join(df_ion_activity_ratios)
+            if type(report_divs.rx2('ion_activity_ratios')) != rpy2.rinterface_lib.sexp.NULLType:
+                ion_activity_ratio_cols = list(report_divs.rx2('ion_activity_ratios'))
+
+                df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
+                df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors='coerce')
+
+                # handle headers of df_ion_activity_ratios section
+                headers = df_ion_activity_ratios.columns
+                subheaders = ["Log ion-H+ activity ratio"]*len(headers)
+                multicolumns = pd.MultiIndex.from_arrays(
+                    [headers, subheaders], names=['Sample', ''])
+                df_ion_activity_ratios.columns = multicolumns
+                df_join = df_join.join(df_ion_activity_ratios)
             
         if get_fugacity:
             fugacity_cols = list(report_divs.rx2('fugacity'))
@@ -3340,6 +3406,7 @@ class AqEquil:
                 dict_sample_data.update({"charge_balance": df_charge_balance.loc[sample.rx2('name')[0], :]})
             
             if get_ion_activity_ratios:
+                
                 try:
                     dict_sample_data.update(
                         {"ion_activity_ratios": ro.conversion.rpy2py(sample.rx2('ion_activity_ratios'))})
@@ -3858,10 +3925,8 @@ class AqEquil:
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
             
-            
-###PUT NEW make_redox_reactions CODE HERE
 
-    def make_redox_reactions(self, custom_obigt, redox_pairs="all"): #### START COPYING HERE
+    def make_redox_reactions(self, db=None, redox_pairs="all", custom_obigt=None):
         
         """
         Generate an organized collection of redox reactions for calculating
@@ -3869,6 +3934,19 @@ class AqEquil:
         
         Parameters
         ----------
+        db : str
+            Determines which thermodynamic database is used in the speciation
+            calculation. The database must be a CSV file (not a data0file)
+            because the code must look up properties of chemical species to
+            calculate affinities and energy supplies of reactions.
+            The `db` parameter can either be:
+            - The name of a CSV file containing thermodynamic data located in
+            the current working directory, e.g., "wrm_data.csv". The CSV file
+            will be used to generate a data0 file for each sample (using
+            additional arguments from `db_args` if desired).
+            - The URL of a CSV file containing thermodynamic data, e.g.,
+            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+        
         redox_pairs : list of int or "all", default "all"
             List of indices of half reactions in the half cell reaction table
             to be combined when generating full redox reactions.
@@ -3878,11 +3956,19 @@ class AqEquil:
             If "all", generate all possible redox reactions from available half
             cell reactions.
         
+        custom_obigt : str
+            Deprecated.
+        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         """
+        
+        if custom_obigt != None: # deprecation warning
+            print("Warning: The parameter 'custom_obigt' is deprecated. Use 'db'"
+                  " instead. Setting 'db' equal to 'custom_obigt' for now...")
+            db = custom_obigt
         
         # reset all redox variables stored in the AqEquil class
         self.affinity_energy_reactions_raw = None
@@ -3913,6 +3999,35 @@ class AqEquil:
         self.redox_pairs = redox_pairs
         
         df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
+        
+        if db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "wrm_data.csv"
+            
+            custom_obigt = db
+            
+            db_csv_name = db.split("/")[-1].lower() # not used
+            
+        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+            
+            # e.g., "wrm_data.csv"
+            db_csv_name = db.split("/")[-1].lower()
+            
+            # Download from URL and decode as UTF-8 text.
+            with urlopen(db) as webpage:
+                content = webpage.read().decode()
+            # Save to CSV file.
+            with open(db_csv_name, 'w') as output:
+                output.write(content)
+                
+            custom_obigt = db_csv_name
+            
+        else:
+            self.err_handler.raise_exception("Unrecognized thermodynamic "
+                "database '{}'".format(db)+" specified for db. A database can specified as:"
+                "\n - a csv file in your working directory. e.g., db='wrm_data.csv'"
+                "\n - a URL directing to a valid csv file. e.g.,"
+                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv'")
         
         wrm_data = pd.read_csv(custom_obigt) #jordyn
         basis_df = wrm_data.loc[wrm_data['tag'] == 'basis']

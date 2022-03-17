@@ -29,6 +29,7 @@ mine_3o <- function(this_file,
                     get_basis_totals=T,
                     get_solid_solutions=T,
                     get_affinity_energy=T,
+                    negative_energy_supplies=F,
                     not_limiting=c("H+", "OH-", "H2O"),
                     mass_contribution_other=T,
                     verbose=1){
@@ -398,6 +399,9 @@ mine_3o <- function(this_file,
     ion_ratio_block <- isolate_block(extractme, "^.*--- Ion-H\\+ Activity Ratios ---\n\n", "\n\n.*$")
     ion_ratio_block_split <- strsplit(ion_ratio_block, "\n")[[1]]
     ion_ratio_block_split <- strsplit(ion_ratio_block_split, "=")
+      
+    if (!identical(ion_ratio_block_split, character(0))){
+      
     ion_ratio_logs <- trimspace(lapply(ion_ratio_block_split, `[[`, 1))
     ion_ratio_values <- suppressWarnings(as.numeric(lapply(ion_ratio_block_split, `[[`, 2)))
       
@@ -420,6 +424,7 @@ mine_3o <- function(this_file,
     df <- transform(transform(df, values = as.character(values)), values=as.numeric(values))
     df <- transform(df, ion = as.character(ion))
     sample_3o[["ion_activity_ratios"]] <- df
+    }
   }
 
   ### begin fugacity mining
@@ -644,7 +649,10 @@ mine_3o <- function(this_file,
 
         ### calculate 'energy' in kJ/kg H2O by multiplying affinity (kJ/mol) by activity (mol/kg) of limiting reactant
         this_energy <- affinity_per_mol_rxn * limiting_reactant
-
+        
+        if(!negative_energy_supplies && this_energy < 0){
+          this_energy <- 0
+        }
 
       } else { # if there is an NA in one of the activities
         affinity_per_mol_rxn <- NA
@@ -843,9 +851,11 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
   }
 
   if(get_ion_activity_ratios){
+    if('ion_activity_ratios' %in% names(data)){
     ion_activity_ratios <- create_report_df(data=data, category='ion_activity_ratios', out_type=1)
     report_list[["divs"]][["ion_activity_ratios"]] <- names(ion_activity_ratios)[2:length(ion_activity_ratios)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(ion_activity_ratios, by=c("Sample"="sample"))
+    }
   }
 
   if(get_fugacity){
@@ -896,6 +906,7 @@ main_3o_mine <- function(files_3o,
                          get_basis_totals,
                          get_solid_solutions,
                          get_affinity_energy,
+                         negative_energy_supplies,
                          load_rxn_file,
                          not_limiting,
                          mass_contribution_other,
@@ -955,6 +966,7 @@ main_3o_mine <- function(files_3o,
                          get_basis_totals=get_basis_totals,
                          get_solid_solutions=get_solid_solutions,
                          get_affinity_energy=get_affinity_energy,
+                         negative_energy_supplies=negative_energy_supplies,
                          not_limiting=not_limiting,
                          mass_contribution_other=mass_contribution_other,
                          verbose=verbose)

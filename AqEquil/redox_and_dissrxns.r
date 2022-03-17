@@ -57,8 +57,13 @@ order_thermo_df <- function(thermo_df, fixed_species, verbose){
   aux_entries_with_only_strict <- aux_entries[split_and_check_dissrxn(aux_entries[, "dissrxn"], basis_entries[, "name"], fixed_species), ]
   aux_entries_with_other_aux   <- aux_entries[!split_and_check_dissrxn(aux_entries[, "dissrxn"], basis_entries[, "name"], fixed_species), ]
   aux_entries_with_strict_aux <- aux_entries_with_other_aux[split_and_check_dissrxn(aux_entries_with_other_aux[, "dissrxn"], c(aux_entries_with_only_strict[, "name"], basis_entries[, "name"]), fixed_species), ]
-  aux_entries_with_nonstrict_aux <- aux_entries_with_other_aux[!split_and_check_dissrxn(aux_entries_with_other_aux[, "dissrxn"], c(aux_entries_with_only_strict[, "name"], basis_entries[, "name"]), fixed_species), ]
   
+  if(!identical(aux_entries_with_other_aux[, "dissrxn"], character(0))){
+    aux_entries_with_nonstrict_aux <- aux_entries_with_other_aux[!split_and_check_dissrxn(aux_entries_with_other_aux[, "dissrxn"], c(aux_entries_with_only_strict[, "name"], basis_entries[, "name"]), fixed_species), ]
+  }else{
+    aux_entries_with_nonstrict_aux <- data.frame()
+  }
+      
 #   print(nrow(aux_entries))
 #   print(nrow(aux_entries_with_other_aux))
 #   print(nrow(aux_entries_with_nonstrict_aux))
