@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-"]
 
 import os
@@ -3126,9 +3126,6 @@ class AqEquil:
         
         # mine output
         self.__capture_r_output()
-        
-        print("pressures")
-        print(list(input_processed_list.rx2("pressure_bar")))
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, '3o_mine.r').decode("utf-8")
