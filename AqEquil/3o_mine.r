@@ -18,6 +18,7 @@ isolate_block <- function(str, begin_str, end_str){
 ### main functions
 
 mine_3o <- function(this_file,
+                    this_pressure,
                     rxn_table,
                     get_aq_dist=T,
                     get_mass_contribution=T,
@@ -77,7 +78,7 @@ mine_3o <- function(this_file,
     
   # mine params
   sample_3o[["temperature"]] <- isolate_block(str=extractme, begin_str="^.*Temperature=\\s+", end_str="\\s+.*$")
-  sample_3o[["pressure"]] <- isolate_block(str=extractme, begin_str="^.*Pressure=\\s+", end_str="\\s+.*$")
+  sample_3o[["pressure"]] <- this_pressure #isolate_block(str=extractme, begin_str="^.*Pressure=\\s+", end_str="\\s+.*$")
   sample_3o[["logact_H2O"]] <- isolate_block(str=extractme, begin_str="^.*Log activity of water=\\s+", end_str="\\s+.*$")
   sample_3o[["H2O_density"]] <- isolate_block(str=extractme, begin_str="^.*Solution density =\\s+", end_str="\\s+.*$")
   sample_3o[["H2O_molality"]] <- 55.348/as.numeric(sample_3o[["H2O_density"]])
@@ -93,7 +94,7 @@ mine_3o <- function(this_file,
 
     # split into substrings, each representing a separate row in the table
     species_block <- strsplit(species_block, "\n")
-
+      
     #create an empty data frame to store results
     df <- data.frame(species = character(0),
                       molality = character(0),
@@ -135,7 +136,7 @@ mine_3o <- function(this_file,
     # set rownames of aqueous species block as species names
     rownames(df) <- df$species
     df$species <- NULL
-
+      
     # add aqueous block to this sample data
     sample_3o[["aq_distribution"]] <- df
       
@@ -477,12 +478,11 @@ mine_3o <- function(this_file,
   if(get_affinity_energy){
       
     this_temp <- as.numeric(sample_3o[["temperature"]])
-    this_pres <- as.numeric(sample_3o[["pressure"]])
     this_logact_H2O <- as.numeric(sample_3o[["logact_H2O"]])
     this_H2O_log_molality <- as.numeric(sample_3o[["H2O_log_molality"]])
 
     df <- sample_3o[["aq_distribution"]]
-    
+      
     # get a list of mineral names in CHNOSZ
     CHNOSZ_cr_names <- unlist(thermo()$OBIGT %>% filter(state == "cr") %>% select(name))
 
@@ -536,11 +536,11 @@ mine_3o <- function(this_file,
       # get speciated activities from master_df
       activities <- c()
       molalities <- c()
-
+        
       for(species in species_EQ3){
-        
+          
         if(species %in% rownames(df)){
-        
+            
           activities <- c(activities, 10^as.numeric(df[species, "log_activity"]))
 
           if(!grepl("sub$", rxn_name)){
@@ -548,8 +548,9 @@ mine_3o <- function(this_file,
           } else {
             molalities <- c(molalities, remaining_react_molal_with_product_molal[species])
           }
-
+            
         } else {
+            
           activities <- c(activities, NA)
           molalities <- c(molalities, NA)
         }
@@ -574,17 +575,20 @@ mine_3o <- function(this_file,
         product_molalities <- molalities[which(stoichs > 0)]
         this_logQ <- sum(abs(product_stoich)*log10(product_activities)) - sum(abs(reactant_stoich)*log10(reactant_activities))
 
+
+          
         if(!is.na(this_logQ)){
+            
           ### calculate K using subcrt() function in CHNOSZ
           this_logK <- suppressMessages(subcrt(species=species_CHNOSZ,
                                                coeff=stoichs,
                                                #state=phase,
                                                T=this_temp,
-                                               P=this_pres)$out$logK)
+                                               P=this_pressure)$out$logK)
         }else{
           this_logK <- NA
         }
-
+          
         ### calculate affinity, A
         affinity_per_mol_rxn <- 0.008314*(this_temp+273.15)*2.302585*(this_logK-this_logQ) # in kJ/mol, A=RT*ln(K/Q)=RT*2.302585*(logK-logQ)
         affinity_per_mol_e <- ((affinity_per_mol_rxn*1000)/4.184)/electrons # in cal/mol e-
@@ -915,11 +919,13 @@ main_3o_mine <- function(files_3o,
                          mineral_sat_type,
                          redox_type,
                          input_filename,
+                         input_pressures,
                          batch_3o_filename,
                          df_input_processed,
                          df_input_processed_names,
                          custom_obigt,
                          water_model,
+                         fixed_species,
                          verbose){
     
   start_time <- Sys.time()
@@ -930,7 +936,10 @@ main_3o_mine <- function(files_3o,
   if(!is.null(custom_obigt)){
     custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)
     custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
-    suppressMessages(mod.OBIGT(custom_obigt, replace=T))
+    suppressMessages({
+      thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
+      mod.OBIGT(custom_obigt, replace=TRUE) # produces a message
+    })
   }
 
   rxn_table <- NULL
@@ -950,11 +959,14 @@ main_3o_mine <- function(files_3o,
     writeLines("Now processing EQ3 output files...")
   }
     
+  names(input_pressures) <- files_3o
+    
   # process each .3o file
   for(file in files_3o){
       
     # add this sample's aqueous data to list of all sample data
     sample_3o <- mine_3o(file,
+                         this_pressure=input_pressures[file],
                          rxn_table=rxn_table,
                          get_aq_dist=get_aq_dist,
                          get_mass_contribution=get_mass_contribution,

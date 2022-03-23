@@ -327,6 +327,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 #     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
 #   }
 
+                   
+                   
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
@@ -375,7 +377,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 
   dissrxns <- lapply(sp_name, spec_diss, simplest_basis, sp_formula_makeup,
                      HOZ_balancers, redox_elem_states, aux_pref, thermo_df, verbose)
-
+   
+                            
   names(dissrxns) <- sp_name
   dissrxns[["basis_list"]] <- simplest_basis
   return(dissrxns)
@@ -846,7 +849,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
   })
 
-                                   
+
   # begin handling basis preferences
   basis_df <- thermo_df %>%
     filter(tag=="basis")
@@ -854,10 +857,33 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     filter(tag=="aux")
 
   basis_pref <- basis_df[, "name"]
-  names(basis_pref) <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
+                                   
+  basis_pref_elements <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
+                                   
+  # handle the possibility of a basis species with more than one non-OH element,
+  # e.g., glycine as a basis species has C and N.
+  for(i in 1:length(basis_pref_elements)){
+      
+    if(length(basis_pref_elements[[i]]) > 1){
+        
+        msg <- paste0("Error during database processing. The strict basis ",
+                     "species '", basis_pref[i], "' has more than one ",
+                     "element besides O and H. This can be solved by making ",
+                     "this species an auxiliary basis species with a dissociation ",
+                     "reaction into strict basis species representing the elements ",
+                     paste(basis_pref_elements[[i]], collapse=" "))
+        stop(msg)
+
+    }
+  }
+                                   
+  names(basis_pref) <- basis_pref_elements
+                                   
   aux_pref <- unlist(aux_df[, "name"])
   aux_pref_names <- lapply(lapply(lapply(aux_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
   
+
+                                   
   # Remove aux basis species from the preferred list if they contain more than
   # one element besides O and H.
   #     E.g., remove CN-, OCN-, etc.
@@ -869,10 +895,11 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   }
   aux_pref <- aux_pref[keep]
   aux_pref_names <- aux_pref_names[keep]
-    
+                                   
   # Also remove aux basis species from the preferred list if they have more than
   # one atom of the same element.
   #     E.g., remove S2-2, S2O3-2, etc.
+  if(!identical(aux_pref, character(0))){
   keep <- c()
   for(i in 1:length(aux_pref)){
     if(makeup(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
@@ -883,7 +910,11 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   aux_pref_names <- aux_pref_names[keep]
     
   names(aux_pref) <- aux_pref_names
-                                   
+  }else{
+    aux_pref <- list()
+    aux_pref_names <- c()
+  }
+                           
   # EQ3 has Cl-, H2O, and O2(g) hard-coded as basis species for the
   # elements Cl, H, and O, respectively.
   basis_pref["Cl"] <- "Cl-"
@@ -925,7 +956,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       }
     }
   }
-
+                    
   # get names of species that need dissrxns:
   #  1. non-basis species in the datafile lacking a dissociation reaction
   #  2. non-basis species with incorrect or unbalanced dissociation reactions.
@@ -952,7 +983,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       })
     }
   }
-                                   
+                    
   df_needs_dissrxns <- thermo_df %>%
     filter(tag != "basis") %>%
     filter(regenerate_dissrxn == TRUE)
@@ -969,16 +1000,18 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
   }
-
+                    
   # generate dissociation reactions
-  dissrxns <- suppressMessages(get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
+  dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,
                                            aux_pref=aux_pref,
                                            HOZ_balancers=HOZ_balancers,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
-                                           redox_elem_states=redox_elem_states))
-
+                                           redox_elem_states=redox_elem_states)
+              
+  print(dissrxns)
+                                   
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if(nrow(df_needs_dissrxns) > 0){
     names <- df_needs_dissrxns[["name"]]
@@ -991,9 +1024,10 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
     vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
   }
-
+                                  
   thermo_df[is.na(thermo_df)]='' 
 
   out_list = list("OBIGT_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
+                                  
   return(out_list)
 }
