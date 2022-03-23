@@ -1,4 +1,5 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
+FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-"]
 
 import os
 import re
@@ -3126,12 +3127,16 @@ class AqEquil:
         # mine output
         self.__capture_r_output()
         
+        print("pressures")
+        print(list(input_processed_list.rx2("pressure_bar")))
+        
         r_3o_mine = pkg_resources.resource_string(
             __name__, '3o_mine.r').decode("utf-8")
         ro.r(r_3o_mine)
         batch_3o = ro.r.main_3o_mine(
             files_3o=convert_to_RVector(files_3o),
             input_filename=input_filename,
+            input_pressures=convert_to_RVector(list(input_processed_list.rx2("pressure_bar"))),
             rxn_filename=rxn_filename,
             get_aq_dist=get_aq_dist,
             aq_dist_type=aq_dist_type,
@@ -3161,6 +3166,7 @@ class AqEquil:
             df_input_processed_names=df_input_processed_names,
             custom_obigt=custom_obigt,
             water_model=water_model,
+            fixed_species=convert_to_RVector(FIXED_SPECIES),
             verbose=self.verbose,
         )
 
@@ -3733,8 +3739,6 @@ class AqEquil:
             calculation. 2 for all messages, 1 for errors or warnings only,
             0 for silent.
         """
-        
-        FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-"]
         
         # Check that thermodynamic database input files exist and are formatted
         # correctly.
@@ -4642,8 +4646,7 @@ class AqEquil:
         nonsub_reaction_names = [name for name in self.affinity_energy_reactions_table.index if "_sub" not in name[-4:]]
         if self.verbose != 0:
             print("{} redox reactions have been generated.".format(len(nonsub_reaction_names)))
-        
-        ###STOP COPYING HERE      
+
         
     def show_redox_reactions(self, formatted=True, charge_sign_at_end=False,
                                   hide_subreactions=True, simplify=True,
