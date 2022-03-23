@@ -1009,8 +1009,6 @@ suppress_redox_and_generate_dissrxns <- function(filename,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
-              
-  print(dissrxns)
                                    
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if(nrow(df_needs_dissrxns) > 0){
