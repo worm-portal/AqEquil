@@ -235,6 +235,7 @@ write_3i_file <- function(df,
                           pressure_override,
                           suppress_missing,
                           exclude,
+                          allowed_aq_block_species,
                           charge_balance_on,
                           suppress,
                           alter_options,
@@ -619,7 +620,11 @@ write_3i_file <- function(df,
                         "| (uspeci(n)/ucospi(n))                          | (covali(n))|(ujf3(jflgi(n)))|",
                         "|------------------------------------------------------------------------------|",
                         sep = "\n")
-
+      
+  if(allowed_aq_block_species[1] == "all"){
+    allowed_aq_block_species <- unlist(lapply(names(df), FUN=header_species))
+  }
+      
   # handle aqueous block
   aqueous_lines <- c()
   for(column in names(df)){
@@ -628,7 +633,7 @@ write_3i_file <- function(df,
     }
     if(!is.na(df[row, column])){
       species_name  <- header_species(column)
-      if(!(species_name %in% exclude)){
+      if(!(species_name %in% exclude) && (species_name %in% allowed_aq_block_species)){
         species_value <- df[row, column]
         # EQ3 won't balance on a species if its concentration is 0 so
         # change it to a very small non-zero value

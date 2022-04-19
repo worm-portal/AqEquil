@@ -364,6 +364,23 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   # further narrow down the list of potential basis species by grabbing the basis species
   # with the fewest elements+charge from available basis species. In the end there should
   # only be one basis species assigned to each element.
+                            
+  # check whether basis species in the basis_list are actually given as basis
+  # species in thermo_df.
+  elements_without_basis <- c()
+  for(elem in names(basis_list)){
+    if(length(basis_list[[elem]]) == 0){
+      elements_without_basis <- c(elements_without_basis, elem)
+    }
+  }
+  if(length(elements_without_basis) > 0){
+    msg <- paste("Error during database processing. The following elements",
+                  "appear in chemical species but do not have representative",
+                  "basis species:", paste(elements_without_basis, collapse=", "),
+                  ". Are necessary basis species being excluded?")
+    stop(msg)
+  }
+                            
   simplest_basis <- c()
   for(elem in basis_elem){
     form <- lapply(info(info(basis_list[[elem]]))$formula, makeup)
@@ -372,6 +389,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     if(length(idx) > 1){
       idx <- idx[1]
     }
+      
     simplest_basis[elem] <- basis_list[[elem]][idx]
   }
 
@@ -580,7 +598,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   
   # load thermodynamic data
   thermo_df <- read.csv(filename, stringsAsFactors=F)
-
+    
   # exclude rows based on categories
   if(length(exclude_category) > 0){
     for(cat in names(exclude_category)){
@@ -589,8 +607,8 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     }
   }
     
-  # TODO: ensure that Cl- (and perhaps other hard-coded species) are in thermo_df
-  # and return an error if not.
+  # Ensure that Cl- and other EQ3NR-required species are in thermo_df by marking
+  # them as "required" in category 1 of the thermodynamic db CSV.
     
   # get all unique oxidation states of elements in the entire dataset
   elem_ox <- c()
@@ -966,6 +984,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   
   # for each dissrxn, determine if unbalanced. If so, flag a thermo_df 'need_dissrxn' column.
   thermo_df[, "regenerate_dissrxn"] <- FALSE
+  all_basis_species <- c()
   for(species in thermo_df[, "name"]){
     
     tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
@@ -973,6 +992,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
       dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
       dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
+      all_basis_species <- c(all_basis_species, dissrxn_names[2:length(dissrxn_names)])
       dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
       dissrxn_coefs <- dissrxn[c(TRUE, FALSE)] # get coeffs of reactants and products
       dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
@@ -983,7 +1003,71 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       })
     }
   }
-                    
+  all_basis_species <- unique(all_basis_species)
+
+  # check whether there are species in dissociation reactions that are missing or
+  # not tagged in the database as 'basis' or 'aux'.
+  missing_basis_species <- c()
+  species_to_blame <- c()
+  species_in_dissrxns_that_are_not_basis <- c()
+  for(basis in all_basis_species){
+    if(!(basis %in% thermo_df$name) && !(basis %in% fixed_species)){
+       missing_basis_species <- c(missing_basis_species, basis)
+    }else if(!(basis %in% basis_df$name) && !(basis %in% aux_df$name) && !(basis %in% fixed_species)){
+      species_in_dissrxns_that_are_not_basis <- c(species_in_dissrxns_that_are_not_basis, basis)
+    }
+  }
+  if(length(missing_basis_species) > 0){
+    for(species in thermo_df[, "name"]){
+      tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
+      if(tag != "basis"){
+        dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
+        dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
+        dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
+        for(n in dissrxn_names){
+          if(n %in% missing_basis_species){
+            species_to_blame <- c(species_to_blame, species)
+          }
+        }
+      }
+    }
+    species_to_blame <- unique(species_to_blame)
+      
+    msg_missing_basis <- paste("The following species appear in dissociation",
+      "reactions but are not included in the database: [", paste(missing_basis_species, collapse=", "),
+      "]. These missing species are found in the dissociation reactions of [",
+      paste(species_to_blame, collapse=", "), "].")
+  }else{
+    msg_missing_basis <- ""
+  }
+  if(length(species_in_dissrxns_that_are_not_basis) > 0){
+    for(species in thermo_df[, "name"]){
+      tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
+      if(tag != "basis"){
+        dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
+        dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
+        dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
+        for(n in dissrxn_names){
+          if(n %in% missing_basis_species){
+            species_to_blame <- c(species_to_blame, species)
+          }
+        }
+      }
+    }
+    species_to_blame <- unique(species_to_blame)
+    msg_not_basis <- paste("The following species appear in dissociation",
+      "reactions but are not tagged as strict or auxiliary basis species: [",
+      paste(species_in_dissrxns_that_are_not_basis, collapse=", "),
+      "]. These non-basis species are found in the dissociation reactions of [",
+      paste(species_to_blame, collapse=", "), "].")
+  }else{
+    msg_not_basis <- ""
+  }
+  if(length(missing_basis_species) > 0 | length(species_in_dissrxns_that_are_not_basis) > 0){
+    stop(paste("One or more errors were encountered during database processing.",
+               msg_missing_basis, msg_not_basis))
+  }
+                                   
   df_needs_dissrxns <- thermo_df %>%
     filter(tag != "basis") %>%
     filter(regenerate_dissrxn == TRUE)
