@@ -26,8 +26,8 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = True
-FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;]
+<pre><code class="python">DEBUGGING_R = False
+FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;, &#34;OH-&#34;, &#34;O2&#34;, &#34;H2O(g)&#34;]
 
 import os
 import re
@@ -698,7 +698,7 @@ class Speciation(object):
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=[&#34;blue&#34;, &#34;orange&#34;],
                                 save_as=None, save_format=None, save_scale=1,
-                                interactive=True, hide_traceback=True):
+                                interactive=True, plot_out=False):
         &#34;&#34;&#34;
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -737,6 +737,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
         
         if sample_name not in self.report.index:
@@ -800,20 +804,24 @@ class Speciation(object):
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
+
     
 
-    def barplot(self, y, title=None, convert_log=True, show_missing=True,
+    def barplot(self, y=&#34;pH&#34;, title=None, convert_log=True, show_missing=True,
                 plot_width=4, plot_height=3, ppi=122, colormap=&#34;WORM&#34;,
                 save_as=None, save_format=None, save_scale=1,
-                interactive=True):
+                interactive=True, plot_out=False):
         
         &#34;&#34;&#34;
         Show a bar plot to vizualize one or more variables across all samples.
         
         Parameters
         ----------
-        y : str or list of str
+        y : str or list of str, default &#34;pH&#34;
             Name (or list of names) of the variables to plot. Valid variables
             are columns in the speciation report.
 
@@ -862,6 +870,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -1038,14 +1050,17 @@ class Speciation(object):
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
         
     def scatterplot(self, x=&#34;pH&#34;, y=&#34;Temperature&#34;, title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
                           colormap=&#34;WORM&#34;, save_as=None, save_format=None,
-                          save_scale=1, interactive=True):
+                          save_scale=1, interactive=True, plot_out=False):
         
         &#34;&#34;&#34;
         Vizualize two or more sample variables with a scatterplot.
@@ -1101,6 +1116,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -1282,8 +1301,11 @@ class Speciation(object):
 
         if not interactive:
             config[&#39;staticPlot&#39;] = True
-            
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
@@ -1291,7 +1313,8 @@ class Speciation(object):
                                      colormap=&#34;WORM&#34;,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
-                                     save_scale=1, interactive=True):
+                                     save_scale=1, interactive=True,
+                                     plot_out=False):
         
         &#34;&#34;&#34;
         Plot basis species contributions to mass balance of aqueous species
@@ -1357,6 +1380,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
         
         try:
@@ -1375,6 +1402,13 @@ class Speciation(object):
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
+        if isinstance(sort_y_by, list):
+            for species in sort_y_by:
+                if species not in df_sp[&#34;species&#34;]:
+                    for sample in set(df_sp[&#34;sample&#34;]):
+                        df2 = {&#39;sample&#39;:sample, &#39;basis&#39;:basis, &#39;species&#39;:species, &#39;factor&#39;:None, &#39;molality&#39;:None, &#39;percent&#39;:0}
+                        df_sp = df_sp.append(df2, ignore_index=True)
+    
         if sort_by != None:
             if sort_by in self.report.columns.get_level_values(0):
                 sort_col = self.lookup(sort_by)
@@ -1423,10 +1457,10 @@ class Speciation(object):
                            &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
                            &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
                     self.err_handler.raise_exception(msg)
-                else:
-                    msg = (&#34;sort_y_by can only have the &#34;
-                           &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                    self.err_handler.raise_exception(msg)
+#                 else:
+#                     msg = (&#34;sort_y_by can only have the &#34;
+#                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
+#                     self.err_handler.raise_exception(msg)
             elif sort_y_by == &#34;alphabetical&#34;:
                 if &#34;Other&#34; in unique_species:
                     unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
@@ -1446,18 +1480,22 @@ class Speciation(object):
 
         df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
         unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
-
-        # map each species to its color, e.g.,
-        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
-        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
         
         if title == None:
             title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
         
+        
+        # map each species to its color, e.g.,
+        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+        
+        category_orders = {&#34;species&#34;: unique_species, &#34;sample&#34;: labels}
+
+
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
                      width=plot_width*ppi, height=plot_height*ppi,
                      labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
-                     category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
+                     category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template=&#34;simple_white&#34;,
                     )
@@ -1488,8 +1526,11 @@ class Speciation(object):
         
         if not interactive:
             config[&#39;staticPlot&#39;] = True
-
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
 
     def plot_solid_solutions(self, sample, title=None,
@@ -1498,7 +1539,8 @@ class Speciation(object):
                                    affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
                                    plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
-                                   save_scale=1, interactive=True):
+                                   save_scale=1, interactive=True,
+                                   plot_out=False):
         
         &#34;&#34;&#34;
         Plot fractions of minerals of hypothetical solid solutions in a sample.
@@ -1556,6 +1598,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if sample not in self.sample_data.keys():
@@ -1665,7 +1711,10 @@ class Speciation(object):
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
         
         
 class AqEquil:
@@ -1850,7 +1899,7 @@ class AqEquil:
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -1937,29 +1986,39 @@ class AqEquil:
         # are column names valid entries in the database?
         if custom_data0:
             data0_path = &#34;data0.&#34; + db
+        elif dynamic_db:
+            data0_path = db
         else:
             data0_path = self.eq36da + &#34;/data0.&#34; + db
         if os.path.exists(data0_path) and os.path.isfile(data0_path):
-            with open(data0_path) as data0:
-                data0_lines = data0.readlines()
-                start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
-                end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
-                db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
-                if charge_balance_on == &#39;pH&#39;:
-                    err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
-                        &#34;charge_balance_on=&#39;H+&#39;&#34;)
-                    err_list.append(err_charge_balance_on_pH)
-                elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
-                    err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
-                        &#34;on {}.&#34;.format(charge_balance_on))
-                    err_list.append(err_charge_balance_invalid_type)
-                elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
-                    err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
-                        &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
-                        &#34; was not found among the headers of the sample input file.&#34;)
-                    err_list.append(err_charge_balance_invalid_sp)
+            if self.thermo_db_type == &#34;data0 file&#34;:
+                with open(data0_path) as data0:
+                    data0_lines = data0.readlines()
+                    start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
+                    end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
+                    db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            elif self.thermo_db_type == &#34;CSV file&#34;:
+                df_OBIGT = pd.read_csv(data0_path)
+                db_species = list(df_OBIGT[&#34;name&#34;])
+            
+            
+            if charge_balance_on == &#39;pH&#39;:
+                err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
+                    &#34;charge_balance_on=&#39;H+&#39;&#34;)
+                err_list.append(err_charge_balance_on_pH)
+            elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
+                    &#34;on {}.&#34;.format(charge_balance_on))
+                err_list.append(err_charge_balance_invalid_type)
+            elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
+                err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
+                    &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
+                    &#34; was not found among the headers of the sample input file.&#34;)
+                err_list.append(err_charge_balance_invalid_sp)
+                
+            if self.thermo_db_type in [&#34;data0 file&#34;, &#34;CSV file&#34;]:
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;]:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -1973,7 +2032,6 @@ class AqEquil:
                             &#34;the sample input file to &#39;H+&#39; with the subheader &#34;
                             &#34;unit &#39;pH&#39;.&#34;)
                         err_list.append(err_species_pH)
-                    
         else:
             err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
@@ -1990,7 +2048,7 @@ class AqEquil:
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;, &#34;Mineral&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -2067,7 +2125,7 @@ class AqEquil:
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
             self.err_handler.raise_exception(
                 &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
-
+            
         if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
             os.rename(&#34;data1&#34;, &#34;data1.&#34;+db)
         if os.path.exists(&#34;output&#34;) and os.path.isfile(&#34;output&#34;):
@@ -2360,6 +2418,7 @@ class AqEquil:
                  }
 
         fig.show(config=config)
+
 
     def speciate(self,
                  input_filename,
@@ -2812,9 +2871,9 @@ class AqEquil:
         
         self.verbose = verbose
         
-#         # check input sample file for errors
-#         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-#                                       charge_balance_on, suppress_missing)
+        # check input sample file for errors
+        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                      dynamic_db, charge_balance_on, suppress_missing)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -3098,7 +3157,10 @@ class AqEquil:
             else:
                 pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
             
-
+            # allowed aq block species are left after any category exclusion in db_args
+            allowed_aq_block_species = [&#34;all&#34;]
+            if dynamic_db:
+                allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
             
             # write 3i files
             self.__capture_r_output()
@@ -3111,6 +3173,7 @@ class AqEquil:
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2(&#34;exclude&#34;),
+                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
                                suppress=convert_to_RVector(suppress),
                                alter_options=alter_options,
@@ -3154,9 +3217,6 @@ class AqEquil:
         
         # mine output
         self.__capture_r_output()
-        
-        print(&#34;pressures&#34;)
-        print(list(input_processed_list.rx2(&#34;pressure_bar&#34;)))
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
@@ -5720,7 +5780,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -5807,29 +5867,39 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         # are column names valid entries in the database?
         if custom_data0:
             data0_path = &#34;data0.&#34; + db
+        elif dynamic_db:
+            data0_path = db
         else:
             data0_path = self.eq36da + &#34;/data0.&#34; + db
         if os.path.exists(data0_path) and os.path.isfile(data0_path):
-            with open(data0_path) as data0:
-                data0_lines = data0.readlines()
-                start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
-                end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
-                db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
-                if charge_balance_on == &#39;pH&#39;:
-                    err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
-                        &#34;charge_balance_on=&#39;H+&#39;&#34;)
-                    err_list.append(err_charge_balance_on_pH)
-                elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
-                    err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
-                        &#34;on {}.&#34;.format(charge_balance_on))
-                    err_list.append(err_charge_balance_invalid_type)
-                elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
-                    err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
-                        &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
-                        &#34; was not found among the headers of the sample input file.&#34;)
-                    err_list.append(err_charge_balance_invalid_sp)
+            if self.thermo_db_type == &#34;data0 file&#34;:
+                with open(data0_path) as data0:
+                    data0_lines = data0.readlines()
+                    start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
+                    end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
+                    db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            elif self.thermo_db_type == &#34;CSV file&#34;:
+                df_OBIGT = pd.read_csv(data0_path)
+                db_species = list(df_OBIGT[&#34;name&#34;])
+            
+            
+            if charge_balance_on == &#39;pH&#39;:
+                err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
+                    &#34;charge_balance_on=&#39;H+&#39;&#34;)
+                err_list.append(err_charge_balance_on_pH)
+            elif charge_balance_on in [&#39;Temperature&#39;, &#39;logfO2&#39;]:
+                err_charge_balance_invalid_type = (&#34;Cannot balance charge &#34;
+                    &#34;on {}.&#34;.format(charge_balance_on))
+                err_list.append(err_charge_balance_invalid_type)
+            elif charge_balance_on != &#34;none&#34; and charge_balance_on not in list(set(df_in_headercheck.columns)):
+                err_charge_balance_invalid_sp = (&#34;The species chosen for charge balance&#34;
+                    &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
+                    &#34; was not found among the headers of the sample input file.&#34;)
+                err_list.append(err_charge_balance_invalid_sp)
+                
+            if self.thermo_db_type in [&#34;data0 file&#34;, &#34;CSV file&#34;]:
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;]:
+                    if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                             &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
@@ -5843,7 +5913,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;the sample input file to &#39;H+&#39; with the subheader &#34;
                             &#34;unit &#39;pH&#39;.&#34;)
                         err_list.append(err_species_pH)
-                    
         else:
             err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
@@ -5860,7 +5929,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;, &#34;Mineral&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -5937,7 +6006,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             os.environ[&#39;EQ36DA&#39;] = self.eq36da
             self.err_handler.raise_exception(
                 &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
-
+            
         if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
             os.rename(&#34;data1&#34;, &#34;data1.&#34;+db)
         if os.path.exists(&#34;output&#34;) and os.path.isfile(&#34;output&#34;):
@@ -6230,6 +6299,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  }
 
         fig.show(config=config)
+
 
     def speciate(self,
                  input_filename,
@@ -6682,9 +6752,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         self.verbose = verbose
         
-#         # check input sample file for errors
-#         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-#                                       charge_balance_on, suppress_missing)
+        # check input sample file for errors
+        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                      dynamic_db, charge_balance_on, suppress_missing)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -6968,7 +7038,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             else:
                 pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
             
-
+            # allowed aq block species are left after any category exclusion in db_args
+            allowed_aq_block_species = [&#34;all&#34;]
+            if dynamic_db:
+                allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
             
             # write 3i files
             self.__capture_r_output()
@@ -6981,6 +7054,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2(&#34;exclude&#34;),
+                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
                                suppress=convert_to_RVector(suppress),
                                alter_options=alter_options,
@@ -7024,9 +7098,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         # mine output
         self.__capture_r_output()
-        
-        print(&#34;pressures&#34;)
-        print(list(input_processed_list.rx2(&#34;pressure_bar&#34;)))
         
         r_3o_mine = pkg_resources.resource_string(
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
@@ -10221,7 +10292,7 @@ If unsure, use None.</dd>
         os.environ[&#39;EQ36DA&#39;] = self.eq36da
         self.err_handler.raise_exception(
             &#34;Error: EQPT failed to run on {}.&#34;.format(&#34;data0.&#34;+db))
-
+        
     if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
         os.rename(&#34;data1&#34;, &#34;data1.&#34;+db)
     if os.path.exists(&#34;output&#34;) and os.path.isfile(&#34;output&#34;):
@@ -10660,541 +10731,728 @@ db_args = {
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def speciate(self,
-                 input_filename,
-                 db=&#34;wrm&#34;,
-                 db_solid_solution=None,
-                 redox_flag=&#34;logfO2&#34;,
-                 redox_aux=&#34;Fe+3&#34;,
-                 default_logfO2=-6,
-                 exclude=[],
-                 suppress=[],
-                 alter_options=[],
-                 charge_balance_on=&#34;none&#34;,
-                 suppress_missing=True,
-                 strict_minimum_pressure=True,
-                 verbose=1,
-                 report_filename=None,
-                 get_aq_dist=True,
-                 aq_dist_type=&#34;log_activity&#34;,
-                 get_mass_contribution=True,
-                 mass_contribution_other=True,
-                 get_mineral_sat=True,
-                 mineral_sat_type=&#34;affinity&#34;,
-                 get_redox=True,
-                 redox_type=&#34;Eh&#34;,
-                 get_ion_activity_ratios=True,
-                 get_fugacity=True,
-                 get_basis_totals=True,
-                 get_solid_solutions=True,
-                 get_affinity_energy=False,
-                 negative_energy_supplies=False,
-                 rxn_filename=None,
-                 not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
-                 get_charge_balance=True,
-                 custom_data0=False, # deprecated but used internally
-                 custom_db=False, # deprecated
-                 batch_3o_filename=None,
-                 delete_generated_folders=False,
-                 custom_obigt=None, # deprecated but used internally
-                 db_args={}):
+<pre><code class="python">def speciate(self,
+             input_filename,
+             db=&#34;wrm&#34;,
+             db_solid_solution=None,
+             redox_flag=&#34;logfO2&#34;,
+             redox_aux=&#34;Fe+3&#34;,
+             default_logfO2=-6,
+             exclude=[],
+             suppress=[],
+             alter_options=[],
+             charge_balance_on=&#34;none&#34;,
+             suppress_missing=True,
+             strict_minimum_pressure=True,
+             verbose=1,
+             report_filename=None,
+             get_aq_dist=True,
+             aq_dist_type=&#34;log_activity&#34;,
+             get_mass_contribution=True,
+             mass_contribution_other=True,
+             get_mineral_sat=True,
+             mineral_sat_type=&#34;affinity&#34;,
+             get_redox=True,
+             redox_type=&#34;Eh&#34;,
+             get_ion_activity_ratios=True,
+             get_fugacity=True,
+             get_basis_totals=True,
+             get_solid_solutions=True,
+             get_affinity_energy=False,
+             negative_energy_supplies=False,
+             rxn_filename=None,
+             not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;],
+             get_charge_balance=True,
+             custom_data0=False, # deprecated but used internally
+             custom_db=False, # deprecated
+             batch_3o_filename=None,
+             delete_generated_folders=False,
+             custom_obigt=None, # deprecated but used internally
+             db_args={}):
+    
+    &#34;&#34;&#34;
+    Calculate the equilibrium distribution of chemical species in solution.
+    Additionally, calculate chemical affinities and energy supplies for
+    user-specified reactions.
+    
+    Parameters
+    ----------
+    input_filename : str
+        User-supplied utf8-encoded comma separated value (csv) file
+        containing sample data intended for speciation. The file must
+        follow this format:
         
-        &#34;&#34;&#34;
-        Calculate the equilibrium distribution of chemical species in solution.
-        Additionally, calculate chemical affinities and energy supplies for
-        user-specified reactions.
+        - the first row is a header row that must contain the names of the
+          species to be included in the speciation calculation. There
+          cannot be duplicate headers.
+        - the second row must contain subheaders for each species in the
+          header row. These subheaders must be taken from the following:
+          
+                degC
+                ppm
+                ppb
+                Suppressed
+                Molality
+                Molarity
+                mg/L
+                mg/kg.sol
+                Alk., eq/kg.H2O
+                Alk., eq/L
+                Alk., eq/kg.sol
+                Alk., mg/L CaCO3
+                Alk., mg/L HCO3-
+                Log activity
+                Log act combo
+                Log mean act
+                pX
+                pH
+                pHCl
+                pmH
+                pmX
+                Hetero. equil.
+                Homo. equil.
+                Make non-basis
+                
+        - &#39;Temperature&#39; must be included as a header, with &#39;degC&#39; as its
+          subheader.
+        - The first column must contain sample names. There cannot be
+          duplicate sample names.
+    
+    db : str, default &#34;wrm&#34;
+        Determines which thermodynamic database is used in the speciation
+        calculation. There are several options available:
+        - Three letter file extension for the desired data1 database, e.g.,
+        &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
+        &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
+        variable used by EQ3NR.
+        - The name of a data0 file located in the current working directory,
+        e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
+        automatically during the speciation calculation.
+        - The name of a CSV file containing thermodynamic data located in
+        the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
+        will be used to generate a data0 file for each sample (using
+        additional arguments from `db_args` if desired).
+        - The URL of a data0 file, e.g.,
+        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
+        - The URL of a CSV file containing thermodynamic data, e.g.,
+        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+    
+    db_solid_solution : str, optional
+        Used only if `db` points to a thermodynamic data CSV file (or the
+        URL of a CSV hosted online). Determines which thermodynamic database
+        is used for idealized solid solutions in the speciation calculation.
+        There are two options:
+        - The name of a CSV file containing solid solution parameters
+        located in the current working directory, e.g.,
+        &#34;wrm_solid_solutions.csv&#34;
+        - The URL of a CSV file containing solid solution parameters, e.g.,
+        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+    
+    redox_flag : str, default &#34;O2(g)&#34;
+        Determines which column in the sample input file sets the overall
+        redox state of the samples. Options for redox_flag include &#39;O2(g)&#39;,
+        &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, and &#39;redox aux&#39;. The code will search your
+        sample spreadsheet file (see `filename`) for a column corresponding
+        to the option you chose:
         
-        Parameters
-        ----------
-        input_filename : str
-            User-supplied utf8-encoded comma separated value (csv) file
-            containing sample data intended for speciation. The file must
-            follow this format:
-            
-            - the first row is a header row that must contain the names of the
-              species to be included in the speciation calculation. There
-              cannot be duplicate headers.
-            - the second row must contain subheaders for each species in the
-              header row. These subheaders must be taken from the following:
-              
-                    degC
-                    ppm
-                    ppb
-                    Suppressed
-                    Molality
-                    Molarity
-                    mg/L
-                    mg/kg.sol
-                    Alk., eq/kg.H2O
-                    Alk., eq/L
-                    Alk., eq/kg.sol
-                    Alk., mg/L CaCO3
-                    Alk., mg/L HCO3-
-                    Log activity
-                    Log act combo
-                    Log mean act
-                    pX
-                    pH
-                    pHCl
-                    pmH
-                    pmX
-                    Hetero. equil.
-                    Homo. equil.
-                    Make non-basis
-                    
-            - &#39;Temperature&#39; must be included as a header, with &#39;degC&#39; as its
-              subheader.
-            - The first column must contain sample names. There cannot be
-              duplicate sample names.
+        * &#39;O2(g)&#39; with a valid subheader for a gas
+        * &#39;pe&#39; with subheader pe
+        * &#39;Eh&#39; with subheader volts
+        * &#39;logfO2&#39; with subheader logfO2
+        * &#39;redox aux&#39; will search for a column corresponding to the
+          auxilliary basis species selected to form a redox couple with its
+          linked strict basis species (see `redox_aux`). For example, the
+          redox couple Fe+2/Fe+3 would require a column named Fe+3
         
-        db : str, default &#34;wrm&#34;
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - Three letter file extension for the desired data1 database, e.g.,
-            &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-            &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+        If an appropriate header or redox data cannot be found to define
+        redox state, `default_logfO2` is used to set sample logfO2.
         
-        db_solid_solution : str, optional
-            Used only if `db` points to a thermodynamic data CSV file (or the
-            URL of a CSV hosted online). Determines which thermodynamic database
-            is used for idealized solid solutions in the speciation calculation.
-            There are two options:
-            - The name of a CSV file containing solid solution parameters
-            located in the current working directory, e.g.,
-            &#34;wrm_solid_solutions.csv&#34;
-            - The URL of a CSV file containing solid solution parameters, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+        There is a special case where dissolved oxygen can be used to impose
+        sample redox state if `redox_flag` is set to logfO2 and a column named
+        logfO2 does not appear in your sample spreadsheet. If there is a
+        column corresponding to dissolved oxygen measurements, logfO2 is
+        calculated from the equilibrium reaction O2(aq) = O2(g) at the
+        temperature and pressure of the sample using the revised Helgeson-
+        Kirkham-Flowers (HKF) equation of state (JC Tanger IV and HC
+        Helgeson, Am. J. Sci., 1988, 288, 19).
+    
+    redox_aux : default &#34;Fe+3&#34;, optional
+        Ignored unless `redox_flag` equals 1. Name of the auxilliary species
+        whose reaction links it to a basis species (or another auxilliary
+        species) such that they form a redox couple that controls sample
+        fO2. For instance, Fe+3 is linked to Fe+2 in many supporting data
+        files, so selecting `redox_flag` = 1 and `redox_aux` = &#34;Fe+3&#34; will
+        set sample fO2 based on the Fe+2/Fe+3 redox couple.
+    
+    default_logfO2 : float, default -6
+        Default value for sample logfO2 in case redox data cannot be found
+        in the user-supplied sample spreadsheet.
+    
+    exclude : list of str, default []
+        Names of columns in the user-supplied sample spreadsheet that should
+        not be considered aqueous species. Useful for excluding columns
+        containing sample metatadata, such as &#34;Year&#34; and &#34;Location&#34;.
         
-        redox_flag : str, default &#34;O2(g)&#34;
-            Determines which column in the sample input file sets the overall
-            redox state of the samples. Options for redox_flag include &#39;O2(g)&#39;,
-            &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, and &#39;redox aux&#39;. The code will search your
-            sample spreadsheet file (see `filename`) for a column corresponding
-            to the option you chose:
-            
-            * &#39;O2(g)&#39; with a valid subheader for a gas
-            * &#39;pe&#39; with subheader pe
-            * &#39;Eh&#39; with subheader volts
-            * &#39;logfO2&#39; with subheader logfO2
-            * &#39;redox aux&#39; will search for a column corresponding to the
-              auxilliary basis species selected to form a redox couple with its
-              linked strict basis species (see `redox_aux`). For example, the
-              redox couple Fe+2/Fe+3 would require a column named Fe+3
-            
-            If an appropriate header or redox data cannot be found to define
-            redox state, `default_logfO2` is used to set sample logfO2.
-            
-            There is a special case where dissolved oxygen can be used to impose
-            sample redox state if `redox_flag` is set to logfO2 and a column named
-            logfO2 does not appear in your sample spreadsheet. If there is a
-            column corresponding to dissolved oxygen measurements, logfO2 is
-            calculated from the equilibrium reaction O2(aq) = O2(g) at the
-            temperature and pressure of the sample using the revised Helgeson-
-            Kirkham-Flowers (HKF) equation of state (JC Tanger IV and HC
-            Helgeson, Am. J. Sci., 1988, 288, 19).
+    suppress : list of str, default []
+        Names of chemical species that will be prevented from forming in the
+        speciation calculation.
+    
+    alter_options : list, default []
+        A list of lists, e.g.,
+        [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
+        The first element of each interior list is the name of a species.
+        The second element is an option to alter the species, and can be:
+        - Suppress : suppress the formation of the species. (See also:
+        `suppress`).
+        - Replace : replace the species&#39; log K value with a desired value.
+        - AugmentLogK : augment the value of the species&#39; log K.
+        - AugmentG : augment the Gibbs free energy of the species by a
+        desired value, in kcal/mol.
+        The third element is a numeric value corresponding to the chosen
+        option. A third element is not required for Suppress.
         
-        redox_aux : default &#34;Fe+3&#34;, optional
-            Ignored unless `redox_flag` equals 1. Name of the auxilliary species
-            whose reaction links it to a basis species (or another auxilliary
-            species) such that they form a redox couple that controls sample
-            fO2. For instance, Fe+3 is linked to Fe+2 in many supporting data
-            files, so selecting `redox_flag` = 1 and `redox_aux` = &#34;Fe+3&#34; will
-            set sample fO2 based on the Fe+2/Fe+3 redox couple.
+    charge_balance_on : str, default &#34;none&#34;
+        If &#34;none&#34;, will not balance electrical charge between cations and
+        anions in the speciation calculation. If a name of a species is
+        supplied instead, the activity of that species will be allowed to
+        change until charge balance is obtained. For example,
+        charge_balance_on = &#34;H+&#34; will calculate what pH a sample must have
+        to have zero net charge.
+    
+    suppress_missing : bool, default True
+        Suppress the formation of an aqueous species if it is missing a
+        value in the user-supplied sample spreadsheet?
         
-        default_logfO2 : float, default -6
-            Default value for sample logfO2 in case redox data cannot be found
-            in the user-supplied sample spreadsheet.
+    strict_minimum_pressure : bool, default True
+        Ensure that the minimum pressure in the speciation calculation does
+        not go below the minimum pressure in the TP grid of the data0 file?
         
-        exclude : list of str, default []
-            Names of columns in the user-supplied sample spreadsheet that should
-            not be considered aqueous species. Useful for excluding columns
-            containing sample metatadata, such as &#34;Year&#34; and &#34;Location&#34;.
-            
-        suppress : list of str, default []
-            Names of chemical species that will be prevented from forming in the
-            speciation calculation.
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
         
-        alter_options : list, default []
-            A list of lists, e.g.,
-            [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
-            The first element of each interior list is the name of a species.
-            The second element is an option to alter the species, and can be:
-            - Suppress : suppress the formation of the species. (See also:
-            `suppress`).
-            - Replace : replace the species&#39; log K value with a desired value.
-            - AugmentLogK : augment the value of the species&#39; log K.
-            - AugmentG : augment the Gibbs free energy of the species by a
-            desired value, in kcal/mol.
-            The third element is a numeric value corresponding to the chosen
-            option. A third element is not required for Suppress.
-            
-        charge_balance_on : str, default &#34;none&#34;
-            If &#34;none&#34;, will not balance electrical charge between cations and
-            anions in the speciation calculation. If a name of a species is
-            supplied instead, the activity of that species will be allowed to
-            change until charge balance is obtained. For example,
-            charge_balance_on = &#34;H+&#34; will calculate what pH a sample must have
-            to have zero net charge.
+    report_filename : str, optional
+        Name of the comma separated values (csv) report file generated when
+        the calculation is complete. If this argument is not defined, a
+        report file is not generated.
         
-        suppress_missing : bool, default True
-            Suppress the formation of an aqueous species if it is missing a
-            value in the user-supplied sample spreadsheet?
-            
-        strict_minimum_pressure : bool, default True
-            Ensure that the minimum pressure in the speciation calculation does
-            not go below the minimum pressure in the TP grid of the data0 file?
-            
-        verbose : int, 0, 1, or 2, default 1
-            Level determining how many messages are returned during a
-            calculation. 2 for all messages, 1 for errors or warnings only,
-            0 for silent.
-            
-        report_filename : str, optional
-            Name of the comma separated values (csv) report file generated when
-            the calculation is complete. If this argument is not defined, a
-            report file is not generated.
-            
-        get_aq_dist : bool, default True
-            Calculate distributions of aqueous species?
+    get_aq_dist : bool, default True
+        Calculate distributions of aqueous species?
+    
+    aq_dist_type : str, default &#34;log_activity&#34;
+        Desired units of measurement for reported distributions of aqueous
+        species. Can be &#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, or
+        &#34;log_activity&#34;. Ignored if `get_aq_dist` is False.
+    
+    get_mass_contribution : bool, default True
+        Calculate basis species contributions to mass balance of aqueous
+        species?
+    
+    mass_contribution_other : bool, default True
+        Include an &#34;other&#34; species for the sake of summing percents of basis
+        species contributions to 100%? Ignored if `get_mass_contribution` is
+        False.
+    
+    get_mineral_sat : bool, default True
+        Calculate saturation states of pure solids?
+    
+    mineral_sat_type : str, default &#34;affinity&#34;
+        Desired units of measurement for reported saturation states of pure
+        solids. Can be &#34;logQoverK&#34; or &#34;affinity&#34;. Ignored if
+        `get_mineral_sat` is False.
+    
+    get_redox : bool, default True
+        Calculate potentials of redox couples?
         
-        aq_dist_type : str, default &#34;log_activity&#34;
-            Desired units of measurement for reported distributions of aqueous
-            species. Can be &#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, or
-            &#34;log_activity&#34;. Ignored if `get_aq_dist` is False.
-        
-        get_mass_contribution : bool, default True
-            Calculate basis species contributions to mass balance of aqueous
-            species?
-        
-        mass_contribution_other : bool, default True
-            Include an &#34;other&#34; species for the sake of summing percents of basis
-            species contributions to 100%? Ignored if `get_mass_contribution` is
-            False.
-        
-        get_mineral_sat : bool, default True
-            Calculate saturation states of pure solids?
-        
-        mineral_sat_type : str, default &#34;affinity&#34;
-            Desired units of measurement for reported saturation states of pure
-            solids. Can be &#34;logQoverK&#34; or &#34;affinity&#34;. Ignored if
-            `get_mineral_sat` is False.
-        
-        get_redox : bool, default True
-            Calculate potentials of redox couples?
-            
-        redox_type : str, default &#34;Eh&#34;
-            Desired units of measurement for reported redox potentials. Can be
-            &#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, or &#34;Ah&#34;. Ignored if `get_redox` is False.
-        
-        get_ion_activity_ratios : bool, default True
-            Calculate ion/H+ activity ratios and neutral species activities?
-        
-        get_fugacity : bool, default True
-            Calculate gas fugacities?
+    redox_type : str, default &#34;Eh&#34;
+        Desired units of measurement for reported redox potentials. Can be
+        &#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, or &#34;Ah&#34;. Ignored if `get_redox` is False.
+    
+    get_ion_activity_ratios : bool, default True
+        Calculate ion/H+ activity ratios and neutral species activities?
+    
+    get_fugacity : bool, default True
+        Calculate gas fugacities?
 
-        get_basis_totals : bool, default True
-            Report total compositions of basis aqueous species?
+    get_basis_totals : bool, default True
+        Report total compositions of basis aqueous species?
 
-        get_solid_solutions : bool, default True
-            Permit the calculation of solid solutions and include them in the
-            speciation report?
+    get_solid_solutions : bool, default True
+        Permit the calculation of solid solutions and include them in the
+        speciation report?
+    
+    get_affinity_energy : bool, default False
+        Calculate affinities and energy supplies of reactions listed in a
+        separate user-supplied file?
+    
+    negative_energy_supplies : bool, default False
+        Report negative energy supplies? If False, negative energy supplies
+        are reported as 0 cal/kg H2O. If True, negative energy supplies are
+        reported. A &#39;negative energy supply&#39; represents the energy cost of
+        depleting the limiting reactant of a reaction. This metric is not
+        always helpful when examing energy supply results, so this option is
+        set to False by default.
+    
+    rxn_filename : str, optional
+        Name of .txt file containing reactions used to calculate affinities
+        and energy supplies. Ignored if `get_affinity_energy` is False.
+    
+    not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
+        List containing names of species that are not considered limiting
+        when calculating energy supplies. Ignored if `get_affinity_energy`
+        is False.
+    
+    get_charge_balance : bool, default True
+        Calculate charge balance and ionic strength?
         
-        get_affinity_energy : bool, default False
-            Calculate affinities and energy supplies of reactions listed in a
-            separate user-supplied file?
+    custom_data0 : bool, default False
+        Deprecated.
         
-        negative_energy_supplies : bool, default False
-            Report negative energy supplies? If False, negative energy supplies
-            are reported as 0 cal/kg H2O. If True, negative energy supplies are
-            reported. A &#39;negative energy supply&#39; represents the energy cost of
-            depleting the limiting reactant of a reaction. This metric is not
-            always helpful when examing energy supply results, so this option is
-            set to False by default.
+    custom_db : bool, default False
+        Deprecated.
+    
+    batch_3o_filename : str, optional
+        Name of rds (R object) file exported after the speciation
+        calculation? No file will be generated if this argument is not
+        defined.
         
-        rxn_filename : str, optional
-            Name of .txt file containing reactions used to calculate affinities
-            and energy supplies. Ignored if `get_affinity_energy` is False.
+    delete_generated_folders : bool, default False
+        Delete the &#39;rxn_3i&#39;, &#39;rxn_3o&#39;, &#39;rxn_3p&#39;, and &#39;eqpt_files&#39; folders
+        containing raw EQ3NR input, output, pickup, and EQPT files once the
+        speciation calculation is complete?
+    
+    custom_obigt : str, optional
+        Deprecated.
+       
+    db_args : dict, default {}
+        Dictionary of arguments to modify how the thermodynamic database is
+        processed. Only used when `db` points to thermodynamic data in a CSV
+        file. Ignored if `db` points to a data0 file (because a data0 file
+        is already ready for a speciation calculation). Options for
+        `db_args` are passed to the `create_data0` function, so refer to
+        `create_data0` for more information about what options are possible.
         
-        not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
-            List containing names of species that are not considered limiting
-            when calculating energy supplies. Ignored if `get_affinity_energy`
-            is False.
+        - Example of `db_args` where organics are excluded and redox is
+        suppressed for Fe and S:
+        db_args = {
+           &#34;exclude_category&#34;:{&#34;category_1&#34;:[&#34;organic_aq&#34;]},
+           &#34;suppress_redox&#34;:[&#34;Fe&#34;, &#34;S&#34;],
+        }
         
-        get_charge_balance : bool, default True
-            Calculate charge balance and ionic strength?
+    
+    Returns
+    -------
+    speciation : object of class Speciation
+        Contains the results of the speciation calculation.
+    
+    &#34;&#34;&#34;
+    
+    if custom_db == True:
+        print(&#34;Warning: the parameter &#39;custom_db&#39; is deprecated. &#34;
+              &#34;Specify a custom data0 file with the &#39;db&#39; parameter.&#34;)
+    if custom_data0 == True:
+        print(&#34;Warning: the parameter &#39;custom_data0&#39; is deprecated. &#34;
+              &#34;Specify a custom data0 file with the &#39;db&#39; parameter.&#34;)
+    if custom_obigt != None:
+        print(&#34;Warning: the parameter &#39;custom_obigt&#39; is deprecated. Specify &#34;
+              &#34;a custom thermodynamic database with the &#39;db&#39; parameter. If &#34;
+              &#34;a database is needed for affinity and energy calculations, &#34;
+              &#34;use the parameter &#39;rxn_filename&#39; to specify a CSV file of &#34;
+              &#34;thermodynamic data or a TXT file with desired reactions.&#34;)
+       
+    
+    if len(db) == 3:
+        # e.g., &#34;wrm&#34;
+        custom_data0 = False
+        data0_lettercode = db.lower()
+        dynamic_db = False
+        
+        # search for a data1 file in the eq36da directory
+        if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
+            self.thermo_db = None
+            self.thermo_db_type = &#34;data1 file&#34;
             
-        custom_data0 : bool, default False
-            Deprecated.
+        elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
             
-        custom_db : bool, default False
-            Deprecated.
-        
-        batch_3o_filename : str, optional
-            Name of rds (R object) file exported after the speciation
-            calculation? No file will be generated if this argument is not
-            defined.
+            if verbose &gt; 0:
+                print(&#34;data1.&#34; + db + &#34; was not found in the EQ36DA directory &#34;
+                      &#34;but a data0.&#34;+db+&#34; was found in the current working &#34;
+                      &#34;directory. Using it...&#34;)
             
-        delete_generated_folders : bool, default False
-            Delete the &#39;rxn_3i&#39;, &#39;rxn_3o&#39;, &#39;rxn_3p&#39;, and &#39;eqpt_files&#39; folders
-            containing raw EQ3NR input, output, pickup, and EQPT files once the
-            speciation calculation is complete?
-        
-        custom_obigt : str, optional
-            Deprecated.
-           
-        db_args : dict, default {}
-            Dictionary of arguments to modify how the thermodynamic database is
-            processed. Only used when `db` points to thermodynamic data in a CSV
-            file. Ignored if `db` points to a data0 file (because a data0 file
-            is already ready for a speciation calculation). Options for
-            `db_args` are passed to the `create_data0` function, so refer to
-            `create_data0` for more information about what options are possible.
-            
-            - Example of `db_args` where organics are excluded and redox is
-            suppressed for Fe and S:
-            db_args = {
-               &#34;exclude_category&#34;:{&#34;category_1&#34;:[&#34;organic_aq&#34;]},
-               &#34;suppress_redox&#34;:[&#34;Fe&#34;, &#34;S&#34;],
-            }
-            
-        
-        Returns
-        -------
-        speciation : object of class Speciation
-            Contains the results of the speciation calculation.
-        
-        &#34;&#34;&#34;
-        
-        if custom_db == True:
-            print(&#34;Warning: the parameter &#39;custom_db&#39; is deprecated. &#34;
-                  &#34;Specify a custom data0 file with the &#39;db&#39; parameter.&#34;)
-        if custom_data0 == True:
-            print(&#34;Warning: the parameter &#39;custom_data0&#39; is deprecated. &#34;
-                  &#34;Specify a custom data0 file with the &#39;db&#39; parameter.&#34;)
-        if custom_obigt != None:
-            print(&#34;Warning: the parameter &#39;custom_obigt&#39; is deprecated. Specify &#34;
-                  &#34;a custom thermodynamic database with the &#39;db&#39; parameter. If &#34;
-                  &#34;a database is needed for affinity and energy calculations, &#34;
-                  &#34;use the parameter &#39;rxn_filename&#39; to specify a CSV file of &#34;
-                  &#34;thermodynamic data or a TXT file with desired reactions.&#34;)
-           
-        
-        if len(db) == 3:
-            # e.g., &#34;wrm&#34;
-            custom_data0 = False
-            data0_lettercode = db.lower()
-            dynamic_db = False
-            
-            # search for a data1 file in the eq36da directory
-            if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
-                self.thermo_db = None
-                self.thermo_db_type = &#34;data1 file&#34;
-                
-            elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
-                
-                if verbose &gt; 0:
-                    print(&#34;data1.&#34; + db + &#34; was not found in the EQ36DA directory &#34;
-                          &#34;but a data0.&#34;+db+&#34; was found in the current working &#34;
-                          &#34;directory. Using it...&#34;)
-                
-                custom_data0 = True
-                data0_lettercode = db
-                dynamic_db = False
-                
-                # search for a data0 locally
-                with open(&#34;data0.&#34;+db) as data0_content:
-                    self.thermo_db = data0_content.read()
-                    self.thermo_db_type = &#34;data0 file&#34;
-                    
-            else:
-                msg = (&#34;Could not locate a &#39;data1.&#34;+db+&#34;&#39; file in the EQ36DA &#34;
-                      &#34;directory, nor a &#39;data0.&#34;+db+&#34;&#39; file in the current &#34;
-                      &#34;working directory.&#34;)
-                self.err_handler.raise_exception(msg)
-            
-            
-        elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-            # e.g., &#34;data0.wrm&#34;
             custom_data0 = True
-            data0_lettercode = db[-3:].lower()
+            data0_lettercode = db
             dynamic_db = False
             
-            if os.path.exists(db) and os.path.isfile(db):
-                with open(db) as data0_content:
-                    self.thermo_db = data0_content.read()
-                    self.thermo_db_type = &#34;data0 file&#34;
-            else:
-                self.err_handler.raise_exception(&#34;Could not locate the data0 file &#39;&#34;+db+&#34;&#39;&#34;)
-            
-        elif db[-4:].lower() == &#34;.csv&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-            # e.g., &#34;wrm_data.csv&#34;
-            
-            if os.path.exists(db) and os.path.isfile(db):
-                self.thermo_db = pd.read_csv(db)
-                self.thermo_db_type = &#34;CSV file&#34;
-            else:
-                self.err_handler.raise_exception(&#34;Could not locate the CSV file &#39;&#34;+db+&#34;&#39;&#34;)
-            
-            db_args[&#34;filename&#34;] = db
-            db_args[&#34;db&#34;] = &#34;dyn&#34;
-
-            dynamic_db = True
-            custom_data0 = False
-            custom_obigt = db
-            
-            db_csv_name = db.split(&#34;/&#34;)[-1].lower()
-            
-        elif &#34;data0.&#34; in db[-9:].lower() and db[-4:].lower() != &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-            # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(db) as webpage:
-                data0_content = webpage.read().decode()
+            # search for a data0 locally
+            with open(&#34;data0.&#34;+db) as data0_content:
+                self.thermo_db = data0_content.read()
+                self.thermo_db_type = &#34;data0 file&#34;
                 
-            # Save to data0 file.
-            with open(&#34;data0.&#34;+db[-3:].lower(), &#39;w&#39;) as output:
-                output.write(data0_content)
-                
-            self.thermo_db = data0_content
-            self.thermo_db_type = &#34;data0 file&#34;
-                
-            custom_data0 = True
-            data0_lettercode = db[-3:]
-            dynamic_db = False
-            
-        elif db[-4:].lower() == &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-            # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-            
-            # e.g., &#34;wrm_data.csv&#34;
-            db_csv_name = db.split(&#34;/&#34;)[-1].lower()
-            
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(db) as webpage:
-                content = webpage.read().decode()
-            # Save to CSV file.
-            with open(db_csv_name, &#39;w&#39;) as output:
-                output.write(content)
-                
+        else:
+            msg = (&#34;Could not locate a &#39;data1.&#34;+db+&#34;&#39; file in the EQ36DA &#34;
+                  &#34;directory, nor a &#39;data0.&#34;+db+&#34;&#39; file in the current &#34;
+                  &#34;working directory.&#34;)
+            self.err_handler.raise_exception(msg)
+        
+        
+    elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
+        # e.g., &#34;data0.wrm&#34;
+        custom_data0 = True
+        data0_lettercode = db[-3:].lower()
+        dynamic_db = False
+        
+        if os.path.exists(db) and os.path.isfile(db):
+            with open(db) as data0_content:
+                self.thermo_db = data0_content.read()
+                self.thermo_db_type = &#34;data0 file&#34;
+        else:
+            self.err_handler.raise_exception(&#34;Could not locate the data0 file &#39;&#34;+db+&#34;&#39;&#34;)
+        
+    elif db[-4:].lower() == &#34;.csv&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
+        # e.g., &#34;wrm_data.csv&#34;
+        
+        if os.path.exists(db) and os.path.isfile(db):
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
-                
-            db_args[&#34;filename&#34;] = db_csv_name
-            db_args[&#34;db&#34;] = &#34;dyn&#34;
-            
-            dynamic_db = True
-            custom_data0 = False
-            custom_obigt = db_csv_name
-            
         else:
-            self.err_handler.raise_exception(&#34;Unrecognized thermodynamic &#34;
-                &#34;database &#39;{}&#39;&#34;.format(db)+&#34; specified for db. A database can specified as:&#34;
-                &#34;\n - a three letter code designating a data0 file. e.g., db=&#39;wrm&#39;&#34;
-                &#34;\n - a data0 file in your working directory. e.g., db=&#39;data0.wrm&#39;&#34;
-                &#34;\n - a csv file in your working directory. e.g., db=&#39;wrm_data.csv&#39;&#34;
-                &#34;\n - a URL directing to a data0 file. e.g.,&#34;
-                &#34;\n\t db=&#39;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#39;&#34;
-                &#34;\n\t (note the data0 file in the URL must have &#39;data0.&#39; followed by a three letter code)&#34;
-                &#34;\n - a URL directing to a valid csv file. e.g.,&#34;
-                &#34;\n\t db=&#39;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#39;&#34;)
+            self.err_handler.raise_exception(&#34;Could not locate the CSV file &#39;&#34;+db+&#34;&#39;&#34;)
         
-        self.verbose = verbose
+        db_args[&#34;filename&#34;] = db
+        db_args[&#34;db&#34;] = &#34;dyn&#34;
+
+        dynamic_db = True
+        custom_data0 = False
+        custom_obigt = db
         
-#         # check input sample file for errors
-#         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-#                                       charge_balance_on, suppress_missing)
+        db_csv_name = db.split(&#34;/&#34;)[-1].lower()
         
-        if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
-            self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
-                &#34;options are &#39;molality&#39;, &#39;log_molality&#39;, &#39;log_gamma&#39;, &#39;log_activity&#39;&#34;)
-        if mineral_sat_type not in [&#34;logQoverK&#34;, &#34;affinity&#34;]:
-            self.err_handler.raise_exception(&#34;Unrecognized mineral_sat_type. Valid &#34;
-                &#34;options are &#39;logQoverK&#39; or &#39;affinity&#39;&#34;)
-        if redox_type not in [&#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, &#34;Ah&#34;]:
-            self.err_handler.raise_exception(&#34;Unrecognized redox_type. Valid &#34;
-                &#34;options are &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+    elif &#34;data0.&#34; in db[-9:].lower() and db[-4:].lower() != &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
+        # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
+
+        # Download from URL and decode as UTF-8 text.
+        with urlopen(db) as webpage:
+            data0_content = webpage.read().decode()
+            
+        # Save to data0 file.
+        with open(&#34;data0.&#34;+db[-3:].lower(), &#39;w&#39;) as output:
+            output.write(data0_content)
+            
+        self.thermo_db = data0_content
+        self.thermo_db_type = &#34;data0 file&#34;
+            
+        custom_data0 = True
+        data0_lettercode = db[-3:]
+        dynamic_db = False
         
-        if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
-            redox_flag = -3
-        elif redox_flag == &#34;pe&#34; or redox_flag == -2:
-            redox_flag = -2
-        elif redox_flag == &#34;Eh&#34; or redox_flag == -1:
-            redox_flag = -1
-        elif redox_flag == &#34;logfO2&#34; or redox_flag == 0:
-            redox_flag = 0
-        elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
-            redox_flag = 1
-        else:
-            self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
-                                             &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
+    elif db[-4:].lower() == &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
+        # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+        
+        # e.g., &#34;wrm_data.csv&#34;
+        db_csv_name = db.split(&#34;/&#34;)[-1].lower()
+        
+        # Download from URL and decode as UTF-8 text.
+        with urlopen(db) as webpage:
+            content = webpage.read().decode()
+        # Save to CSV file.
+        with open(db_csv_name, &#39;w&#39;) as output:
+            output.write(content)
             
-        # handle batch_3o naming
-        if batch_3o_filename != None:
-            if &#34;.rds&#34; in batch_3o_filename[-4:]:
-                batch_3o_filename = batch_3o_filename
-            else:
-                batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(data0_lettercode)
-        else:
-            batch_3o_filename = ro.r(&#34;NULL&#34;)
+        self.thermo_db = pd.read_csv(db)
+        self.thermo_db_type = &#34;CSV file&#34;
             
-        # custom obigt used for energy calculations (temporary fix to allow
-        # custom data to be imported into CHNOSZ for energy calculations)
-        # TODO: remove this and have code find custom data automatically. It&#39;s a tricky problem!
-        if isinstance(custom_obigt, str):
-            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
-                pass
-            else:
-                err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
-                self.err_handler.raise_exception(err)
-        else:
-            custom_obigt = ro.r(&#34;NULL&#34;)
-            
-        # dynamic data0 creation per sample
-        if dynamic_db:
-            db_args[&#34;fill_data0&#34;] = False
-            db_args[&#34;dynamic_db&#34;] = True
-            db_args[&#34;verbose&#34;] = self.verbose
-            db_args[&#34;generate_template&#34;] = False
-            
-            if db_solid_solution != None:
-                if not (db_solid_solution[0:8].lower() == &#34;https://&#34; or db_solid_solution[0:7].lower() == &#34;http://&#34; or db_solid_solution[0:4].lower() == &#34;www.&#34;):
-                    if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
-                        db_args[&#34;filename_ss&#34;] = db_solid_solution
-                    else:
-                        self.err_handler.raise_exception(&#34;Error: could not locate &#34; + str(db_solid_solution))
-                else:
-                    db_solid_solution_csv_name = db_solid_solution.split(&#34;/&#34;)[-1].lower()
-            
-                    # Download from URL and decode as UTF-8 text.
-                    with urlopen(db_solid_solution) as webpage:
-                        content = webpage.read().decode()
-                        
-                    # Save to CSV file.
-                    with open(db_solid_solution_csv_name, &#39;w&#39;) as output:
-                        output.write(content)
-                        
-                    db_args[&#34;filename_ss&#34;] = db_solid_solution_csv_name
-                    
-            if self.verbose &gt; 0:
-                print(&#34;Getting &#39;&#34;+db_csv_name+&#34;&#39; ready. This will take a moment...&#34;)
+        db_args[&#34;filename&#34;] = db_csv_name
+        db_args[&#34;db&#34;] = &#34;dyn&#34;
+        
+        dynamic_db = True
+        custom_data0 = False
+        custom_obigt = db_csv_name
+        
+    else:
+        self.err_handler.raise_exception(&#34;Unrecognized thermodynamic &#34;
+            &#34;database &#39;{}&#39;&#34;.format(db)+&#34; specified for db. A database can specified as:&#34;
+            &#34;\n - a three letter code designating a data0 file. e.g., db=&#39;wrm&#39;&#34;
+            &#34;\n - a data0 file in your working directory. e.g., db=&#39;data0.wrm&#39;&#34;
+            &#34;\n - a csv file in your working directory. e.g., db=&#39;wrm_data.csv&#39;&#34;
+            &#34;\n - a URL directing to a data0 file. e.g.,&#34;
+            &#34;\n\t db=&#39;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#39;&#34;
+            &#34;\n\t (note the data0 file in the URL must have &#39;data0.&#39; followed by a three letter code)&#34;
+            &#34;\n - a URL directing to a valid csv file. e.g.,&#34;
+            &#34;\n\t db=&#39;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#39;&#34;)
     
-            OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+    self.verbose = verbose
+    
+    # check input sample file for errors
+    self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                  dynamic_db, charge_balance_on, suppress_missing)
+    
+    if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
+        self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
+            &#34;options are &#39;molality&#39;, &#39;log_molality&#39;, &#39;log_gamma&#39;, &#39;log_activity&#39;&#34;)
+    if mineral_sat_type not in [&#34;logQoverK&#34;, &#34;affinity&#34;]:
+        self.err_handler.raise_exception(&#34;Unrecognized mineral_sat_type. Valid &#34;
+            &#34;options are &#39;logQoverK&#39; or &#39;affinity&#39;&#34;)
+    if redox_type not in [&#34;Eh&#34;, &#34;pe&#34;, &#34;logfO2&#34;, &#34;Ah&#34;]:
+        self.err_handler.raise_exception(&#34;Unrecognized redox_type. Valid &#34;
+            &#34;options are &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+    
+    if redox_flag == &#34;O2(g)&#34; or redox_flag == -3:
+        redox_flag = -3
+    elif redox_flag == &#34;pe&#34; or redox_flag == -2:
+        redox_flag = -2
+    elif redox_flag == &#34;Eh&#34; or redox_flag == -1:
+        redox_flag = -1
+    elif redox_flag == &#34;logfO2&#34; or redox_flag == 0:
+        redox_flag = 0
+    elif redox_flag == &#34;redox aux&#34; or redox_flag == 1:
+        redox_flag = 1
+    else:
+        self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
+                                         &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
+        
+    # handle batch_3o naming
+    if batch_3o_filename != None:
+        if &#34;.rds&#34; in batch_3o_filename[-4:]:
+            batch_3o_filename = batch_3o_filename
+        else:
+            batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(data0_lettercode)
+    else:
+        batch_3o_filename = ro.r(&#34;NULL&#34;)
+        
+    # custom obigt used for energy calculations (temporary fix to allow
+    # custom data to be imported into CHNOSZ for energy calculations)
+    # TODO: remove this and have code find custom data automatically. It&#39;s a tricky problem!
+    if isinstance(custom_obigt, str):
+        if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
+            pass
+        else:
+            err = (&#34;Could not find custom_obigt file {}.&#34;.format(custom_obigt))
+            self.err_handler.raise_exception(err)
+    else:
+        custom_obigt = ro.r(&#34;NULL&#34;)
+        
+    # dynamic data0 creation per sample
+    if dynamic_db:
+        db_args[&#34;fill_data0&#34;] = False
+        db_args[&#34;dynamic_db&#34;] = True
+        db_args[&#34;verbose&#34;] = self.verbose
+        db_args[&#34;generate_template&#34;] = False
+        
+        if db_solid_solution != None:
+            if not (db_solid_solution[0:8].lower() == &#34;https://&#34; or db_solid_solution[0:7].lower() == &#34;http://&#34; or db_solid_solution[0:4].lower() == &#34;www.&#34;):
+                if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
+                    db_args[&#34;filename_ss&#34;] = db_solid_solution
+                else:
+                    self.err_handler.raise_exception(&#34;Error: could not locate &#34; + str(db_solid_solution))
+            else:
+                db_solid_solution_csv_name = db_solid_solution.split(&#34;/&#34;)[-1].lower()
+        
+                # Download from URL and decode as UTF-8 text.
+                with urlopen(db_solid_solution) as webpage:
+                    content = webpage.read().decode()
+                    
+                # Save to CSV file.
+                with open(db_solid_solution_csv_name, &#39;w&#39;) as output:
+                    output.write(content)
+                    
+                db_args[&#34;filename_ss&#34;] = db_solid_solution_csv_name
+                
+        if self.verbose &gt; 0:
+            print(&#34;Getting &#39;&#34;+db_csv_name+&#34;&#39; ready. This will take a moment...&#34;)
+
+        OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+        
+    if custom_data0 and not dynamic_db:
+        self.__mk_check_del_directory(&#39;eqpt_files&#39;)
+        self.runeqpt(data0_lettercode)
+        
+        if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
+            try:
+                # move data1
+                shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
+            except:
+                if self.verbose &gt; 0:
+                    print(&#39;Error: Could not move&#39;, &#34;data1.&#34;+data0_lettercode, &#34;to eqpt_files&#34;)
+        
+        os.environ[&#39;EQ36DA&#39;] = &#34;eqpt_files&#34; # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+        
+        data0_path = &#34;data0.&#34; + data0_lettercode
+        
+    elif dynamic_db:
+        self.__mk_check_del_directory(&#39;eqpt_files&#39;)
+        
+    else:
+        data0_path = self.eq36da + &#34;/data0.&#34; + data0_lettercode
+    
+    # gather information from data0 file and perform checks
+    if not dynamic_db:
+        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            with open(data0_path) as data0:
+                data0_lines = data0.readlines()
+                start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
+                end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
+                db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
+                grid_temps = db_grids[0] + &#34; &#34; + db_grids[1]
+                grid_press = db_grids[2] + &#34; &#34; + db_grids[3]
+                grid_temps = grid_temps.split(&#34; &#34;)
+                grid_press = grid_press.split(&#34; &#34;)
+
+                try:
+                    n_TP_points = data0_lines[2].split(&#34;points: &#34;)[1] # extract number of TP points from the third line of data0 file
+                    n_TP_points = n_TP_points.replace(&#34;\n&#34;, &#34;&#34;)
+                    n_TP_points = int(n_TP_points)
+                except:
+                    n_TP_points = 8
+                if n_TP_points == 1:
+                    grid_temps = grid_temps[0]
+                    grid_press = grid_press[0]
+
+                try:
+                    water_model = data0_lines[1].split(&#34;model: &#34;)[1] # extract water model from the second line of data0 file
+                    water_model = water_model.replace(&#34;\n&#34;, &#34;&#34;)
+                except:
+                    water_model = &#34;SUPCRT92&#34;
+#                     print(&#34;Water model could not be referenced from {}&#34;.format(data0_path)+&#34;&#34;
+#                           &#34;. Defaulting to SUPCRT92 water model...&#34;)
+
+
+                if(water_model not in [&#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, &#34;DEW&#34;]):
+                    water_model = &#34;SUPCRT92&#34; # the default for EQ3/6
+                    print(&#34;Water model given in {}&#34;.format(data0_path)+&#34; was not &#34;
+                          &#34;recognized. Defaulting to SUPCRT92 water model...&#34;)
+                
+        else: # if a data0 file can&#39;t be found, assume default water model, 0-350 C and PSAT
+            water_model = &#34;SUPCRT92&#34;
+            grid_temps = [&#34;0.0100&#34;, &#34;50.0000&#34;, &#34;100.0000&#34;, &#34;150.0000&#34;,
+                         &#34;200.0000&#34;, &#34;250.0000&#34;, &#34;300.0000&#34;, &#34;350.0000&#34;]
+            grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
+                          &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
             
-        if custom_data0 and not dynamic_db:
-            self.__mk_check_del_directory(&#39;eqpt_files&#39;)
-            self.runeqpt(data0_lettercode)
             
+        grid_press_numeric = [float(n) for n in grid_press]
+        if min(grid_press_numeric) == 1:
+            P1=True
+        else:
+            P1=False
+            
+        self.__capture_r_output()
+    
+        r_check_TP_grid = pkg_resources.resource_string(__name__, &#39;check_TP_grid.r&#39;).decode(&#34;utf-8&#34;)
+    
+        ro.r(r_check_TP_grid)
+    
+        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
+                                     grid_press=convert_to_RVector(grid_press),
+                                     P1=P1,
+                                     water_model=water_model,
+                                     check_for_errors=False,
+                                     verbose=self.verbose)
+    
+        self.__print_captured_r_output()
+        
+        grid_temps = list(list_tp.rx2(&#34;grid_temps&#34;))
+        grid_press = list(list_tp.rx2(&#34;grid_press&#34;))
+        poly_coeffs_1 = list_tp.rx2(&#34;poly_coeffs_1&#34;)
+        poly_coeffs_2 = list_tp.rx2(&#34;poly_coeffs_2&#34;)
+        
+        
+    else:
+        grid_temps = ro.r(&#34;NULL&#34;)
+        grid_press = ro.r(&#34;NULL&#34;)
+        poly_coeffs_1 = ro.r(&#34;NULL&#34;)
+        poly_coeffs_2 = ro.r(&#34;NULL&#34;)
+        
+        
+    if get_affinity_energy:
+        if rxn_filename == None and self.affinity_energy_reactions_raw==None:
+            err = (&#34;get_affinity_energy is set to True but a reaction TXT &#34;
+                   &#34;file is not specified or redox reactions have not yet &#34;
+                   &#34;been generated with make_redox_reactions()&#34;)
+            self.err_handler.raise_exception(err)
+        elif rxn_filename != None:
+            self.__file_exists(rxn_filename, &#39;.txt&#39;)
+            
+            self.affinity_energy_reactions_raw = pd.read_csv(rxn_filename, sep=&#34;\t&#34;, header=None, names=[&#34;col&#34;+str(i) for i in range(1,50)])
+            load_rxn_file = True
+        else:
+            rxn_filename = self.affinity_energy_reactions_raw
+            load_rxn_file = False
+        
+    else:
+        rxn_filename = &#34;&#34;
+        load_rxn_file=False
+    
+    # handle Alter/Suppress options
+    # e.g. [[&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1], [&#34;CaOH+&#34;, &#34;Suppress&#34;]]
+    alter_options_dict = {}
+    if len(alter_options) &gt; 0:
+        for ao in alter_options:
+            key = ao[0]
+            if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
+                ao += [&#34;0&#34;]
+            alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+    alter_options = ro.ListVector(alter_options_dict)
+        
+    input_dir = &#34;rxn_3i&#34;
+    output_dir = &#34;rxn_3o&#34;
+    pickup_dir = &#34;rxn_3p&#34;
+        
+    # preprocess for EQ3 using R scripts
+    self.__capture_r_output()
+    
+    r_prescript = pkg_resources.resource_string(
+        __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
+    ro.r(r_prescript)
+    
+    input_processed_list = ro.r.preprocess(input_filename=input_filename,
+                                           exclude=convert_to_RVector(exclude),
+                                           grid_temps=convert_to_RVector(grid_temps),
+                                           grid_press=convert_to_RVector(grid_press),
+                                           strict_minimum_pressure=strict_minimum_pressure,
+                                           dynamic_db=dynamic_db,
+                                           poly_coeffs_1=poly_coeffs_1,
+                                           poly_coeffs_2=poly_coeffs_2,
+                                           water_model=water_model,
+                                           verbose=self.verbose)
+    
+    self.__print_captured_r_output()
+    
+    self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+    
+    self.__mk_check_del_directory(&#39;rxn_3i&#39;)
+    self.__mk_check_del_directory(&#39;rxn_3o&#39;)
+    self.__mk_check_del_directory(&#39;rxn_3p&#39;)
+    if dynamic_db:
+        self.__mk_check_del_directory(&#39;rxn_data0&#39;)
+    
+    # Has the user been warned about redox column during write_3i_file()?
+    # Prevents repeated warnings.
+    warned_about_redox_column = False
+    
+    # create and run a 3i file for each sample
+    for sample_row_index in range(0, self.df_input_processed.shape[0]):
+        
+        temp_degC = list(input_processed_list.rx2(&#34;temp_degC&#34;))[sample_row_index]
+        pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
+        
+        df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
+        
+        # handle dynamic data0 creation
+        if dynamic_db:
+            
+            self.fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=data0_file_lines,
+                            grid_temps=[temp_degC],
+                            grid_press=[pressure_bar],
+                            db=data0_lettercode,
+                            water_model=water_model,
+                            P1=P1,
+                            plot_poly_fit=plot_poly_fit,
+                            verbose=verbose)
+            
+            self.runeqpt(data0_lettercode, dynamic_db=True)
+
             if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                 try:
                     # move data1
@@ -11202,620 +11460,434 @@ db_args = {
                 except:
                     if self.verbose &gt; 0:
                         print(&#39;Error: Could not move&#39;, &#34;data1.&#34;+data0_lettercode, &#34;to eqpt_files&#34;)
-            
+
             os.environ[&#39;EQ36DA&#39;] = &#34;eqpt_files&#34; # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
-            
+
             data0_path = &#34;data0.&#34; + data0_lettercode
             
-        elif dynamic_db:
-            self.__mk_check_del_directory(&#39;eqpt_files&#39;)
-            
         else:
-            data0_path = self.eq36da + &#34;/data0.&#34; + data0_lettercode
-        
-        # gather information from data0 file and perform checks
-        if not dynamic_db:
-            if os.path.exists(data0_path) and os.path.isfile(data0_path):
-                with open(data0_path) as data0:
-                    data0_lines = data0.readlines()
-                    start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
-                    end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
-                    db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
-                    db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
-                    grid_temps = db_grids[0] + &#34; &#34; + db_grids[1]
-                    grid_press = db_grids[2] + &#34; &#34; + db_grids[3]
-                    grid_temps = grid_temps.split(&#34; &#34;)
-                    grid_press = grid_press.split(&#34; &#34;)
-
-                    try:
-                        n_TP_points = data0_lines[2].split(&#34;points: &#34;)[1] # extract number of TP points from the third line of data0 file
-                        n_TP_points = n_TP_points.replace(&#34;\n&#34;, &#34;&#34;)
-                        n_TP_points = int(n_TP_points)
-                    except:
-                        n_TP_points = 8
-                    if n_TP_points == 1:
-                        grid_temps = grid_temps[0]
-                        grid_press = grid_press[0]
-
-                    try:
-                        water_model = data0_lines[1].split(&#34;model: &#34;)[1] # extract water model from the second line of data0 file
-                        water_model = water_model.replace(&#34;\n&#34;, &#34;&#34;)
-                    except:
-                        water_model = &#34;SUPCRT92&#34;
-    #                     print(&#34;Water model could not be referenced from {}&#34;.format(data0_path)+&#34;&#34;
-    #                           &#34;. Defaulting to SUPCRT92 water model...&#34;)
-
-
-                    if(water_model not in [&#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, &#34;DEW&#34;]):
-                        water_model = &#34;SUPCRT92&#34; # the default for EQ3/6
-                        print(&#34;Water model given in {}&#34;.format(data0_path)+&#34; was not &#34;
-                              &#34;recognized. Defaulting to SUPCRT92 water model...&#34;)
-                    
-            else: # if a data0 file can&#39;t be found, assume default water model, 0-350 C and PSAT
-                water_model = &#34;SUPCRT92&#34;
-                grid_temps = [&#34;0.0100&#34;, &#34;50.0000&#34;, &#34;100.0000&#34;, &#34;150.0000&#34;,
-                             &#34;200.0000&#34;, &#34;250.0000&#34;, &#34;300.0000&#34;, &#34;350.0000&#34;]
-                grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
-                              &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
-                
-                
-            grid_press_numeric = [float(n) for n in grid_press]
-            if min(grid_press_numeric) == 1:
-                P1=True
-            else:
-                P1=False
-                
-            self.__capture_r_output()
-        
-            r_check_TP_grid = pkg_resources.resource_string(__name__, &#39;check_TP_grid.r&#39;).decode(&#34;utf-8&#34;)
-        
-            ro.r(r_check_TP_grid)
-        
-            list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                         grid_press=convert_to_RVector(grid_press),
-                                         P1=P1,
-                                         water_model=water_model,
-                                         check_for_errors=False,
-                                         verbose=self.verbose)
-        
-            self.__print_captured_r_output()
-            
-            grid_temps = list(list_tp.rx2(&#34;grid_temps&#34;))
-            grid_press = list(list_tp.rx2(&#34;grid_press&#34;))
-            poly_coeffs_1 = list_tp.rx2(&#34;poly_coeffs_1&#34;)
-            poly_coeffs_2 = list_tp.rx2(&#34;poly_coeffs_2&#34;)
-            
-            
-        else:
-            grid_temps = ro.r(&#34;NULL&#34;)
-            grid_press = ro.r(&#34;NULL&#34;)
-            poly_coeffs_1 = ro.r(&#34;NULL&#34;)
-            poly_coeffs_2 = ro.r(&#34;NULL&#34;)
-            
-            
-        if get_affinity_energy:
-            if rxn_filename == None and self.affinity_energy_reactions_raw==None:
-                err = (&#34;get_affinity_energy is set to True but a reaction TXT &#34;
-                       &#34;file is not specified or redox reactions have not yet &#34;
-                       &#34;been generated with make_redox_reactions()&#34;)
-                self.err_handler.raise_exception(err)
-            elif rxn_filename != None:
-                self.__file_exists(rxn_filename, &#39;.txt&#39;)
-                
-                self.affinity_energy_reactions_raw = pd.read_csv(rxn_filename, sep=&#34;\t&#34;, header=None, names=[&#34;col&#34;+str(i) for i in range(1,50)])
-                load_rxn_file = True
-            else:
-                rxn_filename = self.affinity_energy_reactions_raw
-                load_rxn_file = False
-            
-        else:
-            rxn_filename = &#34;&#34;
-            load_rxn_file=False
-        
-        # handle Alter/Suppress options
-        # e.g. [[&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1], [&#34;CaOH+&#34;, &#34;Suppress&#34;]]
-        alter_options_dict = {}
-        if len(alter_options) &gt; 0:
-            for ao in alter_options:
-                key = ao[0]
-                if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
-                    ao += [&#34;0&#34;]
-                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
-        alter_options = ro.ListVector(alter_options_dict)
-            
-        input_dir = &#34;rxn_3i&#34;
-        output_dir = &#34;rxn_3o&#34;
-        pickup_dir = &#34;rxn_3p&#34;
-            
-        # preprocess for EQ3 using R scripts
-        self.__capture_r_output()
-        
-        r_prescript = pkg_resources.resource_string(
-            __name__, &#39;preprocess_for_EQ3.r&#39;).decode(&#34;utf-8&#34;)
-        ro.r(r_prescript)
-        
-        input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                               exclude=convert_to_RVector(exclude),
-                                               grid_temps=convert_to_RVector(grid_temps),
-                                               grid_press=convert_to_RVector(grid_press),
-                                               strict_minimum_pressure=strict_minimum_pressure,
-                                               dynamic_db=dynamic_db,
-                                               poly_coeffs_1=poly_coeffs_1,
-                                               poly_coeffs_2=poly_coeffs_2,
-                                               water_model=water_model,
-                                               verbose=self.verbose)
-        
-        self.__print_captured_r_output()
-        
-        self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
-        
-        self.__mk_check_del_directory(&#39;rxn_3i&#39;)
-        self.__mk_check_del_directory(&#39;rxn_3o&#39;)
-        self.__mk_check_del_directory(&#39;rxn_3p&#39;)
-        if dynamic_db:
-            self.__mk_check_del_directory(&#39;rxn_data0&#39;)
-        
-        # Has the user been warned about redox column during write_3i_file()?
-        # Prevents repeated warnings.
-        warned_about_redox_column = False
-        
-        # create and run a 3i file for each sample
-        for sample_row_index in range(0, self.df_input_processed.shape[0]):
-            
-            temp_degC = list(input_processed_list.rx2(&#34;temp_degC&#34;))[sample_row_index]
             pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
-            
-            df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
-            
-            # handle dynamic data0 creation
-            if dynamic_db:
-                
-                self.fill_data0(OBIGT_df=OBIGT_df,
-                                data0_file_lines=data0_file_lines,
-                                grid_temps=[temp_degC],
-                                grid_press=[pressure_bar],
-                                db=data0_lettercode,
-                                water_model=water_model,
-                                P1=P1,
-                                plot_poly_fit=plot_poly_fit,
-                                verbose=verbose)
-                
-                self.runeqpt(data0_lettercode, dynamic_db=True)
-
-                if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
-                    try:
-                        # move data1
-                        shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
-                    except:
-                        if self.verbose &gt; 0:
-                            print(&#39;Error: Could not move&#39;, &#34;data1.&#34;+data0_lettercode, &#34;to eqpt_files&#34;)
-
-                os.environ[&#39;EQ36DA&#39;] = &#34;eqpt_files&#34; # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
-
-                data0_path = &#34;data0.&#34; + data0_lettercode
-                
-            else:
-                pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
-            
-
-            
-            # write 3i files
-            self.__capture_r_output()
-
-            warned_about_redox_column = ro.r.write_3i_file(df=ro.conversion.py2rpy(df),
-                               temp_degC=temp_degC,
-                               pressure_bar=pressure_bar,
-                               minimum_pressure=input_processed_list.rx2(&#34;minimum_pressure&#34;),
-                               strict_minimum_pressure=strict_minimum_pressure,
-                               pressure_override=dynamic_db,
-                               suppress_missing=suppress_missing,
-                               exclude=input_processed_list.rx2(&#34;exclude&#34;),
-                               charge_balance_on=charge_balance_on,
-                               suppress=convert_to_RVector(suppress),
-                               alter_options=alter_options,
-                               get_solid_solutions=get_solid_solutions,
-                               input_dir=input_dir,
-                               redox_flag=redox_flag,
-                               redox_aux=redox_aux,
-                               default_logfO2=default_logfO2,
-                               water_model=water_model,
-                               warned_about_redox_column=warned_about_redox_column,
-                               verbose=self.verbose)
-
-            self.__print_captured_r_output()
         
-            # run EQ3 on each 3i file
-            samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc(&#34;Sample&#34;)]
-            filename_3i = self.df_input_processed.index[sample_row_index]+&#34;.3i&#34;
-            
-            
-            if dynamic_db:
-                dynamic_db_name = db_csv_name
-            else:
-                dynamic_db_name = None
-            
-            self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
-                        path_3i=input_dir, path_3o=output_dir,
-                        path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
-            
-            if dynamic_db:
-                shutil.move(&#34;data0.dyn&#34;, &#34;rxn_data0/&#34;+filename_3i[0:-3]+&#34;_data0.dat&#34;)
-
-        if custom_data0:
-            os.environ[&#39;EQ36DA&#39;] = self.eq36da
-            # delete straggling data1 files generated after running eq3
-            if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
-                os.remove(&#34;data1&#34;)
-
-        files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
+        # allowed aq block species are left after any category exclusion in db_args
+        allowed_aq_block_species = [&#34;all&#34;]
+        if dynamic_db:
+            allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
         
-        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
-        
-        # mine output
+        # write 3i files
         self.__capture_r_output()
-        
-        print(&#34;pressures&#34;)
-        print(list(input_processed_list.rx2(&#34;pressure_bar&#34;)))
-        
-        r_3o_mine = pkg_resources.resource_string(
-            __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
-        ro.r(r_3o_mine)
-        batch_3o = ro.r.main_3o_mine(
-            files_3o=convert_to_RVector(files_3o),
-            input_filename=input_filename,
-            input_pressures=convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
-            rxn_filename=rxn_filename,
-            get_aq_dist=get_aq_dist,
-            aq_dist_type=aq_dist_type,
-            get_mass_contribution=get_mass_contribution,
-            mass_contribution_other=mass_contribution_other,
-            get_mineral_sat=get_mineral_sat,
-            mineral_sat_type=mineral_sat_type,
-            get_redox=get_redox,
-            redox_type=redox_type,
-            get_charge_balance=get_charge_balance,
-            get_ion_activity_ratios=get_ion_activity_ratios,
-            get_fugacity=get_fugacity,
-            get_basis_totals=get_basis_totals,
-            get_solid_solutions=get_solid_solutions,
-            get_affinity_energy=get_affinity_energy,
-            negative_energy_supplies=negative_energy_supplies,
-            load_rxn_file=load_rxn_file,
-            not_limiting=convert_to_RVector(not_limiting),
-            batch_3o_filename=batch_3o_filename,
-            df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-            # New rpy2 py2rpy2 conversion might not need the workaround below.
-            # The old note regarding deprecated pandas2ri is shown below...
-            # OLD NOTE:
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
-            df_input_processed_names=df_input_processed_names,
-            custom_obigt=custom_obigt,
-            water_model=water_model,
-            fixed_species=convert_to_RVector(FIXED_SPECIES),
-            verbose=self.verbose,
-        )
+
+        warned_about_redox_column = ro.r.write_3i_file(df=ro.conversion.py2rpy(df),
+                           temp_degC=temp_degC,
+                           pressure_bar=pressure_bar,
+                           minimum_pressure=input_processed_list.rx2(&#34;minimum_pressure&#34;),
+                           strict_minimum_pressure=strict_minimum_pressure,
+                           pressure_override=dynamic_db,
+                           suppress_missing=suppress_missing,
+                           exclude=input_processed_list.rx2(&#34;exclude&#34;),
+                           allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
+                           charge_balance_on=charge_balance_on,
+                           suppress=convert_to_RVector(suppress),
+                           alter_options=alter_options,
+                           get_solid_solutions=get_solid_solutions,
+                           input_dir=input_dir,
+                           redox_flag=redox_flag,
+                           redox_aux=redox_aux,
+                           default_logfO2=default_logfO2,
+                           water_model=water_model,
+                           warned_about_redox_column=warned_about_redox_column,
+                           verbose=self.verbose)
 
         self.__print_captured_r_output()
+    
+        # run EQ3 on each 3i file
+        samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc(&#34;Sample&#34;)]
+        filename_3i = self.df_input_processed.index[sample_row_index]+&#34;.3i&#34;
         
-        if len(batch_3o) == 0:
-            self.err_handler.raise_exception(&#34;Could not compile a speciation report. This is &#34;
-                            &#34;likely because errors occurred during &#34;
-                            &#34;the speciation calculation.&#34;)
-            return
         
-        if get_mass_contribution:
-            mass_contribution = ro.conversion.rpy2py(batch_3o.rx2(&#39;mass_contribution&#39;))
-        df_report = ro.conversion.rpy2py(batch_3o.rx2(&#39;report&#39;))
+        if dynamic_db:
+            dynamic_db_name = db_csv_name
+        else:
+            dynamic_db_name = None
         
-        #df_input = ro.conversion.rpy2py(batch_3o.rx2(&#39;input&#39;))
-        report_divs = batch_3o.rx2(&#39;report_divs&#39;)
+        self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
+                    path_3i=input_dir, path_3o=output_dir,
+                    path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+        
+        if dynamic_db:
+            shutil.move(&#34;data0.dyn&#34;, &#34;rxn_data0/&#34;+filename_3i[0:-3]+&#34;_data0.dat&#34;)
 
-        input_cols = list(report_divs.rx2(&#39;input&#39;))
-        df_input = df_report[input_cols].copy()
+    if custom_data0:
+        os.environ[&#39;EQ36DA&#39;] = self.eq36da
+        # delete straggling data1 files generated after running eq3
+        if os.path.exists(&#34;data1&#34;) and os.path.isfile(&#34;data1&#34;):
+            os.remove(&#34;data1&#34;)
+
+    files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
+    
+    df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+    
+    # mine output
+    self.__capture_r_output()
+    
+    r_3o_mine = pkg_resources.resource_string(
+        __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
+    ro.r(r_3o_mine)
+    batch_3o = ro.r.main_3o_mine(
+        files_3o=convert_to_RVector(files_3o),
+        input_filename=input_filename,
+        input_pressures=convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
+        rxn_filename=rxn_filename,
+        get_aq_dist=get_aq_dist,
+        aq_dist_type=aq_dist_type,
+        get_mass_contribution=get_mass_contribution,
+        mass_contribution_other=mass_contribution_other,
+        get_mineral_sat=get_mineral_sat,
+        mineral_sat_type=mineral_sat_type,
+        get_redox=get_redox,
+        redox_type=redox_type,
+        get_charge_balance=get_charge_balance,
+        get_ion_activity_ratios=get_ion_activity_ratios,
+        get_fugacity=get_fugacity,
+        get_basis_totals=get_basis_totals,
+        get_solid_solutions=get_solid_solutions,
+        get_affinity_energy=get_affinity_energy,
+        negative_energy_supplies=negative_energy_supplies,
+        load_rxn_file=load_rxn_file,
+        not_limiting=convert_to_RVector(not_limiting),
+        batch_3o_filename=batch_3o_filename,
+        df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
+        # New rpy2 py2rpy2 conversion might not need the workaround below.
+        # The old note regarding deprecated pandas2ri is shown below...
+        # OLD NOTE:
+        # Needed for keeping symbols in column names after porting
+        #   df_input_processed in the line above. Some kind of check.names
+        #   option for pandas2ri.py2ri would be nice. Workaround:
+        df_input_processed_names=df_input_processed_names,
+        custom_obigt=custom_obigt,
+        water_model=water_model,
+        fixed_species=convert_to_RVector(FIXED_SPECIES),
+        verbose=self.verbose,
+    )
+
+    self.__print_captured_r_output()
+    
+    if len(batch_3o) == 0:
+        self.err_handler.raise_exception(&#34;Could not compile a speciation report. This is &#34;
+                        &#34;likely because errors occurred during &#34;
+                        &#34;the speciation calculation.&#34;)
+        return
+    
+    if get_mass_contribution:
+        mass_contribution = ro.conversion.rpy2py(batch_3o.rx2(&#39;mass_contribution&#39;))
+    df_report = ro.conversion.rpy2py(batch_3o.rx2(&#39;report&#39;))
+    
+    #df_input = ro.conversion.rpy2py(batch_3o.rx2(&#39;input&#39;))
+    report_divs = batch_3o.rx2(&#39;report_divs&#39;)
+
+    input_cols = list(report_divs.rx2(&#39;input&#39;))
+    df_input = df_report[input_cols].copy()
+    
+    # add a pressure column to df_input
+    df_input[&#34;Pressure_bar&#34;] = pd.Series(dtype=&#39;float&#39;)
+    sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+    for sample in sample_data:
+        df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
+    report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
         
-        # add a pressure column to df_input
-        df_input[&#34;Pressure_bar&#34;] = pd.Series(dtype=&#39;float&#39;)
-        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
-        for sample in sample_data:
-            df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
-            
-        # handle headers and subheaders of input section
-        headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
-        headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
-        headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
-        report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
-        subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
-            col.split(&#34;_&#34;) for col in list(df_input.columns)]]
+    # handle headers and subheaders of input section
+    headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
+    headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
+    headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
+    report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
+    subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
+        col.split(&#34;_&#34;) for col in list(df_input.columns)]]
+    multicolumns = pd.MultiIndex.from_arrays(
+        [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+    
+    df_input.columns = multicolumns
+
+    df_join = df_input
+
+    if get_aq_dist:
+        aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
+        df_aq_distribution = df_report[aq_distribution_cols]
+        df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+        
+        # create a pH column from H+
+        df_aq_distribution[&#34;pH&#34;] = np.nan # pH values are assigned when sample data is assembled later
+        
+        # handle headers of aq_distribution section
+        headers = df_aq_distribution.columns
+        subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
+        subheaders = subheaders + [&#34;pH&#34;]
+        
         multicolumns = pd.MultiIndex.from_arrays(
             [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_aq_distribution.columns = multicolumns
         
-        df_input.columns = multicolumns
+        # ensure final pH column is included in report_divs aq_distribution section
+        aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
+        report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+        
+        df_join = df_join.join(df_aq_distribution)
 
-        df_join = df_input
+    if get_mineral_sat:
+        mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
+        mineral_sat_cols = [col for col in mineral_sat_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
+        df_mineral_sat = df_report[mineral_sat_cols]
+        df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+        # handle headers of df_mineral_sat section
+        if mineral_sat_type == &#34;affinity&#34;:
+            mineral_sat_unit = &#34;affinity_kcal&#34;
+        elif mineral_sat_type == &#34;logQoverK&#34;:
+            mineral_sat_unit = &#34;logQ/K&#34;
+        else:
+            self.err_handler.raise_exception(
+                &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
+
+        headers = df_mineral_sat.columns
+        subheaders = [mineral_sat_unit]*len(headers)
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_mineral_sat.columns = multicolumns
+        df_join = df_join.join(df_mineral_sat)
+
+    if get_redox:
+        redox_cols = list(report_divs.rx2(&#39;redox&#39;))
+        redox_cols = [col for col in redox_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
+        df_redox = df_report[redox_cols]
+        df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+        # handle headers of df_redox section
+        if redox_type == &#34;Eh&#34;:
+            redox_unit = &#34;Eh_volts&#34;
+        elif redox_type == &#34;pe&#34;:
+            redox_unit = &#34;pe&#34;
+        elif redox_type == &#34;logfO2&#34;:
+            redox_unit = &#34;logfO2&#34;
+        elif redox_type == &#34;Ah&#34;:
+            redox_unit = &#34;Ah_kcal&#34;
+        else:
+            self.err_handler.raise_exception(
+                &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
+
+        headers = df_redox.columns
+        subheaders = [redox_unit]*len(headers)
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_redox.columns = multicolumns
+        df_join = df_join.join(df_redox)
+
+    if get_charge_balance:
+        charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
+        df_charge_balance = df_report[charge_balance_cols]
+        df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+        # handle headers of df_charge_balance section
+        headers = df_charge_balance.columns
+        subheaders = [&#34;%&#34;]*2 + [&#39;eq/kg.H2O&#39;, &#39;molality&#39;] + \
+            [&#39;eq/kg.H2O&#39;]*4 + [&#39;molality&#39;]
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_charge_balance.columns = multicolumns
+        df_join = df_join.join(df_charge_balance)
+        
+    if get_ion_activity_ratios:
+        if type(report_divs.rx2(&#39;ion_activity_ratios&#39;)) != rpy2.rinterface_lib.sexp.NULLType:
+            ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
+
+            df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
+            df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+
+            # handle headers of df_ion_activity_ratios section
+            headers = df_ion_activity_ratios.columns
+            subheaders = [&#34;Log ion-H+ activity ratio&#34;]*len(headers)
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+            df_ion_activity_ratios.columns = multicolumns
+            df_join = df_join.join(df_ion_activity_ratios)
+        
+    if get_fugacity:
+        fugacity_cols = list(report_divs.rx2(&#39;fugacity&#39;))
+        df_fugacity = df_report[fugacity_cols]
+        df_fugacity = df_fugacity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+        
+        # handle headers of fugacity section
+        headers = df_fugacity.columns
+        subheaders = [&#34;log_fugacity&#34;]*len(headers)
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_fugacity.columns = multicolumns
+        df_join = df_join.join(df_fugacity)
+
+    if get_basis_totals:
+        sc_cols = list(report_divs.rx2(&#39;basis_totals&#39;))
+        df_sc = df_report[sc_cols]
+        df_sc = df_sc.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+        
+        # handle headers of basis_totals section
+        headers = df_sc.columns
+        subheaders = [&#34;molality&#34;]*(len(headers))
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_sc.columns = multicolumns
+        df_join = df_join.join(df_sc)
+        
+    if get_affinity_energy:
+        affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
+        energy_cols = list(report_divs.rx2(&#39;energy&#39;))
+        
+        df_affinity = df_report[affinity_cols]
+        df_energy = df_report[energy_cols]
+        
+        df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+        df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+        
+        # handle headers of df_affinity section
+        headers = df_affinity.columns
+        subheaders = [&#39;cal/mol e-&#39;]*len(headers)
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_affinity.columns = multicolumns
+
+        # handle headers of df_energy section
+        headers = df_energy.columns
+        subheaders = [&#39;cal/kg.H2O&#39;]*len(headers)
+        multicolumns = pd.MultiIndex.from_arrays(
+            [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
+        df_energy.columns = multicolumns
+        df_join = df_join.join(df_affinity)
+        df_join = df_join.join(df_energy)
+
+    out_dict = {&#39;sample_data&#39;: {},
+                &#39;report&#39;: df_join,
+                &#39;input&#39;: df_input, &#39;report_divs&#39;: report_divs}
+    
+    if get_mass_contribution:
+        out_dict[&#39;mass_contribution&#39;] = mass_contribution
+
+    sample_data = batch_3o.rx2(&#39;sample_data&#39;)
+
+    # assemble sample data
+    for i, sample in enumerate(sample_data):
+        dict_sample_data = {
+            &#34;filename&#34;: str(sample.rx2(&#39;filename&#39;)[0]),
+            &#34;name&#34;: str(sample.rx2(&#39;name&#39;)[0]),
+            &#34;temperature&#34;: float(sample.rx2(&#39;temperature&#39;)[0]),
+            &#34;pressure&#34;: float(sample.rx2(&#39;pressure&#39;)[0]),
+            &#34;logact_H2O&#34;: float(sample.rx2(&#39;logact_H2O&#39;)[0]),
+            &#34;H2O_density&#34;: float(sample.rx2(&#39;H2O_density&#39;)[0]),
+            &#34;H2O_molality&#34;: float(sample.rx2(&#39;H2O_molality&#39;)[0]),
+            &#34;H2O_log_molality&#34;: float(sample.rx2(&#39;H2O_log_molality&#39;)[0]),
+            }
 
         if get_aq_dist:
-            aq_distribution_cols = list(report_divs.rx2(&#39;aq_distribution&#39;))
-            df_aq_distribution = df_report[aq_distribution_cols]
-            df_aq_distribution = df_aq_distribution.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+            sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
+            sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
             
-            # create a pH column from H+
-            df_aq_distribution[&#34;pH&#34;] = np.nan # pH values are assigned when sample data is assembled later
+            sample_pH = -sample_aq_dist.loc[&#34;H+&#34;, &#34;log_activity&#34;]
+            out_dict[&#34;report&#34;].loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;pH&#34;] = sample_pH
             
-            # handle headers of aq_distribution section
-            headers = df_aq_distribution.columns
-            subheaders = [aq_dist_type]*(len(headers)-1) # -1 because the last column will have subheader pH (see next line)
-            subheaders = subheaders + [&#34;pH&#34;]
-            
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_aq_distribution.columns = multicolumns
-            
-            # ensure final pH column is included in report_divs aq_distribution section
-            aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
-            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
-            
-            df_join = df_join.join(df_aq_distribution)
+            dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
+
+        if get_mass_contribution:
+            sample_mass_contribution = mass_contribution[mass_contribution[&#34;sample&#34;] == sample.rx2(&#39;name&#39;)[0]]
+            dict_sample_data.update(
+                {&#34;mass_contribution&#34;: sample_mass_contribution})
 
         if get_mineral_sat:
-            mineral_sat_cols = list(report_divs.rx2(&#39;mineral_sat&#39;))
-            mineral_sat_cols = [col for col in mineral_sat_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
-            df_mineral_sat = df_report[mineral_sat_cols]
-            df_mineral_sat = df_mineral_sat.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-            # handle headers of df_mineral_sat section
-            if mineral_sat_type == &#34;affinity&#34;:
-                mineral_sat_unit = &#34;affinity_kcal&#34;
-            elif mineral_sat_type == &#34;logQoverK&#34;:
-                mineral_sat_unit = &#34;logQ/K&#34;
-            else:
-                self.err_handler.raise_exception(
-                    &#34;mineral_sat_type must be either &#39;affinity&#39; or &#39;logQoverK&#39;&#34;)
-
-            headers = df_mineral_sat.columns
-            subheaders = [mineral_sat_unit]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_mineral_sat.columns = multicolumns
-            df_join = df_join.join(df_mineral_sat)
+            dict_sample_data.update(
+                {&#34;mineral_sat&#34;: ro.conversion.rpy2py(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+            # replace sample mineral_sat entry with None if there is no mineral saturation data.
+            if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
+                dict_sample_data[&#39;mineral_sat&#39;] = None
 
         if get_redox:
-            redox_cols = list(report_divs.rx2(&#39;redox&#39;))
-            redox_cols = [col for col in redox_cols if col != &#34;df&#34;] # TO DO: why is df appearing in mineral sat cols and redox sections?
-            df_redox = df_report[redox_cols]
-            df_redox = df_redox.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-            # handle headers of df_redox section
-            if redox_type == &#34;Eh&#34;:
-                redox_unit = &#34;Eh_volts&#34;
-            elif redox_type == &#34;pe&#34;:
-                redox_unit = &#34;pe&#34;
-            elif redox_type == &#34;logfO2&#34;:
-                redox_unit = &#34;logfO2&#34;
-            elif redox_type == &#34;Ah&#34;:
-                redox_unit = &#34;Ah_kcal&#34;
-            else:
-                self.err_handler.raise_exception(
-                    &#34;redox_type must be either &#39;Eh&#39;, &#39;pe&#39;, &#39;logfO2&#39;, or &#39;Ah&#39;&#34;)
-
-            headers = df_redox.columns
-            subheaders = [redox_unit]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_redox.columns = multicolumns
-            df_join = df_join.join(df_redox)
+            dict_sample_data.update(
+                {&#34;redox&#34;: ro.conversion.rpy2py(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
 
         if get_charge_balance:
-            charge_balance_cols = list(report_divs.rx2(&#39;charge_balance&#39;))
-            df_charge_balance = df_report[charge_balance_cols]
-            df_charge_balance = df_charge_balance.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-            # handle headers of df_charge_balance section
-            headers = df_charge_balance.columns
-            subheaders = [&#34;%&#34;]*2 + [&#39;eq/kg.H2O&#39;, &#39;molality&#39;] + \
-                [&#39;eq/kg.H2O&#39;]*4 + [&#39;molality&#39;]
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_charge_balance.columns = multicolumns
-            df_join = df_join.join(df_charge_balance)
-            
+            dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
+        
         if get_ion_activity_ratios:
-            if type(report_divs.rx2(&#39;ion_activity_ratios&#39;)) != rpy2.rinterface_lib.sexp.NULLType:
-                ion_activity_ratio_cols = list(report_divs.rx2(&#39;ion_activity_ratios&#39;))
-
-                df_ion_activity_ratios = df_report[ion_activity_ratio_cols]
-                df_ion_activity_ratios = df_ion_activity_ratios.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-
-                # handle headers of df_ion_activity_ratios section
-                headers = df_ion_activity_ratios.columns
-                subheaders = [&#34;Log ion-H+ activity ratio&#34;]*len(headers)
-                multicolumns = pd.MultiIndex.from_arrays(
-                    [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-                df_ion_activity_ratios.columns = multicolumns
-                df_join = df_join.join(df_ion_activity_ratios)
             
-        if get_fugacity:
-            fugacity_cols = list(report_divs.rx2(&#39;fugacity&#39;))
-            df_fugacity = df_report[fugacity_cols]
-            df_fugacity = df_fugacity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-            
-            # handle headers of fugacity section
-            headers = df_fugacity.columns
-            subheaders = [&#34;log_fugacity&#34;]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_fugacity.columns = multicolumns
-            df_join = df_join.join(df_fugacity)
-
-        if get_basis_totals:
-            sc_cols = list(report_divs.rx2(&#39;basis_totals&#39;))
-            df_sc = df_report[sc_cols]
-            df_sc = df_sc.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-            
-            # handle headers of basis_totals section
-            headers = df_sc.columns
-            subheaders = [&#34;molality&#34;]*(len(headers))
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_sc.columns = multicolumns
-            df_join = df_join.join(df_sc)
-            
-        if get_affinity_energy:
-            affinity_cols = list(report_divs.rx2(&#39;affinity&#39;))
-            energy_cols = list(report_divs.rx2(&#39;energy&#39;))
-            
-            df_affinity = df_report[affinity_cols]
-            df_energy = df_report[energy_cols]
-            
-            df_affinity = df_affinity.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-            df_energy = df_energy.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-            
-            # handle headers of df_affinity section
-            headers = df_affinity.columns
-            subheaders = [&#39;cal/mol e-&#39;]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_affinity.columns = multicolumns
-
-            # handle headers of df_energy section
-            headers = df_energy.columns
-            subheaders = [&#39;cal/kg.H2O&#39;]*len(headers)
-            multicolumns = pd.MultiIndex.from_arrays(
-                [headers, subheaders], names=[&#39;Sample&#39;, &#39;&#39;])
-            df_energy.columns = multicolumns
-            df_join = df_join.join(df_affinity)
-            df_join = df_join.join(df_energy)
-
-        out_dict = {&#39;sample_data&#39;: {},
-                    &#39;report&#39;: df_join,
-                    &#39;input&#39;: df_input, &#39;report_divs&#39;: report_divs}
-        
-        if get_mass_contribution:
-            out_dict[&#39;mass_contribution&#39;] = mass_contribution
-
-        sample_data = batch_3o.rx2(&#39;sample_data&#39;)
-
-        # assemble sample data
-        for i, sample in enumerate(sample_data):
-            dict_sample_data = {
-                &#34;filename&#34;: str(sample.rx2(&#39;filename&#39;)[0]),
-                &#34;name&#34;: str(sample.rx2(&#39;name&#39;)[0]),
-                &#34;temperature&#34;: float(sample.rx2(&#39;temperature&#39;)[0]),
-                &#34;pressure&#34;: float(sample.rx2(&#39;pressure&#39;)[0]),
-                &#34;logact_H2O&#34;: float(sample.rx2(&#39;logact_H2O&#39;)[0]),
-                &#34;H2O_density&#34;: float(sample.rx2(&#39;H2O_density&#39;)[0]),
-                &#34;H2O_molality&#34;: float(sample.rx2(&#39;H2O_molality&#39;)[0]),
-                &#34;H2O_log_molality&#34;: float(sample.rx2(&#39;H2O_log_molality&#39;)[0]),
-                }
-
-            if get_aq_dist:
-                sample_aq_dist = ro.conversion.rpy2py(sample.rx2(&#39;aq_distribution&#39;))
-                sample_aq_dist = sample_aq_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-                
-                sample_pH = -sample_aq_dist.loc[&#34;H+&#34;, &#34;log_activity&#34;]
-                out_dict[&#34;report&#34;].loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;pH&#34;] = sample_pH
-                
-                dict_sample_data.update({&#34;aq_distribution&#34;: sample_aq_dist})
-
-            if get_mass_contribution:
-                sample_mass_contribution = mass_contribution[mass_contribution[&#34;sample&#34;] == sample.rx2(&#39;name&#39;)[0]]
-                dict_sample_data.update(
-                    {&#34;mass_contribution&#34;: sample_mass_contribution})
-
-            if get_mineral_sat:
-                dict_sample_data.update(
-                    {&#34;mineral_sat&#34;: ro.conversion.rpy2py(sample.rx2(&#39;mineral_sat&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-                # replace sample mineral_sat entry with None if there is no mineral saturation data.
-                if(len(dict_sample_data[&#39;mineral_sat&#39;].index) == 1 and dict_sample_data[&#39;mineral_sat&#39;].index[0] == &#39;None&#39;):
-                    dict_sample_data[&#39;mineral_sat&#39;] = None
-
-            if get_redox:
-                dict_sample_data.update(
-                    {&#34;redox&#34;: ro.conversion.rpy2py(sample.rx2(&#39;redox&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-
-            if get_charge_balance:
-                dict_sample_data.update({&#34;charge_balance&#34;: df_charge_balance.loc[sample.rx2(&#39;name&#39;)[0], :]})
-            
-            if get_ion_activity_ratios:
-                
-                try:
-                    dict_sample_data.update(
-                        {&#34;ion_activity_ratios&#34;: ro.conversion.rpy2py(sample.rx2(&#39;ion_activity_ratios&#39;))})
-                except:
-                    dict_sample_data[&#39;ion_activity_ratios&#39;] = None
-            
-            if get_fugacity:
-                dict_sample_data.update(
-                    {&#34;fugacity&#34;: ro.conversion.rpy2py(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
-                # replace sample fugacity entry with None if there is no fugacity data.
-                if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
-                    dict_sample_data[&#39;fugacity&#39;] = None
-                else:
-                    dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
-                    
-            if get_basis_totals:
-                sc_dist = ro.conversion.rpy2py(sample.rx2(&#39;basis_totals&#39;))
-                sc_dist = sc_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
-                dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
-
-            if get_solid_solutions:
-                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
-
-                if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
-
-                    ss_df_list = []
-                    for ss in list(sample_solid_solutions.names):
-                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;]
-                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;]
-                        df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
-                        df_merged.insert(0, &#39;solid solution&#39;, ss)
-                        del df_merged[&#39;component&#39;]
-                        ss_df_list.append(df_merged)
-                
-                    dict_sample_data.update(
-                        {&#34;solid_solutions&#34;: pd.concat(ss_df_list)})
-            
-            if get_affinity_energy:
-                dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
-                    sample.rx2(&#39;affinity_energy_raw&#39;))})
-                dict_sample_data.update(
-                    {&#34;affinity_energy&#34;: ro.conversion.rpy2py(sample.rx2(&#39;affinity_energy&#39;))})
-
-            out_dict[&#34;sample_data&#34;].update(
-                {sample_data.names[i]: dict_sample_data})
-
-        out_dict.update({&#34;batch_3o&#34;: batch_3o})
-        
-        out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temps&#34;:grid_temps, &#34;grid_press&#34;:grid_press})
-        
-        speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
-        
-        if get_affinity_energy:
-            speciation.half_cell_reactions = self.half_cell_reactions
-            speciation.affinity_energy_reactions_table = self.affinity_energy_reactions_table
-            speciation.affinity_energy_formatted_reactions = self.affinity_energy_formatted_reactions
-            speciation.show_redox_reactions = self.show_redox_reactions
-        
-        if report_filename != None:
-            if &#34;.csv&#34; in report_filename[-4:]:
-                out_dict[&#34;report&#34;].to_csv(report_filename)
-            else:
-                out_dict[&#34;report&#34;].to_csv(report_filename+&#34;.csv&#34;)
-
-        if delete_generated_folders:
-            self._delete_rxn_folders()
             try:
-                # delete straggler data1 file
-                os.remove(&#34;data1&#34;)
+                dict_sample_data.update(
+                    {&#34;ion_activity_ratios&#34;: ro.conversion.rpy2py(sample.rx2(&#39;ion_activity_ratios&#39;))})
             except:
-                pass
+                dict_sample_data[&#39;ion_activity_ratios&#39;] = None
         
-        if self.verbose &gt; 0:
-            print(&#34;Finished!&#34;)
+        if get_fugacity:
+            dict_sample_data.update(
+                {&#34;fugacity&#34;: ro.conversion.rpy2py(sample.rx2(&#39;fugacity&#39;)).apply(pd.to_numeric, errors=&#39;coerce&#39;)})
+            # replace sample fugacity entry with None if there is no fugacity data.
+            if(len(dict_sample_data[&#39;fugacity&#39;].index) == 1 and dict_sample_data[&#39;fugacity&#39;].index[0] == &#39;None&#39;):
+                dict_sample_data[&#39;fugacity&#39;] = None
+            else:
+                dict_sample_data[&#34;fugacity&#34;][&#34;fugacity&#34;] = 10**dict_sample_data[&#34;fugacity&#34;][&#34;log_fugacity&#34;]
+                
+        if get_basis_totals:
+            sc_dist = ro.conversion.rpy2py(sample.rx2(&#39;basis_totals&#39;))
+            sc_dist = sc_dist.apply(pd.to_numeric, errors=&#39;coerce&#39;)
+            dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
+
+        if get_solid_solutions:
+            sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+
+            if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
+
+                ss_df_list = []
+                for ss in list(sample_solid_solutions.names):
+                    df_ss_ideal = sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;]
+                    df_ss_mineral = sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;]
+                    df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
+                    df_merged.insert(0, &#39;solid solution&#39;, ss)
+                    del df_merged[&#39;component&#39;]
+                    ss_df_list.append(df_merged)
+            
+                dict_sample_data.update(
+                    {&#34;solid_solutions&#34;: pd.concat(ss_df_list)})
         
-        return speciation</code></pre>
+        if get_affinity_energy:
+            dict_sample_data.update({&#34;affinity_energy_raw&#34;: ro.conversion.rpy2py(
+                sample.rx2(&#39;affinity_energy_raw&#39;))})
+            dict_sample_data.update(
+                {&#34;affinity_energy&#34;: ro.conversion.rpy2py(sample.rx2(&#39;affinity_energy&#39;))})
+
+        out_dict[&#34;sample_data&#34;].update(
+            {sample_data.names[i]: dict_sample_data})
+
+    out_dict.update({&#34;batch_3o&#34;: batch_3o})
+    
+    out_dict.update({&#34;water_model&#34;:water_model, &#34;grid_temps&#34;:grid_temps, &#34;grid_press&#34;:grid_press})
+    
+    speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
+    
+    if get_affinity_energy:
+        speciation.half_cell_reactions = self.half_cell_reactions
+        speciation.affinity_energy_reactions_table = self.affinity_energy_reactions_table
+        speciation.affinity_energy_formatted_reactions = self.affinity_energy_formatted_reactions
+        speciation.show_redox_reactions = self.show_redox_reactions
+    
+    if report_filename != None:
+        if &#34;.csv&#34; in report_filename[-4:]:
+            out_dict[&#34;report&#34;].to_csv(report_filename)
+        else:
+            out_dict[&#34;report&#34;].to_csv(report_filename+&#34;.csv&#34;)
+
+    if delete_generated_folders:
+        self._delete_rxn_folders()
+        try:
+            # delete straggler data1 file
+            os.remove(&#34;data1&#34;)
+        except:
+            pass
+    
+    if self.verbose &gt; 0:
+        print(&#34;Finished!&#34;)
+    
+    return speciation</code></pre>
 </details>
 </dd>
 </dl>
@@ -12198,7 +12270,7 @@ speciation report.</dd>
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=[&#34;blue&#34;, &#34;orange&#34;],
                                 save_as=None, save_format=None, save_scale=1,
-                                interactive=True, hide_traceback=True):
+                                interactive=True, plot_out=False):
         &#34;&#34;&#34;
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -12237,6 +12309,10 @@ speciation report.</dd>
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
         
         if sample_name not in self.report.index:
@@ -12300,20 +12376,24 @@ speciation report.</dd>
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
+
     
 
-    def barplot(self, y, title=None, convert_log=True, show_missing=True,
+    def barplot(self, y=&#34;pH&#34;, title=None, convert_log=True, show_missing=True,
                 plot_width=4, plot_height=3, ppi=122, colormap=&#34;WORM&#34;,
                 save_as=None, save_format=None, save_scale=1,
-                interactive=True):
+                interactive=True, plot_out=False):
         
         &#34;&#34;&#34;
         Show a bar plot to vizualize one or more variables across all samples.
         
         Parameters
         ----------
-        y : str or list of str
+        y : str or list of str, default &#34;pH&#34;
             Name (or list of names) of the variables to plot. Valid variables
             are columns in the speciation report.
 
@@ -12362,6 +12442,10 @@ speciation report.</dd>
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -12538,14 +12622,17 @@ speciation report.</dd>
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
         
     def scatterplot(self, x=&#34;pH&#34;, y=&#34;Temperature&#34;, title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
                           colormap=&#34;WORM&#34;, save_as=None, save_format=None,
-                          save_scale=1, interactive=True):
+                          save_scale=1, interactive=True, plot_out=False):
         
         &#34;&#34;&#34;
         Vizualize two or more sample variables with a scatterplot.
@@ -12601,6 +12688,10 @@ speciation report.</dd>
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -12782,8 +12873,11 @@ speciation report.</dd>
 
         if not interactive:
             config[&#39;staticPlot&#39;] = True
-            
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
@@ -12791,7 +12885,8 @@ speciation report.</dd>
                                      colormap=&#34;WORM&#34;,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
-                                     save_scale=1, interactive=True):
+                                     save_scale=1, interactive=True,
+                                     plot_out=False):
         
         &#34;&#34;&#34;
         Plot basis species contributions to mass balance of aqueous species
@@ -12857,6 +12952,10 @@ speciation report.</dd>
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
         
         try:
@@ -12875,6 +12974,13 @@ speciation report.</dd>
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
+        if isinstance(sort_y_by, list):
+            for species in sort_y_by:
+                if species not in df_sp[&#34;species&#34;]:
+                    for sample in set(df_sp[&#34;sample&#34;]):
+                        df2 = {&#39;sample&#39;:sample, &#39;basis&#39;:basis, &#39;species&#39;:species, &#39;factor&#39;:None, &#39;molality&#39;:None, &#39;percent&#39;:0}
+                        df_sp = df_sp.append(df2, ignore_index=True)
+    
         if sort_by != None:
             if sort_by in self.report.columns.get_level_values(0):
                 sort_col = self.lookup(sort_by)
@@ -12923,10 +13029,10 @@ speciation report.</dd>
                            &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
                            &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
                     self.err_handler.raise_exception(msg)
-                else:
-                    msg = (&#34;sort_y_by can only have the &#34;
-                           &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                    self.err_handler.raise_exception(msg)
+#                 else:
+#                     msg = (&#34;sort_y_by can only have the &#34;
+#                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
+#                     self.err_handler.raise_exception(msg)
             elif sort_y_by == &#34;alphabetical&#34;:
                 if &#34;Other&#34; in unique_species:
                     unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
@@ -12946,18 +13052,22 @@ speciation report.</dd>
 
         df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
         unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
-
-        # map each species to its color, e.g.,
-        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
-        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
         
         if title == None:
             title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
         
+        
+        # map each species to its color, e.g.,
+        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+        
+        category_orders = {&#34;species&#34;: unique_species, &#34;sample&#34;: labels}
+
+
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
                      width=plot_width*ppi, height=plot_height*ppi,
                      labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
-                     category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
+                     category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template=&#34;simple_white&#34;,
                     )
@@ -12988,8 +13098,11 @@ speciation report.</dd>
         
         if not interactive:
             config[&#39;staticPlot&#39;] = True
-
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
 
     def plot_solid_solutions(self, sample, title=None,
@@ -12998,7 +13111,8 @@ speciation report.</dd>
                                    affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
                                    plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
-                                   save_scale=1, interactive=True):
+                                   save_scale=1, interactive=True,
+                                   plot_out=False):
         
         &#34;&#34;&#34;
         Plot fractions of minerals of hypothetical solid solutions in a sample.
@@ -13056,6 +13170,10 @@ speciation report.</dd>
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         &#34;&#34;&#34;
 
         if sample not in self.sample_data.keys():
@@ -13165,18 +13283,21 @@ speciation report.</dd>
         if not interactive:
             config[&#39;staticPlot&#39;] = True
 
-        fig.show(config=config)</code></pre>
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.Speciation.barplot"><code class="name flex">
-<span>def <span class="ident">barplot</span></span>(<span>self, y, title=None, convert_log=True, show_missing=True, plot_width=4, plot_height=3, ppi=122, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">barplot</span></span>(<span>self, y='pH', title=None, convert_log=True, show_missing=True, plot_width=4, plot_height=3, ppi=122, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show a bar plot to vizualize one or more variables across all samples.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>y</code></strong> :&ensp;<code>str</code> or <code>list</code> of <code>str</code></dt>
+<dt><strong><code>y</code></strong> :&ensp;<code>str</code> or <code>list</code> of <code>str</code>, default <code>"pH"</code></dt>
 <dd>Name (or list of names) of the variables to plot. Valid variables
 are columns in the speciation report.</dd>
 <dt><strong><code>title</code></strong> :&ensp;<code>str</code>, optional</dt>
@@ -13215,22 +13336,25 @@ toolbar of an interactive plot.</dd>
 the figure.</dd>
 <dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Return an interactive plot if True or a static plot if False.</dd>
+<dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Return a plotly figure object? If True, a plot is not displayed as
+it is generated.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def barplot(self, y, title=None, convert_log=True, show_missing=True,
+<pre><code class="python">def barplot(self, y=&#34;pH&#34;, title=None, convert_log=True, show_missing=True,
             plot_width=4, plot_height=3, ppi=122, colormap=&#34;WORM&#34;,
             save_as=None, save_format=None, save_scale=1,
-            interactive=True):
+            interactive=True, plot_out=False):
     
     &#34;&#34;&#34;
     Show a bar plot to vizualize one or more variables across all samples.
     
     Parameters
     ----------
-    y : str or list of str
+    y : str or list of str, default &#34;pH&#34;
         Name (or list of names) of the variables to plot. Valid variables
         are columns in the speciation report.
 
@@ -13279,6 +13403,10 @@ the figure.</dd>
     
     interactive : bool, default True
         Return an interactive plot if True or a static plot if False.
+        
+    plot_out : bool, default False
+        Return a plotly figure object? If True, a plot is not displayed as
+        it is generated.
     &#34;&#34;&#34;
 
     if not isinstance(y, list):
@@ -13455,7 +13583,10 @@ the figure.</dd>
     if not interactive:
         config[&#39;staticPlot&#39;] = True
 
-    fig.show(config=config)</code></pre>
+    if plot_out:
+        return fig
+    else:
+        fig.show(config=config)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.lookup"><code class="name flex">
@@ -13529,7 +13660,7 @@ columns in a section (if a section name is provided).</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mass_contribution"><code class="name flex">
-<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot basis species contributions to mass balance of aqueous species
@@ -13582,219 +13713,241 @@ toolbar of an interactive plot.</dd>
 the figure.</dd>
 <dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Return an interactive plot if True or a static plot if False.</dd>
+<dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Return a plotly figure object? If True, a plot is not displayed as
+it is generated.</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_mass_contribution(self, basis, title=None, sort_by=None,
-                                 ascending=True, sort_y_by=None, width=0.9,
-                                 colormap=&#34;WORM&#34;,
-                                 plot_width=4, plot_height=3, ppi=122,
-                                 save_as=None, save_format=None,
-                                 save_scale=1, interactive=True):
-    
-    &#34;&#34;&#34;
-    Plot basis species contributions to mass balance of aqueous species
-    across all samples.
-    
-    Parameters
-    ----------
-    basis : str
-        Name of the basis species.
+<pre><code class="python">    def plot_mass_contribution(self, basis, title=None, sort_by=None,
+                                     ascending=True, sort_y_by=None, width=0.9,
+                                     colormap=&#34;WORM&#34;,
+                                     plot_width=4, plot_height=3, ppi=122,
+                                     save_as=None, save_format=None,
+                                     save_scale=1, interactive=True,
+                                     plot_out=False):
+        
+        &#34;&#34;&#34;
+        Plot basis species contributions to mass balance of aqueous species
+        across all samples.
+        
+        Parameters
+        ----------
+        basis : str
+            Name of the basis species.
 
-    title : str, optional
-        Title of the plot.
-        
-    sort_by : str, optional
-        Name of the variable used to sort samples. Variable names must be
-        taken from the speciation report column names. No sorting is done by
-        default.
-    
-    ascending : bool, default True
-        Should sample sorting be in ascending order? Descending if False.
-        Ignored unless `sort_by` is defined.
-    
-    sort_y_by : list of str or &#39;alphabetical&#39;, optional
-        List of species names in the order that they should be stacked, from
-        the bottom of the plot to the top. &#39;alphabetical&#39; will sort species
-        alphabetically.
-    
-    width : float, default 0.9
-        Width of bars. No space between bars if width=1.0.
-    
-    colormap : str, default &#34;WORM&#34;
-        Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
-        &#34;colorblind&#34;, or matplotlib colormaps.
-        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
-        The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
-        Color blindness. Nat Methods 8, 441 (2011).
-        https://doi.org/10.1038/nmeth.1618
-        
-    plot_width, plot_height : numeric, default 4 by 3
-        Width and height of the plot, in inches. Size of interactive plots
-        is also determined by pixels per inch, set by the parameter `ppi`.
-        
-    ppi : numeric, default 122
-        Pixels per inch. Along with `plot_width` and `plot_height`,
-        determines the size of interactive plots.
-    
-    save_as : str, optional
-        Provide a filename to save this figure. Filetype of saved figure is
-        determined by `save_format`.
-        Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
-        button in the plot&#39;s toolbar.
-
-    save_format : str, default &#34;png&#34;
-        Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
-        &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
-        an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
-        and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
-        toolbar of an interactive plot.
-
-    save_scale : numeric, default 1
-        Multiply title/legend/axis/canvas sizes by this factor when saving
-        the figure.
-    
-    interactive : bool, default True
-        Return an interactive plot if True or a static plot if False.
-    &#34;&#34;&#34;
-    
-    try:
-        self.mass_contribution
-    except:
-        msg = (&#34;Results for basis species contributions to aqueous mass &#34;
-               &#34;balance could not be found. Ensure that &#34;
-               &#34;get_mass_contribution = True when running speciate().&#34;)
-        self.err_handler.raise_exception(msg)
-        
-    if basis not in set(self.mass_contribution[&#39;basis&#39;]):
-        msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
-               &#34;among available basis species: &#34;
-               &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
-        self.err_handler.raise_exception(msg)
-        
-    df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
-    
-    if sort_by != None:
-        if sort_by in self.report.columns.get_level_values(0):
-            sort_col = self.lookup(sort_by)
-            sort_by_unit = sort_col.columns.get_level_values(1)[0]
-            sort_index = sort_col.sort_values([(sort_by, sort_by_unit)], ascending=ascending).index
+        title : str, optional
+            Title of the plot.
             
-            df_list = []
-            for i in sort_index:
-                df_list.append(df_sp[df_sp[&#39;sample&#39;]==i])
-
-            df_sp = pd.concat(df_list)
+        sort_by : str, optional
+            Name of the variable used to sort samples. Variable names must be
+            taken from the speciation report column names. No sorting is done by
+            default.
+        
+        ascending : bool, default True
+            Should sample sorting be in ascending order? Descending if False.
+            Ignored unless `sort_by` is defined.
+        
+        sort_y_by : list of str or &#39;alphabetical&#39;, optional
+            List of species names in the order that they should be stacked, from
+            the bottom of the plot to the top. &#39;alphabetical&#39; will sort species
+            alphabetically.
+        
+        width : float, default 0.9
+            Width of bars. No space between bars if width=1.0.
+        
+        colormap : str, default &#34;WORM&#34;
+            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            &#34;colorblind&#34;, or matplotlib colormaps.
+            See https://matplotlib.org/stable/tutorials/colors/colormaps.html
+            The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
+            Color blindness. Nat Methods 8, 441 (2011).
+            https://doi.org/10.1038/nmeth.1618
             
-        else:
-            msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
-                   &#34;speciation report. Available variables include &#34;
-                   &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+        
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+    
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
+        interactive : bool, default True
+            Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
+        &#34;&#34;&#34;
+        
+        try:
+            self.mass_contribution
+        except:
+            msg = (&#34;Results for basis species contributions to aqueous mass &#34;
+                   &#34;balance could not be found. Ensure that &#34;
+                   &#34;get_mass_contribution = True when running speciate().&#34;)
             self.err_handler.raise_exception(msg)
-    
-    df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
-    
-    unique_species = self.__unique(df_sp[&#34;species&#34;])
-    
-    if &#34;Other&#34; in unique_species:
-
-        unique_species.append(unique_species.pop(unique_species.index(&#34;Other&#34;)))
-    
-    labels = self.__unique(df_sp[&#34;sample&#34;])
-
-    bottom = np.array([0]*len(labels))
-
-    if sort_y_by != None:
-        if isinstance(sort_y_by, list):
-            if len(unique_species) == len(sort_y_by):
-                if len([s for s in unique_species if s in sort_y_by]) == len(unique_species) and len([s for s in sort_y_by if s in unique_species]) == len(unique_species):
-                    unique_species = sort_y_by
-                else:
-                    valid_needed = [s for s in unique_species if s not in sort_y_by]
-                    invalid = [s for s in sort_y_by if s not in unique_species]
-                    msg = (&#34;sort_y_by is missing the following species: &#34;
-                           &#34;{}&#34;.format(valid_needed)+&#34; and was provided &#34;
-                           &#34;these invalid species: {}&#34;.format(invalid))
-                    self.err_handler.raise_exception(msg)
-                    
-            elif len(sort_y_by) &lt; len(unique_species):
-                msg = (&#34;sort_y_by must have of all of the &#34;
-                       &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
-                       &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
-                self.err_handler.raise_exception(msg)
-            else:
-                msg = (&#34;sort_y_by can only have the &#34;
-                       &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
-                self.err_handler.raise_exception(msg)
-        elif sort_y_by == &#34;alphabetical&#34;:
-            if &#34;Other&#34; in unique_species:
-                unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
-                unique_species_no_other = sorted(unique_species_no_other)
-                unique_species = unique_species_no_other + [&#34;Other&#34;]
-            else:
-                unique_species = sorted(unique_species)
-        else:
-            self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
-                            &#34;or a list of species names.&#34;)
-
-    # get colormap
-    colors = get_colors(colormap, len(unique_species))
-    
-    # convert rgba to hex
-    colors = [matplotlib.colors.rgb2hex(c) for c in colors]
-
-    df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
-    unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
-
-    # map each species to its color, e.g.,
-    # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
-    dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
-    
-    if title == None:
-        title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
-    
-    fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
-                 width=plot_width*ppi, height=plot_height*ppi,
-                 labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
-                 category_orders={&#34;species&#34;: unique_species, &#34;sample&#34;: labels},
-                 color_discrete_map=dict_species_color,
-                 template=&#34;simple_white&#34;,
-                )
-    fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
-                      title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
-                      margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
-                      yaxis={&#39;fixedrange&#39;:True})
-
-    fig.update_traces(width=width, marker_line_width=0)
-    
-    save_as, save_format = self.__save_figure(fig, save_as, save_format,
-                                              save_scale, plot_width,
-                                              plot_height, ppi)
+            
+        if basis not in set(self.mass_contribution[&#39;basis&#39;]):
+            msg = (&#34;The basis species {} &#34;.format(basis)+&#34;could not be found &#34;
+                   &#34;among available basis species: &#34;
+                   &#34;{}&#34;.format(str(list(set(self.mass_contribution[&#39;basis&#39;])))))
+            self.err_handler.raise_exception(msg)
+            
+        df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution[&#39;basis&#39;] == basis])
         
-    config = {&#39;displaylogo&#39;: False,
-              &#39;modeBarButtonsToRemove&#39;: [&#39;zoom2d&#39;, &#39;pan2d&#39;, &#39;select2d&#39;,
-                                         &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
-                                         &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
-                                         &#39;toggleSpikelines&#39;],
-              &#39;toImageButtonOptions&#39;: {
-                                       &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
-                                       &#39;filename&#39;: save_as,
-                                       &#39;height&#39;: plot_height*ppi,
-                                       &#39;width&#39;: plot_width*ppi,
-                                       &#39;scale&#39;: save_scale,
-                                       },
-             }
+        if isinstance(sort_y_by, list):
+            for species in sort_y_by:
+                if species not in df_sp[&#34;species&#34;]:
+                    for sample in set(df_sp[&#34;sample&#34;]):
+                        df2 = {&#39;sample&#39;:sample, &#39;basis&#39;:basis, &#39;species&#39;:species, &#39;factor&#39;:None, &#39;molality&#39;:None, &#39;percent&#39;:0}
+                        df_sp = df_sp.append(df2, ignore_index=True)
     
-    if not interactive:
-        config[&#39;staticPlot&#39;] = True
+        if sort_by != None:
+            if sort_by in self.report.columns.get_level_values(0):
+                sort_col = self.lookup(sort_by)
+                sort_by_unit = sort_col.columns.get_level_values(1)[0]
+                sort_index = sort_col.sort_values([(sort_by, sort_by_unit)], ascending=ascending).index
+                
+                df_list = []
+                for i in sort_index:
+                    df_list.append(df_sp[df_sp[&#39;sample&#39;]==i])
 
-    fig.show(config=config)</code></pre>
+                df_sp = pd.concat(df_list)
+                
+            else:
+                msg = (&#34;Could not find {}&#34;.format(sort_by)+&#34; in the &#34;
+                       &#34;speciation report. Available variables include &#34;
+                       &#34;{}&#34;.format(list(self.report.columns.get_level_values(0))))
+                self.err_handler.raise_exception(msg)
+        
+        df_sp[&#39;percent&#39;] = df_sp[&#39;percent&#39;].astype(float)
+        
+        unique_species = self.__unique(df_sp[&#34;species&#34;])
+        
+        if &#34;Other&#34; in unique_species:
+
+            unique_species.append(unique_species.pop(unique_species.index(&#34;Other&#34;)))
+        
+        labels = self.__unique(df_sp[&#34;sample&#34;])
+
+        bottom = np.array([0]*len(labels))
+
+        if sort_y_by != None:
+            if isinstance(sort_y_by, list):
+                if len(unique_species) == len(sort_y_by):
+                    if len([s for s in unique_species if s in sort_y_by]) == len(unique_species) and len([s for s in sort_y_by if s in unique_species]) == len(unique_species):
+                        unique_species = sort_y_by
+                    else:
+                        valid_needed = [s for s in unique_species if s not in sort_y_by]
+                        invalid = [s for s in sort_y_by if s not in unique_species]
+                        msg = (&#34;sort_y_by is missing the following species: &#34;
+                               &#34;{}&#34;.format(valid_needed)+&#34; and was provided &#34;
+                               &#34;these invalid species: {}&#34;.format(invalid))
+                        self.err_handler.raise_exception(msg)
+                        
+                elif len(sort_y_by) &lt; len(unique_species):
+                    msg = (&#34;sort_y_by must have of all of the &#34;
+                           &#34;following species: {}&#34;.format(unique_species)+&#34;. &#34;
+                           &#34;You are missing {}&#34;.format([s for s in unique_species if s not in sort_y_by]))
+                    self.err_handler.raise_exception(msg)
+#                 else:
+#                     msg = (&#34;sort_y_by can only have the &#34;
+#                            &#34;following species: {}&#34;.format(unique_species)+&#34;.&#34;)
+#                     self.err_handler.raise_exception(msg)
+            elif sort_y_by == &#34;alphabetical&#34;:
+                if &#34;Other&#34; in unique_species:
+                    unique_species_no_other = [sp for sp in unique_species if sp != &#34;Other&#34;]
+                    unique_species_no_other = sorted(unique_species_no_other)
+                    unique_species = unique_species_no_other + [&#34;Other&#34;]
+                else:
+                    unique_species = sorted(unique_species)
+            else:
+                self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
+                                &#34;or a list of species names.&#34;)
+
+        # get colormap
+        colors = get_colors(colormap, len(unique_species))
+        
+        # convert rgba to hex
+        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+
+        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
+        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
+        
+        if title == None:
+            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
+        
+        
+        # map each species to its color, e.g.,
+        # {&#39;CO2&#39;: &#39;#000000&#39;, &#39;HCO3-&#39;: &#39;#1699d3&#39;, &#39;Other&#39;: &#39;#736ca8&#39;}
+        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+        
+        category_orders = {&#34;species&#34;: unique_species, &#34;sample&#34;: labels}
+
+
+        fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
+                     width=plot_width*ppi, height=plot_height*ppi,
+                     labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
+                     category_orders=category_orders,
+                     color_discrete_map=dict_species_color,
+                     template=&#34;simple_white&#34;,
+                    )
+        fig.update_layout(xaxis_tickangle=-45, xaxis_title=None, legend_title=None,
+                          title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;},
+                          margin={&#34;t&#34;: 40}, bargap=0, xaxis={&#39;fixedrange&#39;:True},
+                          yaxis={&#39;fixedrange&#39;:True})
+
+        fig.update_traces(width=width, marker_line_width=0)
+        
+        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+                                                  save_scale, plot_width,
+                                                  plot_height, ppi)
+            
+        config = {&#39;displaylogo&#39;: False,
+                  &#39;modeBarButtonsToRemove&#39;: [&#39;zoom2d&#39;, &#39;pan2d&#39;, &#39;select2d&#39;,
+                                             &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
+                                             &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
+                                             &#39;toggleSpikelines&#39;],
+                  &#39;toImageButtonOptions&#39;: {
+                                           &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
+                                           &#39;filename&#39;: save_as,
+                                           &#39;height&#39;: plot_height*ppi,
+                                           &#39;width&#39;: plot_width*ppi,
+                                           &#39;scale&#39;: save_scale,
+                                           },
+                 }
+        
+        if not interactive:
+            config[&#39;staticPlot&#39;] = True
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mineral_saturation"><code class="name flex">
-<span>def <span class="ident">plot_mineral_saturation</span></span>(<span>self, sample_name, title=None, mineral_sat_type='affinity', plot_width=4, plot_height=3, ppi=122, colors=['blue', 'orange'], save_as=None, save_format=None, save_scale=1, interactive=True, hide_traceback=True)</span>
+<span>def <span class="ident">plot_mineral_saturation</span></span>(<span>self, sample_name, title=None, mineral_sat_type='affinity', plot_width=4, plot_height=3, ppi=122, colors=['blue', 'orange'], save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Vizualize mineral saturation states in a sample as a bar plot.</p>
@@ -13826,6 +13979,9 @@ toolbar of an interactive plot.</dd>
 the figure.</dd>
 <dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Return an interactive plot if True or a static plot if False.</dd>
+<dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Return a plotly figure object? If True, a plot is not displayed as
+it is generated.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -13836,7 +13992,7 @@ the figure.</dd>
                             plot_width=4, plot_height=3, ppi=122,
                             colors=[&#34;blue&#34;, &#34;orange&#34;],
                             save_as=None, save_format=None, save_scale=1,
-                            interactive=True, hide_traceback=True):
+                            interactive=True, plot_out=False):
     &#34;&#34;&#34;
     Vizualize mineral saturation states in a sample as a bar plot.
     
@@ -13875,6 +14031,10 @@ the figure.</dd>
     
     interactive : bool, default True
         Return an interactive plot if True or a static plot if False.
+        
+    plot_out : bool, default False
+        Return a plotly figure object? If True, a plot is not displayed as
+        it is generated.
     &#34;&#34;&#34;
     
     if sample_name not in self.report.index:
@@ -13938,11 +14098,14 @@ the figure.</dd>
     if not interactive:
         config[&#39;staticPlot&#39;] = True
 
-    fig.show(config=config)</code></pre>
+    if plot_out:
+        return fig
+    else:
+        fig.show(config=config)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_solid_solutions"><code class="name flex">
-<span>def <span class="ident">plot_solid_solutions</span></span>(<span>self, sample, title=None, width=0.9, colormap='WORM', affinity_plot=True, affinity_plot_colors=['blue', 'orange'], plot_width=4, plot_height=4, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">plot_solid_solutions</span></span>(<span>self, sample, title=None, width=0.9, colormap='WORM', affinity_plot=True, affinity_plot_colors=['blue', 'orange'], plot_width=4, plot_height=4, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot fractions of minerals of hypothetical solid solutions in a sample.</p>
@@ -13988,6 +14151,9 @@ toolbar of an interactive plot.</dd>
 the figure.</dd>
 <dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Return an interactive plot if True or a static plot if False.</dd>
+<dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Return a plotly figure object? If True, a plot is not displayed as
+it is generated.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -13999,7 +14165,8 @@ the figure.</dd>
                                affinity_plot_colors=[&#34;blue&#34;, &#34;orange&#34;],
                                plot_width=4, plot_height=4, ppi=122,
                                save_as=None, save_format=None,
-                               save_scale=1, interactive=True):
+                               save_scale=1, interactive=True,
+                               plot_out=False):
     
     &#34;&#34;&#34;
     Plot fractions of minerals of hypothetical solid solutions in a sample.
@@ -14057,6 +14224,10 @@ the figure.</dd>
     
     interactive : bool, default True
         Return an interactive plot if True or a static plot if False.
+        
+    plot_out : bool, default False
+        Return a plotly figure object? If True, a plot is not displayed as
+        it is generated.
     &#34;&#34;&#34;
 
     if sample not in self.sample_data.keys():
@@ -14166,7 +14337,10 @@ the figure.</dd>
     if not interactive:
         config[&#39;staticPlot&#39;] = True
 
-    fig.show(config=config)</code></pre>
+    if plot_out:
+        return fig
+    else:
+        fig.show(config=config)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.save"><code class="name flex">
@@ -14210,7 +14384,7 @@ directory. This file can be loaded with <code>AqEquil.load(filename)</code>.</p>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.scatterplot"><code class="name flex">
-<span>def <span class="ident">scatterplot</span></span>(<span>self, x='pH', y='Temperature', title=None, plot_width=4, plot_height=3, ppi=122, fill_alpha=0.7, point_size=10, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True)</span>
+<span>def <span class="ident">scatterplot</span></span>(<span>self, x='pH', y='Temperature', title=None, plot_width=4, plot_height=3, ppi=122, fill_alpha=0.7, point_size=10, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Vizualize two or more sample variables with a scatterplot.</p>
@@ -14255,6 +14429,9 @@ toolbar of an interactive plot.</dd>
 the figure.</dd>
 <dt><strong><code>interactive</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Return an interactive plot if True or a static plot if False.</dd>
+<dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Return a plotly figure object? If True, a plot is not displayed as
+it is generated.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -14264,7 +14441,7 @@ the figure.</dd>
                       plot_width=4, plot_height=3, ppi=122,
                       fill_alpha=0.7, point_size=10,
                       colormap=&#34;WORM&#34;, save_as=None, save_format=None,
-                      save_scale=1, interactive=True):
+                      save_scale=1, interactive=True, plot_out=False):
     
     &#34;&#34;&#34;
     Vizualize two or more sample variables with a scatterplot.
@@ -14320,6 +14497,10 @@ the figure.</dd>
     
     interactive : bool, default True
         Return an interactive plot if True or a static plot if False.
+        
+    plot_out : bool, default False
+        Return a plotly figure object? If True, a plot is not displayed as
+        it is generated.
     &#34;&#34;&#34;
 
     if not isinstance(y, list):
@@ -14501,8 +14682,11 @@ the figure.</dd>
 
     if not interactive:
         config[&#39;staticPlot&#39;] = True
-        
-    fig.show(config=config)</code></pre>
+    
+    if plot_out:
+        return fig
+    else:
+        fig.show(config=config)</code></pre>
 </details>
 </dd>
 </dl>
