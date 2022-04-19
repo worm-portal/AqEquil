@@ -411,14 +411,20 @@ create_data0 <- function(thermo_df,
       date <- entry$date
       species_name_list <- strsplit(entry$components, " ")[[1]]
       nextflag <- FALSE
-
+        
       for(species in species_name_list){
         if(!(species %in% add_obigt_df$name)){
-          vmessage(paste0("Error when the solid solution '", name, "': '", species, "' was not found in the data file as a pure mineral. Skipping it..."), 1, verbose)
+          vmessage(paste0("Error encountered when processing the solid solution '",
+                          name, "': '", species,
+                          "' was not found in the data file as a pure mineral. Skipping it..."),
+                   1, verbose)
           nextflag <- TRUE
           break
         } else if (species %in% skipped_species){
-          vmessage(paste0("Error when processing the solid solution '", name, "': the dissociation reaction for '", species, "' contained one or more NAs in its logK grid. Skipping it..."), 1, verbose)
+          vmessage(paste0("Error encountered when processing the solid solution '",
+                          name, "': the dissociation reaction for '", species,
+                          "' contained one or more NAs in its logK grid. Skipping it..."),
+                   1, verbose)
           nextflag <- TRUE
           break
         }

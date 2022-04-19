@@ -1,5 +1,5 @@
 DEBUGGING_R = False
-FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-"]
+FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
 import re
@@ -670,7 +670,7 @@ class Speciation(object):
                                 plot_width=4, plot_height=3, ppi=122,
                                 colors=["blue", "orange"],
                                 save_as=None, save_format=None, save_scale=1,
-                                interactive=True, hide_traceback=True):
+                                interactive=True, plot_out=False):
         """
         Vizualize mineral saturation states in a sample as a bar plot.
         
@@ -709,6 +709,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         """
         
         if sample_name not in self.report.index:
@@ -772,20 +776,24 @@ class Speciation(object):
         if not interactive:
             config['staticPlot'] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
+
     
 
-    def barplot(self, y, title=None, convert_log=True, show_missing=True,
+    def barplot(self, y="pH", title=None, convert_log=True, show_missing=True,
                 plot_width=4, plot_height=3, ppi=122, colormap="WORM",
                 save_as=None, save_format=None, save_scale=1,
-                interactive=True):
+                interactive=True, plot_out=False):
         
         """
         Show a bar plot to vizualize one or more variables across all samples.
         
         Parameters
         ----------
-        y : str or list of str
+        y : str or list of str, default "pH"
             Name (or list of names) of the variables to plot. Valid variables
             are columns in the speciation report.
 
@@ -834,6 +842,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         """
 
         if not isinstance(y, list):
@@ -1010,14 +1022,17 @@ class Speciation(object):
         if not interactive:
             config['staticPlot'] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
         
     def scatterplot(self, x="pH", y="Temperature", title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
                           colormap="WORM", save_as=None, save_format=None,
-                          save_scale=1, interactive=True):
+                          save_scale=1, interactive=True, plot_out=False):
         
         """
         Vizualize two or more sample variables with a scatterplot.
@@ -1073,6 +1088,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         """
 
         if not isinstance(y, list):
@@ -1254,8 +1273,11 @@ class Speciation(object):
 
         if not interactive:
             config['staticPlot'] = True
-            
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
@@ -1263,7 +1285,8 @@ class Speciation(object):
                                      colormap="WORM",
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
-                                     save_scale=1, interactive=True):
+                                     save_scale=1, interactive=True,
+                                     plot_out=False):
         
         """
         Plot basis species contributions to mass balance of aqueous species
@@ -1329,6 +1352,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         """
         
         try:
@@ -1347,6 +1374,13 @@ class Speciation(object):
             
         df_sp = copy.deepcopy(self.mass_contribution.loc[self.mass_contribution['basis'] == basis])
         
+        if isinstance(sort_y_by, list):
+            for species in sort_y_by:
+                if species not in df_sp["species"]:
+                    for sample in set(df_sp["sample"]):
+                        df2 = {'sample':sample, 'basis':basis, 'species':species, 'factor':None, 'molality':None, 'percent':0}
+                        df_sp = df_sp.append(df2, ignore_index=True)
+    
         if sort_by != None:
             if sort_by in self.report.columns.get_level_values(0):
                 sort_col = self.lookup(sort_by)
@@ -1395,10 +1429,10 @@ class Speciation(object):
                            "following species: {}".format(unique_species)+". "
                            "You are missing {}".format([s for s in unique_species if s not in sort_y_by]))
                     self.err_handler.raise_exception(msg)
-                else:
-                    msg = ("sort_y_by can only have the "
-                           "following species: {}".format(unique_species)+".")
-                    self.err_handler.raise_exception(msg)
+#                 else:
+#                     msg = ("sort_y_by can only have the "
+#                            "following species: {}".format(unique_species)+".")
+#                     self.err_handler.raise_exception(msg)
             elif sort_y_by == "alphabetical":
                 if "Other" in unique_species:
                     unique_species_no_other = [sp for sp in unique_species if sp != "Other"]
@@ -1418,18 +1452,22 @@ class Speciation(object):
 
         df_sp["species"] = df_sp["species"].apply(html_chemname_format_AqEquil)
         unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
-
-        # map each species to its color, e.g.,
-        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
-        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
         
         if title == None:
             title = '<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(html_chemname_format_AqEquil(basis))
         
+        
+        # map each species to its color, e.g.,
+        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+        dict_species_color = {sp:color for sp,color in zip(unique_species, colors)}
+        
+        category_orders = {"species": unique_species, "sample": labels}
+
+
         fig = px.bar(df_sp, x="sample", y="percent", color="species",
                      width=plot_width*ppi, height=plot_height*ppi,
                      labels={"sample": "sample",  "percent": "mole %", "species": "species"},
-                     category_orders={"species": unique_species, "sample": labels},
+                     category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template="simple_white",
                     )
@@ -1460,8 +1498,11 @@ class Speciation(object):
         
         if not interactive:
             config['staticPlot'] = True
-
-        fig.show(config=config)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
 
 
     def plot_solid_solutions(self, sample, title=None,
@@ -1470,7 +1511,8 @@ class Speciation(object):
                                    affinity_plot_colors=["blue", "orange"],
                                    plot_width=4, plot_height=4, ppi=122,
                                    save_as=None, save_format=None,
-                                   save_scale=1, interactive=True):
+                                   save_scale=1, interactive=True,
+                                   plot_out=False):
         
         """
         Plot fractions of minerals of hypothetical solid solutions in a sample.
@@ -1528,6 +1570,10 @@ class Speciation(object):
         
         interactive : bool, default True
             Return an interactive plot if True or a static plot if False.
+            
+        plot_out : bool, default False
+            Return a plotly figure object? If True, a plot is not displayed as
+            it is generated.
         """
 
         if sample not in self.sample_data.keys():
@@ -1637,7 +1683,10 @@ class Speciation(object):
         if not interactive:
             config['staticPlot'] = True
 
-        fig.show(config=config)
+        if plot_out:
+            return fig
+        else:
+            fig.show(config=config)
         
         
 class AqEquil:
@@ -1822,7 +1871,7 @@ class AqEquil:
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing):
         """
         Check for problems in sample input file.
         """
@@ -1909,29 +1958,39 @@ class AqEquil:
         # are column names valid entries in the database?
         if custom_data0:
             data0_path = "data0." + db
+        elif dynamic_db:
+            data0_path = db
         else:
             data0_path = self.eq36da + "/data0." + db
         if os.path.exists(data0_path) and os.path.isfile(data0_path):
-            with open(data0_path) as data0:
-                data0_lines = data0.readlines()
-                start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
-                end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
-                db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
-                if charge_balance_on == 'pH':
-                    err_charge_balance_on_pH = ("To balance charge on pH, use "
-                        "charge_balance_on='H+'")
-                    err_list.append(err_charge_balance_on_pH)
-                elif charge_balance_on in ['Temperature', 'logfO2']:
-                    err_charge_balance_invalid_type = ("Cannot balance charge "
-                        "on {}.".format(charge_balance_on))
-                    err_list.append(err_charge_balance_invalid_type)
-                elif charge_balance_on != "none" and charge_balance_on not in list(set(df_in_headercheck.columns)):
-                    err_charge_balance_invalid_sp = ("The species chosen for charge balance"
-                        " '{}'".format(charge_balance_on)+""
-                        " was not found among the headers of the sample input file.")
-                    err_list.append(err_charge_balance_invalid_sp)
+            if self.thermo_db_type == "data0 file":
+                with open(data0_path) as data0:
+                    data0_lines = data0.readlines()
+                    start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
+                    end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
+                    db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            elif self.thermo_db_type == "CSV file":
+                df_OBIGT = pd.read_csv(data0_path)
+                db_species = list(df_OBIGT["name"])
+            
+            
+            if charge_balance_on == 'pH':
+                err_charge_balance_on_pH = ("To balance charge on pH, use "
+                    "charge_balance_on='H+'")
+                err_list.append(err_charge_balance_on_pH)
+            elif charge_balance_on in ['Temperature', 'logfO2']:
+                err_charge_balance_invalid_type = ("Cannot balance charge "
+                    "on {}.".format(charge_balance_on))
+                err_list.append(err_charge_balance_invalid_type)
+            elif charge_balance_on != "none" and charge_balance_on not in list(set(df_in_headercheck.columns)):
+                err_charge_balance_invalid_sp = ("The species chosen for charge balance"
+                    " '{}'".format(charge_balance_on)+""
+                    " was not found among the headers of the sample input file.")
+                err_list.append(err_charge_balance_invalid_sp)
+                
+            if self.thermo_db_type in ["data0 file", "CSV file"]:
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                    if species not in db_species and species not in ['Temperature', 'logfO2', 'pH']:
+                    if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
                         err_species_not_in_db = ("The species '{}'".format(species) + " "
                             "was not found in {}".format(data0_path) + ". "
                             "If the column contains data that should not be "
@@ -1945,7 +2004,6 @@ class AqEquil:
                             "the sample input file to 'H+' with the subheader "
                             "unit 'pH'.")
                         err_list.append(err_species_pH)
-                    
         else:
             err_no_data0 = ("Could not locate {}.".format(data0_path) + " "
                 "Unable to determine if column headers included in "
@@ -1962,7 +2020,7 @@ class AqEquil:
                             "Alk., mg/L HCO3-", "Log activity", "Log act combo",
                             "Log mean act", "pX", "pH", "pHCl", "pmH", "pmX",
                             "Hetero. equil.", "Homo. equil.", "Make non-basis",
-                            "logfO2", "Mineral"]
+                            "logfO2", "Mineral", "bar"]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = ("The subheader '{}'".format(subheader) + " "
@@ -2039,7 +2097,7 @@ class AqEquil:
             os.environ['EQ36DA'] = self.eq36da
             self.err_handler.raise_exception(
                 "Error: EQPT failed to run on {}.".format("data0."+db))
-
+            
         if os.path.exists("data1") and os.path.isfile("data1"):
             os.rename("data1", "data1."+db)
         if os.path.exists("output") and os.path.isfile("output"):
@@ -2332,6 +2390,7 @@ class AqEquil:
                  }
 
         fig.show(config=config)
+
 
     def speciate(self,
                  input_filename,
@@ -2784,9 +2843,9 @@ class AqEquil:
         
         self.verbose = verbose
         
-#         # check input sample file for errors
-#         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-#                                       charge_balance_on, suppress_missing)
+        # check input sample file for errors
+        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                      dynamic_db, charge_balance_on, suppress_missing)
         
         if aq_dist_type not in ["molality", "log_molality", "log_gamma", "log_activity"]:
             self.err_handler.raise_exception("Unrecognized aq_dist_type. Valid "
@@ -3070,7 +3129,10 @@ class AqEquil:
             else:
                 pressure_bar = list(input_processed_list.rx2("pressure_bar"))[sample_row_index]
             
-
+            # allowed aq block species are left after any category exclusion in db_args
+            allowed_aq_block_species = ["all"]
+            if dynamic_db:
+                allowed_aq_block_species = list(OBIGT_df["name"]) + FIXED_SPECIES
             
             # write 3i files
             self.__capture_r_output()
@@ -3083,6 +3145,7 @@ class AqEquil:
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2("exclude"),
+                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
                                suppress=convert_to_RVector(suppress),
                                alter_options=alter_options,
