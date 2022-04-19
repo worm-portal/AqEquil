@@ -1957,20 +1957,20 @@ class AqEquil:
         
         # are column names valid entries in the database?
         if custom_data0:
-            data0_path = "data0." + db
+            data_path = "data0." + db
         elif dynamic_db:
-            data0_path = db
+            data_path = self.thermo_db_filename
         else:
-            data0_path = self.eq36da + "/data0." + db
-        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            data_path = self.eq36da + "/data0." + db
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == "data0 file":
-                with open(data0_path) as data0:
+                with open(data_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
                     end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
                     db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
             elif self.thermo_db_type == "CSV file":
-                df_OBIGT = pd.read_csv(data0_path)
+                df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT["name"])
             
             
@@ -1992,7 +1992,7 @@ class AqEquil:
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
                     if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
                         err_species_not_in_db = ("The species '{}'".format(species) + " "
-                            "was not found in {}".format(data0_path) + ". "
+                            "was not found in {}".format(data_path) + ". "
                             "If the column contains data that should not be "
                             "included in the speciation calculation, add the "
                             "column name to the 'exclude' argument. Try "
@@ -2005,7 +2005,7 @@ class AqEquil:
                             "unit 'pH'.")
                         err_list.append(err_species_pH)
         else:
-            err_no_data0 = ("Could not locate {}.".format(data0_path) + " "
+            err_no_data0 = ("Could not locate {}.".format(data_path) + " "
                 "Unable to determine if column headers included in "
                 "{} ".format(input_filename) + "match entries for species "
                 "in the requested thermodynamic database '{}'.".format(db))
@@ -2733,6 +2733,7 @@ class AqEquil:
             if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
                 self.thermo_db = None
                 self.thermo_db_type = "data1 file"
+                self.thermo_db_filename = "data1."+db
                 
             elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
                 
@@ -2749,6 +2750,7 @@ class AqEquil:
                 with open("data0."+db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = "data0 file"
+                    self.thermo_db_filename = "data0."+db
                     
             else:
                 msg = ("Could not locate a 'data1."+db+"' file in the EQ36DA "
@@ -2767,6 +2769,7 @@ class AqEquil:
                 with open(db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = "data0 file"
+                    self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
             
@@ -2776,6 +2779,7 @@ class AqEquil:
             if os.path.exists(db) and os.path.isfile(db):
                 self.thermo_db = pd.read_csv(db)
                 self.thermo_db_type = "CSV file"
+                self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
             
@@ -2794,13 +2798,16 @@ class AqEquil:
             # Download from URL and decode as UTF-8 text.
             with urlopen(db) as webpage:
                 data0_content = webpage.read().decode()
-                
+            
+            data0_filename = "data0."+db[-3:].lower()
+            
             # Save to data0 file.
-            with open("data0."+db[-3:].lower(), 'w') as output:
+            with open(data0_filename, 'w') as output:
                 output.write(data0_content)
                 
             self.thermo_db = data0_content
             self.thermo_db_type = "data0 file"
+            self.thermo_db_filename = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -2821,6 +2828,7 @@ class AqEquil:
                 
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = "CSV file"
+            self.thermo_db_filename = db_csv_name
                 
             db_args["filename"] = db_csv_name
             db_args["db"] = "dyn"

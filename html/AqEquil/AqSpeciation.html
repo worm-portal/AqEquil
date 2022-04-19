@@ -1985,20 +1985,20 @@ class AqEquil:
         
         # are column names valid entries in the database?
         if custom_data0:
-            data0_path = &#34;data0.&#34; + db
+            data_path = &#34;data0.&#34; + db
         elif dynamic_db:
-            data0_path = db
+            data_path = self.thermo_db_filename
         else:
-            data0_path = self.eq36da + &#34;/data0.&#34; + db
-        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            data_path = self.eq36da + &#34;/data0.&#34; + db
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
-                with open(data0_path) as data0:
+                with open(data_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
                     end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                     db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
             elif self.thermo_db_type == &#34;CSV file&#34;:
-                df_OBIGT = pd.read_csv(data0_path)
+                df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
             
             
@@ -2020,7 +2020,7 @@ class AqEquil:
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
                     if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
-                            &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
+                            &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
                             &#34;included in the speciation calculation, add the &#34;
                             &#34;column name to the &#39;exclude&#39; argument. Try &#34;
@@ -2033,7 +2033,7 @@ class AqEquil:
                             &#34;unit &#39;pH&#39;.&#34;)
                         err_list.append(err_species_pH)
         else:
-            err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
+            err_no_data0 = (&#34;Could not locate {}.&#34;.format(data_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
                 &#34;{} &#34;.format(input_filename) + &#34;match entries for species &#34;
                 &#34;in the requested thermodynamic database &#39;{}&#39;.&#34;.format(db))
@@ -2761,6 +2761,7 @@ class AqEquil:
             if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
                 self.thermo_db = None
                 self.thermo_db_type = &#34;data1 file&#34;
+                self.thermo_db_filename = &#34;data1.&#34;+db
                 
             elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
                 
@@ -2777,6 +2778,7 @@ class AqEquil:
                 with open(&#34;data0.&#34;+db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = &#34;data0 file&#34;
+                    self.thermo_db_filename = &#34;data0.&#34;+db
                     
             else:
                 msg = (&#34;Could not locate a &#39;data1.&#34;+db+&#34;&#39; file in the EQ36DA &#34;
@@ -2795,6 +2797,7 @@ class AqEquil:
                 with open(db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = &#34;data0 file&#34;
+                    self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception(&#34;Could not locate the data0 file &#39;&#34;+db+&#34;&#39;&#34;)
             
@@ -2804,6 +2807,7 @@ class AqEquil:
             if os.path.exists(db) and os.path.isfile(db):
                 self.thermo_db = pd.read_csv(db)
                 self.thermo_db_type = &#34;CSV file&#34;
+                self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception(&#34;Could not locate the CSV file &#39;&#34;+db+&#34;&#39;&#34;)
             
@@ -2822,13 +2826,16 @@ class AqEquil:
             # Download from URL and decode as UTF-8 text.
             with urlopen(db) as webpage:
                 data0_content = webpage.read().decode()
-                
+            
+            data0_filename = &#34;data0.&#34;+db[-3:].lower()
+            
             # Save to data0 file.
-            with open(&#34;data0.&#34;+db[-3:].lower(), &#39;w&#39;) as output:
+            with open(data0_filename, &#39;w&#39;) as output:
                 output.write(data0_content)
                 
             self.thermo_db = data0_content
             self.thermo_db_type = &#34;data0 file&#34;
+            self.thermo_db_filename = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -2849,6 +2856,7 @@ class AqEquil:
                 
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
+            self.thermo_db_filename = db_csv_name
                 
             db_args[&#34;filename&#34;] = db_csv_name
             db_args[&#34;db&#34;] = &#34;dyn&#34;
@@ -5866,20 +5874,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         # are column names valid entries in the database?
         if custom_data0:
-            data0_path = &#34;data0.&#34; + db
+            data_path = &#34;data0.&#34; + db
         elif dynamic_db:
-            data0_path = db
+            data_path = self.thermo_db_filename
         else:
-            data0_path = self.eq36da + &#34;/data0.&#34; + db
-        if os.path.exists(data0_path) and os.path.isfile(data0_path):
+            data_path = self.eq36da + &#34;/data0.&#34; + db
+        if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
-                with open(data0_path) as data0:
+                with open(data_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
                     end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
                     db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
             elif self.thermo_db_type == &#34;CSV file&#34;:
-                df_OBIGT = pd.read_csv(data0_path)
+                df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
             
             
@@ -5901,7 +5909,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 for species in list(dict.fromkeys(df_in_headercheck.columns)):
                     if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                         err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
-                            &#34;was not found in {}&#34;.format(data0_path) + &#34;. &#34;
+                            &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
                             &#34;If the column contains data that should not be &#34;
                             &#34;included in the speciation calculation, add the &#34;
                             &#34;column name to the &#39;exclude&#39; argument. Try &#34;
@@ -5914,7 +5922,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                             &#34;unit &#39;pH&#39;.&#34;)
                         err_list.append(err_species_pH)
         else:
-            err_no_data0 = (&#34;Could not locate {}.&#34;.format(data0_path) + &#34; &#34;
+            err_no_data0 = (&#34;Could not locate {}.&#34;.format(data_path) + &#34; &#34;
                 &#34;Unable to determine if column headers included in &#34;
                 &#34;{} &#34;.format(input_filename) + &#34;match entries for species &#34;
                 &#34;in the requested thermodynamic database &#39;{}&#39;.&#34;.format(db))
@@ -6642,6 +6650,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
                 self.thermo_db = None
                 self.thermo_db_type = &#34;data1 file&#34;
+                self.thermo_db_filename = &#34;data1.&#34;+db
                 
             elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
                 
@@ -6658,6 +6667,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 with open(&#34;data0.&#34;+db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = &#34;data0 file&#34;
+                    self.thermo_db_filename = &#34;data0.&#34;+db
                     
             else:
                 msg = (&#34;Could not locate a &#39;data1.&#34;+db+&#34;&#39; file in the EQ36DA &#34;
@@ -6676,6 +6686,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 with open(db) as data0_content:
                     self.thermo_db = data0_content.read()
                     self.thermo_db_type = &#34;data0 file&#34;
+                    self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception(&#34;Could not locate the data0 file &#39;&#34;+db+&#34;&#39;&#34;)
             
@@ -6685,6 +6696,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             if os.path.exists(db) and os.path.isfile(db):
                 self.thermo_db = pd.read_csv(db)
                 self.thermo_db_type = &#34;CSV file&#34;
+                self.thermo_db_filename = db
             else:
                 self.err_handler.raise_exception(&#34;Could not locate the CSV file &#39;&#34;+db+&#34;&#39;&#34;)
             
@@ -6703,13 +6715,16 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             # Download from URL and decode as UTF-8 text.
             with urlopen(db) as webpage:
                 data0_content = webpage.read().decode()
-                
+            
+            data0_filename = &#34;data0.&#34;+db[-3:].lower()
+            
             # Save to data0 file.
-            with open(&#34;data0.&#34;+db[-3:].lower(), &#39;w&#39;) as output:
+            with open(data0_filename, &#39;w&#39;) as output:
                 output.write(data0_content)
                 
             self.thermo_db = data0_content
             self.thermo_db_type = &#34;data0 file&#34;
+            self.thermo_db_filename = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -6730,6 +6745,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
+            self.thermo_db_filename = db_csv_name
                 
             db_args[&#34;filename&#34;] = db_csv_name
             db_args[&#34;db&#34;] = &#34;dyn&#34;
@@ -11072,6 +11088,7 @@ db_args = {
         if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
             self.thermo_db = None
             self.thermo_db_type = &#34;data1 file&#34;
+            self.thermo_db_filename = &#34;data1.&#34;+db
             
         elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
             
@@ -11088,6 +11105,7 @@ db_args = {
             with open(&#34;data0.&#34;+db) as data0_content:
                 self.thermo_db = data0_content.read()
                 self.thermo_db_type = &#34;data0 file&#34;
+                self.thermo_db_filename = &#34;data0.&#34;+db
                 
         else:
             msg = (&#34;Could not locate a &#39;data1.&#34;+db+&#34;&#39; file in the EQ36DA &#34;
@@ -11106,6 +11124,7 @@ db_args = {
             with open(db) as data0_content:
                 self.thermo_db = data0_content.read()
                 self.thermo_db_type = &#34;data0 file&#34;
+                self.thermo_db_filename = db
         else:
             self.err_handler.raise_exception(&#34;Could not locate the data0 file &#39;&#34;+db+&#34;&#39;&#34;)
         
@@ -11115,6 +11134,7 @@ db_args = {
         if os.path.exists(db) and os.path.isfile(db):
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
+            self.thermo_db_filename = db
         else:
             self.err_handler.raise_exception(&#34;Could not locate the CSV file &#39;&#34;+db+&#34;&#39;&#34;)
         
@@ -11133,13 +11153,16 @@ db_args = {
         # Download from URL and decode as UTF-8 text.
         with urlopen(db) as webpage:
             data0_content = webpage.read().decode()
-            
+        
+        data0_filename = &#34;data0.&#34;+db[-3:].lower()
+        
         # Save to data0 file.
-        with open(&#34;data0.&#34;+db[-3:].lower(), &#39;w&#39;) as output:
+        with open(data0_filename, &#39;w&#39;) as output:
             output.write(data0_content)
             
         self.thermo_db = data0_content
         self.thermo_db_type = &#34;data0 file&#34;
+        self.thermo_db_filename = data0_filename
             
         custom_data0 = True
         data0_lettercode = db[-3:]
@@ -11160,6 +11183,7 @@ db_args = {
             
         self.thermo_db = pd.read_csv(db)
         self.thermo_db_type = &#34;CSV file&#34;
+        self.thermo_db_filename = db_csv_name
             
         db_args[&#34;filename&#34;] = db_csv_name
         db_args[&#34;db&#34;] = &#34;dyn&#34;
