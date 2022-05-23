@@ -299,6 +299,13 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
+
+  for(sp in thermo_df[,"name"]){
+    mkup <- names(unlist(makeup(info(info(sp), check.it=F)$formula)))
+    if("S" %in% mkup){
+      print(sp)
+    }
+  }
     
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
