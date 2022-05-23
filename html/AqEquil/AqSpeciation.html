@@ -1899,7 +1899,8 @@ class AqEquil:
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       dynamic_db, charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -1985,11 +1986,15 @@ class AqEquil:
         
         # are column names valid entries in the database?
         if custom_data0:
-            data_path = &#34;data0.&#34; + db
+            if &#34;data0&#34; in db:
+                data_path = db
+            else:
+                data_path = &#34;data0.&#34; + db
         elif dynamic_db:
             data_path = self.thermo_db_filename
         else:
             data_path = self.eq36da + &#34;/data0.&#34; + db
+            
         if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
                 with open(data_path) as data0:
@@ -2000,7 +2005,6 @@ class AqEquil:
             elif self.thermo_db_type == &#34;CSV file&#34;:
                 df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
-            
             
             if charge_balance_on == &#39;pH&#39;:
                 err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
@@ -2075,6 +2079,15 @@ class AqEquil:
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
             self.err_handler.raise_exception(errs)
+        
+        # warn about &#34;suppress_redox&#34; in db_args if &#34;Hetero. equil.&#34; among subheaders.
+        # Redox suppression won&#39;t work for an element constrained by heterogeneous equilibrium
+        if redox_suppression and &#34;Hetero. equil.&#34; in list(subheaders):
+            if self.verbose &gt; 0:
+                print(&#34;Warning: &#39;suppress_redox&#39; does not currently work with the &#34;
+                      &#34;heterogeneous equilibrium option if the mineral or gas &#34;
+                      &#34;contains a redox-suppressed element.&#34;)
+        
         
         return
         
@@ -2789,6 +2802,7 @@ class AqEquil:
             
         elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
             # e.g., &#34;data0.wrm&#34;
+            
             custom_data0 = True
             data0_lettercode = db[-3:].lower()
             dynamic_db = False
@@ -2879,9 +2893,19 @@ class AqEquil:
         
         self.verbose = verbose
         
+        if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+            
+        redox_suppression = False
+        if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+            if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+                redox_suppression = True
+        
         # check input sample file for errors
         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                      dynamic_db, charge_balance_on, suppress_missing)
+                                      dynamic_db, charge_balance_on, suppress_missing,
+                                      redox_suppression)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -3931,6 +3955,30 @@ class AqEquil:
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        # if elements are being redox-suppressed, exclude all species with a
+        # formula containing one or more of the redox-suppressed elements if the
+        # species does not have a formula_ox.
+        # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+        #       if sulfur is redox-suppressed.
+        if len(suppress_redox) &gt; 0:
+            thermo_db = pd.read_csv(filename)
+            thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+            if thermo_db_no_formula_ox.shape[0] &gt; 0:
+                sp_names_to_exclude = []
+                for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                    f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                    f_elems = list(parse_formula(f).keys())
+                    for elem in suppress_redox:
+                        if elem in f_elems:
+                            sp_names_to_exclude.append(sp)
+                exclude_category[&#34;name&#34;] = sp_names_to_exclude
+                if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                    print(&#34;Excluding the following chemical species because &#34;
+                          &#34;they contain redox-suppressed elements but do not &#34;
+                          &#34;have element oxidation states given in the &#34;
+                          &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                          &#34;&#34;+str(sp_names_to_exclude))
+            
         if len(exclude_category) &gt; 0:
             exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
         else:
@@ -5788,7 +5836,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       dynamic_db, charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -5874,11 +5923,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         # are column names valid entries in the database?
         if custom_data0:
-            data_path = &#34;data0.&#34; + db
+            if &#34;data0&#34; in db:
+                data_path = db
+            else:
+                data_path = &#34;data0.&#34; + db
         elif dynamic_db:
             data_path = self.thermo_db_filename
         else:
             data_path = self.eq36da + &#34;/data0.&#34; + db
+            
         if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
                 with open(data_path) as data0:
@@ -5889,7 +5942,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             elif self.thermo_db_type == &#34;CSV file&#34;:
                 df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
-            
             
             if charge_balance_on == &#39;pH&#39;:
                 err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
@@ -5964,6 +6016,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
             self.err_handler.raise_exception(errs)
+        
+        # warn about &#34;suppress_redox&#34; in db_args if &#34;Hetero. equil.&#34; among subheaders.
+        # Redox suppression won&#39;t work for an element constrained by heterogeneous equilibrium
+        if redox_suppression and &#34;Hetero. equil.&#34; in list(subheaders):
+            if self.verbose &gt; 0:
+                print(&#34;Warning: &#39;suppress_redox&#39; does not currently work with the &#34;
+                      &#34;heterogeneous equilibrium option if the mineral or gas &#34;
+                      &#34;contains a redox-suppressed element.&#34;)
+        
         
         return
         
@@ -6678,6 +6739,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
         elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
             # e.g., &#34;data0.wrm&#34;
+            
             custom_data0 = True
             data0_lettercode = db[-3:].lower()
             dynamic_db = False
@@ -6768,9 +6830,19 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         self.verbose = verbose
         
+        if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+            
+        redox_suppression = False
+        if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+            if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+                redox_suppression = True
+        
         # check input sample file for errors
         self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                      dynamic_db, charge_balance_on, suppress_missing)
+                                      dynamic_db, charge_balance_on, suppress_missing,
+                                      redox_suppression)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -7820,6 +7892,30 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        # if elements are being redox-suppressed, exclude all species with a
+        # formula containing one or more of the redox-suppressed elements if the
+        # species does not have a formula_ox.
+        # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+        #       if sulfur is redox-suppressed.
+        if len(suppress_redox) &gt; 0:
+            thermo_db = pd.read_csv(filename)
+            thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+            if thermo_db_no_formula_ox.shape[0] &gt; 0:
+                sp_names_to_exclude = []
+                for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                    f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                    f_elems = list(parse_formula(f).keys())
+                    for elem in suppress_redox:
+                        if elem in f_elems:
+                            sp_names_to_exclude.append(sp)
+                exclude_category[&#34;name&#34;] = sp_names_to_exclude
+                if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                    print(&#34;Excluding the following chemical species because &#34;
+                          &#34;they contain redox-suppressed elements but do not &#34;
+                          &#34;have element oxidation states given in the &#34;
+                          &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                          &#34;&#34;+str(sp_names_to_exclude))
+            
         if len(exclude_category) &gt; 0:
             exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
         else:
@@ -9069,6 +9165,30 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+    # if elements are being redox-suppressed, exclude all species with a
+    # formula containing one or more of the redox-suppressed elements if the
+    # species does not have a formula_ox.
+    # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+    #       if sulfur is redox-suppressed.
+    if len(suppress_redox) &gt; 0:
+        thermo_db = pd.read_csv(filename)
+        thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+        if thermo_db_no_formula_ox.shape[0] &gt; 0:
+            sp_names_to_exclude = []
+            for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                f_elems = list(parse_formula(f).keys())
+                for elem in suppress_redox:
+                    if elem in f_elems:
+                        sp_names_to_exclude.append(sp)
+            exclude_category[&#34;name&#34;] = sp_names_to_exclude
+            if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                print(&#34;Excluding the following chemical species because &#34;
+                      &#34;they contain redox-suppressed elements but do not &#34;
+                      &#34;have element oxidation states given in the &#34;
+                      &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                      &#34;&#34;+str(sp_names_to_exclude))
+        
     if len(exclude_category) &gt; 0:
         exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
     else:
@@ -10051,7 +10171,7 @@ cell reactions.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None, verbose=1)</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil', path_3o='/var/lib/private/gmboyer/AqEquil', path_3p='/var/lib/private/gmboyer/AqEquil', dynamic_db_name=None, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -10161,7 +10281,7 @@ If unsure, use None.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
-<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6p='/var/lib/private/gmboyer/AqEquil-dev-branch')</span>
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil', path_6o='/var/lib/private/gmboyer/AqEquil', path_6p='/var/lib/private/gmboyer/AqEquil')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ6 on a .6i input file.</p>
@@ -11116,6 +11236,7 @@ db_args = {
         
     elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
         # e.g., &#34;data0.wrm&#34;
+        
         custom_data0 = True
         data0_lettercode = db[-3:].lower()
         dynamic_db = False
@@ -11206,9 +11327,19 @@ db_args = {
     
     self.verbose = verbose
     
+    if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+        if self.verbose &gt; 0:
+            print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+        
+    redox_suppression = False
+    if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+        if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+            redox_suppression = True
+    
     # check input sample file for errors
     self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                  dynamic_db, charge_balance_on, suppress_missing)
+                                  dynamic_db, charge_balance_on, suppress_missing,
+                                  redox_suppression)
     
     if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
         self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
