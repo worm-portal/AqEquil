@@ -1,1 +1,13 @@
-test_files/
+# Ignore everything:
+*
+
+# Include only these folders:
+!AqEquil/
+!AqEquil/*/
+!html/
+!html/AqEquil/
+!html/AqEquil/*/
+!README.md
+!CITATION.cff
+!LICENSE.txt
+!setup.py

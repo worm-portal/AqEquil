@@ -654,7 +654,7 @@ mine_3o <- function(this_file,
         ### calculate 'energy' in kJ/kg H2O by multiplying affinity (kJ/mol) by activity (mol/kg) of limiting reactant
         this_energy <- affinity_per_mol_rxn * limiting_reactant
         
-        if(!negative_energy_supplies && this_energy < 0){
+        if(!negative_energy_supplies && affinity_per_mol_rxn <= 0){
           this_energy <- 0
         }
 

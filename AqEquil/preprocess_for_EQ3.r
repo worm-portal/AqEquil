@@ -248,6 +248,7 @@ write_3i_file <- function(df,
                           default_logfO2,
                           water_model,
                           warned_about_redox_column,
+                          activity_model,
                           verbose){
     
     
@@ -789,12 +790,26 @@ write_3i_file <- function(df,
   "|  [ ] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
   "|------------------------------------------------------------------------------|",
   "|Iopg Activity Coefficient Option Switches (\"( 0)\" marks default choices)      |",
-  "|------------------------------------------------------------------------------|",
-  "|iopg(1) - Aqueous Species Activity Coefficient Model:                         |",
-  "|  [ ] (-1) The Davies equation                                                |",
-  "|  [x] ( 0) The B-dot equation                                                 |",
-  "|  [ ] ( 1) Pitzer's equations                                                 |",
-  "|  [ ] ( 2) HC + DH equations                                                  |",
+  "|------------------------------------------------------------------------------|", sep="\n")
+
+davies_box <- " "
+bdot_box <- " "
+pitzer_box <- " "
+if(activity_model == "davies"){
+  davies_box <- "x"
+}else if(activity_model == "b-dot"){
+  bdot_box <- "x"
+}else if(activity_model == "pitzer"){
+  pitzer_box <- "x"
+}else{
+  print("Error: activity model is not recognized. Try 'b-dot', 'davies', or 'pitzer'")
+}
+
+eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:                         |",
+  paste0("|  [", davies_box, "] (-1) The Davies equation                                                |"),
+  paste0("|  [", bdot_box, "] ( 0) The B-dot equation                                                 |"),
+  paste0("|  [", pitzer_box, "] ( 1) Pitzer's equations                                                 |"),
+  paste0("|  [ ] ( 2) HC + DH equations                                                  |"),
   "|------------------------------------------------------------------------------|",
   "|iopg(2) - Choice of pH Scale (Rescales Activity Coefficients):                |",
   "|  [ ] (-1) \"Internal\" pH scale (no rescaling)                                 |",
@@ -907,7 +922,7 @@ write_3i_file <- function(df,
                       eq3.temperature, eq3.header3, eq3.density,
                       eq3.header4, eq3.cb_block, eq3.header5,
                       redox_block, eq3.header6, aqueous_block,
-                      eq3.ender1, alter_block, eq3.ender2,
+                      eq3.ender1, alter_block, eq3.ender2, eq3.ender3,
                       collapse = "")
 
 

@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -846,6 +846,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         """
 
         if not isinstance(y, list):
@@ -1092,6 +1098,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         """
 
         if not isinstance(y, list):
@@ -1282,7 +1294,7 @@ class Speciation(object):
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap="WORM",
+                                     colormap="WORM", sample_label = "sample",
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -1324,7 +1336,14 @@ class Speciation(object):
             The "colorblind" colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-            
+        
+        sample_label : str, default "sample"
+            Name of the label that appears when hovering over an element in the
+            interactive mass contribution plot. By default, this is "sample".
+            However, other words might be more appropriate to describe the
+            calculations you are performing. For instance, if you are comparing
+            reaction progress, `sample_label = "Xi"` might be more appropriate.
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -1356,6 +1375,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         """
         
         try:
@@ -1466,7 +1491,7 @@ class Speciation(object):
 
         fig = px.bar(df_sp, x="sample", y="percent", color="species",
                      width=plot_width*ppi, height=plot_height*ppi,
-                     labels={"sample": "sample",  "percent": "mole %", "species": "species"},
+                     labels={"sample": sample_label,  "percent": "mole %", "species": "species"},
                      category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template="simple_white",
@@ -1574,6 +1599,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         """
 
         if sample not in self.sample_data.keys():
@@ -1687,6 +1718,45 @@ class Speciation(object):
             return fig
         else:
             fig.show(config=config)
+            
+            
+    def join_6i_3p(self, filepath_6i):
+        path='rxn_6i'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        else:
+            shutil.rmtree(path)
+            os.makedirs(path)
+            
+        for sample_name in self.raw_pickup_dict.keys():
+            sample_filename = self.sample_data[sample_name]['filename'][:-3]
+            
+            if isinstance(filepath_6i, str):
+                # if a string (filepath) is given
+                with open(filepath_6i, "r") as f6i:
+                    lines_6i = f6i.readlines()
+            else:
+                # if a Prepare_Reaction object is given
+                all_lines = filepath_6i.formatted_reaction.split("\n")
+                lines_6i = [e+"\n" for e in all_lines if e]
+            
+            # trim away any extra newlines at end of pre.6i, then add one.
+            while lines_6i[-1] == "\n":
+                lines_6i = lines_6i[:-1]
+                
+            if lines_6i[-1][-1:] != "\n": # \n counts as 1 character, not 2
+                lines_6i[-1] = lines_6i[-1]+"\n"
+                
+            lines_3p = self.raw_pickup_dict[sample_name]
+            lines_to_keep = []
+            for line in lines_6i:
+                if "Start of the bottom half of the input file" in line:
+                    break
+                else:
+                    lines_to_keep.append(line)
+            lines_to_keep += lines_3p
+            with open(path + "/" + sample_filename+".6i", "w") as f:
+                f.writelines(lines_to_keep)
         
         
 class AqEquil:
@@ -1764,6 +1834,11 @@ class AqEquil:
 
         os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
         os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
+        
+        self.raw_input_dict = {}
+        self.raw_output_dict = {}
+        self.raw_pickup_dict = {}
+        self.data1 = {}
         
 
     def __capture_r_output(self):
@@ -2143,8 +2218,7 @@ class AqEquil:
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd(),
-               dynamic_db_name=None,
-               verbose=1):
+               dynamic_db_name=None):
         
         """
         Call EQ3 on a .3i input file.
@@ -2169,6 +2243,10 @@ class AqEquil:
         dynamic_db_name : str, default None
             Name of database used by `speciate` to speciate samples dynamically.
             If unsure, use None.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         """
 
         # get current working dir
@@ -2227,7 +2305,8 @@ class AqEquil:
                samplename=None,
                path_6i=os.getcwd(),
                path_6o=os.getcwd(),
-               path_6p=os.getcwd()):
+               path_6p=os.getcwd(),
+               dynamic_db_name=None):
         
         """
         Call EQ6 on a .6i input file.
@@ -2248,37 +2327,40 @@ class AqEquil:
         
         path_6p : path str, default current working directory
             Path of .6p pickup files.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         """
 
-        # get current working dir
-        cwd = os.getcwd()
+
         
         if samplename == None:
             samplename = filename_6i[:-3]
         
-        if self.verbose > 0:
-            print('Using ' + db + ' to speciate ' + samplename)
-        os.chdir(path_6i)  # step into 6i folder
-        args = ['/bin/csh', self.eq36co+'/runeq6', db, filename_6i]
+        if self.verbose > 0 and dynamic_db_name == None:
+            print('Using ' + db + ' to react ' + samplename)
+        elif self.verbose > 0 and isinstance(dynamic_db_name, str):
+            print('Using ' + dynamic_db_name + ' to react ' + samplename)
+            
+        args = ['/bin/csh', self.eq36co+'/runeq6', db, path_6i + "/" + filename_6i]
 
         self.__run_script_and_wait(args) # run EQ6
 
-        # restore working dir
-        os.chdir(cwd)
 
         filename_6o = filename_6i[:-1] + 'o'
         filename_6p = filename_6i[:-1] + 'p'
 
         try:
             # rename output
-            os.rename(path_6i + '/output', path_6i + "/" + filename_6o)
+            os.rename('output', filename_6o)
         except:
             if self.verbose > 0:
                 print('Error: EQ6 failed to produce output for ' + filename_6i)
 
         try:
             # move output
-            shutil.move(path_6i + "/" + filename_6o,
+            shutil.move(filename_6o,
                         path_6o + "/" + filename_6o)
         except:
             if self.verbose > 0:
@@ -2286,7 +2368,7 @@ class AqEquil:
 
         try:
             # rename pickup
-            os.rename(path_6i + '/pickup', path_6i + "/" + filename_6p)
+            os.rename('pickup', filename_6p)
             move_pickup = True
         except:
             if self.verbose > 0:
@@ -2296,7 +2378,7 @@ class AqEquil:
         if move_pickup:
             try:
                 # move pickup
-                shutil.move(path_6i + "/" + filename_6p,
+                shutil.move(filename_6p,
                             path_6p + "/" + filename_6p)
             except:
                 if self.verbose > 0:
@@ -2409,6 +2491,7 @@ class AqEquil:
                  input_filename,
                  db="wrm",
                  db_solid_solution=None,
+                 activity_model="b-dot",
                  redox_flag="logfO2",
                  redox_aux="Fe+3",
                  default_logfO2=-6,
@@ -2735,7 +2818,7 @@ class AqEquil:
                   "use the parameter 'rxn_filename' to specify a CSV file of "
                   "thermodynamic data or a TXT file with desired reactions.")
            
-        
+        self.thermo_db_callname = db
         if len(db) == 3:
             # e.g., "wrm"
             custom_data0 = False
@@ -2747,6 +2830,10 @@ class AqEquil:
                 self.thermo_db = None
                 self.thermo_db_type = "data1 file"
                 self.thermo_db_filename = "data1."+db
+                
+                # store contents of data1 file in AqEquil object
+                with open(self.eq36da + "/data1." + db, mode='rb') as data1:
+                    self.data1 = data1.read()
                 
             elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
                 
@@ -2822,6 +2909,7 @@ class AqEquil:
             self.thermo_db = data0_content
             self.thermo_db_type = "data0 file"
             self.thermo_db_filename = data0_filename
+            self.thermo_db_callname = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -2843,6 +2931,7 @@ class AqEquil:
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = "CSV file"
             self.thermo_db_filename = db_csv_name
+            self.thermo_db_callname = db_csv_name
                 
             db_args["filename"] = db_csv_name
             db_args["db"] = "dyn"
@@ -2875,9 +2964,10 @@ class AqEquil:
                 redox_suppression = True
         
         # check input sample file for errors
-        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                      dynamic_db, charge_balance_on, suppress_missing,
-                                      redox_suppression)
+        if activity_model != 'pitzer': # TODO: allow check_sample_input_file() to handle pitzer
+            self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                          dynamic_db, charge_balance_on, suppress_missing,
+                                          redox_suppression)
         
         if aq_dist_type not in ["molality", "log_molality", "log_gamma", "log_activity"]:
             self.err_handler.raise_exception("Unrecognized aq_dist_type. Valid "
@@ -2961,6 +3051,9 @@ class AqEquil:
             
             if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                 try:
+                    # store contents of data1 file in AqEquil object
+                    with open("data1."+data0_lettercode, mode='rb') as data1:
+                        self.data1 = data1.read()
                     # move data1
                     shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
                 except:
@@ -2983,7 +3076,10 @@ class AqEquil:
                 with open(data0_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if s == 'temperatures\n']
-                    end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel a (adh)\n']
+                    if activity_model == 'davies' or activity_model == 'b-dot':
+                        end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel a (adh)\n']
+                    elif activity_model == 'pitzer':
+                        end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel aphi\n']
                     db_grids_unformatted = [i.split("pressures")[0] for i in data0_lines[start_index[0]:end_index[0]]]
                     db_grids = [" ".join(i.split()) for i in db_grids_unformatted if i != '']
                     grid_temps = db_grids[0] + " " + db_grids[1]
@@ -3131,6 +3227,8 @@ class AqEquil:
             
             df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
             
+            samplename = str(df.index[0])
+            
             # handle dynamic data0 creation
             if dynamic_db:
                 
@@ -3140,6 +3238,7 @@ class AqEquil:
                                 grid_press=[pressure_bar],
                                 db=data0_lettercode,
                                 water_model=water_model,
+                                activity_model=activity_model,
                                 P1=P1,
                                 plot_poly_fit=plot_poly_fit,
                                 verbose=verbose)
@@ -3147,6 +3246,9 @@ class AqEquil:
                 self.runeqpt(data0_lettercode, dynamic_db=True)
 
                 if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
+                    # store contents of data1 file in AqEquil object
+                    with open("data1."+data0_lettercode, mode='rb') as data1:
+                        self.data1[samplename] = data1.read()
                     try:
                         # move data1
                         shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
@@ -3188,6 +3290,7 @@ class AqEquil:
                                default_logfO2=default_logfO2,
                                water_model=water_model,
                                warned_about_redox_column=warned_about_redox_column,
+                               activity_model=activity_model,
                                verbose=self.verbose)
 
             self.__print_captured_r_output()
@@ -3195,6 +3298,8 @@ class AqEquil:
             # run EQ3 on each 3i file
             samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc("Sample")]
             filename_3i = self.df_input_processed.index[sample_row_index]+".3i"
+            filename_3o = filename_3i[:-1] + 'o'
+            filename_3p = filename_3i[:-1] + 'p'
             
             
             if dynamic_db:
@@ -3205,6 +3310,26 @@ class AqEquil:
             self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
                         path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+            
+            # store input, output, and pickup as dicts in AqEquil object
+            try:
+                with open(input_dir + "/" + filename_3i, "r") as f:
+                    lines=f.readlines()
+                self.raw_input_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(output_dir + "/" + filename_3o, "r") as f:
+                    lines=f.readlines()
+                self.raw_output_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(pickup_dir + "/" + filename_3p, "r") as f:
+                    lines=f.readlines()
+                self.raw_pickup_dict[samplename] = lines
+            except:
+                pass
             
             if dynamic_db:
                 shutil.move("data0.dyn", "rxn_data0/"+filename_3i[0:-3]+"_data0.dat")
@@ -3580,6 +3705,15 @@ class AqEquil:
         if self.verbose > 0:
             print("Finished!")
         
+        speciation.raw_input_dict = self.raw_input_dict
+        speciation.raw_output_dict = self.raw_output_dict
+        speciation.raw_pickup_dict = self.raw_pickup_dict
+        speciation.thermo_db_callname = self.thermo_db_callname
+        speciation.thermo_db = self.thermo_db
+        speciation.thermo_db_type = self.thermo_db_type
+        speciation.thermo_db_filename = self.thermo_db_filename
+        speciation.data1 = self.data1
+        
         return speciation
 
     @staticmethod
@@ -3600,7 +3734,8 @@ class AqEquil:
         return kstr.format(round(x, k)).strip()
 
     
-    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose):
+    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+                   water_model, activity_model, P1, plot_poly_fit, verbose):
         
         self.__capture_r_output()
         
@@ -3712,7 +3847,8 @@ class AqEquil:
                                        db=db,
                                        grid_temps=convert_to_RVector(grid_temps),
                                        grid_press=convert_to_RVector(grid_press),
-                                       water_model=water_model)
+                                       water_model=water_model,
+                                       activity_model=activity_model)
         
         self.__print_captured_r_output()
         
@@ -3728,6 +3864,7 @@ class AqEquil:
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      water_model="SUPCRT92",
+                     activity_model="b-dot",
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -4012,7 +4149,7 @@ class AqEquil:
                           basis_pref=out_list.rx2("basis_pref"),
                           exceed_Ttr=exceed_Ttr,
                           fixed_species=convert_to_RVector(FIXED_SPECIES),
-                          verbose=verbose)
+                          verbose=self.verbose)
         
         self.__print_captured_r_output()
         
@@ -4037,7 +4174,16 @@ class AqEquil:
         if fill_data0:
 
             # begin TP-dependent processes
-            self.fill_data0(OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)
+            self.fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=data0_file_lines,
+                            grid_temps=grid_temps,
+                            grid_press=grid_press,
+                            db=db,
+                            water_model=water_model,
+                            activity_model=activity_model,
+                            P1=P1,
+                            plot_poly_fit=plot_poly_fit,
+                            verbose=self.verbose)
     
         else:
             return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
@@ -4959,7 +5105,7 @@ def compare(*args):
     else:
         def no_mass_contrib_message(*args, **kwargs):
             print("Mass contributions cannot be compared between these speciations "
-                  "because one or more lack mass contribution data.")
+                  "because one or more calculations lack mass contribution data.")
         sp_total.plot_mass_contribution = no_mass_contrib_message
                 
     

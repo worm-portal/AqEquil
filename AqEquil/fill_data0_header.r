@@ -27,7 +27,8 @@ calc_bdot <- function(T){
 
 }
 
-fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_model){
+fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
+                            water_model, activity_model){
     
   data0_template <- paste(data0_template, collapse="\n")
     
@@ -50,6 +51,11 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
     B_DH_grid <- unlist(water("B_DH", T=273.15+grid_temps[1], P=grid_press[1])*10^-8)
     B_DH_grid <- c(B_DH_grid, rep(0, 7))
   }
+
+  if(activity_model == "pitzer"){
+    Aphi_DH_grid <- (A_DH_grid*2.303)/3
+    Aphi_DH_grid_f <- as.character(format(round(Aphi_DH_grid, 4), nsmall = 4, scientific=F))
+  }
       
   # format grid values
   grid_temps_f <- as.character(format(round(grid_temps, 4), nsmall = 4, scientific=F))
@@ -69,7 +75,7 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
   # Examination of various data0 files seems to indicate that DBcreate does not change these values.
 
   # Calculate the "log k for eh reaction" grid.
-  # From eq. 9 in EQPT (version 7.0) user manual, part 2, by Wolery:
+  # From eq. 9 in EQPT user manual (version 7.0) by Daveler and Wolery:
   if(length(grid_temps_original) == 8){
     logK_Eh_vals <- subcrt(c("H2O", "O2", "e-", "H+"),
                            c(-2, 1, 4, 4),
@@ -97,6 +103,7 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
   B_DHgrid <- c("     ")
   bdotgrid <- c("     ")
   logkgrid <- c("     ")
+  Aphi_DHgrid <- c("     ")
   for(i in 1:8){
       if(i == 5){
           tempgrid <- c(tempgrid, "\n     ")
@@ -105,6 +112,9 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
           B_DHgrid <- c(B_DHgrid, "\n     ")
           bdotgrid <- c(bdotgrid, "\n     ")
           logkgrid <- c(logkgrid, "\n     ")
+          if(activity_model == "pitzer"){
+            Aphi_DHgrid <- c(Aphi_DHgrid, "\n     ")
+          }
       }
       tempgrid <- c(tempgrid, paste0(paste(rep(" ", 10-nchar(grid_temps_f[i])), collapse=""), grid_temps_f[i]))
       presgrid <- c(presgrid, paste0(paste(rep(" ", 10-nchar(grid_press_f[i])), collapse=""), grid_press_f[i]))
@@ -112,6 +122,9 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
       B_DHgrid <- c(B_DHgrid, paste0(paste(rep(" ", 10-nchar(B_DH_grid_f[i])), collapse=""), B_DH_grid_f[i]))
       bdotgrid <- c(bdotgrid, paste0(paste(rep(" ", 10-nchar(bdot_grid_f[i])), collapse=""), bdot_grid_f[i]))
       logkgrid <- c(logkgrid, paste0(paste(rep(" ", 10-nchar(logk_grid_f[i])), collapse=""), logk_grid_f[i]))
+      if(activity_model == "pitzer"){
+        Aphi_DHgrid <- c(Aphi_DHgrid, paste0(paste(rep(" ", 10-nchar(Aphi_DH_grid_f[i])), collapse=""), Aphi_DH_grid_f[i]))
+      }
 
   }
   tempgrid <- paste(tempgrid, collapse="")
@@ -120,6 +133,9 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
   B_DHgrid <- paste(B_DHgrid, collapse="")
   bdotgrid <- paste(bdotgrid, collapse="")
   logkgrid <- paste(logkgrid, collapse="")
+  if(activity_model == "pitzer"){
+    Aphi_DHgrid <- paste(Aphi_DHgrid, collapse="")
+  }
 
   # insert minimum and maximum temperature values into data0 template
   temp_min_max_insertlines <- "\nTemperature limits \\(degC\\)\n.*\ntemperatures\n"
@@ -140,16 +156,25 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press, water_mo
   presgrid_insertlines <- "\npressures\n.*\ndebye huckel a \\(adh\\)\n"
   data0_template <- sub(presgrid_insertlines, paste0("\npressures\n", presgrid, "\ndebye huckel a (adh)\n"), data0_template)
 
-  # insert Debeye Huckel A and B parameter values into data0 template
-  A_DHgrid_insertlines <- "\ndebye huckel a \\(adh\\)\n.*\ndebye huckel b \\(bdh\\)\n"
-  data0_template <- sub(A_DHgrid_insertlines, paste0("\ndebye huckel a (adh)\n", A_DHgrid, "\ndebye huckel b (bdh)\n"), data0_template)
-  B_DHgrid_insertlines <- "\ndebye huckel b \\(bdh\\)\n.*\nbdot\n"
-  data0_template <- sub(B_DHgrid_insertlines, paste0("\ndebye huckel b (bdh)\n", B_DHgrid, "\nbdot\n"), data0_template)
+  if(activity_model == "b-dot" | activity_model == "davies"){
+    
+    # insert Debeye Huckel A and B parameter values into data0 template
+    A_DHgrid_insertlines <- "\ndebye huckel a \\(adh\\)\n.*\ndebye huckel b \\(bdh\\)\n"
+    data0_template <- sub(A_DHgrid_insertlines, paste0("\ndebye huckel a (adh)\n", A_DHgrid, "\ndebye huckel b (bdh)\n"), data0_template)
+    B_DHgrid_insertlines <- "\ndebye huckel b \\(bdh\\)\n.*\nbdot\n"
+    data0_template <- sub(B_DHgrid_insertlines, paste0("\ndebye huckel b (bdh)\n", B_DHgrid, "\nbdot\n"), data0_template)
 
-  # insert bdot grid values into data0 template
-  bdotgrid_insertlines <- "\nbdot\n.*\ncco2"
-  data0_template <- sub(bdotgrid_insertlines, paste0("\nbdot\n", bdotgrid, "\ncco2"), data0_template)
+    # insert bdot grid values into data0 template
+    bdotgrid_insertlines <- "\nbdot\n.*\ncco2"
+    data0_template <- sub(bdotgrid_insertlines, paste0("\nbdot\n", bdotgrid, "\ncco2"), data0_template)
 
+  }else if (activity_model == 'pitzer'){
+      
+    # insert Debeye Huckel A phi values into data0 template
+    Aphi_DHgrid_insertlines <- "\ndebye huckel a \\(adh\\)\n.*\nlog k for eh reaction\n"
+    data0_template <- sub(Aphi_DHgrid_insertlines, paste0("\ndebye huckel aphi\n", Aphi_DHgrid, "\nlog k for eh reaction\n"), data0_template)
+  }
+      
   # insert logk (eh) grid values into data0 template
   logkgrid_insertlines <- "\nlog k for eh reaction\n.*\n\\+-+\nbdot parameters"
   logkgrid_end_insert <- "\n+--------------------------------------------------------------------\nbdot parameters"
