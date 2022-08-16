@@ -298,7 +298,7 @@ def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
     
     Parameters
     ----------
-    colormap : str, default "WORM"
+    colormap : str
         Name of the colormap to color the scatterpoints. Accepts "WORM",
         "colorblind", or matplotlib colormaps.
         See https://matplotlib.org/stable/tutorials/colors/colormaps.html
@@ -1755,8 +1755,32 @@ class Speciation(object):
                 else:
                     lines_to_keep.append(line)
             lines_to_keep += lines_3p
+            
+            if "{tval}" in "".join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if "Original temperature" in line:
+                        o_t = line.split("|")[2]
+                for i,line in enumerate(lines_to_keep):
+                    if "{tval}" in line:
+                        lines_to_keep[i] = line.format(tval=o_t)
+                        
+            if "{pval}" in "".join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if "Original pressure" in line:
+                        o_p = line.split("|")[2]
+                for i,line in enumerate(lines_to_keep):
+                    if "{pval}" in line:
+                        lines_to_keep[i] = line.format(tval=o_p)
+            
             with open(path + "/" + sample_filename+".6i", "w") as f:
                 f.writelines(lines_to_keep)
+
+
+    def mt(self, sample):
+        sample_data = getattr(self, "sample_data")
+        return sample_data[sample]["mass_transfer"]
         
         
 class AqEquil:
@@ -3737,6 +3761,9 @@ class AqEquil:
     def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, verbose):
         
+#         for line in data0_file_lines:
+#             print(line)
+        
         self.__capture_r_output()
         
         r_check_TP_grid = pkg_resources.resource_string(
@@ -3772,6 +3799,7 @@ class AqEquil:
         
         dissrxn_logK_dict = {'name': out_dfs[0]["name"],
                              'logK_0': out_dfs[0]["dissrxn_logK_0"]}
+        
         if len(grid_temps) == 8:
             for i in range(1, len(grid_temps)):
                 dissrxn_logK_dict['logK_'+str(i)] = out_dfs[i]["dissrxn_logK_"+str(i)]
@@ -3809,7 +3837,7 @@ class AqEquil:
             logK_list = []
             for i in range(0, len(logK_grid)):
                 logK_val = self.s_d(logK_grid[i], 4)
-
+                
                 # conditional formatting based on position
                 if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
                     max_length = 11
@@ -3828,7 +3856,7 @@ class AqEquil:
                 logK_list.append(logK_val)
 
             logK_list = "".join(logK_list)
-
+            
             # todo: make this more robust to catch any potential logK_grid skips
             if "logK_grid_"+name in data0_file_lines:
                 data0_file_lines[data0_file_lines.index("logK_grid_"+name)] = logK_list
