@@ -3135,7 +3135,7 @@ class AqEquil:
             if dynamic_db:
                 
                 self.fill_data0(OBIGT_df=OBIGT_df,
-                                data0_file_lines=data0_file_lines,
+                                data0_file_lines=copy.deepcopy(data0_file_lines),
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
                                 db=data0_lettercode,
