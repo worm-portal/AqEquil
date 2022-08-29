@@ -299,13 +299,6 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
-
-  for(sp in thermo_df[,"name"]){
-    mkup <- names(unlist(makeup(info(info(sp), check.it=F)$formula)))
-    if("S" %in% mkup){
-      print(sp)
-    }
-  }
     
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
@@ -1022,6 +1015,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       species_in_dissrxns_that_are_not_basis <- c(species_in_dissrxns_that_are_not_basis, basis)
     }
   }
+                                   
   if(length(missing_basis_species) > 0){
     for(species in thermo_df[, "name"]){
       tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
@@ -1045,6 +1039,8 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   }else{
     msg_missing_basis <- ""
   }
+  
+  species_to_blame_have_bad_basis <- c()
   if(length(species_in_dissrxns_that_are_not_basis) > 0){
     for(species in thermo_df[, "name"]){
       tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
@@ -1052,19 +1048,20 @@ suppress_redox_and_generate_dissrxns <- function(filename,
         dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
         dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
         dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
+        dissrxn_names <- dissrxn_names[2:length(dissrxn_names)]
         for(n in dissrxn_names){
-          if(n %in% missing_basis_species){
-            species_to_blame <- c(species_to_blame, species)
+          if(n %in% species_in_dissrxns_that_are_not_basis){
+            species_to_blame_have_bad_basis <- c(species_to_blame_have_bad_basis, species)
           }
         }
       }
     }
-    species_to_blame <- unique(species_to_blame)
+    species_to_blame_have_bad_basis <- unique(species_to_blame_have_bad_basis)
     msg_not_basis <- paste("The following species appear in dissociation",
       "reactions but are not tagged as strict or auxiliary basis species: [",
       paste(species_in_dissrxns_that_are_not_basis, collapse=", "),
       "]. These non-basis species are found in the dissociation reactions of [",
-      paste(species_to_blame, collapse=", "), "].")
+      paste(species_to_blame_have_bad_basis, collapse=", "), "].")
   }else{
     msg_not_basis <- ""
   }

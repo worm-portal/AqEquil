@@ -21,7 +21,7 @@ from chemparse import parse_formula
 from IPython.core.display import display, HTML
 import periodictable
 
-from .HKF_cgl import OBIGT2eos, calc_logK
+from ._HKF_cgl import OBIGT2eos, calc_logK
 
 # matplotlib for static plots
 import matplotlib
@@ -35,7 +35,7 @@ import plotly.graph_objects as go
 # rpy2 for Python and R integration
 import rpy2.rinterface_lib.callbacks
 import logging
-rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)   # will display errors, but not warnings
+rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR) # will display errors, but not warnings
 
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
@@ -54,7 +54,7 @@ class Error_Handler:
     errors regardless of origin will be shown without traceback until the
     notebook kernel is restarted.
     
-    Attributes
+    Parameters
     ----------
     clean : bool
         Report exceptions without traceback? If True, only the error message is
@@ -90,7 +90,7 @@ class Error_Handler:
         (e.g., for common user errors).
         """
         
-        if self.clean and isnotebook():
+        if self.clean and _isnotebook():
             ipython = get_ipython()
             ipython.showtraceback = self.hide_traceback
         raise Exception(msg)
@@ -137,8 +137,9 @@ def load(filename, messages=True, hide_traceback=True):
     else:
         msg = "Cannot open " + str(filename) + " because the file is empty."
         err_handler.raise_exception(msg)
-    
-def isnotebook():
+
+
+def _isnotebook():
     
     """
     Check if this code is running in a Jupyter notebook
@@ -155,7 +156,7 @@ def isnotebook():
         return False      # Probably standard Python interpreter
 
 
-def float_to_fraction (x, error=0.000001):
+def _float_to_fraction (x, error=0.000001):
     
     """
     Convert a float into a fraction. Works with floats like 2.66666666.
@@ -193,12 +194,12 @@ def float_to_fraction (x, error=0.000001):
             return (n * middle_d + middle_n, middle_d)
 
     
-def float_to_formatted_fraction(x, error=0.000001):
+def _float_to_formatted_fraction(x, error=0.000001):
     
     """
     Format a fraction for html.
     """
-    f = float_to_fraction(x, error=error)
+    f = _float_to_fraction(x, error=error)
     
     whole_number_float = int((f[0]-(f[0]%f[1]))/f[1])
     remainder_tuple = (f[0]%f[1], f[1])
@@ -211,7 +212,7 @@ def float_to_formatted_fraction(x, error=0.000001):
         return "{0}<sup>{1}</sup>&frasl;<sub>{2}</sub>".format(whole_number_float, remainder_tuple[0], remainder_tuple[1])
 
 
-def format_coeff(coeff):
+def _format_coeff(coeff):
     
     """
     Format a reaction coefficient for html.
@@ -224,9 +225,9 @@ def format_coeff(coeff):
         coeff = str(int(coeff))
     else:
         if coeff < 0:
-            coeff = float_to_formatted_fraction(-coeff)
+            coeff = _float_to_formatted_fraction(-coeff)
         else:
-            coeff = float_to_formatted_fraction(coeff)
+            coeff = _float_to_formatted_fraction(coeff)
 
     if coeff != "":
         coeff = coeff + " "
@@ -234,26 +235,7 @@ def format_coeff(coeff):
     return coeff
 
 
-def flatten_list(_2d_list):
-    
-    """
-    Flatten a list of lists.
-    Code from: https://stackabuse.com/python-how-to-flatten-list-of-lists/
-    """
-    
-    flat_list = []
-    # Iterate through the outer list
-    for element in _2d_list:
-        if type(element) is list:
-            # If the element is of type list, iterate through the sublist
-            for item in element:
-                flat_list.append(item)
-        else:
-            flat_list.append(element)
-    return flat_list
-
-
-def convert_to_RVector(value, force_Rvec=True):
+def _convert_to_RVector(value, force_Rvec=True):
     
     """
     Convert a value or list into an R vector of the appropriate type.
@@ -291,7 +273,7 @@ def convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector([str(v) for v in value])
 
 
-def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
+def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
 
     """
     Get a list of rgb values for a matplotlib colormap
@@ -374,40 +356,7 @@ def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
     return colors
 
 
-def html_chemname_format_AqEquil(name, charge_sign_at_end=False):
-    
-    """
-    AqEquil-specific formatting of chemical names for html. Takes "_(input)"
-    into account when formatting names.
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    """
-    
-    # format only the first part of the name if it has "_(input)"
-    if len(name.split("_(input)"))==2:
-        if name.split("_(input)")[1] == '':
-            name = name.split("_(input)")[0]
-            input_flag=True
-    else:
-        input_flag = False
-    
-    name = html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
-    
-    # add " (input)" to the end of the name
-    if input_flag:
-        name = name+" (input)"
-    
-    return(name)
-
-
-def html_chemname_format(name, charge_sign_at_end=False):
+def chemlabel(name, charge_sign_at_end=False):
     
     """
     Format a chemical formula to display subscripts and superscripts in HTML
@@ -426,6 +375,29 @@ def html_chemname_format(name, charge_sign_at_end=False):
     Returns
     -------
     A formatted chemical formula string.
+    """
+    
+    # format only the first part of the name if it has "_(input)"
+    if len(name.split("_(input)"))==2:
+        if name.split("_(input)")[1] == '':
+            name = name.split("_(input)")[0]
+            input_flag=True
+    else:
+        input_flag = False
+    
+    name = _html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
+    
+    # add " (input)" to the end of the name
+    if input_flag:
+        name = name+" (input)"
+    
+    return(name)
+
+
+def _html_chemname_format(name, charge_sign_at_end=False):
+    
+    """
+    Function duplicated from pyCHNOSZ
     """
     
     p = re.compile(r'(?P<sp>[-+]\d*?$)')
@@ -816,7 +788,7 @@ class Speciation(object):
             determines the size of interactive plots.
         
         colormap : str, default "WORM"
-            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            Name of the colormap to color plotted data. Accepts "WORM",
             "colorblind", or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The "colorblind" colormap is referenced from Wong, B. Points of view:
@@ -857,7 +829,7 @@ class Speciation(object):
         if not isinstance(y, list):
             y = [y]
 
-        colors = get_colors(colormap, len(y))
+        colors = _get_colors(colormap, len(y))
 
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -867,7 +839,7 @@ class Speciation(object):
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
             
         y_cols = self.lookup(y)
 
@@ -954,15 +926,15 @@ class Speciation(object):
                 ylabel = 'Temperature [°C]'
             else:
                 if unit != "":
-                    ylabel = "{} {} [{}]".format(html_chemname_format_AqEquil(y[0]), unit_type, unit)
+                    ylabel = "{} {} [{}]".format(chemlabel(y[0]), unit_type, unit)
                 else:
-                    ylabel = "{} {}".format(html_chemname_format_AqEquil(y[0]), unit_type)
+                    ylabel = "{} {}".format(chemlabel(y[0]), unit_type)
 
         
         df = pd.melt(df, id_vars=["name"], value_vars=y)
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
 
-        df['y_variable'] = df['y_variable'].apply(html_chemname_format_AqEquil)
+        df['y_variable'] = df['y_variable'].apply(chemlabel)
         
         
         if unit_type == "energy supply" or unit_type == "affinity":
@@ -979,7 +951,7 @@ class Speciation(object):
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()*len(x)
             
             if len(y) == 1:
-                ylabel = "{}<br>{} [{}]".format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
                 
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x="name", y="y_value",
@@ -1068,7 +1040,7 @@ class Speciation(object):
             Size of scatterpoints.
         
         colormap : str, default "WORM"
-            Name of the colormap to color the scatterpoints. Accepts "WORM",
+            Name of the colormap to color the plotted data. Accepts "WORM",
             "colorblind", or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The "colorblind" colormap is referenced from Wong, B. Points of view:
@@ -1135,7 +1107,7 @@ class Speciation(object):
             xunit_type = ""
             xunit = ""
 
-        colors = get_colors(colormap, len(y), alpha=fill_alpha)
+        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
         
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
@@ -1194,7 +1166,7 @@ class Speciation(object):
             elif 'Temperature' in y:
                 ylabel = 'Temperature [°C]'
             else:
-                y_formatted = html_chemname_format_AqEquil(y[0])
+                y_formatted = chemlabel(y[0])
                 if unit != "":
                     ylabel = "{} {} [{}]".format(y_formatted, unit_type, unit)
                 else:
@@ -1205,7 +1177,7 @@ class Speciation(object):
         elif x == 'Temperature':
             xlabel = 'Temperature [°C]'
         else:
-            x_formatted = html_chemname_format_AqEquil(x)
+            x_formatted = chemlabel(x)
             if xunit != "":
                 xlabel = "{} {} [{}]".format(x_formatted, xunit_type, xunit)
             else:
@@ -1219,7 +1191,7 @@ class Speciation(object):
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
         
         df = self.lookup(["name", x]+y).copy()
         df.loc[:, "name"] = df.index
@@ -1242,13 +1214,13 @@ class Speciation(object):
             rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
             if len(y) == 1:
-                ylabel = "{}<br>{} [{}]".format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
             
             df["formatted_rxn"] = df["y_variable"].map(rxn_dict)
         else:
             df["formatted_rxn"] = ""
         
-        df['y_variable'] = df['y_variable'].apply(html_chemname_format_AqEquil)
+        df['y_variable'] = df['y_variable'].apply(chemlabel)
         
         fig = px.scatter(df, x=x, y="y_value", color="y_variable",
                          hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
@@ -1470,16 +1442,16 @@ class Speciation(object):
                                 "or a list of species names.")
 
         # get colormap
-        colors = get_colors(colormap, len(unique_species))
+        colors = _get_colors(colormap, len(unique_species))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-        df_sp["species"] = df_sp["species"].apply(html_chemname_format_AqEquil)
-        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
+        df_sp["species"] = df_sp["species"].apply(chemlabel)
+        unique_species = [chemlabel(sp) for sp in unique_species]
         
         if title == None:
-            title = '<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(html_chemname_format_AqEquil(basis))
+            title = '<span style="font-size: 14px;">Species accounting for mass balance of {}</span>'.format(chemlabel(basis))
         
         
         # map each species to its color, e.g.,
@@ -1631,7 +1603,7 @@ class Speciation(object):
         unique_minerals = self.__unique(df["mineral"])
         
         # get colormap
-        colors = get_colors(colormap, len(unique_minerals))
+        colors = _get_colors(colormap, len(unique_minerals))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -2629,6 +2601,10 @@ class AqEquil:
             - The URL of a CSV file containing solid solution parameters, e.g.,
             "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
         
+        activity_model : str, default "b-dot"
+            Activity model to use for speciation. Can be either "b-dot",
+            or "davies". NOTE: the "pitzer" model is not yet implemented.
+        
         redox_flag : str, default "O2(g)"
             Determines which column in the sample input file sets the overall
             redox state of the samples. Options for redox_flag include 'O2(g)',
@@ -3142,7 +3118,6 @@ class AqEquil:
                 grid_press = ["1.0000", "1.0000", "1.0132", "4.7572",
                               "15.5365", "39.7365", "85.8378", "165.2113"]
                 
-                
             grid_press_numeric = [float(n) for n in grid_press]
             if min(grid_press_numeric) == 1:
                 P1=True
@@ -3155,8 +3130,8 @@ class AqEquil:
         
             ro.r(r_check_TP_grid)
         
-            list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                         grid_press=convert_to_RVector(grid_press),
+            list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                         grid_press=_convert_to_RVector(grid_press),
                                          P1=P1,
                                          water_model=water_model,
                                          check_for_errors=False,
@@ -3204,7 +3179,7 @@ class AqEquil:
                 key = ao[0]
                 if ao[1] == "Suppress" and len(ao) == 2:
                     ao += ["0"]
-                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+                alter_options_dict[key] = _convert_to_RVector(list(ao[1:]))
         alter_options = ro.ListVector(alter_options_dict)
             
         input_dir = "rxn_3i"
@@ -3219,9 +3194,9 @@ class AqEquil:
         ro.r(r_prescript)
         
         input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                               exclude=convert_to_RVector(exclude),
-                                               grid_temps=convert_to_RVector(grid_temps),
-                                               grid_press=convert_to_RVector(grid_press),
+                                               exclude=_convert_to_RVector(exclude),
+                                               grid_temps=_convert_to_RVector(grid_temps),
+                                               grid_press=_convert_to_RVector(grid_press),
                                                strict_minimum_pressure=strict_minimum_pressure,
                                                dynamic_db=dynamic_db,
                                                poly_coeffs_1=poly_coeffs_1,
@@ -3256,8 +3231,8 @@ class AqEquil:
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.fill_data0(OBIGT_df=OBIGT_df,
-                                data0_file_lines=data0_file_lines,
+                self.__fill_data0(OBIGT_df=OBIGT_df,
+                                data0_file_lines=copy.deepcopy(data0_file_lines),
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
                                 db=data0_lettercode,
@@ -3303,9 +3278,9 @@ class AqEquil:
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2("exclude"),
-                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
+                               allowed_aq_block_species=_convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
-                               suppress=convert_to_RVector(suppress),
+                               suppress=_convert_to_RVector(suppress),
                                alter_options=alter_options,
                                get_solid_solutions=get_solid_solutions,
                                input_dir=input_dir,
@@ -3366,7 +3341,7 @@ class AqEquil:
 
         files_3o = [file+".3o" for file in self.df_input_processed.index]
         
-        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+        df_input_processed_names = _convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
         self.__capture_r_output()
@@ -3375,9 +3350,9 @@ class AqEquil:
             __name__, '3o_mine.r').decode("utf-8")
         ro.r(r_3o_mine)
         batch_3o = ro.r.main_3o_mine(
-            files_3o=convert_to_RVector(files_3o),
+            files_3o=_convert_to_RVector(files_3o),
             input_filename=input_filename,
-            input_pressures=convert_to_RVector(list(input_processed_list.rx2("pressure_bar"))),
+            input_pressures=_convert_to_RVector(list(input_processed_list.rx2("pressure_bar"))),
             rxn_filename=rxn_filename,
             get_aq_dist=get_aq_dist,
             aq_dist_type=aq_dist_type,
@@ -3395,7 +3370,7 @@ class AqEquil:
             get_affinity_energy=get_affinity_energy,
             negative_energy_supplies=negative_energy_supplies,
             load_rxn_file=load_rxn_file,
-            not_limiting=convert_to_RVector(not_limiting),
+            not_limiting=_convert_to_RVector(not_limiting),
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
             # New rpy2 py2rpy2 conversion might not need the workaround below.
@@ -3407,7 +3382,7 @@ class AqEquil:
             df_input_processed_names=df_input_processed_names,
             custom_obigt=custom_obigt,
             water_model=water_model,
-            fixed_species=convert_to_RVector(FIXED_SPECIES),
+            fixed_species=_convert_to_RVector(FIXED_SPECIES),
             verbose=self.verbose,
         )
 
@@ -3434,13 +3409,13 @@ class AqEquil:
         sample_data = batch_3o.rx2('sample_data')
         for sample in sample_data:
             df_input.loc[str(sample.rx2('name')[0]), "Pressure_bar"] = float(sample.rx2('pressure')[0])
-        report_divs[0] = convert_to_RVector(input_cols + ["Pressure_bar"])
+        report_divs[0] = _convert_to_RVector(input_cols + ["Pressure_bar"])
             
         # handle headers and subheaders of input section
         headers = [col.split("_")[0] for col in list(df_input.columns)]
         headers = ["pH" if header == "H+" else header for header in headers]
         headers = [header+"_(input)" if header not in ["Temperature", "logfO2", "Pressure"]+exclude else header for header in headers]
-        report_divs[0] = convert_to_RVector(headers) # modify headers in the 'input' section, report_divs[0]
+        report_divs[0] = _convert_to_RVector(headers) # modify headers in the 'input' section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) > 1 else "" for subheader in [
             col.split("_") for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -3469,7 +3444,7 @@ class AqEquil:
             
             # ensure final pH column is included in report_divs aq_distribution section
             aq_dist_indx = report_divs.names.index("aq_distribution")
-            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+            report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
 
@@ -3751,18 +3726,15 @@ class AqEquil:
     
 
     @staticmethod
-    def s_d(x, k):
+    def __s_d(x, k):
         # specify how many decimals are printed
         # e.g. 12.433 becomes "12.4330" if k=4
         kstr = '{:.'+str(k)+'f}'
         return kstr.format(round(x, k)).strip()
 
     
-    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, verbose):
-        
-#         for line in data0_file_lines:
-#             print(line)
         
         self.__capture_r_output()
         
@@ -3771,8 +3743,8 @@ class AqEquil:
         
         ro.r(r_check_TP_grid)
         
-        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                     grid_press=convert_to_RVector(grid_press),
+        list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                     grid_press=_convert_to_RVector(grid_press),
                                      P1=P1,
                                      water_model=water_model,
                                      check_for_errors=True,
@@ -3836,7 +3808,7 @@ class AqEquil:
             # loop through logK values and format for data0
             logK_list = []
             for i in range(0, len(logK_grid)):
-                logK_val = self.s_d(logK_grid[i], 4)
+                logK_val = self.__s_d(logK_grid[i], 4)
                 
                 # conditional formatting based on position
                 if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
@@ -3861,7 +3833,7 @@ class AqEquil:
             if "logK_grid_"+name in data0_file_lines:
                 data0_file_lines[data0_file_lines.index("logK_grid_"+name)] = logK_list
 #             else:
-#                 self.err_handler.raise_exception("fill_data0() could not handle species "+name)
+#                 self.err_handler.raise_exception("__fill_data0() could not handle species "+name)
 
         # handle data0 header section
         self.__capture_r_output()
@@ -3873,8 +3845,8 @@ class AqEquil:
         
         data0_file_lines = ro.r.fill_data0_head(data0_template=data0_file_lines,
                                        db=db,
-                                       grid_temps=convert_to_RVector(grid_temps),
-                                       grid_press=convert_to_RVector(grid_press),
+                                       grid_temps=_convert_to_RVector(grid_temps),
+                                       grid_press=_convert_to_RVector(grid_press),
                                        water_model=water_model,
                                        activity_model=activity_model)
         
@@ -4080,7 +4052,7 @@ class AqEquil:
         
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
-        suppress_redox = convert_to_RVector(suppress_redox)
+        suppress_redox = _convert_to_RVector(suppress_redox)
         
         if filename_ss == None:
             filename_ss = ro.r("NULL")
@@ -4117,7 +4089,7 @@ class AqEquil:
                           ""+str(sp_names_to_exclude))
             
         if len(exclude_category) > 0:
-            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+            exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
         else:
             exclude_category_R = {}
         exclude_category_R = ro.ListVector(exclude_category_R)
@@ -4139,7 +4111,7 @@ class AqEquil:
                                suppress_redox=suppress_redox,
                                infer_formula_ox=infer_formula_ox,
                                exclude_category=exclude_category_R,
-                               fixed_species=convert_to_RVector(FIXED_SPECIES),
+                               fixed_species=_convert_to_RVector(FIXED_SPECIES),
                                verbose=self.verbose)
         
         self.__print_captured_r_output()
@@ -4176,7 +4148,7 @@ class AqEquil:
                           dissrxns=out_list.rx2("dissrxns"),
                           basis_pref=out_list.rx2("basis_pref"),
                           exceed_Ttr=exceed_Ttr,
-                          fixed_species=convert_to_RVector(FIXED_SPECIES),
+                          fixed_species=_convert_to_RVector(FIXED_SPECIES),
                           verbose=self.verbose)
         
         self.__print_captured_r_output()
@@ -4195,15 +4167,15 @@ class AqEquil:
             ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
                                    template_name=template_name,
                                    template_type=template_type,
-                                   fixed_species=convert_to_RVector(FIXED_SPECIES))
+                                   fixed_species=_convert_to_RVector(FIXED_SPECIES))
 
             self.__print_captured_r_output()
         
         if fill_data0:
 
             # begin TP-dependent processes
-            self.fill_data0(OBIGT_df=OBIGT_df,
-                            data0_file_lines=data0_file_lines,
+            self.__fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=copy.deepcopy(data0_file_lines),
                             grid_temps=grid_temps,
                             grid_press=grid_press,
                             db=db,
@@ -5023,8 +4995,8 @@ class AqEquil:
                 reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
                 products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
                 if formatted:
-                    reactants = " + ".join([format_coeff(react_grid["coeff"][i]) + html_chemname_format_AqEquil(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                    products = " + ".join([format_coeff(react_grid["coeff"][i]) + html_chemname_format_AqEquil(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+                    reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+                    products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
                 reaction = reactants + " = " + products
                 reactions.append(reaction)
 
@@ -5050,8 +5022,8 @@ class AqEquil:
                 reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
                 products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
                 if formatted:
-                    reactants = " + ".join([format_coeff(react_grid["coeff"][i]) + html_chemname_format_AqEquil(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                    products = " + ".join([format_coeff(react_grid["coeff"][i]) + html_chemname_format_AqEquil(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+                    reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+                    products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
                 reaction = reactants + " = " + products
                 reactions.append(reaction)
         
@@ -5063,7 +5035,7 @@ class AqEquil:
         if hide_subreactions and not simplify:
             df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if "_sub" not in ind[-4:]]]
         
-        if isnotebook() and show:
+        if _isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
         return df_out

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Ignore everything:
 *
 
@@ -11,3 +12,6 @@
 !CITATION.cff
 !LICENSE.txt
 !setup.py
+=======
+test_files/
+>>>>>>> origin

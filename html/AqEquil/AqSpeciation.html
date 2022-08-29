@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = False
+<pre><code class="python">DEBUGGING_R = True
 FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;, &#34;OH-&#34;, &#34;O2&#34;, &#34;H2O(g)&#34;]
 
 import os
@@ -49,7 +49,7 @@ from chemparse import parse_formula
 from IPython.core.display import display, HTML
 import periodictable
 
-from .HKF_cgl import OBIGT2eos, calc_logK
+from ._HKF_cgl import OBIGT2eos, calc_logK
 
 # matplotlib for static plots
 import matplotlib
@@ -118,7 +118,7 @@ class Error_Handler:
         (e.g., for common user errors).
         &#34;&#34;&#34;
         
-        if self.clean and isnotebook():
+        if self.clean and _isnotebook():
             ipython = get_ipython()
             ipython.showtraceback = self.hide_traceback
         raise Exception(msg)
@@ -165,8 +165,9 @@ def load(filename, messages=True, hide_traceback=True):
     else:
         msg = &#34;Cannot open &#34; + str(filename) + &#34; because the file is empty.&#34;
         err_handler.raise_exception(msg)
-    
-def isnotebook():
+
+
+def _isnotebook():
     
     &#34;&#34;&#34;
     Check if this code is running in a Jupyter notebook
@@ -183,7 +184,7 @@ def isnotebook():
         return False      # Probably standard Python interpreter
 
 
-def float_to_fraction (x, error=0.000001):
+def _float_to_fraction (x, error=0.000001):
     
     &#34;&#34;&#34;
     Convert a float into a fraction. Works with floats like 2.66666666.
@@ -221,12 +222,12 @@ def float_to_fraction (x, error=0.000001):
             return (n * middle_d + middle_n, middle_d)
 
     
-def float_to_formatted_fraction(x, error=0.000001):
+def _float_to_formatted_fraction(x, error=0.000001):
     
     &#34;&#34;&#34;
     Format a fraction for html.
     &#34;&#34;&#34;
-    f = float_to_fraction(x, error=error)
+    f = _float_to_fraction(x, error=error)
     
     whole_number_float = int((f[0]-(f[0]%f[1]))/f[1])
     remainder_tuple = (f[0]%f[1], f[1])
@@ -239,7 +240,7 @@ def float_to_formatted_fraction(x, error=0.000001):
         return &#34;{0}&lt;sup&gt;{1}&lt;/sup&gt;&amp;frasl;&lt;sub&gt;{2}&lt;/sub&gt;&#34;.format(whole_number_float, remainder_tuple[0], remainder_tuple[1])
 
 
-def format_coeff(coeff):
+def _format_coeff(coeff):
     
     &#34;&#34;&#34;
     Format a reaction coefficient for html.
@@ -252,9 +253,9 @@ def format_coeff(coeff):
         coeff = str(int(coeff))
     else:
         if coeff &lt; 0:
-            coeff = float_to_formatted_fraction(-coeff)
+            coeff = _float_to_formatted_fraction(-coeff)
         else:
-            coeff = float_to_formatted_fraction(coeff)
+            coeff = _float_to_formatted_fraction(coeff)
 
     if coeff != &#34;&#34;:
         coeff = coeff + &#34; &#34;
@@ -262,26 +263,7 @@ def format_coeff(coeff):
     return coeff
 
 
-def flatten_list(_2d_list):
-    
-    &#34;&#34;&#34;
-    Flatten a list of lists.
-    Code from: https://stackabuse.com/python-how-to-flatten-list-of-lists/
-    &#34;&#34;&#34;
-    
-    flat_list = []
-    # Iterate through the outer list
-    for element in _2d_list:
-        if type(element) is list:
-            # If the element is of type list, iterate through the sublist
-            for item in element:
-                flat_list.append(item)
-        else:
-            flat_list.append(element)
-    return flat_list
-
-
-def convert_to_RVector(value, force_Rvec=True):
+def _convert_to_RVector(value, force_Rvec=True):
     
     &#34;&#34;&#34;
     Convert a value or list into an R vector of the appropriate type.
@@ -319,14 +301,14 @@ def convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector([str(v) for v in value])
 
 
-def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
+def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
 
     &#34;&#34;&#34;
     Get a list of rgb values for a matplotlib colormap
     
     Parameters
     ----------
-    colormap : str, default &#34;WORM&#34;
+    colormap : str
         Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
         &#34;colorblind&#34;, or matplotlib colormaps.
         See https://matplotlib.org/stable/tutorials/colors/colormaps.html
@@ -402,40 +384,7 @@ def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
     return colors
 
 
-def html_chemname_format_AqEquil(name, charge_sign_at_end=False):
-    
-    &#34;&#34;&#34;
-    AqEquil-specific formatting of chemical names for html. Takes &#34;_(input)&#34;
-    into account when formatting names.
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    &#34;&#34;&#34;
-    
-    # format only the first part of the name if it has &#34;_(input)&#34;
-    if len(name.split(&#34;_(input)&#34;))==2:
-        if name.split(&#34;_(input)&#34;)[1] == &#39;&#39;:
-            name = name.split(&#34;_(input)&#34;)[0]
-            input_flag=True
-    else:
-        input_flag = False
-    
-    name = html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
-    
-    # add &#34; (input)&#34; to the end of the name
-    if input_flag:
-        name = name+&#34; (input)&#34;
-    
-    return(name)
-
-
-def html_chemname_format(name, charge_sign_at_end=False):
+def chemlabel(name, charge_sign_at_end=False):
     
     &#34;&#34;&#34;
     Format a chemical formula to display subscripts and superscripts in HTML
@@ -454,6 +403,29 @@ def html_chemname_format(name, charge_sign_at_end=False):
     Returns
     -------
     A formatted chemical formula string.
+    &#34;&#34;&#34;
+    
+    # format only the first part of the name if it has &#34;_(input)&#34;
+    if len(name.split(&#34;_(input)&#34;))==2:
+        if name.split(&#34;_(input)&#34;)[1] == &#39;&#39;:
+            name = name.split(&#34;_(input)&#34;)[0]
+            input_flag=True
+    else:
+        input_flag = False
+    
+    name = _html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
+    
+    # add &#34; (input)&#34; to the end of the name
+    if input_flag:
+        name = name+&#34; (input)&#34;
+    
+    return(name)
+
+
+def _html_chemname_format(name, charge_sign_at_end=False):
+    
+    &#34;&#34;&#34;
+    Function duplicated from pyCHNOSZ
     &#34;&#34;&#34;
     
     p = re.compile(r&#39;(?P&lt;sp&gt;[-+]\d*?$)&#39;)
@@ -874,12 +846,18 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
             y = [y]
 
-        colors = get_colors(colormap, len(y))
+        colors = _get_colors(colormap, len(y))
 
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -889,7 +867,7 @@ class Speciation(object):
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
             
         y_cols = self.lookup(y)
 
@@ -976,15 +954,15 @@ class Speciation(object):
                 ylabel = &#39;Temperature [°C]&#39;
             else:
                 if unit != &#34;&#34;:
-                    ylabel = &#34;{} {} [{}]&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type, unit)
+                    ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
                 else:
-                    ylabel = &#34;{} {}&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type)
+                    ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
 
         
         df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
         if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
@@ -1001,7 +979,7 @@ class Speciation(object):
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
             
             if len(y) == 1:
-                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
                 
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x=&#34;name&#34;, y=&#34;y_value&#34;,
@@ -1120,6 +1098,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -1151,7 +1135,7 @@ class Speciation(object):
             xunit_type = &#34;&#34;
             xunit = &#34;&#34;
 
-        colors = get_colors(colormap, len(y), alpha=fill_alpha)
+        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
         
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
@@ -1210,7 +1194,7 @@ class Speciation(object):
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                y_formatted = html_chemname_format_AqEquil(y[0])
+                y_formatted = chemlabel(y[0])
                 if unit != &#34;&#34;:
                     ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
                 else:
@@ -1221,7 +1205,7 @@ class Speciation(object):
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            x_formatted = html_chemname_format_AqEquil(x)
+            x_formatted = chemlabel(x)
             if xunit != &#34;&#34;:
                 xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
             else:
@@ -1235,7 +1219,7 @@ class Speciation(object):
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
         
         df = self.lookup([&#34;name&#34;, x]+y).copy()
         df.loc[:, &#34;name&#34;] = df.index
@@ -1258,13 +1242,13 @@ class Speciation(object):
             rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
             if len(y) == 1:
-                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
             
             df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
         else:
             df[&#34;formatted_rxn&#34;] = &#34;&#34;
         
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                          hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
@@ -1310,7 +1294,7 @@ class Speciation(object):
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -1352,7 +1336,14 @@ class Speciation(object):
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-            
+        
+        sample_label : str, default &#34;sample&#34;
+            Name of the label that appears when hovering over an element in the
+            interactive mass contribution plot. By default, this is &#34;sample&#34;.
+            However, other words might be more appropriate to describe the
+            calculations you are performing. For instance, if you are comparing
+            reaction progress, `sample_label = &#34;Xi&#34;` might be more appropriate.
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -1384,6 +1375,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
         
         try:
@@ -1473,16 +1470,16 @@ class Speciation(object):
                                 &#34;or a list of species names.&#34;)
 
         # get colormap
-        colors = get_colors(colormap, len(unique_species))
+        colors = _get_colors(colormap, len(unique_species))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
-        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
+        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
+        unique_species = [chemlabel(sp) for sp in unique_species]
         
         if title == None:
-            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
+            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(chemlabel(basis))
         
         
         # map each species to its color, e.g.,
@@ -1494,7 +1491,7 @@ class Speciation(object):
 
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
                      width=plot_width*ppi, height=plot_height*ppi,
-                     labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
+                     labels={&#34;sample&#34;: sample_label,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                      category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template=&#34;simple_white&#34;,
@@ -1602,6 +1599,12 @@ class Speciation(object):
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if sample not in self.sample_data.keys():
@@ -1628,7 +1631,7 @@ class Speciation(object):
         unique_minerals = self.__unique(df[&#34;mineral&#34;])
         
         # get colormap
-        colors = get_colors(colormap, len(unique_minerals))
+        colors = _get_colors(colormap, len(unique_minerals))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -1715,6 +1718,69 @@ class Speciation(object):
             return fig
         else:
             fig.show(config=config)
+            
+            
+    def join_6i_3p(self, filepath_6i):
+        path=&#39;rxn_6i&#39;
+        if not os.path.exists(path):
+            os.makedirs(path)
+        else:
+            shutil.rmtree(path)
+            os.makedirs(path)
+            
+        for sample_name in self.raw_pickup_dict.keys():
+            sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
+            
+            if isinstance(filepath_6i, str):
+                # if a string (filepath) is given
+                with open(filepath_6i, &#34;r&#34;) as f6i:
+                    lines_6i = f6i.readlines()
+            else:
+                # if a Prepare_Reaction object is given
+                all_lines = filepath_6i.formatted_reaction.split(&#34;\n&#34;)
+                lines_6i = [e+&#34;\n&#34; for e in all_lines if e]
+            
+            # trim away any extra newlines at end of pre.6i, then add one.
+            while lines_6i[-1] == &#34;\n&#34;:
+                lines_6i = lines_6i[:-1]
+                
+            if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
+                lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
+                
+            lines_3p = self.raw_pickup_dict[sample_name]
+            lines_to_keep = []
+            for line in lines_6i:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    break
+                else:
+                    lines_to_keep.append(line)
+            lines_to_keep += lines_3p
+            
+            if &#34;{tval}&#34; in &#34;&#34;.join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if &#34;Original temperature&#34; in line:
+                        o_t = line.split(&#34;|&#34;)[2]
+                for i,line in enumerate(lines_to_keep):
+                    if &#34;{tval}&#34; in line:
+                        lines_to_keep[i] = line.format(tval=o_t)
+                        
+            if &#34;{pval}&#34; in &#34;&#34;.join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if &#34;Original pressure&#34; in line:
+                        o_p = line.split(&#34;|&#34;)[2]
+                for i,line in enumerate(lines_to_keep):
+                    if &#34;{pval}&#34; in line:
+                        lines_to_keep[i] = line.format(tval=o_p)
+            
+            with open(path + &#34;/&#34; + sample_filename+&#34;.6i&#34;, &#34;w&#34;) as f:
+                f.writelines(lines_to_keep)
+
+
+    def mt(self, sample):
+        sample_data = getattr(self, &#34;sample_data&#34;)
+        return sample_data[sample][&#34;mass_transfer&#34;]
         
         
 class AqEquil:
@@ -1792,6 +1858,11 @@ class AqEquil:
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
+        
+        self.raw_input_dict = {}
+        self.raw_output_dict = {}
+        self.raw_pickup_dict = {}
+        self.data1 = {}
         
 
     def __capture_r_output(self):
@@ -1899,7 +1970,8 @@ class AqEquil:
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       dynamic_db, charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -1985,11 +2057,15 @@ class AqEquil:
         
         # are column names valid entries in the database?
         if custom_data0:
-            data_path = &#34;data0.&#34; + db
+            if &#34;data0&#34; in db:
+                data_path = db
+            else:
+                data_path = &#34;data0.&#34; + db
         elif dynamic_db:
             data_path = self.thermo_db_filename
         else:
             data_path = self.eq36da + &#34;/data0.&#34; + db
+            
         if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
                 with open(data_path) as data0:
@@ -2000,7 +2076,6 @@ class AqEquil:
             elif self.thermo_db_type == &#34;CSV file&#34;:
                 df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
-            
             
             if charge_balance_on == &#39;pH&#39;:
                 err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
@@ -2075,6 +2150,15 @@ class AqEquil:
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
             self.err_handler.raise_exception(errs)
+        
+        # warn about &#34;suppress_redox&#34; in db_args if &#34;Hetero. equil.&#34; among subheaders.
+        # Redox suppression won&#39;t work for an element constrained by heterogeneous equilibrium
+        if redox_suppression and &#34;Hetero. equil.&#34; in list(subheaders):
+            if self.verbose &gt; 0:
+                print(&#34;Warning: &#39;suppress_redox&#39; does not currently work with the &#34;
+                      &#34;heterogeneous equilibrium option if the mineral or gas &#34;
+                      &#34;contains a redox-suppressed element.&#34;)
+        
         
         return
         
@@ -2158,8 +2242,7 @@ class AqEquil:
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd(),
-               dynamic_db_name=None,
-               verbose=1):
+               dynamic_db_name=None):
         
         &#34;&#34;&#34;
         Call EQ3 on a .3i input file.
@@ -2184,6 +2267,10 @@ class AqEquil:
         dynamic_db_name : str, default None
             Name of database used by `speciate` to speciate samples dynamically.
             If unsure, use None.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         &#34;&#34;&#34;
 
         # get current working dir
@@ -2242,7 +2329,8 @@ class AqEquil:
                samplename=None,
                path_6i=os.getcwd(),
                path_6o=os.getcwd(),
-               path_6p=os.getcwd()):
+               path_6p=os.getcwd(),
+               dynamic_db_name=None):
         
         &#34;&#34;&#34;
         Call EQ6 on a .6i input file.
@@ -2263,37 +2351,40 @@ class AqEquil:
         
         path_6p : path str, default current working directory
             Path of .6p pickup files.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         &#34;&#34;&#34;
 
-        # get current working dir
-        cwd = os.getcwd()
+
         
         if samplename == None:
             samplename = filename_6i[:-3]
         
-        if self.verbose &gt; 0:
-            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
-        os.chdir(path_6i)  # step into 6i folder
-        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+        if self.verbose &gt; 0 and dynamic_db_name == None:
+            print(&#39;Using &#39; + db + &#39; to react &#39; + samplename)
+        elif self.verbose &gt; 0 and isinstance(dynamic_db_name, str):
+            print(&#39;Using &#39; + dynamic_db_name + &#39; to react &#39; + samplename)
+            
+        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, path_6i + &#34;/&#34; + filename_6i]
 
         self.__run_script_and_wait(args) # run EQ6
 
-        # restore working dir
-        os.chdir(cwd)
 
         filename_6o = filename_6i[:-1] + &#39;o&#39;
         filename_6p = filename_6i[:-1] + &#39;p&#39;
 
         try:
             # rename output
-            os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+            os.rename(&#39;output&#39;, filename_6o)
         except:
             if self.verbose &gt; 0:
                 print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
 
         try:
             # move output
-            shutil.move(path_6i + &#34;/&#34; + filename_6o,
+            shutil.move(filename_6o,
                         path_6o + &#34;/&#34; + filename_6o)
         except:
             if self.verbose &gt; 0:
@@ -2301,7 +2392,7 @@ class AqEquil:
 
         try:
             # rename pickup
-            os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+            os.rename(&#39;pickup&#39;, filename_6p)
             move_pickup = True
         except:
             if self.verbose &gt; 0:
@@ -2311,7 +2402,7 @@ class AqEquil:
         if move_pickup:
             try:
                 # move pickup
-                shutil.move(path_6i + &#34;/&#34; + filename_6p,
+                shutil.move(filename_6p,
                             path_6p + &#34;/&#34; + filename_6p)
             except:
                 if self.verbose &gt; 0:
@@ -2424,6 +2515,7 @@ class AqEquil:
                  input_filename,
                  db=&#34;wrm&#34;,
                  db_solid_solution=None,
+                 activity_model=&#34;b-dot&#34;,
                  redox_flag=&#34;logfO2&#34;,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
@@ -2750,7 +2842,7 @@ class AqEquil:
                   &#34;use the parameter &#39;rxn_filename&#39; to specify a CSV file of &#34;
                   &#34;thermodynamic data or a TXT file with desired reactions.&#34;)
            
-        
+        self.thermo_db_callname = db
         if len(db) == 3:
             # e.g., &#34;wrm&#34;
             custom_data0 = False
@@ -2762,6 +2854,10 @@ class AqEquil:
                 self.thermo_db = None
                 self.thermo_db_type = &#34;data1 file&#34;
                 self.thermo_db_filename = &#34;data1.&#34;+db
+                
+                # store contents of data1 file in AqEquil object
+                with open(self.eq36da + &#34;/data1.&#34; + db, mode=&#39;rb&#39;) as data1:
+                    self.data1 = data1.read()
                 
             elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
                 
@@ -2789,6 +2885,7 @@ class AqEquil:
             
         elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
             # e.g., &#34;data0.wrm&#34;
+            
             custom_data0 = True
             data0_lettercode = db[-3:].lower()
             dynamic_db = False
@@ -2836,6 +2933,7 @@ class AqEquil:
             self.thermo_db = data0_content
             self.thermo_db_type = &#34;data0 file&#34;
             self.thermo_db_filename = data0_filename
+            self.thermo_db_callname = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -2857,6 +2955,7 @@ class AqEquil:
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
             self.thermo_db_filename = db_csv_name
+            self.thermo_db_callname = db_csv_name
                 
             db_args[&#34;filename&#34;] = db_csv_name
             db_args[&#34;db&#34;] = &#34;dyn&#34;
@@ -2879,9 +2978,20 @@ class AqEquil:
         
         self.verbose = verbose
         
+        if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+            
+        redox_suppression = False
+        if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+            if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+                redox_suppression = True
+        
         # check input sample file for errors
-        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                      dynamic_db, charge_balance_on, suppress_missing)
+        if activity_model != &#39;pitzer&#39;: # TODO: allow check_sample_input_file() to handle pitzer
+            self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                          dynamic_db, charge_balance_on, suppress_missing,
+                                          redox_suppression)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -2965,6 +3075,9 @@ class AqEquil:
             
             if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                 try:
+                    # store contents of data1 file in AqEquil object
+                    with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                        self.data1 = data1.read()
                     # move data1
                     shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
                 except:
@@ -2987,7 +3100,10 @@ class AqEquil:
                 with open(data0_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
-                    end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                    if activity_model == &#39;davies&#39; or activity_model == &#39;b-dot&#39;:
+                        end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                    elif activity_model == &#39;pitzer&#39;:
+                        end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel aphi\n&#39;]
                     db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
                     db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
                     grid_temps = db_grids[0] + &#34; &#34; + db_grids[1]
@@ -3039,8 +3155,8 @@ class AqEquil:
         
             ro.r(r_check_TP_grid)
         
-            list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                         grid_press=convert_to_RVector(grid_press),
+            list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                         grid_press=_convert_to_RVector(grid_press),
                                          P1=P1,
                                          water_model=water_model,
                                          check_for_errors=False,
@@ -3088,7 +3204,7 @@ class AqEquil:
                 key = ao[0]
                 if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                     ao += [&#34;0&#34;]
-                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+                alter_options_dict[key] = _convert_to_RVector(list(ao[1:]))
         alter_options = ro.ListVector(alter_options_dict)
             
         input_dir = &#34;rxn_3i&#34;
@@ -3103,9 +3219,9 @@ class AqEquil:
         ro.r(r_prescript)
         
         input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                               exclude=convert_to_RVector(exclude),
-                                               grid_temps=convert_to_RVector(grid_temps),
-                                               grid_press=convert_to_RVector(grid_press),
+                                               exclude=_convert_to_RVector(exclude),
+                                               grid_temps=_convert_to_RVector(grid_temps),
+                                               grid_press=_convert_to_RVector(grid_press),
                                                strict_minimum_pressure=strict_minimum_pressure,
                                                dynamic_db=dynamic_db,
                                                poly_coeffs_1=poly_coeffs_1,
@@ -3135,15 +3251,18 @@ class AqEquil:
             
             df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
             
+            samplename = str(df.index[0])
+            
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.fill_data0(OBIGT_df=OBIGT_df,
-                                data0_file_lines=data0_file_lines,
+                self.__fill_data0(OBIGT_df=OBIGT_df,
+                                data0_file_lines=copy.deepcopy(data0_file_lines),
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
                                 db=data0_lettercode,
                                 water_model=water_model,
+                                activity_model=activity_model,
                                 P1=P1,
                                 plot_poly_fit=plot_poly_fit,
                                 verbose=verbose)
@@ -3151,6 +3270,9 @@ class AqEquil:
                 self.runeqpt(data0_lettercode, dynamic_db=True)
 
                 if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
+                    # store contents of data1 file in AqEquil object
+                    with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                        self.data1[samplename] = data1.read()
                     try:
                         # move data1
                         shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
@@ -3181,9 +3303,9 @@ class AqEquil:
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2(&#34;exclude&#34;),
-                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
+                               allowed_aq_block_species=_convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
-                               suppress=convert_to_RVector(suppress),
+                               suppress=_convert_to_RVector(suppress),
                                alter_options=alter_options,
                                get_solid_solutions=get_solid_solutions,
                                input_dir=input_dir,
@@ -3192,6 +3314,7 @@ class AqEquil:
                                default_logfO2=default_logfO2,
                                water_model=water_model,
                                warned_about_redox_column=warned_about_redox_column,
+                               activity_model=activity_model,
                                verbose=self.verbose)
 
             self.__print_captured_r_output()
@@ -3199,6 +3322,8 @@ class AqEquil:
             # run EQ3 on each 3i file
             samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc(&#34;Sample&#34;)]
             filename_3i = self.df_input_processed.index[sample_row_index]+&#34;.3i&#34;
+            filename_3o = filename_3i[:-1] + &#39;o&#39;
+            filename_3p = filename_3i[:-1] + &#39;p&#39;
             
             
             if dynamic_db:
@@ -3209,6 +3334,26 @@ class AqEquil:
             self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
                         path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+            
+            # store input, output, and pickup as dicts in AqEquil object
+            try:
+                with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_input_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_output_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_pickup_dict[samplename] = lines
+            except:
+                pass
             
             if dynamic_db:
                 shutil.move(&#34;data0.dyn&#34;, &#34;rxn_data0/&#34;+filename_3i[0:-3]+&#34;_data0.dat&#34;)
@@ -3221,7 +3366,7 @@ class AqEquil:
 
         files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
         
-        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+        df_input_processed_names = _convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
         self.__capture_r_output()
@@ -3230,9 +3375,9 @@ class AqEquil:
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
         ro.r(r_3o_mine)
         batch_3o = ro.r.main_3o_mine(
-            files_3o=convert_to_RVector(files_3o),
+            files_3o=_convert_to_RVector(files_3o),
             input_filename=input_filename,
-            input_pressures=convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
+            input_pressures=_convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
             rxn_filename=rxn_filename,
             get_aq_dist=get_aq_dist,
             aq_dist_type=aq_dist_type,
@@ -3250,7 +3395,7 @@ class AqEquil:
             get_affinity_energy=get_affinity_energy,
             negative_energy_supplies=negative_energy_supplies,
             load_rxn_file=load_rxn_file,
-            not_limiting=convert_to_RVector(not_limiting),
+            not_limiting=_convert_to_RVector(not_limiting),
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
             # New rpy2 py2rpy2 conversion might not need the workaround below.
@@ -3262,7 +3407,7 @@ class AqEquil:
             df_input_processed_names=df_input_processed_names,
             custom_obigt=custom_obigt,
             water_model=water_model,
-            fixed_species=convert_to_RVector(FIXED_SPECIES),
+            fixed_species=_convert_to_RVector(FIXED_SPECIES),
             verbose=self.verbose,
         )
 
@@ -3289,13 +3434,13 @@ class AqEquil:
         sample_data = batch_3o.rx2(&#39;sample_data&#39;)
         for sample in sample_data:
             df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
+        report_divs[0] = _convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
             
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
         headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
-        report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
+        report_divs[0] = _convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -3324,7 +3469,7 @@ class AqEquil:
             
             # ensure final pH column is included in report_divs aq_distribution section
             aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
-            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+            report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
 
@@ -3584,6 +3729,15 @@ class AqEquil:
         if self.verbose &gt; 0:
             print(&#34;Finished!&#34;)
         
+        speciation.raw_input_dict = self.raw_input_dict
+        speciation.raw_output_dict = self.raw_output_dict
+        speciation.raw_pickup_dict = self.raw_pickup_dict
+        speciation.thermo_db_callname = self.thermo_db_callname
+        speciation.thermo_db = self.thermo_db
+        speciation.thermo_db_type = self.thermo_db_type
+        speciation.thermo_db_filename = self.thermo_db_filename
+        speciation.data1 = self.data1
+        
         return speciation
 
     @staticmethod
@@ -3597,14 +3751,18 @@ class AqEquil:
     
 
     @staticmethod
-    def s_d(x, k):
+    def __s_d(x, k):
         # specify how many decimals are printed
         # e.g. 12.433 becomes &#34;12.4330&#34; if k=4
         kstr = &#39;{:.&#39;+str(k)+&#39;f}&#39;
         return kstr.format(round(x, k)).strip()
 
     
-    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose):
+    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+                   water_model, activity_model, P1, plot_poly_fit, verbose):
+        
+#         for line in data0_file_lines:
+#             print(line)
         
         self.__capture_r_output()
         
@@ -3613,8 +3771,8 @@ class AqEquil:
         
         ro.r(r_check_TP_grid)
         
-        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                     grid_press=convert_to_RVector(grid_press),
+        list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                     grid_press=_convert_to_RVector(grid_press),
                                      P1=P1,
                                      water_model=water_model,
                                      check_for_errors=True,
@@ -3641,6 +3799,7 @@ class AqEquil:
         
         dissrxn_logK_dict = {&#39;name&#39;: out_dfs[0][&#34;name&#34;],
                              &#39;logK_0&#39;: out_dfs[0][&#34;dissrxn_logK_0&#34;]}
+        
         if len(grid_temps) == 8:
             for i in range(1, len(grid_temps)):
                 dissrxn_logK_dict[&#39;logK_&#39;+str(i)] = out_dfs[i][&#34;dissrxn_logK_&#34;+str(i)]
@@ -3677,8 +3836,8 @@ class AqEquil:
             # loop through logK values and format for data0
             logK_list = []
             for i in range(0, len(logK_grid)):
-                logK_val = self.s_d(logK_grid[i], 4)
-
+                logK_val = self.__s_d(logK_grid[i], 4)
+                
                 # conditional formatting based on position
                 if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
                     max_length = 11
@@ -3697,12 +3856,12 @@ class AqEquil:
                 logK_list.append(logK_val)
 
             logK_list = &#34;&#34;.join(logK_list)
-
+            
             # todo: make this more robust to catch any potential logK_grid skips
             if &#34;logK_grid_&#34;+name in data0_file_lines:
                 data0_file_lines[data0_file_lines.index(&#34;logK_grid_&#34;+name)] = logK_list
 #             else:
-#                 self.err_handler.raise_exception(&#34;fill_data0() could not handle species &#34;+name)
+#                 self.err_handler.raise_exception(&#34;__fill_data0() could not handle species &#34;+name)
 
         # handle data0 header section
         self.__capture_r_output()
@@ -3714,9 +3873,10 @@ class AqEquil:
         
         data0_file_lines = ro.r.fill_data0_head(data0_template=data0_file_lines,
                                        db=db,
-                                       grid_temps=convert_to_RVector(grid_temps),
-                                       grid_press=convert_to_RVector(grid_press),
-                                       water_model=water_model)
+                                       grid_temps=_convert_to_RVector(grid_temps),
+                                       grid_press=_convert_to_RVector(grid_press),
+                                       water_model=water_model,
+                                       activity_model=activity_model)
         
         self.__print_captured_r_output()
         
@@ -3732,6 +3892,7 @@ class AqEquil:
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      water_model=&#34;SUPCRT92&#34;,
+                     activity_model=&#34;b-dot&#34;,
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -3919,7 +4080,7 @@ class AqEquil:
         
         template = pkg_resources.resource_string(
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
-        suppress_redox = convert_to_RVector(suppress_redox)
+        suppress_redox = _convert_to_RVector(suppress_redox)
         
         if filename_ss == None:
             filename_ss = ro.r(&#34;NULL&#34;)
@@ -3931,8 +4092,32 @@ class AqEquil:
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        # if elements are being redox-suppressed, exclude all species with a
+        # formula containing one or more of the redox-suppressed elements if the
+        # species does not have a formula_ox.
+        # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+        #       if sulfur is redox-suppressed.
+        if len(suppress_redox) &gt; 0:
+            thermo_db = pd.read_csv(filename)
+            thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+            if thermo_db_no_formula_ox.shape[0] &gt; 0:
+                sp_names_to_exclude = []
+                for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                    f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                    f_elems = list(parse_formula(f).keys())
+                    for elem in suppress_redox:
+                        if elem in f_elems:
+                            sp_names_to_exclude.append(sp)
+                exclude_category[&#34;name&#34;] = sp_names_to_exclude
+                if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                    print(&#34;Excluding the following chemical species because &#34;
+                          &#34;they contain redox-suppressed elements but do not &#34;
+                          &#34;have element oxidation states given in the &#34;
+                          &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                          &#34;&#34;+str(sp_names_to_exclude))
+            
         if len(exclude_category) &gt; 0:
-            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+            exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
         else:
             exclude_category_R = {}
         exclude_category_R = ro.ListVector(exclude_category_R)
@@ -3954,7 +4139,7 @@ class AqEquil:
                                suppress_redox=suppress_redox,
                                infer_formula_ox=infer_formula_ox,
                                exclude_category=exclude_category_R,
-                               fixed_species=convert_to_RVector(FIXED_SPECIES),
+                               fixed_species=_convert_to_RVector(FIXED_SPECIES),
                                verbose=self.verbose)
         
         self.__print_captured_r_output()
@@ -3991,8 +4176,8 @@ class AqEquil:
                           dissrxns=out_list.rx2(&#34;dissrxns&#34;),
                           basis_pref=out_list.rx2(&#34;basis_pref&#34;),
                           exceed_Ttr=exceed_Ttr,
-                          fixed_species=convert_to_RVector(FIXED_SPECIES),
-                          verbose=verbose)
+                          fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                          verbose=self.verbose)
         
         self.__print_captured_r_output()
         
@@ -4010,14 +4195,23 @@ class AqEquil:
             ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
                                    template_name=template_name,
                                    template_type=template_type,
-                                   fixed_species=convert_to_RVector(FIXED_SPECIES))
+                                   fixed_species=_convert_to_RVector(FIXED_SPECIES))
 
             self.__print_captured_r_output()
         
         if fill_data0:
 
             # begin TP-dependent processes
-            self.fill_data0(OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)
+            self.__fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=copy.deepcopy(data0_file_lines),
+                            grid_temps=grid_temps,
+                            grid_press=grid_press,
+                            db=db,
+                            water_model=water_model,
+                            activity_model=activity_model,
+                            P1=P1,
+                            plot_poly_fit=plot_poly_fit,
+                            verbose=self.verbose)
     
         else:
             return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
@@ -4829,8 +5023,8 @@ class AqEquil:
                 reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
                 products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                    reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 reaction = reactants + &#34; = &#34; + products
                 reactions.append(reaction)
 
@@ -4856,8 +5050,8 @@ class AqEquil:
                 reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
                 products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                    reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 reaction = reactants + &#34; = &#34; + products
                 reactions.append(reaction)
         
@@ -4869,7 +5063,7 @@ class AqEquil:
         if hide_subreactions and not simplify:
             df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if &#34;_sub&#34; not in ind[-4:]]]
         
-        if isnotebook() and show:
+        if _isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
         return df_out
@@ -4939,7 +5133,7 @@ def compare(*args):
     else:
         def no_mass_contrib_message(*args, **kwargs):
             print(&#34;Mass contributions cannot be compared between these speciations &#34;
-                  &#34;because one or more lack mass contribution data.&#34;)
+                  &#34;because one or more calculations lack mass contribution data.&#34;)
         sp_total.plot_mass_contribution = no_mass_contrib_message
                 
     
@@ -4953,6 +5147,64 @@ def compare(*args):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="AqEquil.AqSpeciation.chemlabel"><code class="name flex">
+<span>def <span class="ident">chemlabel</span></span>(<span>name, charge_sign_at_end=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Format a chemical formula to display subscripts and superscripts in HTML
+(e.g., Plotly plots)
+Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
+<dd>A chemical formula.</dd>
+<dt><strong><code>charge_sign_at_end</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Display charge with sign after the number (e.g. SO4 2-)?</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A formatted chemical formula string.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def chemlabel(name, charge_sign_at_end=False):
+    
+    &#34;&#34;&#34;
+    Format a chemical formula to display subscripts and superscripts in HTML
+    (e.g., Plotly plots)
+    Example, &#34;CH3COO-&#34; becomes &#34;CH&lt;sub&gt;3&lt;/sub&gt;COO&lt;sup&gt;-&lt;/sup&gt;&#34;
+    
+    Parameters
+    ----------
+    name : str
+        A chemical formula.
+    
+    charge_sign_at_end : bool, default False
+        Display charge with sign after the number (e.g. SO4 2-)?
+        
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    &#34;&#34;&#34;
+    
+    # format only the first part of the name if it has &#34;_(input)&#34;
+    if len(name.split(&#34;_(input)&#34;))==2:
+        if name.split(&#34;_(input)&#34;)[1] == &#39;&#39;:
+            name = name.split(&#34;_(input)&#34;)[0]
+            input_flag=True
+    else:
+        input_flag = False
+    
+    name = _html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
+    
+    # add &#34; (input)&#34; to the end of the name
+    if input_flag:
+        name = name+&#34; (input)&#34;
+    
+    return(name)</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.compare"><code class="name flex">
 <span>def <span class="ident">compare</span></span>(<span>*args)</span>
 </code></dt>
@@ -5037,462 +5289,11 @@ the <code><a title="AqEquil.AqSpeciation.Speciation" href="#AqEquil.AqSpeciation
     else:
         def no_mass_contrib_message(*args, **kwargs):
             print(&#34;Mass contributions cannot be compared between these speciations &#34;
-                  &#34;because one or more lack mass contribution data.&#34;)
+                  &#34;because one or more calculations lack mass contribution data.&#34;)
         sp_total.plot_mass_contribution = no_mass_contrib_message
                 
     
     return sp_total</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.convert_to_RVector"><code class="name flex">
-<span>def <span class="ident">convert_to_RVector</span></span>(<span>value, force_Rvec=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Convert a value or list into an R vector of the appropriate type.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>value</code></strong> :&ensp;<code>numeric</code> or <code>str,</code> or <code>list</code> of <code>numeric</code> or <code>str</code></dt>
-<dd>Value to be converted.</dd>
-<dt><strong><code>force_Rvec</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>If <code>value</code> is not a list, force conversion into a R vector?
-False will return an int, float, or str if value is non-list.
-True will always return an R vector.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><code>int, float, str,</code> or <code>an rpy2 R vector</code></dt>
-<dd>A value or R vector of an appropriate data type.</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def convert_to_RVector(value, force_Rvec=True):
-    
-    &#34;&#34;&#34;
-    Convert a value or list into an R vector of the appropriate type.
-    
-    Parameters
-    ----------
-    value : numeric or str, or list of numeric or str
-        Value to be converted.
-    
-    force_Rvec : bool, default True
-        If `value` is not a list, force conversion into a R vector?
-        False will return an int, float, or str if value is non-list.
-        True will always return an R vector.
-    
-    Returns
-    -------
-    int, float, str, or an rpy2 R vector
-        A value or R vector of an appropriate data type.
-    &#34;&#34;&#34;
-
-    if not isinstance(value, list) and not force_Rvec:
-        return value
-    elif not isinstance(value, list) and force_Rvec:
-        value = [value]
-    else:
-        pass
-
-    if all(isinstance(x, bool) for x in value):
-        return ro.BoolVector(value)
-    elif all(isinstance(x, int) for x in value):
-        return ro.IntVector(value)
-    elif all(isinstance(x, float) or isinstance(x, int) for x in value):
-        return ro.FloatVector(value)
-    else:
-        return ro.StrVector([str(v) for v in value])</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.flatten_list"><code class="name flex">
-<span>def <span class="ident">flatten_list</span></span>(<span>_2d_list)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Flatten a list of lists.
-Code from: <a href="https://stackabuse.com/python-how-to-flatten-list-of-lists/">https://stackabuse.com/python-how-to-flatten-list-of-lists/</a></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def flatten_list(_2d_list):
-    
-    &#34;&#34;&#34;
-    Flatten a list of lists.
-    Code from: https://stackabuse.com/python-how-to-flatten-list-of-lists/
-    &#34;&#34;&#34;
-    
-    flat_list = []
-    # Iterate through the outer list
-    for element in _2d_list:
-        if type(element) is list:
-            # If the element is of type list, iterate through the sublist
-            for item in element:
-                flat_list.append(item)
-        else:
-            flat_list.append(element)
-    return flat_list</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.float_to_formatted_fraction"><code class="name flex">
-<span>def <span class="ident">float_to_formatted_fraction</span></span>(<span>x, error=1e-06)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Format a fraction for html.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def float_to_formatted_fraction(x, error=0.000001):
-    
-    &#34;&#34;&#34;
-    Format a fraction for html.
-    &#34;&#34;&#34;
-    f = float_to_fraction(x, error=error)
-    
-    whole_number_float = int((f[0]-(f[0]%f[1]))/f[1])
-    remainder_tuple = (f[0]%f[1], f[1])
-    
-    if remainder_tuple[0] == 0:
-        return str(whole_number_float)
-    else:
-        if whole_number_float == 0:
-            whole_number_float = &#34;&#34;
-        return &#34;{0}&lt;sup&gt;{1}&lt;/sup&gt;&amp;frasl;&lt;sub&gt;{2}&lt;/sub&gt;&#34;.format(whole_number_float, remainder_tuple[0], remainder_tuple[1])</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.float_to_fraction"><code class="name flex">
-<span>def <span class="ident">float_to_fraction</span></span>(<span>x, error=1e-06)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Convert a float into a fraction. Works with floats like 2.66666666.
-Solution from <a href="https://stackoverflow.com/a/5128558/8406195">https://stackoverflow.com/a/5128558/8406195</a></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def float_to_fraction (x, error=0.000001):
-    
-    &#34;&#34;&#34;
-    Convert a float into a fraction. Works with floats like 2.66666666.
-    Solution from https://stackoverflow.com/a/5128558/8406195
-    &#34;&#34;&#34;
-    n = int(math.floor(x))
-    x -= n
-    if x &lt; error:
-        return (n, 1)
-    elif 1 - error &lt; x:
-        return (n+1, 1)
-
-    # The lower fraction is 0/1
-    lower_n = 0
-    lower_d = 1
-    # The upper fraction is 1/1
-    upper_n = 1
-    upper_d = 1
-    while True:
-        # The middle fraction is (lower_n + upper_n) / (lower_d + upper_d)
-        middle_n = lower_n + upper_n
-        middle_d = lower_d + upper_d
-        # If x + error &lt; middle
-        if middle_d * (x + error) &lt; middle_n:
-            # middle is our new upper
-            upper_n = middle_n
-            upper_d = middle_d
-        # Else If middle &lt; x - error
-        elif middle_n &lt; (x - error) * middle_d:
-            # middle is our new lower
-            lower_n = middle_n
-            lower_d = middle_d
-        # Else middle is our best fraction
-        else:
-            return (n * middle_d + middle_n, middle_d)</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.format_coeff"><code class="name flex">
-<span>def <span class="ident">format_coeff</span></span>(<span>coeff)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Format a reaction coefficient for html.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def format_coeff(coeff):
-    
-    &#34;&#34;&#34;
-    Format a reaction coefficient for html.
-    &#34;&#34;&#34;
-    if coeff == 1 or coeff == -1:
-        coeff = &#34;&#34;
-    elif coeff.is_integer() and coeff &lt; 0:
-        coeff = str(-int(coeff))
-    elif coeff.is_integer() and coeff &gt; 0:
-        coeff = str(int(coeff))
-    else:
-        if coeff &lt; 0:
-            coeff = float_to_formatted_fraction(-coeff)
-        else:
-            coeff = float_to_formatted_fraction(coeff)
-
-    if coeff != &#34;&#34;:
-        coeff = coeff + &#34; &#34;
-
-    return coeff</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.get_colors"><code class="name flex">
-<span>def <span class="ident">get_colors</span></span>(<span>colormap, ncol, alpha=1.0, hide_traceback=True)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Get a list of rgb values for a matplotlib colormap</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>colormap</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
-<dd>Name of the colormap to color the scatterpoints. Accepts "WORM",
-"colorblind", or matplotlib colormaps.
-See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">https://matplotlib.org/stable/tutorials/colors/colormaps.html</a>
-The "colorblind" colormap is referenced from Wong, B. Points of view:
-Color blindness. Nat Methods 8, 441 (2011).
-<a href="https://doi.org/10.1038/nmeth.1618">https://doi.org/10.1038/nmeth.1618</a></dd>
-<dt><strong><code>ncol</code></strong> :&ensp;<code>int</code></dt>
-<dd>Number of colors to return in the list.</dd>
-<dt><strong><code>alpha</code></strong> :&ensp;<code>float</code>, default <code>1.0</code></dt>
-<dd>An alpha value between 0.0 (transparent) and 1.0 (opaque).</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<dl>
-<dt><strong><code>colors</code></strong> :&ensp;<code>list</code></dt>
-<dd>A list of rgb color tuples</dd>
-</dl></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
-
-    &#34;&#34;&#34;
-    Get a list of rgb values for a matplotlib colormap
-    
-    Parameters
-    ----------
-    colormap : str, default &#34;WORM&#34;
-        Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
-        &#34;colorblind&#34;, or matplotlib colormaps.
-        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
-        The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
-        Color blindness. Nat Methods 8, 441 (2011).
-        https://doi.org/10.1038/nmeth.1618
-    
-    ncol : int
-        Number of colors to return in the list.
-    
-    alpha : float, default 1.0
-        An alpha value between 0.0 (transparent) and 1.0 (opaque).
-    
-    Returns
-    -------
-    colors : list
-        A list of rgb color tuples
-    &#34;&#34;&#34;
-    
-    err_handler = Error_Handler(clean=hide_traceback)
-    
-    qualitative_cmaps = [&#39;Pastel1&#39;, &#39;Pastel2&#39;, &#39;Paired&#39;, &#39;Accent&#39;,
-                         &#39;Dark2&#39;, &#39;Set1&#39;, &#39;Set2&#39;, &#39;Set3&#39;,
-                         &#39;tab10&#39;, &#39;tab20&#39;, &#39;tab20b&#39;, &#39;tab20c&#39;]
-    
-    if colormap == &#34;colorblind&#34;:
-        # colors from Wong B. 2011, https://doi.org/10.1038/nmeth.1618
-        colors = [(0, 0, 0, alpha), # black
-                  (230/255, 159/255, 0, alpha), # orange
-                  (86/255, 180/255, 233/255, alpha), # sky blue
-                  (0, 158/255, 115/255, alpha), # bluish green
-                  (240/255, 228/255, 66/255, alpha), # yellow
-                  (0, 114/255, 178/255, alpha), # blue
-                  (213/255, 94/255, 0, alpha), # vermillion
-                  (204/255, 121/255, 167/255, alpha)] # reddish purple
-        if ncol &lt;= len(colors):
-            return colors[:ncol]
-        else:
-            print(&#34;Switching from &#39;colorblind&#39; colormap to &#39;viridis&#39; because there are {} variables to plot.&#34;.format(ncol))
-            colormap = &#34;viridis&#34;
-    elif colormap == &#34;WORM&#34;:
-        colors = [(0, 0, 0, alpha), # black
-                  (22/255, 153/255, 211/255, alpha), # blue
-                  (232/255, 86/255, 66/255, alpha), # red
-                  (245/255, 171/255, 80/255, alpha), # orange
-                  (115/255, 108/255, 168/255, alpha), # purple
-                  (151/255, 208/255, 119/255, alpha), # green
-                  (47/255, 91/255, 124/255, alpha), # dark blue
-                  (119/255, 119/255, 119/255, alpha)] # gray
-        if ncol &lt;= len(colors):
-            return colors[:ncol]
-        else:
-            print(&#34;Switching from &#39;WORM&#39; colormap to &#39;viridis&#39; because there are {} variables to plot.&#34;.format(ncol))
-            colormap = &#34;viridis&#34;
-            
-    if colormap in qualitative_cmaps:
-        # handle qualitative (non-continuous) colormaps
-        colors = [plt.cm.__getattribute__(colormap).colors[i] for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    else:
-        # handle sequential (continuous) colormaps
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=ncol-1)
-        try:
-            cmap = cm.__getattribute__(colormap)
-        except:
-            valid_colormaps = [cmap for cmap in dir(cm) if &#34;_&#34; not in cmap and cmap not in [&#34;LUTSIZE&#34;, &#34;MutableMapping&#34;, &#34;ScalarMappable&#34;, &#34;functools&#34;, &#34;datad&#34;, &#34;revcmap&#34;]]
-            err_handler.raise_exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
-                            &#34;Try one of these: {}&#34;.format(valid_colormaps))
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
-        colors = [m.to_rgba(i) for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    
-    return colors</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.html_chemname_format"><code class="name flex">
-<span>def <span class="ident">html_chemname_format</span></span>(<span>name, charge_sign_at_end=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Format a chemical formula to display subscripts and superscripts in HTML
-(e.g., Plotly plots)
-Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>A chemical formula.</dd>
-<dt><strong><code>charge_sign_at_end</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Display charge with sign after the number (e.g. SO4 2-)?</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A formatted chemical formula string.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def html_chemname_format(name, charge_sign_at_end=False):
-    
-    &#34;&#34;&#34;
-    Format a chemical formula to display subscripts and superscripts in HTML
-    (e.g., Plotly plots)
-    Example, &#34;CH3COO-&#34; becomes &#34;CH&lt;sub&gt;3&lt;/sub&gt;COO&lt;sup&gt;-&lt;/sup&gt;&#34;
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    charge_sign_at_end : bool, default False
-        Display charge with sign after the number (e.g. SO4 2-)?
-        
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    &#34;&#34;&#34;
-    
-    p = re.compile(r&#39;(?P&lt;sp&gt;[-+]\d*?$)&#39;)
-    name = p.sub(r&#39;&lt;sup&gt;\g&lt;sp&gt;&lt;/sup&gt;&#39;, name)
-    charge = re.search(r&#39;&lt;.*$&#39;, name)
-
-    name_no_charge = re.match(r&#39;(?:(?!&lt;|$).)*&#39;, name).group(0)
-    mapping = {&#34;0&#34;: &#34;&lt;sub&gt;0&lt;/sub&gt;&#34;, &#34;1&#34;: &#34;&lt;sub&gt;1&lt;/sub&gt;&#34;, &#34;2&#34;: &#34;&lt;sub&gt;2&lt;/sub&gt;&#34;, &#34;3&#34;: &#34;&lt;sub&gt;3&lt;/sub&gt;&#34;, &#34;4&#34;: &#34;&lt;sub&gt;4&lt;/sub&gt;&#34;, 
-           &#34;5&#34;: &#34;&lt;sub&gt;5&lt;/sub&gt;&#34;, &#34;6&#34;: &#34;&lt;sub&gt;6&lt;/sub&gt;&#34;, &#34;7&#34;: &#34;&lt;sub&gt;7&lt;/sub&gt;&#34;, &#34;8&#34;: &#34;&lt;sub&gt;8&lt;/sub&gt;&#34;, &#34;9&#34;: &#34;&lt;sub&gt;9&lt;/sub&gt;&#34;,
-           &#34;.&#34;:&#34;&lt;sub&gt;.&lt;/sub&gt;&#34;}
-    name_no_charge_formatted = &#34;&#34;.join([mapping.get(x) or x for x in list(name_no_charge)])
-
-    if charge != None:
-        name = name_no_charge_formatted + charge.group(0)
-    else:
-        name = name_no_charge_formatted
-
-    if charge_sign_at_end:
-        if &#34;&lt;sup&gt;-&#34; in name:
-            name = name.replace(&#34;&lt;sup&gt;-&#34;, &#34;&lt;sup&gt;&#34;)
-            name = name.replace(&#34;&lt;/sup&gt;&#34;, &#34;-&lt;/sup&gt;&#34;)
-        if &#34;&lt;sup&gt;+&#34; in name:
-            name = name.replace(&#34;&lt;sup&gt;+&#34;, &#34;&lt;sup&gt;&#34;)
-            name = name.replace(&#34;&lt;/sup&gt;&#34;, &#34;+&lt;/sup&gt;&#34;)
-
-    return(name)</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.html_chemname_format_AqEquil"><code class="name flex">
-<span>def <span class="ident">html_chemname_format_AqEquil</span></span>(<span>name, charge_sign_at_end=False)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>AqEquil-specific formatting of chemical names for html. Takes "_(input)"
-into account when formatting names.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>name</code></strong> :&ensp;<code>str</code></dt>
-<dd>A chemical formula.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>A formatted chemical formula string.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def html_chemname_format_AqEquil(name, charge_sign_at_end=False):
-    
-    &#34;&#34;&#34;
-    AqEquil-specific formatting of chemical names for html. Takes &#34;_(input)&#34;
-    into account when formatting names.
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    &#34;&#34;&#34;
-    
-    # format only the first part of the name if it has &#34;_(input)&#34;
-    if len(name.split(&#34;_(input)&#34;))==2:
-        if name.split(&#34;_(input)&#34;)[1] == &#39;&#39;:
-            name = name.split(&#34;_(input)&#34;)[0]
-            input_flag=True
-    else:
-        input_flag = False
-    
-    name = html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
-    
-    # add &#34; (input)&#34; to the end of the name
-    if input_flag:
-        name = name+&#34; (input)&#34;
-    
-    return(name)</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.isnotebook"><code class="name flex">
-<span>def <span class="ident">isnotebook</span></span>(<span>)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Check if this code is running in a Jupyter notebook</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def isnotebook():
-    
-    &#34;&#34;&#34;
-    Check if this code is running in a Jupyter notebook
-    &#34;&#34;&#34;
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == &#39;ZMQInteractiveShell&#39;:
-            return True   # Jupyter notebook or qtconsole
-        elif shell == &#39;TerminalInteractiveShell&#39;:
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.load"><code class="name flex">
@@ -5682,6 +5483,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # set eq3 db directory
         os.environ[&#39;EQ36CO&#39;] = self.eq36co  # set eq3 .exe directory
         
+        self.raw_input_dict = {}
+        self.raw_output_dict = {}
+        self.raw_pickup_dict = {}
+        self.data1 = {}
+        
 
     def __capture_r_output(self):
         &#34;&#34;&#34;
@@ -5788,7 +5594,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
-                                       dynamic_db, charge_balance_on, suppress_missing):
+                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
         &#34;&#34;&#34;
@@ -5874,11 +5681,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         # are column names valid entries in the database?
         if custom_data0:
-            data_path = &#34;data0.&#34; + db
+            if &#34;data0&#34; in db:
+                data_path = db
+            else:
+                data_path = &#34;data0.&#34; + db
         elif dynamic_db:
             data_path = self.thermo_db_filename
         else:
             data_path = self.eq36da + &#34;/data0.&#34; + db
+            
         if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == &#34;data0 file&#34;:
                 with open(data_path) as data0:
@@ -5889,7 +5700,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             elif self.thermo_db_type == &#34;CSV file&#34;:
                 df_OBIGT = pd.read_csv(data_path)
                 db_species = list(df_OBIGT[&#34;name&#34;])
-            
             
             if charge_balance_on == &#39;pH&#39;:
                 err_charge_balance_on_pH = (&#34;To balance charge on pH, use &#34;
@@ -5964,6 +5774,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             errs = (&#34;The input file {}&#34;.format(input_filename)+&#34; encountered&#34;
                 &#34; errors:\n\n*&#34; + errs)
             self.err_handler.raise_exception(errs)
+        
+        # warn about &#34;suppress_redox&#34; in db_args if &#34;Hetero. equil.&#34; among subheaders.
+        # Redox suppression won&#39;t work for an element constrained by heterogeneous equilibrium
+        if redox_suppression and &#34;Hetero. equil.&#34; in list(subheaders):
+            if self.verbose &gt; 0:
+                print(&#34;Warning: &#39;suppress_redox&#39; does not currently work with the &#34;
+                      &#34;heterogeneous equilibrium option if the mineral or gas &#34;
+                      &#34;contains a redox-suppressed element.&#34;)
+        
         
         return
         
@@ -6047,8 +5866,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd(),
-               dynamic_db_name=None,
-               verbose=1):
+               dynamic_db_name=None):
         
         &#34;&#34;&#34;
         Call EQ3 on a .3i input file.
@@ -6073,6 +5891,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         dynamic_db_name : str, default None
             Name of database used by `speciate` to speciate samples dynamically.
             If unsure, use None.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         &#34;&#34;&#34;
 
         # get current working dir
@@ -6131,7 +5953,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                samplename=None,
                path_6i=os.getcwd(),
                path_6o=os.getcwd(),
-               path_6p=os.getcwd()):
+               path_6p=os.getcwd(),
+               dynamic_db_name=None):
         
         &#34;&#34;&#34;
         Call EQ6 on a .6i input file.
@@ -6152,37 +5975,40 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         path_6p : path str, default current working directory
             Path of .6p pickup files.
+            
+        dynamic_db_name : str
+            Database name to be printed if dynamic databases are being used.
+            This parameter is for internal use.
         &#34;&#34;&#34;
 
-        # get current working dir
-        cwd = os.getcwd()
+
         
         if samplename == None:
             samplename = filename_6i[:-3]
         
-        if self.verbose &gt; 0:
-            print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
-        os.chdir(path_6i)  # step into 6i folder
-        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+        if self.verbose &gt; 0 and dynamic_db_name == None:
+            print(&#39;Using &#39; + db + &#39; to react &#39; + samplename)
+        elif self.verbose &gt; 0 and isinstance(dynamic_db_name, str):
+            print(&#39;Using &#39; + dynamic_db_name + &#39; to react &#39; + samplename)
+            
+        args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, path_6i + &#34;/&#34; + filename_6i]
 
         self.__run_script_and_wait(args) # run EQ6
 
-        # restore working dir
-        os.chdir(cwd)
 
         filename_6o = filename_6i[:-1] + &#39;o&#39;
         filename_6p = filename_6i[:-1] + &#39;p&#39;
 
         try:
             # rename output
-            os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+            os.rename(&#39;output&#39;, filename_6o)
         except:
             if self.verbose &gt; 0:
                 print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
 
         try:
             # move output
-            shutil.move(path_6i + &#34;/&#34; + filename_6o,
+            shutil.move(filename_6o,
                         path_6o + &#34;/&#34; + filename_6o)
         except:
             if self.verbose &gt; 0:
@@ -6190,7 +6016,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         try:
             # rename pickup
-            os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+            os.rename(&#39;pickup&#39;, filename_6p)
             move_pickup = True
         except:
             if self.verbose &gt; 0:
@@ -6200,7 +6026,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if move_pickup:
             try:
                 # move pickup
-                shutil.move(path_6i + &#34;/&#34; + filename_6p,
+                shutil.move(filename_6p,
                             path_6p + &#34;/&#34; + filename_6p)
             except:
                 if self.verbose &gt; 0:
@@ -6313,6 +6139,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  input_filename,
                  db=&#34;wrm&#34;,
                  db_solid_solution=None,
+                 activity_model=&#34;b-dot&#34;,
                  redox_flag=&#34;logfO2&#34;,
                  redox_aux=&#34;Fe+3&#34;,
                  default_logfO2=-6,
@@ -6639,7 +6466,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                   &#34;use the parameter &#39;rxn_filename&#39; to specify a CSV file of &#34;
                   &#34;thermodynamic data or a TXT file with desired reactions.&#34;)
            
-        
+        self.thermo_db_callname = db
         if len(db) == 3:
             # e.g., &#34;wrm&#34;
             custom_data0 = False
@@ -6651,6 +6478,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 self.thermo_db = None
                 self.thermo_db_type = &#34;data1 file&#34;
                 self.thermo_db_filename = &#34;data1.&#34;+db
+                
+                # store contents of data1 file in AqEquil object
+                with open(self.eq36da + &#34;/data1.&#34; + db, mode=&#39;rb&#39;) as data1:
+                    self.data1 = data1.read()
                 
             elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
                 
@@ -6678,6 +6509,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
         elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
             # e.g., &#34;data0.wrm&#34;
+            
             custom_data0 = True
             data0_lettercode = db[-3:].lower()
             dynamic_db = False
@@ -6725,6 +6557,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.thermo_db = data0_content
             self.thermo_db_type = &#34;data0 file&#34;
             self.thermo_db_filename = data0_filename
+            self.thermo_db_callname = data0_filename
                 
             custom_data0 = True
             data0_lettercode = db[-3:]
@@ -6746,6 +6579,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.thermo_db = pd.read_csv(db)
             self.thermo_db_type = &#34;CSV file&#34;
             self.thermo_db_filename = db_csv_name
+            self.thermo_db_callname = db_csv_name
                 
             db_args[&#34;filename&#34;] = db_csv_name
             db_args[&#34;db&#34;] = &#34;dyn&#34;
@@ -6768,9 +6602,20 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         self.verbose = verbose
         
+        if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+            
+        redox_suppression = False
+        if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+            if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+                redox_suppression = True
+        
         # check input sample file for errors
-        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                      dynamic_db, charge_balance_on, suppress_missing)
+        if activity_model != &#39;pitzer&#39;: # TODO: allow check_sample_input_file() to handle pitzer
+            self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                          dynamic_db, charge_balance_on, suppress_missing,
+                                          redox_suppression)
         
         if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
             self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -6854,6 +6699,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
             if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                 try:
+                    # store contents of data1 file in AqEquil object
+                    with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                        self.data1 = data1.read()
                     # move data1
                     shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
                 except:
@@ -6876,7 +6724,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 with open(data0_path) as data0:
                     data0_lines = data0.readlines()
                     start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
-                    end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                    if activity_model == &#39;davies&#39; or activity_model == &#39;b-dot&#39;:
+                        end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                    elif activity_model == &#39;pitzer&#39;:
+                        end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel aphi\n&#39;]
                     db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
                     db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
                     grid_temps = db_grids[0] + &#34; &#34; + db_grids[1]
@@ -6928,8 +6779,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
             ro.r(r_check_TP_grid)
         
-            list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                         grid_press=convert_to_RVector(grid_press),
+            list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                         grid_press=_convert_to_RVector(grid_press),
                                          P1=P1,
                                          water_model=water_model,
                                          check_for_errors=False,
@@ -6977,7 +6828,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 key = ao[0]
                 if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                     ao += [&#34;0&#34;]
-                alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+                alter_options_dict[key] = _convert_to_RVector(list(ao[1:]))
         alter_options = ro.ListVector(alter_options_dict)
             
         input_dir = &#34;rxn_3i&#34;
@@ -6992,9 +6843,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         ro.r(r_prescript)
         
         input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                               exclude=convert_to_RVector(exclude),
-                                               grid_temps=convert_to_RVector(grid_temps),
-                                               grid_press=convert_to_RVector(grid_press),
+                                               exclude=_convert_to_RVector(exclude),
+                                               grid_temps=_convert_to_RVector(grid_temps),
+                                               grid_press=_convert_to_RVector(grid_press),
                                                strict_minimum_pressure=strict_minimum_pressure,
                                                dynamic_db=dynamic_db,
                                                poly_coeffs_1=poly_coeffs_1,
@@ -7024,15 +6875,18 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
             df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
             
+            samplename = str(df.index[0])
+            
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.fill_data0(OBIGT_df=OBIGT_df,
-                                data0_file_lines=data0_file_lines,
+                self.__fill_data0(OBIGT_df=OBIGT_df,
+                                data0_file_lines=copy.deepcopy(data0_file_lines),
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
                                 db=data0_lettercode,
                                 water_model=water_model,
+                                activity_model=activity_model,
                                 P1=P1,
                                 plot_poly_fit=plot_poly_fit,
                                 verbose=verbose)
@@ -7040,6 +6894,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 self.runeqpt(data0_lettercode, dynamic_db=True)
 
                 if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
+                    # store contents of data1 file in AqEquil object
+                    with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                        self.data1[samplename] = data1.read()
                     try:
                         # move data1
                         shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
@@ -7070,9 +6927,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                pressure_override=dynamic_db,
                                suppress_missing=suppress_missing,
                                exclude=input_processed_list.rx2(&#34;exclude&#34;),
-                               allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
+                               allowed_aq_block_species=_convert_to_RVector(allowed_aq_block_species),
                                charge_balance_on=charge_balance_on,
-                               suppress=convert_to_RVector(suppress),
+                               suppress=_convert_to_RVector(suppress),
                                alter_options=alter_options,
                                get_solid_solutions=get_solid_solutions,
                                input_dir=input_dir,
@@ -7081,6 +6938,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                default_logfO2=default_logfO2,
                                water_model=water_model,
                                warned_about_redox_column=warned_about_redox_column,
+                               activity_model=activity_model,
                                verbose=self.verbose)
 
             self.__print_captured_r_output()
@@ -7088,6 +6946,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             # run EQ3 on each 3i file
             samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc(&#34;Sample&#34;)]
             filename_3i = self.df_input_processed.index[sample_row_index]+&#34;.3i&#34;
+            filename_3o = filename_3i[:-1] + &#39;o&#39;
+            filename_3p = filename_3i[:-1] + &#39;p&#39;
             
             
             if dynamic_db:
@@ -7098,6 +6958,26 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
                         path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+            
+            # store input, output, and pickup as dicts in AqEquil object
+            try:
+                with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_input_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_output_dict[samplename] = lines
+            except:
+                pass
+            try:
+                with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
+                    lines=f.readlines()
+                self.raw_pickup_dict[samplename] = lines
+            except:
+                pass
             
             if dynamic_db:
                 shutil.move(&#34;data0.dyn&#34;, &#34;rxn_data0/&#34;+filename_3i[0:-3]+&#34;_data0.dat&#34;)
@@ -7110,7 +6990,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
         files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
         
-        df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+        df_input_processed_names = _convert_to_RVector(list(self.df_input_processed.columns))
         
         # mine output
         self.__capture_r_output()
@@ -7119,9 +6999,9 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
         ro.r(r_3o_mine)
         batch_3o = ro.r.main_3o_mine(
-            files_3o=convert_to_RVector(files_3o),
+            files_3o=_convert_to_RVector(files_3o),
             input_filename=input_filename,
-            input_pressures=convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
+            input_pressures=_convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
             rxn_filename=rxn_filename,
             get_aq_dist=get_aq_dist,
             aq_dist_type=aq_dist_type,
@@ -7139,7 +7019,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             get_affinity_energy=get_affinity_energy,
             negative_energy_supplies=negative_energy_supplies,
             load_rxn_file=load_rxn_file,
-            not_limiting=convert_to_RVector(not_limiting),
+            not_limiting=_convert_to_RVector(not_limiting),
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
             # New rpy2 py2rpy2 conversion might not need the workaround below.
@@ -7151,7 +7031,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             df_input_processed_names=df_input_processed_names,
             custom_obigt=custom_obigt,
             water_model=water_model,
-            fixed_species=convert_to_RVector(FIXED_SPECIES),
+            fixed_species=_convert_to_RVector(FIXED_SPECIES),
             verbose=self.verbose,
         )
 
@@ -7178,13 +7058,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         sample_data = batch_3o.rx2(&#39;sample_data&#39;)
         for sample in sample_data:
             df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-        report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
+        report_divs[0] = _convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
             
         # handle headers and subheaders of input section
         headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
         headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
         headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
-        report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
+        report_divs[0] = _convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
         subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
             col.split(&#34;_&#34;) for col in list(df_input.columns)]]
         multicolumns = pd.MultiIndex.from_arrays(
@@ -7213,7 +7093,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             
             # ensure final pH column is included in report_divs aq_distribution section
             aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
-            report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+            report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
 
@@ -7473,6 +7353,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if self.verbose &gt; 0:
             print(&#34;Finished!&#34;)
         
+        speciation.raw_input_dict = self.raw_input_dict
+        speciation.raw_output_dict = self.raw_output_dict
+        speciation.raw_pickup_dict = self.raw_pickup_dict
+        speciation.thermo_db_callname = self.thermo_db_callname
+        speciation.thermo_db = self.thermo_db
+        speciation.thermo_db_type = self.thermo_db_type
+        speciation.thermo_db_filename = self.thermo_db_filename
+        speciation.data1 = self.data1
+        
         return speciation
 
     @staticmethod
@@ -7486,14 +7375,18 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
 
     @staticmethod
-    def s_d(x, k):
+    def __s_d(x, k):
         # specify how many decimals are printed
         # e.g. 12.433 becomes &#34;12.4330&#34; if k=4
         kstr = &#39;{:.&#39;+str(k)+&#39;f}&#39;
         return kstr.format(round(x, k)).strip()
 
     
-    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose):
+    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+                   water_model, activity_model, P1, plot_poly_fit, verbose):
+        
+#         for line in data0_file_lines:
+#             print(line)
         
         self.__capture_r_output()
         
@@ -7502,8 +7395,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         ro.r(r_check_TP_grid)
         
-        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                     grid_press=convert_to_RVector(grid_press),
+        list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                     grid_press=_convert_to_RVector(grid_press),
                                      P1=P1,
                                      water_model=water_model,
                                      check_for_errors=True,
@@ -7530,6 +7423,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         dissrxn_logK_dict = {&#39;name&#39;: out_dfs[0][&#34;name&#34;],
                              &#39;logK_0&#39;: out_dfs[0][&#34;dissrxn_logK_0&#34;]}
+        
         if len(grid_temps) == 8:
             for i in range(1, len(grid_temps)):
                 dissrxn_logK_dict[&#39;logK_&#39;+str(i)] = out_dfs[i][&#34;dissrxn_logK_&#34;+str(i)]
@@ -7566,8 +7460,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             # loop through logK values and format for data0
             logK_list = []
             for i in range(0, len(logK_grid)):
-                logK_val = self.s_d(logK_grid[i], 4)
-
+                logK_val = self.__s_d(logK_grid[i], 4)
+                
                 # conditional formatting based on position
                 if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
                     max_length = 11
@@ -7586,12 +7480,12 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 logK_list.append(logK_val)
 
             logK_list = &#34;&#34;.join(logK_list)
-
+            
             # todo: make this more robust to catch any potential logK_grid skips
             if &#34;logK_grid_&#34;+name in data0_file_lines:
                 data0_file_lines[data0_file_lines.index(&#34;logK_grid_&#34;+name)] = logK_list
 #             else:
-#                 self.err_handler.raise_exception(&#34;fill_data0() could not handle species &#34;+name)
+#                 self.err_handler.raise_exception(&#34;__fill_data0() could not handle species &#34;+name)
 
         # handle data0 header section
         self.__capture_r_output()
@@ -7603,9 +7497,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         data0_file_lines = ro.r.fill_data0_head(data0_template=data0_file_lines,
                                        db=db,
-                                       grid_temps=convert_to_RVector(grid_temps),
-                                       grid_press=convert_to_RVector(grid_press),
-                                       water_model=water_model)
+                                       grid_temps=_convert_to_RVector(grid_temps),
+                                       grid_press=_convert_to_RVector(grid_press),
+                                       water_model=water_model,
+                                       activity_model=activity_model)
         
         self.__print_captured_r_output()
         
@@ -7621,6 +7516,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      water_model=&#34;SUPCRT92&#34;,
+                     activity_model=&#34;b-dot&#34;,
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -7808,7 +7704,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         template = pkg_resources.resource_string(
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
-        suppress_redox = convert_to_RVector(suppress_redox)
+        suppress_redox = _convert_to_RVector(suppress_redox)
         
         if filename_ss == None:
             filename_ss = ro.r(&#34;NULL&#34;)
@@ -7820,8 +7716,32 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                             &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+        # if elements are being redox-suppressed, exclude all species with a
+        # formula containing one or more of the redox-suppressed elements if the
+        # species does not have a formula_ox.
+        # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+        #       if sulfur is redox-suppressed.
+        if len(suppress_redox) &gt; 0:
+            thermo_db = pd.read_csv(filename)
+            thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+            if thermo_db_no_formula_ox.shape[0] &gt; 0:
+                sp_names_to_exclude = []
+                for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                    f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                    f_elems = list(parse_formula(f).keys())
+                    for elem in suppress_redox:
+                        if elem in f_elems:
+                            sp_names_to_exclude.append(sp)
+                exclude_category[&#34;name&#34;] = sp_names_to_exclude
+                if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                    print(&#34;Excluding the following chemical species because &#34;
+                          &#34;they contain redox-suppressed elements but do not &#34;
+                          &#34;have element oxidation states given in the &#34;
+                          &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                          &#34;&#34;+str(sp_names_to_exclude))
+            
         if len(exclude_category) &gt; 0:
-            exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+            exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
         else:
             exclude_category_R = {}
         exclude_category_R = ro.ListVector(exclude_category_R)
@@ -7843,7 +7763,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                suppress_redox=suppress_redox,
                                infer_formula_ox=infer_formula_ox,
                                exclude_category=exclude_category_R,
-                               fixed_species=convert_to_RVector(FIXED_SPECIES),
+                               fixed_species=_convert_to_RVector(FIXED_SPECIES),
                                verbose=self.verbose)
         
         self.__print_captured_r_output()
@@ -7880,8 +7800,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                           dissrxns=out_list.rx2(&#34;dissrxns&#34;),
                           basis_pref=out_list.rx2(&#34;basis_pref&#34;),
                           exceed_Ttr=exceed_Ttr,
-                          fixed_species=convert_to_RVector(FIXED_SPECIES),
-                          verbose=verbose)
+                          fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                          verbose=self.verbose)
         
         self.__print_captured_r_output()
         
@@ -7899,14 +7819,23 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
                                    template_name=template_name,
                                    template_type=template_type,
-                                   fixed_species=convert_to_RVector(FIXED_SPECIES))
+                                   fixed_species=_convert_to_RVector(FIXED_SPECIES))
 
             self.__print_captured_r_output()
         
         if fill_data0:
 
             # begin TP-dependent processes
-            self.fill_data0(OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)
+            self.__fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=copy.deepcopy(data0_file_lines),
+                            grid_temps=grid_temps,
+                            grid_press=grid_press,
+                            db=db,
+                            water_model=water_model,
+                            activity_model=activity_model,
+                            P1=P1,
+                            plot_poly_fit=plot_poly_fit,
+                            verbose=self.verbose)
     
         else:
             return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
@@ -8718,8 +8647,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
                 products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                    reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 reaction = reactants + &#34; = &#34; + products
                 reactions.append(reaction)
 
@@ -8745,8 +8674,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
                 products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 if formatted:
-                    reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                    products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                    reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                    products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
                 reaction = reactants + &#34; = &#34; + products
                 reactions.append(reaction)
         
@@ -8758,35 +8687,15 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         if hide_subreactions and not simplify:
             df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if &#34;_sub&#34; not in ind[-4:]]]
         
-        if isnotebook() and show:
+        if _isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
         return df_out</code></pre>
 </details>
-<h3>Static methods</h3>
-<dl>
-<dt id="AqEquil.AqSpeciation.AqEquil.s_d"><code class="name flex">
-<span>def <span class="ident">s_d</span></span>(<span>x, k)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@staticmethod
-def s_d(x, k):
-    # specify how many decimals are printed
-    # e.g. 12.433 becomes &#34;12.4330&#34; if k=4
-    kstr = &#39;{:.&#39;+str(k)+&#39;f}&#39;
-    return kstr.format(round(x, k)).strip()</code></pre>
-</details>
-</dd>
-</dl>
 <h3>Methods</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
-<span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', P1=True, plot_poly_fit=False, infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', exclude_category={}, fill_data0=True, dynamic_db=False, verbose=1)</span>
+<span>def <span class="ident">create_data0</span></span>(<span>self, db, filename, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', activity_model='b-dot', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', P1=True, plot_poly_fit=False, infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', exclude_category={}, fill_data0=True, dynamic_db=False, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a data0 file from a custom thermodynamic dataset.</p>
@@ -8870,6 +8779,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                  data0_formula_ox_name=None,
                  suppress_redox=[],
                  water_model=&#34;SUPCRT92&#34;,
+                 activity_model=&#34;b-dot&#34;,
                  exceed_Ttr=True,
                  grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                              200.0000, 250.0000, 300.0000, 350.0000],
@@ -9057,7 +8967,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
     template = pkg_resources.resource_string(
         __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
-    suppress_redox = convert_to_RVector(suppress_redox)
+    suppress_redox = _convert_to_RVector(suppress_redox)
     
     if filename_ss == None:
         filename_ss = ro.r(&#34;NULL&#34;)
@@ -9069,8 +8979,32 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
                         &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
+    # if elements are being redox-suppressed, exclude all species with a
+    # formula containing one or more of the redox-suppressed elements if the
+    # species does not have a formula_ox.
+    # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+    #       if sulfur is redox-suppressed.
+    if len(suppress_redox) &gt; 0:
+        thermo_db = pd.read_csv(filename)
+        thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+        if thermo_db_no_formula_ox.shape[0] &gt; 0:
+            sp_names_to_exclude = []
+            for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                f_elems = list(parse_formula(f).keys())
+                for elem in suppress_redox:
+                    if elem in f_elems:
+                        sp_names_to_exclude.append(sp)
+            exclude_category[&#34;name&#34;] = sp_names_to_exclude
+            if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                print(&#34;Excluding the following chemical species because &#34;
+                      &#34;they contain redox-suppressed elements but do not &#34;
+                      &#34;have element oxidation states given in the &#34;
+                      &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                      &#34;&#34;+str(sp_names_to_exclude))
+        
     if len(exclude_category) &gt; 0:
-        exclude_category_R =  {k:convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+        exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
     else:
         exclude_category_R = {}
     exclude_category_R = ro.ListVector(exclude_category_R)
@@ -9092,7 +9026,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                            suppress_redox=suppress_redox,
                            infer_formula_ox=infer_formula_ox,
                            exclude_category=exclude_category_R,
-                           fixed_species=convert_to_RVector(FIXED_SPECIES),
+                           fixed_species=_convert_to_RVector(FIXED_SPECIES),
                            verbose=self.verbose)
     
     self.__print_captured_r_output()
@@ -9129,8 +9063,8 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                       dissrxns=out_list.rx2(&#34;dissrxns&#34;),
                       basis_pref=out_list.rx2(&#34;basis_pref&#34;),
                       exceed_Ttr=exceed_Ttr,
-                      fixed_species=convert_to_RVector(FIXED_SPECIES),
-                      verbose=verbose)
+                      fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                      verbose=self.verbose)
     
     self.__print_captured_r_output()
     
@@ -9148,150 +9082,29 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
                                template_name=template_name,
                                template_type=template_type,
-                               fixed_species=convert_to_RVector(FIXED_SPECIES))
+                               fixed_species=_convert_to_RVector(FIXED_SPECIES))
 
         self.__print_captured_r_output()
     
     if fill_data0:
 
         # begin TP-dependent processes
-        self.fill_data0(OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)
+        self.__fill_data0(OBIGT_df=OBIGT_df,
+                        data0_file_lines=copy.deepcopy(data0_file_lines),
+                        grid_temps=grid_temps,
+                        grid_press=grid_press,
+                        db=db,
+                        water_model=water_model,
+                        activity_model=activity_model,
+                        P1=P1,
+                        plot_poly_fit=plot_poly_fit,
+                        verbose=self.verbose)
 
     else:
         return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
     if self.verbose &gt; 0:
         print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.AqEquil.fill_data0"><code class="name flex">
-<span>def <span class="ident">fill_data0</span></span>(<span>self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">    def fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit, verbose):
-        
-        self.__capture_r_output()
-        
-        r_check_TP_grid = pkg_resources.resource_string(
-            __name__, &#39;check_TP_grid.r&#39;).decode(&#34;utf-8&#34;)
-        
-        ro.r(r_check_TP_grid)
-        
-        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                     grid_press=convert_to_RVector(grid_press),
-                                     P1=P1,
-                                     water_model=water_model,
-                                     check_for_errors=True,
-                                     verbose=self.verbose)
-        
-        self.__print_captured_r_output()
-        
-        grid_temps = list(list_tp.rx2(&#34;grid_temps&#34;))
-        grid_press = list(list_tp.rx2(&#34;grid_press&#34;))
-        
-        if plot_poly_fit and len(grid_temps) == 8:
-            self.__plot_TP_grid_polyfit(xvals=grid_temps,
-                                        yvals=grid_press,
-                                        poly_coeffs_1=list(list_tp.rx2(&#34;poly_coeffs_1&#34;)),
-                                        poly_coeffs_2=list(list_tp.rx2(&#34;poly_coeffs_2&#34;)),
-                                        res=500)
-
-        self.__print_captured_r_output()
-        
-        # calculate logK at each T and P for every species
-        out_dfs = []
-        for i,Tc in enumerate(grid_temps):
-            out_dfs.append(calc_logK(OBIGT_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
-        
-        dissrxn_logK_dict = {&#39;name&#39;: out_dfs[0][&#34;name&#34;],
-                             &#39;logK_0&#39;: out_dfs[0][&#34;dissrxn_logK_0&#34;]}
-        if len(grid_temps) == 8:
-            for i in range(1, len(grid_temps)):
-                dissrxn_logK_dict[&#39;logK_&#39;+str(i)] = out_dfs[i][&#34;dissrxn_logK_&#34;+str(i)]
-                
-        if len(grid_temps) == 1:
-            dissrxn_logK_dict[&#39;logK_1&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_2&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_3&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_4&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_5&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_6&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-            dissrxn_logK_dict[&#39;logK_7&#39;] = float(&#39;nan&#39;) #out_dfs[0][&#34;dissrxn_logK_0&#34;]
-    
-        dissrxn_logK = pd.DataFrame(dissrxn_logK_dict)
-        
-#         dissrxn_logK.to_csv(&#34;dissrxn_logK.csv&#34;, index=False)
-        
-        # remove duplicate rows (e.g., for mineral polymorphs)
-        dissrxn_logK = dissrxn_logK.drop_duplicates(&#34;name&#34;)
-
-        for idx in range(0, dissrxn_logK.shape[0]):
-
-            name = dissrxn_logK.iloc[idx, dissrxn_logK.columns.get_loc(&#39;name&#39;)]
-
-            # format the logK reaction block of this species&#39; data0 entry
-            logK_grid = list(dissrxn_logK.iloc[idx, 1:9])
-
-            # filter out strict basis species
-            # TODO: do this by species tag, not just whether it has a logK grid of all 0s
-            if len(set(logK_grid)) == 1:
-                if set(logK_grid) == set([0]):
-                    continue
-
-            # loop through logK values and format for data0
-            logK_list = []
-            for i in range(0, len(logK_grid)):
-                logK_val = self.s_d(logK_grid[i], 4)
-
-                # conditional formatting based on position
-                if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
-                    max_length = 11
-                    end_char = &#34;&#34;
-                elif (i+1) % 4 == 0 and (i+1) != len(logK_grid): # last entry of a line
-                    max_length = 6
-                    end_char = &#34;\n&#34;
-                else:
-                    max_length = 6
-                    end_char = &#34;&#34;
-
-                # get decimal position and format spaces accordingly
-                decimal_position = logK_val.find(&#34;.&#34;)
-                logK_val = &#34;&#34;.join([&#34; &#34;]*(max_length-decimal_position)) + logK_val + end_char
-                # append to logk list
-                logK_list.append(logK_val)
-
-            logK_list = &#34;&#34;.join(logK_list)
-
-            # todo: make this more robust to catch any potential logK_grid skips
-            if &#34;logK_grid_&#34;+name in data0_file_lines:
-                data0_file_lines[data0_file_lines.index(&#34;logK_grid_&#34;+name)] = logK_list
-#             else:
-#                 self.err_handler.raise_exception(&#34;fill_data0() could not handle species &#34;+name)
-
-        # handle data0 header section
-        self.__capture_r_output()
-        
-        r_fill_data0_header = pkg_resources.resource_string(
-            __name__, &#39;fill_data0_header.r&#39;).decode(&#34;utf-8&#34;)
-        
-        ro.r(r_fill_data0_header)
-        
-        data0_file_lines = ro.r.fill_data0_head(data0_template=data0_file_lines,
-                                       db=db,
-                                       grid_temps=convert_to_RVector(grid_temps),
-                                       grid_press=convert_to_RVector(grid_press),
-                                       water_model=water_model)
-        
-        self.__print_captured_r_output()
-        
-        with open(&#34;data0.&#34;+db, &#39;w&#39;) as f:
-            for item in data0_file_lines:
-                f.write(&#34;%s&#34; % item)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
@@ -10051,7 +9864,7 @@ cell reactions.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None, verbose=1)</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -10070,6 +9883,9 @@ cell reactions.</dd>
 <dt><strong><code>dynamic_db_name</code></strong> :&ensp;<code>str</code>, default <code>None</code></dt>
 <dd>Name of database used by <code>speciate</code> to speciate samples dynamically.
 If unsure, use None.</dd>
+<dt><strong><code>dynamic_db_name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Database name to be printed if dynamic databases are being used.
+This parameter is for internal use.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -10080,8 +9896,7 @@ If unsure, use None.</dd>
            path_3i=os.getcwd(),
            path_3o=os.getcwd(),
            path_3p=os.getcwd(),
-           dynamic_db_name=None,
-           verbose=1):
+           dynamic_db_name=None):
     
     &#34;&#34;&#34;
     Call EQ3 on a .3i input file.
@@ -10106,6 +9921,10 @@ If unsure, use None.</dd>
     dynamic_db_name : str, default None
         Name of database used by `speciate` to speciate samples dynamically.
         If unsure, use None.
+        
+    dynamic_db_name : str
+        Database name to be printed if dynamic databases are being used.
+        This parameter is for internal use.
     &#34;&#34;&#34;
 
     # get current working dir
@@ -10161,7 +9980,7 @@ If unsure, use None.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
-<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6p='/var/lib/private/gmboyer/AqEquil-dev-branch')</span>
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ6 on a .6i input file.</p>
@@ -10177,6 +9996,9 @@ If unsure, use None.</dd>
 <dd>Path of .6o output files.</dd>
 <dt><strong><code>path_6p</code></strong> :&ensp;<code>path str</code>, default <code>current working directory</code></dt>
 <dd>Path of .6p pickup files.</dd>
+<dt><strong><code>dynamic_db_name</code></strong> :&ensp;<code>str</code></dt>
+<dd>Database name to be printed if dynamic databases are being used.
+This parameter is for internal use.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -10186,7 +10008,8 @@ If unsure, use None.</dd>
            samplename=None,
            path_6i=os.getcwd(),
            path_6o=os.getcwd(),
-           path_6p=os.getcwd()):
+           path_6p=os.getcwd(),
+           dynamic_db_name=None):
     
     &#34;&#34;&#34;
     Call EQ6 on a .6i input file.
@@ -10207,37 +10030,40 @@ If unsure, use None.</dd>
     
     path_6p : path str, default current working directory
         Path of .6p pickup files.
+        
+    dynamic_db_name : str
+        Database name to be printed if dynamic databases are being used.
+        This parameter is for internal use.
     &#34;&#34;&#34;
 
-    # get current working dir
-    cwd = os.getcwd()
+
     
     if samplename == None:
         samplename = filename_6i[:-3]
     
-    if self.verbose &gt; 0:
-        print(&#39;Using &#39; + db + &#39; to speciate &#39; + samplename)
-    os.chdir(path_6i)  # step into 6i folder
-    args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, filename_6i]
+    if self.verbose &gt; 0 and dynamic_db_name == None:
+        print(&#39;Using &#39; + db + &#39; to react &#39; + samplename)
+    elif self.verbose &gt; 0 and isinstance(dynamic_db_name, str):
+        print(&#39;Using &#39; + dynamic_db_name + &#39; to react &#39; + samplename)
+        
+    args = [&#39;/bin/csh&#39;, self.eq36co+&#39;/runeq6&#39;, db, path_6i + &#34;/&#34; + filename_6i]
 
     self.__run_script_and_wait(args) # run EQ6
 
-    # restore working dir
-    os.chdir(cwd)
 
     filename_6o = filename_6i[:-1] + &#39;o&#39;
     filename_6p = filename_6i[:-1] + &#39;p&#39;
 
     try:
         # rename output
-        os.rename(path_6i + &#39;/output&#39;, path_6i + &#34;/&#34; + filename_6o)
+        os.rename(&#39;output&#39;, filename_6o)
     except:
         if self.verbose &gt; 0:
             print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
 
     try:
         # move output
-        shutil.move(path_6i + &#34;/&#34; + filename_6o,
+        shutil.move(filename_6o,
                     path_6o + &#34;/&#34; + filename_6o)
     except:
         if self.verbose &gt; 0:
@@ -10245,7 +10071,7 @@ If unsure, use None.</dd>
 
     try:
         # rename pickup
-        os.rename(path_6i + &#39;/pickup&#39;, path_6i + &#34;/&#34; + filename_6p)
+        os.rename(&#39;pickup&#39;, filename_6p)
         move_pickup = True
     except:
         if self.verbose &gt; 0:
@@ -10255,7 +10081,7 @@ If unsure, use None.</dd>
     if move_pickup:
         try:
             # move pickup
-            shutil.move(path_6i + &#34;/&#34; + filename_6p,
+            shutil.move(filename_6p,
                         path_6p + &#34;/&#34; + filename_6p)
         except:
             if self.verbose &gt; 0:
@@ -10446,8 +10272,8 @@ notebook.</dd>
             reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
             products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
             if formatted:
-                reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
             reaction = reactants + &#34; = &#34; + products
             reactions.append(reaction)
 
@@ -10473,8 +10299,8 @@ notebook.</dd>
             reactants = &#34; + &#34;.join([(str(-int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else -react_grid[&#34;coeff&#34;][i])+&#34; &#34; if -react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
             products = &#34; + &#34;.join([(str(int(react_grid[&#34;coeff&#34;][i]) if react_grid[&#34;coeff&#34;][i].is_integer() else react_grid[&#34;coeff&#34;][i])+&#34; &#34; if react_grid[&#34;coeff&#34;][i] != 1 else &#34;&#34;) + react_grid[&#34;name&#34;][i] for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
             if formatted:
-                reactants = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
-                products = &#34; + &#34;.join([format_coeff(react_grid[&#34;coeff&#34;][i]) + html_chemname_format_AqEquil(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
+                reactants = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &lt; 0])
+                products = &#34; + &#34;.join([_format_coeff(react_grid[&#34;coeff&#34;][i]) + chemlabel(react_grid[&#34;name&#34;][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid[&#34;name&#34;])) if react_grid[&#34;coeff&#34;][i] &gt; 0])
             reaction = reactants + &#34; = &#34; + products
             reactions.append(reaction)
     
@@ -10486,14 +10312,14 @@ notebook.</dd>
     if hide_subreactions and not simplify:
         df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if &#34;_sub&#34; not in ind[-4:]]]
     
-    if isnotebook() and show:
+    if _isnotebook() and show:
         display(HTML(df_out.to_html(escape=False)))
     
     return df_out</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', db_solid_solution=None, redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, strict_minimum_pressure=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_data0=False, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, custom_obigt=None, db_args={})</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db='wrm', db_solid_solution=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, strict_minimum_pressure=True, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_data0=False, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, custom_obigt=None, db_args={})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -10751,6 +10577,7 @@ db_args = {
              input_filename,
              db=&#34;wrm&#34;,
              db_solid_solution=None,
+             activity_model=&#34;b-dot&#34;,
              redox_flag=&#34;logfO2&#34;,
              redox_aux=&#34;Fe+3&#34;,
              default_logfO2=-6,
@@ -11077,7 +10904,7 @@ db_args = {
               &#34;use the parameter &#39;rxn_filename&#39; to specify a CSV file of &#34;
               &#34;thermodynamic data or a TXT file with desired reactions.&#34;)
        
-    
+    self.thermo_db_callname = db
     if len(db) == 3:
         # e.g., &#34;wrm&#34;
         custom_data0 = False
@@ -11089,6 +10916,10 @@ db_args = {
             self.thermo_db = None
             self.thermo_db_type = &#34;data1 file&#34;
             self.thermo_db_filename = &#34;data1.&#34;+db
+            
+            # store contents of data1 file in AqEquil object
+            with open(self.eq36da + &#34;/data1.&#34; + db, mode=&#39;rb&#39;) as data1:
+                self.data1 = data1.read()
             
         elif os.path.exists(&#34;data0.&#34; + db) and os.path.isfile(&#34;data0.&#34; + db):
             
@@ -11116,6 +10947,7 @@ db_args = {
         
     elif db[0:-4].lower() == &#34;data0&#34; and not (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
         # e.g., &#34;data0.wrm&#34;
+        
         custom_data0 = True
         data0_lettercode = db[-3:].lower()
         dynamic_db = False
@@ -11163,6 +10995,7 @@ db_args = {
         self.thermo_db = data0_content
         self.thermo_db_type = &#34;data0 file&#34;
         self.thermo_db_filename = data0_filename
+        self.thermo_db_callname = data0_filename
             
         custom_data0 = True
         data0_lettercode = db[-3:]
@@ -11184,6 +11017,7 @@ db_args = {
         self.thermo_db = pd.read_csv(db)
         self.thermo_db_type = &#34;CSV file&#34;
         self.thermo_db_filename = db_csv_name
+        self.thermo_db_callname = db_csv_name
             
         db_args[&#34;filename&#34;] = db_csv_name
         db_args[&#34;db&#34;] = &#34;dyn&#34;
@@ -11206,9 +11040,20 @@ db_args = {
     
     self.verbose = verbose
     
+    if (self.thermo_db_type == &#34;data0 file&#34; or self.thermo_db_type == &#34;data1 file&#34;) and len(db_args) &gt; 0:
+        if self.verbose &gt; 0:
+            print(&#34;Ignoring db_args because a premade data0 or data1 file is being used: &#39;&#34; + db + &#34;&#39;&#34;)
+        
+    redox_suppression = False
+    if &#34;suppress_redox&#34; in db_args.keys() and self.thermo_db_type != &#34;data0 file&#34; and self.thermo_db_type != &#34;data1 file&#34;:
+        if len(db_args[&#34;suppress_redox&#34;]) &gt; 0:
+            redox_suppression = True
+    
     # check input sample file for errors
-    self._check_sample_input_file(input_filename, exclude, db, custom_data0,
-                                  dynamic_db, charge_balance_on, suppress_missing)
+    if activity_model != &#39;pitzer&#39;: # TODO: allow check_sample_input_file() to handle pitzer
+        self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+                                      dynamic_db, charge_balance_on, suppress_missing,
+                                      redox_suppression)
     
     if aq_dist_type not in [&#34;molality&#34;, &#34;log_molality&#34;, &#34;log_gamma&#34;, &#34;log_activity&#34;]:
         self.err_handler.raise_exception(&#34;Unrecognized aq_dist_type. Valid &#34;
@@ -11292,6 +11137,9 @@ db_args = {
         
         if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
             try:
+                # store contents of data1 file in AqEquil object
+                with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                    self.data1 = data1.read()
                 # move data1
                 shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
             except:
@@ -11314,7 +11162,10 @@ db_args = {
             with open(data0_path) as data0:
                 data0_lines = data0.readlines()
                 start_index = [i+1 for i, s in enumerate(data0_lines) if s == &#39;temperatures\n&#39;]
-                end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                if activity_model == &#39;davies&#39; or activity_model == &#39;b-dot&#39;:
+                    end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel a (adh)\n&#39;]
+                elif activity_model == &#39;pitzer&#39;:
+                    end_index = [i for i, s in enumerate(data0_lines) if s == &#39;debye huckel aphi\n&#39;]
                 db_grids_unformatted = [i.split(&#34;pressures&#34;)[0] for i in data0_lines[start_index[0]:end_index[0]]]
                 db_grids = [&#34; &#34;.join(i.split()) for i in db_grids_unformatted if i != &#39;&#39;]
                 grid_temps = db_grids[0] + &#34; &#34; + db_grids[1]
@@ -11366,8 +11217,8 @@ db_args = {
     
         ro.r(r_check_TP_grid)
     
-        list_tp = ro.r.check_TP_grid(grid_temps=convert_to_RVector(grid_temps),
-                                     grid_press=convert_to_RVector(grid_press),
+        list_tp = ro.r.check_TP_grid(grid_temps=_convert_to_RVector(grid_temps),
+                                     grid_press=_convert_to_RVector(grid_press),
                                      P1=P1,
                                      water_model=water_model,
                                      check_for_errors=False,
@@ -11415,7 +11266,7 @@ db_args = {
             key = ao[0]
             if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                 ao += [&#34;0&#34;]
-            alter_options_dict[key] = convert_to_RVector(list(ao[1:]))
+            alter_options_dict[key] = _convert_to_RVector(list(ao[1:]))
     alter_options = ro.ListVector(alter_options_dict)
         
     input_dir = &#34;rxn_3i&#34;
@@ -11430,9 +11281,9 @@ db_args = {
     ro.r(r_prescript)
     
     input_processed_list = ro.r.preprocess(input_filename=input_filename,
-                                           exclude=convert_to_RVector(exclude),
-                                           grid_temps=convert_to_RVector(grid_temps),
-                                           grid_press=convert_to_RVector(grid_press),
+                                           exclude=_convert_to_RVector(exclude),
+                                           grid_temps=_convert_to_RVector(grid_temps),
+                                           grid_press=_convert_to_RVector(grid_press),
                                            strict_minimum_pressure=strict_minimum_pressure,
                                            dynamic_db=dynamic_db,
                                            poly_coeffs_1=poly_coeffs_1,
@@ -11462,15 +11313,18 @@ db_args = {
         
         df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
         
+        samplename = str(df.index[0])
+        
         # handle dynamic data0 creation
         if dynamic_db:
             
-            self.fill_data0(OBIGT_df=OBIGT_df,
-                            data0_file_lines=data0_file_lines,
+            self.__fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=copy.deepcopy(data0_file_lines),
                             grid_temps=[temp_degC],
                             grid_press=[pressure_bar],
                             db=data0_lettercode,
                             water_model=water_model,
+                            activity_model=activity_model,
                             P1=P1,
                             plot_poly_fit=plot_poly_fit,
                             verbose=verbose)
@@ -11478,6 +11332,9 @@ db_args = {
             self.runeqpt(data0_lettercode, dynamic_db=True)
 
             if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
+                # store contents of data1 file in AqEquil object
+                with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
+                    self.data1[samplename] = data1.read()
                 try:
                     # move data1
                     shutil.move(&#34;data1.&#34;+data0_lettercode, &#34;eqpt_files/data1.&#34;+data0_lettercode)
@@ -11508,9 +11365,9 @@ db_args = {
                            pressure_override=dynamic_db,
                            suppress_missing=suppress_missing,
                            exclude=input_processed_list.rx2(&#34;exclude&#34;),
-                           allowed_aq_block_species=convert_to_RVector(allowed_aq_block_species),
+                           allowed_aq_block_species=_convert_to_RVector(allowed_aq_block_species),
                            charge_balance_on=charge_balance_on,
-                           suppress=convert_to_RVector(suppress),
+                           suppress=_convert_to_RVector(suppress),
                            alter_options=alter_options,
                            get_solid_solutions=get_solid_solutions,
                            input_dir=input_dir,
@@ -11519,6 +11376,7 @@ db_args = {
                            default_logfO2=default_logfO2,
                            water_model=water_model,
                            warned_about_redox_column=warned_about_redox_column,
+                           activity_model=activity_model,
                            verbose=self.verbose)
 
         self.__print_captured_r_output()
@@ -11526,6 +11384,8 @@ db_args = {
         # run EQ3 on each 3i file
         samplename = self.df_input_processed.iloc[sample_row_index, self.df_input_processed.columns.get_loc(&#34;Sample&#34;)]
         filename_3i = self.df_input_processed.index[sample_row_index]+&#34;.3i&#34;
+        filename_3o = filename_3i[:-1] + &#39;o&#39;
+        filename_3p = filename_3i[:-1] + &#39;p&#39;
         
         
         if dynamic_db:
@@ -11536,6 +11396,26 @@ db_args = {
         self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                     path_3i=input_dir, path_3o=output_dir,
                     path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+        
+        # store input, output, and pickup as dicts in AqEquil object
+        try:
+            with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
+                lines=f.readlines()
+            self.raw_input_dict[samplename] = lines
+        except:
+            pass
+        try:
+            with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
+                lines=f.readlines()
+            self.raw_output_dict[samplename] = lines
+        except:
+            pass
+        try:
+            with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
+                lines=f.readlines()
+            self.raw_pickup_dict[samplename] = lines
+        except:
+            pass
         
         if dynamic_db:
             shutil.move(&#34;data0.dyn&#34;, &#34;rxn_data0/&#34;+filename_3i[0:-3]+&#34;_data0.dat&#34;)
@@ -11548,7 +11428,7 @@ db_args = {
 
     files_3o = [file+&#34;.3o&#34; for file in self.df_input_processed.index]
     
-    df_input_processed_names = convert_to_RVector(list(self.df_input_processed.columns))
+    df_input_processed_names = _convert_to_RVector(list(self.df_input_processed.columns))
     
     # mine output
     self.__capture_r_output()
@@ -11557,9 +11437,9 @@ db_args = {
         __name__, &#39;3o_mine.r&#39;).decode(&#34;utf-8&#34;)
     ro.r(r_3o_mine)
     batch_3o = ro.r.main_3o_mine(
-        files_3o=convert_to_RVector(files_3o),
+        files_3o=_convert_to_RVector(files_3o),
         input_filename=input_filename,
-        input_pressures=convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
+        input_pressures=_convert_to_RVector(list(input_processed_list.rx2(&#34;pressure_bar&#34;))),
         rxn_filename=rxn_filename,
         get_aq_dist=get_aq_dist,
         aq_dist_type=aq_dist_type,
@@ -11577,7 +11457,7 @@ db_args = {
         get_affinity_energy=get_affinity_energy,
         negative_energy_supplies=negative_energy_supplies,
         load_rxn_file=load_rxn_file,
-        not_limiting=convert_to_RVector(not_limiting),
+        not_limiting=_convert_to_RVector(not_limiting),
         batch_3o_filename=batch_3o_filename,
         df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
         # New rpy2 py2rpy2 conversion might not need the workaround below.
@@ -11589,7 +11469,7 @@ db_args = {
         df_input_processed_names=df_input_processed_names,
         custom_obigt=custom_obigt,
         water_model=water_model,
-        fixed_species=convert_to_RVector(FIXED_SPECIES),
+        fixed_species=_convert_to_RVector(FIXED_SPECIES),
         verbose=self.verbose,
     )
 
@@ -11616,13 +11496,13 @@ db_args = {
     sample_data = batch_3o.rx2(&#39;sample_data&#39;)
     for sample in sample_data:
         df_input.loc[str(sample.rx2(&#39;name&#39;)[0]), &#34;Pressure_bar&#34;] = float(sample.rx2(&#39;pressure&#39;)[0])
-    report_divs[0] = convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
+    report_divs[0] = _convert_to_RVector(input_cols + [&#34;Pressure_bar&#34;])
         
     # handle headers and subheaders of input section
     headers = [col.split(&#34;_&#34;)[0] for col in list(df_input.columns)]
     headers = [&#34;pH&#34; if header == &#34;H+&#34; else header for header in headers]
     headers = [header+&#34;_(input)&#34; if header not in [&#34;Temperature&#34;, &#34;logfO2&#34;, &#34;Pressure&#34;]+exclude else header for header in headers]
-    report_divs[0] = convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
+    report_divs[0] = _convert_to_RVector(headers) # modify headers in the &#39;input&#39; section, report_divs[0]
     subheaders = [subheader[1] if len(subheader) &gt; 1 else &#34;&#34; for subheader in [
         col.split(&#34;_&#34;) for col in list(df_input.columns)]]
     multicolumns = pd.MultiIndex.from_arrays(
@@ -11651,7 +11531,7 @@ db_args = {
         
         # ensure final pH column is included in report_divs aq_distribution section
         aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
-        report_divs[aq_dist_indx] = convert_to_RVector(list(headers))
+        report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
         
         df_join = df_join.join(df_aq_distribution)
 
@@ -11911,6 +11791,15 @@ db_args = {
     if self.verbose &gt; 0:
         print(&#34;Finished!&#34;)
     
+    speciation.raw_input_dict = self.raw_input_dict
+    speciation.raw_output_dict = self.raw_output_dict
+    speciation.raw_pickup_dict = self.raw_pickup_dict
+    speciation.thermo_db_callname = self.thermo_db_callname
+    speciation.thermo_db = self.thermo_db
+    speciation.thermo_db_type = self.thermo_db_type
+    speciation.thermo_db_filename = self.thermo_db_filename
+    speciation.data1 = self.data1
+    
     return speciation</code></pre>
 </details>
 </dd>
@@ -11987,7 +11876,7 @@ shown. Ignored if AqEquil is not being run in a Jupyter notebook.</dd>
         (e.g., for common user errors).
         &#34;&#34;&#34;
         
-        if self.clean and isnotebook():
+        if self.clean and _isnotebook():
             ipython = get_ipython()
             ipython.showtraceback = self.hide_traceback
         raise Exception(msg)</code></pre>
@@ -12041,7 +11930,7 @@ happens only when the exception is predicted by the AqEquil package
     (e.g., for common user errors).
     &#34;&#34;&#34;
     
-    if self.clean and isnotebook():
+    if self.clean and _isnotebook():
         ipython = get_ipython()
         ipython.showtraceback = self.hide_traceback
     raise Exception(msg)</code></pre>
@@ -12470,12 +12359,18 @@ speciation report.</dd>
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
             y = [y]
 
-        colors = get_colors(colormap, len(y))
+        colors = _get_colors(colormap, len(y))
 
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -12485,7 +12380,7 @@ speciation report.</dd>
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
             
         y_cols = self.lookup(y)
 
@@ -12572,15 +12467,15 @@ speciation report.</dd>
                 ylabel = &#39;Temperature [°C]&#39;
             else:
                 if unit != &#34;&#34;:
-                    ylabel = &#34;{} {} [{}]&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type, unit)
+                    ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
                 else:
-                    ylabel = &#34;{} {}&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type)
+                    ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
 
         
         df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
         if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
@@ -12597,7 +12492,7 @@ speciation report.</dd>
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
             
             if len(y) == 1:
-                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
                 
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x=&#34;name&#34;, y=&#34;y_value&#34;,
@@ -12716,6 +12611,12 @@ speciation report.</dd>
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if not isinstance(y, list):
@@ -12747,7 +12648,7 @@ speciation report.</dd>
             xunit_type = &#34;&#34;
             xunit = &#34;&#34;
 
-        colors = get_colors(colormap, len(y), alpha=fill_alpha)
+        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
         
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
@@ -12806,7 +12707,7 @@ speciation report.</dd>
             elif &#39;Temperature&#39; in y:
                 ylabel = &#39;Temperature [°C]&#39;
             else:
-                y_formatted = html_chemname_format_AqEquil(y[0])
+                y_formatted = chemlabel(y[0])
                 if unit != &#34;&#34;:
                     ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
                 else:
@@ -12817,7 +12718,7 @@ speciation report.</dd>
         elif x == &#39;Temperature&#39;:
             xlabel = &#39;Temperature [°C]&#39;
         else:
-            x_formatted = html_chemname_format_AqEquil(x)
+            x_formatted = chemlabel(x)
             if xunit != &#34;&#34;:
                 xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
             else:
@@ -12831,7 +12732,7 @@ speciation report.</dd>
         dict_species_color = {sp:color for sp,color in zip(y, colors)}
         
         # html format color dict key names
-        dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
         
         df = self.lookup([&#34;name&#34;, x]+y).copy()
         df.loc[:, &#34;name&#34;] = df.index
@@ -12854,13 +12755,13 @@ speciation report.</dd>
             rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
             if len(y) == 1:
-                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+                ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
             
             df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
         else:
             df[&#34;formatted_rxn&#34;] = &#34;&#34;
         
-        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+        df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                          hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
@@ -12906,7 +12807,7 @@ speciation report.</dd>
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -12948,7 +12849,14 @@ speciation report.</dd>
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-            
+        
+        sample_label : str, default &#34;sample&#34;
+            Name of the label that appears when hovering over an element in the
+            interactive mass contribution plot. By default, this is &#34;sample&#34;.
+            However, other words might be more appropriate to describe the
+            calculations you are performing. For instance, if you are comparing
+            reaction progress, `sample_label = &#34;Xi&#34;` might be more appropriate.
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -12980,6 +12888,12 @@ speciation report.</dd>
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
         
         try:
@@ -13069,16 +12983,16 @@ speciation report.</dd>
                                 &#34;or a list of species names.&#34;)
 
         # get colormap
-        colors = get_colors(colormap, len(unique_species))
+        colors = _get_colors(colormap, len(unique_species))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
-        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
+        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
+        unique_species = [chemlabel(sp) for sp in unique_species]
         
         if title == None:
-            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
+            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(chemlabel(basis))
         
         
         # map each species to its color, e.g.,
@@ -13090,7 +13004,7 @@ speciation report.</dd>
 
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
                      width=plot_width*ppi, height=plot_height*ppi,
-                     labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
+                     labels={&#34;sample&#34;: sample_label,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                      category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template=&#34;simple_white&#34;,
@@ -13198,6 +13112,12 @@ speciation report.</dd>
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
 
         if sample not in self.sample_data.keys():
@@ -13224,7 +13144,7 @@ speciation report.</dd>
         unique_minerals = self.__unique(df[&#34;mineral&#34;])
         
         # get colormap
-        colors = get_colors(colormap, len(unique_minerals))
+        colors = _get_colors(colormap, len(unique_minerals))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -13310,7 +13230,70 @@ speciation report.</dd>
         if plot_out:
             return fig
         else:
-            fig.show(config=config)</code></pre>
+            fig.show(config=config)
+            
+            
+    def join_6i_3p(self, filepath_6i):
+        path=&#39;rxn_6i&#39;
+        if not os.path.exists(path):
+            os.makedirs(path)
+        else:
+            shutil.rmtree(path)
+            os.makedirs(path)
+            
+        for sample_name in self.raw_pickup_dict.keys():
+            sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
+            
+            if isinstance(filepath_6i, str):
+                # if a string (filepath) is given
+                with open(filepath_6i, &#34;r&#34;) as f6i:
+                    lines_6i = f6i.readlines()
+            else:
+                # if a Prepare_Reaction object is given
+                all_lines = filepath_6i.formatted_reaction.split(&#34;\n&#34;)
+                lines_6i = [e+&#34;\n&#34; for e in all_lines if e]
+            
+            # trim away any extra newlines at end of pre.6i, then add one.
+            while lines_6i[-1] == &#34;\n&#34;:
+                lines_6i = lines_6i[:-1]
+                
+            if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
+                lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
+                
+            lines_3p = self.raw_pickup_dict[sample_name]
+            lines_to_keep = []
+            for line in lines_6i:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    break
+                else:
+                    lines_to_keep.append(line)
+            lines_to_keep += lines_3p
+            
+            if &#34;{tval}&#34; in &#34;&#34;.join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if &#34;Original temperature&#34; in line:
+                        o_t = line.split(&#34;|&#34;)[2]
+                for i,line in enumerate(lines_to_keep):
+                    if &#34;{tval}&#34; in line:
+                        lines_to_keep[i] = line.format(tval=o_t)
+                        
+            if &#34;{pval}&#34; in &#34;&#34;.join(lines_to_keep):
+                # grab temperature
+                for line in lines_3p:
+                    if &#34;Original pressure&#34; in line:
+                        o_p = line.split(&#34;|&#34;)[2]
+                for i,line in enumerate(lines_to_keep):
+                    if &#34;{pval}&#34; in line:
+                        lines_to_keep[i] = line.format(tval=o_p)
+            
+            with open(path + &#34;/&#34; + sample_filename+&#34;.6i&#34;, &#34;w&#34;) as f:
+                f.writelines(lines_to_keep)
+
+
+    def mt(self, sample):
+        sample_data = getattr(self, &#34;sample_data&#34;)
+        return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -13363,6 +13346,12 @@ the figure.</dd>
 <dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Return a plotly figure object? If True, a plot is not displayed as
 it is generated.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A figure object is returned if <code>plot_out</code> is true. Otherwise, a
+figure is simply displayed.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -13431,12 +13420,18 @@ it is generated.</dd>
     plot_out : bool, default False
         Return a plotly figure object? If True, a plot is not displayed as
         it is generated.
+        
+    Returns
+    -------
+    fig : Plotly figure object
+        A figure object is returned if `plot_out` is true. Otherwise, a
+        figure is simply displayed.
     &#34;&#34;&#34;
 
     if not isinstance(y, list):
         y = [y]
 
-    colors = get_colors(colormap, len(y))
+    colors = _get_colors(colormap, len(y))
 
     # convert rgba to hex
     colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -13446,7 +13441,7 @@ it is generated.</dd>
     dict_species_color = {sp:color for sp,color in zip(y, colors)}
     
     # html format color dict key names
-    dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+    dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
         
     y_cols = self.lookup(y)
 
@@ -13533,15 +13528,15 @@ it is generated.</dd>
             ylabel = &#39;Temperature [°C]&#39;
         else:
             if unit != &#34;&#34;:
-                ylabel = &#34;{} {} [{}]&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type, unit)
+                ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
             else:
-                ylabel = &#34;{} {}&#34;.format(html_chemname_format_AqEquil(y[0]), unit_type)
+                ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
 
     
     df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
     df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
-    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
     
     
     if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
@@ -13558,7 +13553,7 @@ it is generated.</dd>
         rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()*len(x)
         
         if len(y) == 1:
-            ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+            ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
             
         # customdata for displaying reactions has to be here instead of in update_traces
         fig = px.bar(df, x=&#34;name&#34;, y=&#34;y_value&#34;,
@@ -13611,6 +13606,73 @@ it is generated.</dd>
         return fig
     else:
         fig.show(config=config)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.AqSpeciation.Speciation.join_6i_3p"><code class="name flex">
+<span>def <span class="ident">join_6i_3p</span></span>(<span>self, filepath_6i)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def join_6i_3p(self, filepath_6i):
+    path=&#39;rxn_6i&#39;
+    if not os.path.exists(path):
+        os.makedirs(path)
+    else:
+        shutil.rmtree(path)
+        os.makedirs(path)
+        
+    for sample_name in self.raw_pickup_dict.keys():
+        sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
+        
+        if isinstance(filepath_6i, str):
+            # if a string (filepath) is given
+            with open(filepath_6i, &#34;r&#34;) as f6i:
+                lines_6i = f6i.readlines()
+        else:
+            # if a Prepare_Reaction object is given
+            all_lines = filepath_6i.formatted_reaction.split(&#34;\n&#34;)
+            lines_6i = [e+&#34;\n&#34; for e in all_lines if e]
+        
+        # trim away any extra newlines at end of pre.6i, then add one.
+        while lines_6i[-1] == &#34;\n&#34;:
+            lines_6i = lines_6i[:-1]
+            
+        if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
+            lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
+            
+        lines_3p = self.raw_pickup_dict[sample_name]
+        lines_to_keep = []
+        for line in lines_6i:
+            if &#34;Start of the bottom half of the input file&#34; in line:
+                break
+            else:
+                lines_to_keep.append(line)
+        lines_to_keep += lines_3p
+        
+        if &#34;{tval}&#34; in &#34;&#34;.join(lines_to_keep):
+            # grab temperature
+            for line in lines_3p:
+                if &#34;Original temperature&#34; in line:
+                    o_t = line.split(&#34;|&#34;)[2]
+            for i,line in enumerate(lines_to_keep):
+                if &#34;{tval}&#34; in line:
+                    lines_to_keep[i] = line.format(tval=o_t)
+                    
+        if &#34;{pval}&#34; in &#34;&#34;.join(lines_to_keep):
+            # grab temperature
+            for line in lines_3p:
+                if &#34;Original pressure&#34; in line:
+                    o_p = line.split(&#34;|&#34;)[2]
+            for i,line in enumerate(lines_to_keep):
+                if &#34;{pval}&#34; in line:
+                    lines_to_keep[i] = line.format(tval=o_p)
+        
+        with open(path + &#34;/&#34; + sample_filename+&#34;.6i&#34;, &#34;w&#34;) as f:
+            f.writelines(lines_to_keep)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.lookup"><code class="name flex">
@@ -13683,8 +13745,22 @@ columns in a section (if a section name is provided).</dd>
     return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.AqSpeciation.Speciation.mt"><code class="name flex">
+<span>def <span class="ident">mt</span></span>(<span>self, sample)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def mt(self, sample):
+    sample_data = getattr(self, &#34;sample_data&#34;)
+    return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mass_contribution"><code class="name flex">
-<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
+<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', sample_label='sample', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot basis species contributions to mass balance of aqueous species
@@ -13715,6 +13791,12 @@ See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">http
 The "colorblind" colormap is referenced from Wong, B. Points of view:
 Color blindness. Nat Methods 8, 441 (2011).
 <a href="https://doi.org/10.1038/nmeth.1618">https://doi.org/10.1038/nmeth.1618</a></dd>
+<dt><strong><code>sample_label</code></strong> :&ensp;<code>str</code>, default <code>"sample"</code></dt>
+<dd>Name of the label that appears when hovering over an element in the
+interactive mass contribution plot. By default, this is "sample".
+However, other words might be more appropriate to describe the
+calculations you are performing. For instance, if you are comparing
+reaction progress, <code>sample_label = "Xi"</code> might be more appropriate.</dd>
 <dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
 <dd>Width and height of the plot, in inches. Size of interactive plots
 is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
@@ -13740,6 +13822,12 @@ the figure.</dd>
 <dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Return a plotly figure object? If True, a plot is not displayed as
 it is generated.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A figure object is returned if <code>plot_out</code> is true. Otherwise, a
+figure is simply displayed.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -13747,7 +13835,7 @@ it is generated.</dd>
 </summary>
 <pre><code class="python">    def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -13789,7 +13877,14 @@ it is generated.</dd>
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
             Color blindness. Nat Methods 8, 441 (2011).
             https://doi.org/10.1038/nmeth.1618
-            
+        
+        sample_label : str, default &#34;sample&#34;
+            Name of the label that appears when hovering over an element in the
+            interactive mass contribution plot. By default, this is &#34;sample&#34;.
+            However, other words might be more appropriate to describe the
+            calculations you are performing. For instance, if you are comparing
+            reaction progress, `sample_label = &#34;Xi&#34;` might be more appropriate.
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -13821,6 +13916,12 @@ it is generated.</dd>
         plot_out : bool, default False
             Return a plotly figure object? If True, a plot is not displayed as
             it is generated.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A figure object is returned if `plot_out` is true. Otherwise, a
+            figure is simply displayed.
         &#34;&#34;&#34;
         
         try:
@@ -13910,16 +14011,16 @@ it is generated.</dd>
                                 &#34;or a list of species names.&#34;)
 
         # get colormap
-        colors = get_colors(colormap, len(unique_species))
+        colors = _get_colors(colormap, len(unique_species))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(html_chemname_format_AqEquil)
-        unique_species = [html_chemname_format_AqEquil(sp) for sp in unique_species]
+        df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
+        unique_species = [chemlabel(sp) for sp in unique_species]
         
         if title == None:
-            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(html_chemname_format_AqEquil(basis))
+            title = &#39;&lt;span style=&#34;font-size: 14px;&#34;&gt;Species accounting for mass balance of {}&lt;/span&gt;&#39;.format(chemlabel(basis))
         
         
         # map each species to its color, e.g.,
@@ -13931,7 +14032,7 @@ it is generated.</dd>
 
         fig = px.bar(df_sp, x=&#34;sample&#34;, y=&#34;percent&#34;, color=&#34;species&#34;,
                      width=plot_width*ppi, height=plot_height*ppi,
-                     labels={&#34;sample&#34;: &#34;sample&#34;,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
+                     labels={&#34;sample&#34;: sample_label,  &#34;percent&#34;: &#34;mole %&#34;, &#34;species&#34;: &#34;species&#34;},
                      category_orders=category_orders,
                      color_discrete_map=dict_species_color,
                      template=&#34;simple_white&#34;,
@@ -14178,6 +14279,12 @@ the figure.</dd>
 <dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Return a plotly figure object? If True, a plot is not displayed as
 it is generated.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A figure object is returned if <code>plot_out</code> is true. Otherwise, a
+figure is simply displayed.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -14252,6 +14359,12 @@ it is generated.</dd>
     plot_out : bool, default False
         Return a plotly figure object? If True, a plot is not displayed as
         it is generated.
+        
+    Returns
+    -------
+    fig : Plotly figure object
+        A figure object is returned if `plot_out` is true. Otherwise, a
+        figure is simply displayed.
     &#34;&#34;&#34;
 
     if sample not in self.sample_data.keys():
@@ -14278,7 +14391,7 @@ it is generated.</dd>
     unique_minerals = self.__unique(df[&#34;mineral&#34;])
     
     # get colormap
-    colors = get_colors(colormap, len(unique_minerals))
+    colors = _get_colors(colormap, len(unique_minerals))
     
     # convert rgba to hex
     colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -14456,6 +14569,12 @@ the figure.</dd>
 <dt><strong><code>plot_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Return a plotly figure object? If True, a plot is not displayed as
 it is generated.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A figure object is returned if <code>plot_out</code> is true. Otherwise, a
+figure is simply displayed.</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -14525,6 +14644,12 @@ it is generated.</dd>
     plot_out : bool, default False
         Return a plotly figure object? If True, a plot is not displayed as
         it is generated.
+        
+    Returns
+    -------
+    fig : Plotly figure object
+        A figure object is returned if `plot_out` is true. Otherwise, a
+        figure is simply displayed.
     &#34;&#34;&#34;
 
     if not isinstance(y, list):
@@ -14556,7 +14681,7 @@ it is generated.</dd>
         xunit_type = &#34;&#34;
         xunit = &#34;&#34;
 
-    colors = get_colors(colormap, len(y), alpha=fill_alpha)
+    colors = _get_colors(colormap, len(y), alpha=fill_alpha)
     
     for i, yi in enumerate(y):
         y_col = self.lookup(yi)
@@ -14615,7 +14740,7 @@ it is generated.</dd>
         elif &#39;Temperature&#39; in y:
             ylabel = &#39;Temperature [°C]&#39;
         else:
-            y_formatted = html_chemname_format_AqEquil(y[0])
+            y_formatted = chemlabel(y[0])
             if unit != &#34;&#34;:
                 ylabel = &#34;{} {} [{}]&#34;.format(y_formatted, unit_type, unit)
             else:
@@ -14626,7 +14751,7 @@ it is generated.</dd>
     elif x == &#39;Temperature&#39;:
         xlabel = &#39;Temperature [°C]&#39;
     else:
-        x_formatted = html_chemname_format_AqEquil(x)
+        x_formatted = chemlabel(x)
         if xunit != &#34;&#34;:
             xlabel = &#34;{} {} [{}]&#34;.format(x_formatted, xunit_type, xunit)
         else:
@@ -14640,7 +14765,7 @@ it is generated.</dd>
     dict_species_color = {sp:color for sp,color in zip(y, colors)}
     
     # html format color dict key names
-    dict_species_color = {html_chemname_format_AqEquil(k):v for k,v in dict_species_color.items()}
+    dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
     
     df = self.lookup([&#34;name&#34;, x]+y).copy()
     df.loc[:, &#34;name&#34;] = df.index
@@ -14663,13 +14788,13 @@ it is generated.</dd>
         rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
         if len(y) == 1:
-            ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(html_chemname_format_AqEquil(y_find[0]), unit_type, unit)
+            ylabel = &#34;{}&lt;br&gt;{} [{}]&#34;.format(chemlabel(y_find[0]), unit_type, unit)
         
         df[&#34;formatted_rxn&#34;] = df[&#34;y_variable&#34;].map(rxn_dict)
     else:
         df[&#34;formatted_rxn&#34;] = &#34;&#34;
     
-    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(html_chemname_format_AqEquil)
+    df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
     
     fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
                      hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
@@ -14731,16 +14856,8 @@ it is generated.</dd>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="AqEquil.AqSpeciation.chemlabel" href="#AqEquil.AqSpeciation.chemlabel">chemlabel</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.compare" href="#AqEquil.AqSpeciation.compare">compare</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.convert_to_RVector" href="#AqEquil.AqSpeciation.convert_to_RVector">convert_to_RVector</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.flatten_list" href="#AqEquil.AqSpeciation.flatten_list">flatten_list</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.float_to_formatted_fraction" href="#AqEquil.AqSpeciation.float_to_formatted_fraction">float_to_formatted_fraction</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.float_to_fraction" href="#AqEquil.AqSpeciation.float_to_fraction">float_to_fraction</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.format_coeff" href="#AqEquil.AqSpeciation.format_coeff">format_coeff</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.get_colors" href="#AqEquil.AqSpeciation.get_colors">get_colors</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.html_chemname_format" href="#AqEquil.AqSpeciation.html_chemname_format">html_chemname_format</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.html_chemname_format_AqEquil" href="#AqEquil.AqSpeciation.html_chemname_format_AqEquil">html_chemname_format_AqEquil</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.isnotebook" href="#AqEquil.AqSpeciation.isnotebook">isnotebook</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.load" href="#AqEquil.AqSpeciation.load">load</a></code></li>
 </ul>
 </li>
@@ -14750,12 +14867,10 @@ it is generated.</dd>
 <h4><code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code></h4>
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.fill_data0" href="#AqEquil.AqSpeciation.AqEquil.fill_data0">fill_data0</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.make_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.make_redox_reactions">make_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq3" href="#AqEquil.AqSpeciation.AqEquil.runeq3">runeq3</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq6" href="#AqEquil.AqSpeciation.AqEquil.runeq6">runeq6</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeqpt" href="#AqEquil.AqSpeciation.AqEquil.runeqpt">runeqpt</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.s_d" href="#AqEquil.AqSpeciation.AqEquil.s_d">s_d</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.show_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.show_redox_reactions">show_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.speciate" href="#AqEquil.AqSpeciation.AqEquil.speciate">speciate</a></code></li>
 </ul>
@@ -14771,7 +14886,9 @@ it is generated.</dd>
 <h4><code><a title="AqEquil.AqSpeciation.Speciation" href="#AqEquil.AqSpeciation.Speciation">Speciation</a></code></h4>
 <ul class="">
 <li><code><a title="AqEquil.AqSpeciation.Speciation.barplot" href="#AqEquil.AqSpeciation.Speciation.barplot">barplot</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Speciation.join_6i_3p" href="#AqEquil.AqSpeciation.Speciation.join_6i_3p">join_6i_3p</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.lookup" href="#AqEquil.AqSpeciation.Speciation.lookup">lookup</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Speciation.mt" href="#AqEquil.AqSpeciation.Speciation.mt">mt</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mass_contribution" href="#AqEquil.AqSpeciation.Speciation.plot_mass_contribution">plot_mass_contribution</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mineral_saturation" href="#AqEquil.AqSpeciation.Speciation.plot_mineral_saturation">plot_mineral_saturation</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_solid_solutions" href="#AqEquil.AqSpeciation.Speciation.plot_solid_solutions">plot_solid_solutions</a></code></li>

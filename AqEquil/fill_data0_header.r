@@ -22,7 +22,7 @@ calc_bdot <- function(T){
   b4 <- -4.6103e-9  
 
   result <- b1 + b2*T + b3*(T-25.0)^2 + b4*(T-25.0)^3
-
+    
   return(ifelse(T >= 300, 0, result))
 
 }
@@ -37,7 +37,7 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
   grid_press <- unlist(grid_press)
   grid_temps_original <- grid_temps
   if(length(grid_temps) == 1){
-    grid_temps <- grid_temps + 0:7 # only the first T value is valid, but this is needed for EQ3
+    grid_temps <- grid_temps + 10*(0:7) # only the first T value is valid, but this is needed for EQ3
     grid_press <- rep(grid_press, 8)
   }
     

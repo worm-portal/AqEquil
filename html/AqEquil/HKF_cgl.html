@@ -1,0 +1,1584 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+<meta name="generator" content="pdoc 0.10.0" />
+<title>AqEquil.HKF_cgl API documentation</title>
+<meta name="description" content="" />
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/sanitize.min.css" integrity="sha256-PK9q560IAAa6WVRRh76LtCaI8pjTJ2z11v0miyNNjrs=" crossorigin>
+<link rel="preload stylesheet" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/11.0.1/typography.min.css" integrity="sha256-7l/o7C8jubJiy74VsKTidCy1yBkRtiUGbVkYBylBqUg=" crossorigin>
+<link rel="stylesheet preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/styles/github.min.css" crossorigin>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:30px;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:1em 0 .50em 0}h3{font-size:1.4em;margin:25px 0 10px 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .3s ease-in-out}a:hover{color:#e82}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900}pre code{background:#f8f8f8;font-size:.8em;line-height:1.4em}code{background:#f2f2f1;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{background:#f8f8f8;border:0;border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0;padding:1ex}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-weight:bold;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em .5em;margin-bottom:1em}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.item .name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul{padding-left:1.5em}.toc > ul > li{margin-top:.5em}}</style>
+<style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.1.1/highlight.min.js" integrity="sha256-Uv3H6lx7dJmRfRvH8TH6kJD1TSK1aFcwgx+mdg3epi8=" crossorigin></script>
+<script>window.addEventListener('DOMContentLoaded', () => hljs.initHighlighting())</script>
+</head>
+<body>
+<main>
+<article id="content">
+<header>
+<h1 class="title">Module <code>AqEquil.HKF_cgl</code></h1>
+</header>
+<section id="section-intro">
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">import pandas as pd
+import numpy as np
+import math
+import copy
+import warnings
+import rpy2.robjects as ro
+from rpy2.robjects.packages import importr
+
+def water(props, water_model, T=25, P=1):
+    
+    if not isinstance(props, list):
+        props = [props]
+    
+    chnosz = importr(&#34;CHNOSZ&#34;)
+    chnosz.water(water_model)
+    return chnosz.water(ro.StrVector([str(p) for p in props]), T=T, P=P, P1=False)
+
+def entropy(formula):
+    chnosz = importr(&#34;CHNOSZ&#34;)
+    return float(chnosz.entropy(formula))
+
+def calc_logK(OBIGT_df, Tc, P, TP_i, water_model):
+    
+    OBIGT_TP, rows_added = calc_G_TP(OBIGT_df, Tc, P, water_model)
+    
+    dissrxn2logK_out = []
+    for i in OBIGT_TP.index:
+        dissrxn2logK_out.append(dissrxn2logK(OBIGT_TP, i, Tc))
+    assert len(dissrxn2logK_out) == OBIGT_TP.shape[0]
+    
+    OBIGT_TP[&#39;dissrxn_logK_&#39;+str(TP_i)] = dissrxn2logK_out
+    
+    # remove any rows added by calc_G_TP
+    OBIGT_TP.drop(OBIGT_TP.tail(rows_added).index, inplace = True)
+    
+    return OBIGT_TP
+
+
+def calc_G_TP(OBIGT, Tc, P, water_model):
+    
+    aq_out, H2O_Pt = hkf(property=[&#34;G&#34;], parameters=OBIGT,
+                         T=273.15+Tc, P=P, contrib=[&#34;n&#34;, &#34;s&#34;, &#34;o&#34;],
+                         H2O_props=[&#34;rho&#34;], water_model=water_model)
+    
+    cgl_out = cgl(property=[&#34;G&#34;], parameters=OBIGT, T=273.15+Tc, P=P)
+    
+    aq_col = pd.DataFrame.from_dict(aq_out, orient=&#34;index&#34;)
+    cgl_col = pd.DataFrame.from_dict(cgl_out, orient=&#34;index&#34;)
+
+    G_TP_df = pd.concat([aq_col, cgl_col], axis=1)
+    G_TP_df.columns = [&#39;aq&#39;,&#39;cgl&#39;]
+    
+    OBIGT[&#34;G_TP&#34;] = G_TP_df[&#39;aq&#39;].combine_first(G_TP_df[&#39;cgl&#39;])
+    
+    rows_added = 0
+    
+    # add a row for water
+    if &#34;H2O&#34; not in list(OBIGT[&#34;name&#34;]):
+        OBIGT = OBIGT.append(pd.DataFrame([[float(&#39;NaN&#39;)] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;name&#39;)] = &#34;H2O&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;tag&#39;)] = &#34;nan&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;G_TP&#39;)] = float(water(&#34;G&#34;, water_model, T=Tc+273.15, P=P)[&#34;G&#34;])
+        rows_added += 1
+
+    # add a row for protons
+    if &#34;H+&#34; not in list(OBIGT[&#34;name&#34;]):
+        OBIGT = OBIGT.append(pd.DataFrame([[float(&#39;NaN&#39;)] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;name&#39;)] = &#34;H+&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;tag&#39;)] = &#34;nan&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;G_TP&#39;)] = 0
+        rows_added += 1
+    
+    return OBIGT, rows_added
+    
+    
+def G2logK(G, Tc):
+    # Gas constant R is in cal/mol K
+    return G / (-math.log(10) * 1.9872 * (273.15+Tc))
+
+
+def dissrxn2logK(OBIGT, i, Tc):
+    
+    this_dissrxn = OBIGT.iloc[i, OBIGT.columns.get_loc(&#39;dissrxn&#39;)]
+    
+    try:
+        split_dissrxn = this_dissrxn.split(&#34; &#34;)
+    except:
+        return float(&#39;NaN&#39;)
+    
+    coeff = [float(n) for n in split_dissrxn[::2]]
+    species = split_dissrxn[1::2]
+    try:
+        G = sum([float(c*OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]) for c,sp in zip(coeff, species)])
+    except:
+        G_list = []
+        for ii, sp in enumerate(species):
+            G_TP = OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]
+            if len(G_TP) == 1:
+                G_list.append(float(coeff[ii]*OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]))
+            else:
+                ### check valid polymorph T
+
+                # get polymorph entries of OBIGT that match mineral
+                poly_df = copy.copy(OBIGT.loc[OBIGT[&#34;name&#34;]==sp,:])
+                # ensure polymorph df is sorted according to cr, cr2, cr3... etc.
+                poly_df = poly_df.sort_values(&#34;state&#34;)
+
+                z_Ts = list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;z.T&#34;])
+
+                last_t = float(&#39;-inf&#39;)
+                appended=False
+                for iii,t in enumerate(z_Ts):
+
+                    if Tc+273.15 &gt; last_t and Tc+273.15 &lt; t:
+                        G_list.append(float(coeff[ii]*list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;G_TP&#34;])[iii]))
+                        appended=True
+                    if not appended and z_Ts[-1] == t:
+                        G_list.append(float(coeff[ii]*list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;G_TP&#34;])[iii]))
+                    last_t = t
+
+        G = sum(G_list)
+
+    return G2logK(G, Tc)
+
+
+
+def convert_cm3bar(value):
+    return value*4.184 * 10
+
+# GB conversion notes:
+# - T and P are supposed to be lists but can only be single value lists until pyCHNOSZ&#39;s water can be made to accept lists for T and P
+def hkf(property=None, parameters=None, T=298.15, P=1,
+    contrib = [&#34;n&#34;, &#34;s&#34;, &#34;o&#34;], H2O_props=[&#34;rho&#34;], water_model=&#34;SUPCRT92&#34;):
+    # calculate G, H, S, Cp, V, kT, and/or E using
+    # the revised HKF equations of state
+    # H2O_props - H2O properties needed for subcrt() output
+    # constants
+    Tr = 298.15 # K
+    Pr = 1      # bar
+    Theta = 228 # K
+    Psi = 2600  # bar
+    
+    # GB conversion notes: hkf function is not vectorized...
+#     # make T and P equal length
+#     if not P == &#34;Psat&#34;:
+#         if len(P) &lt; len(T):
+#             P = [P]*len(T)
+#         if len(T) &lt; len(P):
+#             T = [T]*len(P)
+    
+    # GB conversion note: handle error messages later
+#     # nonsolvation, solvation, and origination contribution
+#     notcontrib &lt;- ! contrib %in% c(&#34;n&#34;, &#34;s&#34;, &#34;o&#34;)
+#     if(TRUE %in% notcontrib) stop(paste(&#34;contrib must be in c(&#39;n&#39;, &#39;s&#39;, &#39;o); got&#34;, c2s(contrib[notcontrib])))
+    
+    # get water properties
+    # rho - for subcrt() output and g function
+    # Born functions and epsilon - for HKF calculations
+    H2O_props += [&#34;QBorn&#34;, &#34;XBorn&#34;, &#34;YBorn&#34;, &#34;epsilon&#34;]
+
+    if water_model == &#34;SUPCRT92&#34;:
+      # using H2O92D.f from SUPCRT92: alpha, daldT, beta - for partial derivatives of omega (g function)
+      H2O_props += [&#34;alpha&#34;, &#34;daldT&#34;, &#34;beta&#34;]
+    
+    elif water_model == &#34;IAPWS95&#34;:
+      # using IAPWS-95: NBorn, UBorn - for compressibility, expansibility
+      H2O_props += [&#34;NBorn&#34;, &#34;UBorn&#34;]
+    
+    elif water_model == &#34;DEW&#34;:
+      # using DEW model: get beta to calculate dgdP
+      H2O_props += [&#34;beta&#34;]
+    
+    H2O_PrTr = water(H2O_props, water_model, T=Tr, P=Pr) # pyCHNOSZ&#39;s water function does not handle lists yet, hence splitting this into two steps
+    H2O_PT = water(H2O_props, water_model, T=T, P=P) # pyCHNOSZ&#39;s water function does not handle lists yet, hence splitting this into two steps
+    ZBorn = -1 / H2O_PT.loc[&#34;1&#34;, &#34;epsilon&#34;]
+    ZBorn_PrTr = -1 / H2O_PrTr.loc[&#34;1&#34;, &#34;epsilon&#34;]
+    
+    # a class to store the result
+    out_dict = {} # dictionary to store output
+    
+    for k in parameters.index:
+        
+        if parameters[&#34;state&#34;][k] != &#34;aq&#34;:
+            out_dict[k] = {p:float(&#39;NaN&#39;) for p in property}
+        else:
+            sp = parameters[&#34;name&#34;][k]
+
+            # loop over each species
+            PAR = copy.copy(parameters.loc[k, :])
+
+            PAR[&#34;a1.a&#34;] = copy.copy(PAR[&#34;a1.a&#34;]*10**-1)
+            PAR[&#34;a2.b&#34;] = copy.copy(PAR[&#34;a2.b&#34;]*10**2)
+            PAR[&#34;a4.d&#34;] = copy.copy(PAR[&#34;a4.d&#34;]*10**4)
+            PAR[&#34;c2.f&#34;] = copy.copy(PAR[&#34;c2.f&#34;]*10**4)
+            PAR[&#34;omega.lambda&#34;] = copy.copy(PAR[&#34;omega.lambda&#34;]*10**5)
+
+            # substitute Cp and V for missing EoS parameters
+            # here we assume that the parameters are in the same position as in thermo()$OBIGT
+            # we don&#39;t need this if we&#39;re just looking at solvation properties (Cp_s_var, V_s_var)
+
+            # GB conversion note: this block checks various things about EOS parameters.
+            # for now, just set hasEOS to True
+            hasEOS = True # delete this once the following block is converted to python
+    #         if &#34;n&#34; in contrib:
+    #             # put the heat capacity in for c1 if both c1 and c2 are missing
+    #             if all(is.na(PAR[, 18:19])):
+    #                 PAR[, 18] = PAR[&#34;Cp&#34;]
+    #             # put the volume in for a1 if a1, a2, a3 and a4 are missing
+    #             if all(is.na(PAR[, 14:17])):
+    #                 PAR[, 14] = convert(PAR[&#34;V&#34;], &#34;calories&#34;)
+    #             # test for availability of the EoS parameters
+    #             hasEOS = any(!is.na(PAR[, 14:21]))
+    #             # if at least one of the EoS parameters is available, zero out any NA&#39;s in the rest
+    #             if hasEOS:
+    #                 PAR[, 14:21][, is.na(PAR[, 14:21])] = 0
+
+            # compute values of omega(P,T) from those of omega(Pr,Tr)
+            # using g function etc. (Shock et al., 1992 and others)
+            omega = PAR[&#34;omega.lambda&#34;]  # omega_PrTr
+            # its derivatives are zero unless the g function kicks in
+            dwdP, dwdT, d2wdT2 = 0, 0, 0
+            Z = PAR[&#34;z.T&#34;]
+
+            omega_PT = PAR[&#34;omega.lambda&#34;]
+            if Z != 0 and Z != &#34;NA&#34; and PAR[&#34;name&#34;] != &#34;H+&#34;:
+                # compute derivatives of omega: g and f functions (Shock et al., 1992; Johnson et al., 1992)
+                rhohat = H2O_PT[&#34;rho&#34;]/1000  # just converting kg/m3 to g/cm3
+
+                
+                # temporarily filter out Python&#39;s warnings about dividing by zero, which is possible
+                # with the equations in the gfunction
+                # Possible complex output is acounted for in gfun().
+                with warnings.catch_warnings():
+                    warnings.simplefilter(&#39;ignore&#39;)
+                    g = gfun(rhohat, T-273.15, P, H2O_PT[&#34;alpha&#34;], H2O_PT[&#34;daldT&#34;], H2O_PT[&#34;beta&#34;])
+
+
+                # after SUPCRT92/reac92.f
+                eta = 1.66027E5
+                reref = (Z**2) / (omega/eta + Z/(3.082 + 0))
+                re = reref + abs(Z) * g[&#34;g&#34;]
+                omega_PT = eta * (Z**2/re - Z/(3.082 + g[&#34;g&#34;]))
+                Z3 = abs(Z**3)/re**2 - Z/(3.082 + g[&#34;g&#34;])**2
+                Z4 = abs(Z**4)/re**3 - Z/(3.082 + g[&#34;g&#34;])**3
+                dwdP = (-eta * Z3 * g[&#34;dgdP&#34;])
+                dwdT = (-eta * Z3 * g[&#34;dgdT&#34;])
+                d2wdT2 = (2 * eta * Z4 * g[&#34;dgdT&#34;]**2 - eta * Z3 * g[&#34;d2gdT2&#34;])
+
+            # loop over each property
+            w = float(&#39;NaN&#39;)
+            for i,PROP in enumerate(property) :
+
+                # over nonsolvation, solvation, or origination contributions
+                hkf_p = 0
+
+                for icontrib in contrib :
+                    # various contributions to the properties
+                    if icontrib == &#34;n&#34;:
+                        # nonsolvation ghs equations
+                        if PROP == &#34;H&#34;:
+                            p_c = PAR[&#34;c1.e&#34;]*(T-Tr) - PAR[&#34;c2.f&#34;]*(1/(T-Theta)-1/(Tr-Theta))
+                            p_a = PAR[&#34;a1.a&#34;]*(P-Pr) + PAR[&#34;a2.b&#34;]*math.log((Psi+P)/(Psi+Pr)) + \
+                              ((2*T-Theta)/(T-Theta)**2)*(PAR[&#34;a3.c&#34;]*(P-Pr)+PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))
+                            p = p_c + p_a
+                        elif PROP == &#34;S&#34;:
+                            p_c = PAR[&#34;c1.e&#34;]*math.log(T/Tr) - \
+                              (PAR[&#34;c2.f&#34;]/Theta)*( 1/(T-Theta)-1/(Tr-Theta) + \
+                              math.log( (Tr*(T-Theta))/(T*(Tr-Theta)) )/Theta )
+                            p_a = (T-Theta)**(-2)*(PAR[&#34;a3.c&#34;]*(P-Pr)+PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))
+                            p = p_c + p_a
+                        elif PROP == &#34;G&#34;:
+                            p_c = -PAR[&#34;c1.e&#34;]*(T*math.log(T/Tr)-T+Tr) - \
+                              PAR[&#34;c2.f&#34;]*( (1/(T-Theta)-1/(Tr-Theta))*((Theta-T)/Theta) - \
+                              (T/Theta**2)*math.log((Tr*(T-Theta))/(T*(Tr-Theta))) )
+                            p_a = PAR[&#34;a1.a&#34;]*(P-Pr) + PAR[&#34;a2.b&#34;]*math.log((Psi+P)/(Psi+Pr)) + \
+                              (PAR[&#34;a3.c&#34;]*(P-Pr) + PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))/(T-Theta)
+                            p = p_c + p_a
+                            # at Tr,Pr, if the origination contribution is not NA, ensure the solvation contribution is 0, not NA
+                            if not np.isnan(PAR[&#34;G&#34;]):
+                                if T==Tr and P==Pr:
+                                    p = 0
+                        # nonsolvation cp v kt e equations
+                        elif PROP == &#34;Cp&#34;:
+                            p = PAR[&#34;c1.e&#34;] + PAR[&#34;c2.f&#34;] * ( T - Theta ) ** (-2)        
+                        elif PROP == &#34;V&#34;:
+                            p = convert_cm3bar(PAR[&#34;a1.a&#34;]) + \
+                              convert_cm3bar(PAR[&#34;a2.b&#34;]) / (Psi + P) + \
+                              (convert_cm3bar(PAR[&#34;a3.c&#34;]) + convert_cm3bar(PAR[&#34;a4.d&#34;]) / (Psi + P)) / (T - Theta)
+#                         elif PROP == &#34;kT&#34;:
+#                             p = (convert(PAR[&#34;a2.b&#34;], &#34;cm3bar&#34;) + \
+#                               convert(PAR[&#34;a4.d&#34;], &#34;cm3bar&#34;) / (T - Theta)) * (Psi + P) ** (-2)
+#                         elif PROP == &#34;E&#34;:
+#                             p = convert( - (PAR[&#34;a3.c&#34;] + PAR[&#34;a4.d&#34;] / convert((Psi + P), &#34;calories&#34;)) * \
+#                               (T - Theta) ** (-2), &#34;cm3bar&#34;)
+                        else:
+                            print(&#34;BAD&#34;)
+
+                    if icontrib == &#34;s&#34;:
+                        # solvation ghs equations
+                        if PROP == &#34;G&#34;:
+                            p = -omega_PT*(ZBorn+1) + omega*(ZBorn_PrTr+1) + omega*H2O_PrTr.loc[&#34;1&#34;, &#34;YBorn&#34;]*(T-Tr)
+                            # at Tr,Pr, if the origination contribution is not NA, ensure the solvation contribution is 0, not NA
+                            if(np.isnan(PAR[&#34;G&#34;])):
+                                if T==Tr and P==Pr:
+                                    p = 0
+                        if PROP == &#34;H&#34;: 
+                            p = -omega_PT*(ZBorn+1) + omega_PT*T*H2O_PT.loc[&#34;1&#34;, &#34;YBorn&#34;] + T*(ZBorn+1)*dwdT + \
+                                   omega*(ZBorn_PrTr+1) - omega*Tr*H2O_PrTr.loc[&#34;1&#34;, &#34;YBorn&#34;]
+                        if PROP == &#34;S&#34;:
+                            p = omega_PT*H2O_PT.loc[&#34;1&#34;,&#34;YBorn&#34;] + (ZBorn+1)*dwdT - omega*H2O_PrTr.loc[&#34;1&#34;,&#34;YBorn&#34;]
+                        # solvation cp v kt e equations
+                        if PROP == &#34;Cp&#34;:
+                            p = omega_PT*T*H2O_PT.loc[&#34;1&#34;,&#34;XBorn&#34;] + 2*T*H2O_PT.loc[&#34;1&#34;,&#34;YBorn&#34;]*dwdT + T*(ZBorn+1)*d2wdT2
+                        if PROP == &#34;V&#34;:
+                            p = -convert_cm3bar(omega_PT) * \
+                                H2O_PT.loc[&#34;1&#34;, &#34;QBorn&#34;] + convert_cm3bar(dwdP) * (-ZBorn - 1)
+                        # TODO: the partial derivatives of omega are not included here here for kt and e
+                        # (to do it, see p. 820 of SOJ+92 ... but kt requires d2wdP2 which we don&#34;t have yet)
+                        if PROP == &#34;kT&#34;:
+                            p = convert_cm3bar(omega) * H2O_PT[&#34;NBorn&#34;]
+                        if PROP == &#34;E&#34;:
+                            p = -convert_cm3bar(omega) * H2O_PT[&#34;UBorn&#34;]
+
+                    if icontrib == &#34;o&#34;:
+                        # origination ghs equations
+                        if PROP == &#34;G&#34;:
+                            p = PAR[&#34;G&#34;] - PAR[&#34;S&#34;] * (T-Tr)
+                            # don&#34;t inherit NA from PAR$S at Tr
+                            if T == Tr:
+                                p = PAR[&#34;G&#34;]
+                        elif PROP == &#34;H&#34;:
+                            p = PAR[&#34;H&#34;]
+                        elif PROP == &#34;S&#34;:
+                            p = PAR[&#34;S&#34;]
+                        # origination eos equations (Cp, V, kT, E): senseless
+                        else:
+                            p = 0 * T
+
+                    # accumulate the contribution
+                    hkf_p = hkf_p + p
+                
+                # species have to be numbered (k) instead of named because of name repeats in db (e.g., cr polymorphs)
+                if i &gt; 0:
+                    out_dict[k][PROP] = hkf_p
+                else:
+                    out_dict[k] = {PROP:hkf_p}
+
+    return(out_dict, H2O_PT)
+
+
+
+
+def gfun(rhohat, Tc, P, alpha, daldT, beta):
+    ## g and f functions for describing effective electrostatic radii of ions
+    ## split from hkf() 20120123 jmd      
+    ## based on equations in
+    ## Shock EL, Oelkers EH, Johnson JW, Sverjensky DA, Helgeson HC, 1992
+    ## Calculation of the Thermodynamic Properties of Aqueous Species at High Pressures 
+    ## and Temperatures: Effective Electrostatic Radii, Dissociation Constants and 
+    ## Standard Partial Molal Properties to 1000 degrees C and 5 kbar
+    ## J. Chem. Soc. Faraday Trans., 88(6), 803-826  doi:10.1039/FT9928800803
+    # rhohat - density of water in g/cm3
+    # Tc - temperature in degrees Celsius
+    # P - pressure in bars
+    # start with an output list of zeros
+    out0 = float(len(rhohat))
+    out = dict(g=out0, dgdT=out0, d2gdT2=out0, dgdP=out0)
+    
+    rhohat = rhohat[0]
+    alpha = alpha[0]
+    daldT = daldT[0]
+    beta = beta[0]
+    
+    # only rhohat less than 1 will give results other than zero
+    if rhohat &gt;= 1:
+        return {&#34;g&#34;:0, &#34;dgdT&#34;:0, &#34;d2gdT2&#34;:0, &#34;dgdP&#34;:0}
+
+    # eta in Eq. 1
+    eta = 1.66027E5
+    # Table 3
+    ag1 = -2.037662
+    ag2 = 5.747000E-3
+    ag3 = -6.557892E-6
+    bg1 = 6.107361
+    bg2 = -1.074377E-2
+    bg3 = 1.268348E-5
+    # Eq. 25
+    ag = ag1 + ag2 * Tc + ag3 * Tc ** 2
+    # Eq. 26
+    bg = bg1 + bg2 * Tc + bg3 * Tc ** 2
+    # Eq. 24
+    g = ag * (1 - rhohat) ** bg
+    
+    # Table 4
+    af1 = 0.3666666E2
+    af2 = -0.1504956E-9
+    af3 = 0.5017997E-13
+    
+    # Eq. 33
+    f = ( ((Tc - 155) / 300) ** 4.8 + af1 * ((Tc - 155) / 300) ** 16 ) * \
+        ( af2 * (1000 - P) ** 3 + af3 * (1000 - P) ** 4 )
+    
+    # limits of the f function (region II of Fig. 6)
+    if Tc &gt; 155 and P &lt; 1000 and Tc &lt; 355:
+        ifg = True
+    else:
+        ifg = False
+    
+    # Eq. 32
+    if ifg and not isinstance(f, complex):
+        g = g*ifg - f*ifg
+    
+    # at P &gt; 6000 bar (in DEW calculations), g is zero 20170926
+    if P &gt; 6000:
+        g = 0
+
+    ## now we have g at P, T
+    # put the results in their right place (where rhohat &lt; 1)
+    out[&#34;g&#34;] = g
+    
+    ## the rest is to get its partial derivatives with pressure and temperature
+    ## after Johnson et al., 1992
+    # alpha - coefficient of isobaric expansivity (K^-1)
+    # daldT - temperature derivative of coefficient of isobaric expansivity (K^-2)
+    # beta - coefficient of isothermal compressibility (bar^-1)
+    # if these are NULL or NA (for IAPWS-95 and DEW), we skip the calculation
+    if np.isnan(alpha): alpha = float(&#39;NaN&#39;)
+    if np.isnan(daldT): daldT = float(&#39;NaN&#39;)
+    if np.isnan(beta): beta = float(&#39;NaN&#39;)
+    # Eqn. 76
+    d2fdT2 = (0.0608/300*((Tc-155)/300)**2.8 + af1/375*((Tc-155)/300)**14) * (af2*(1000-P)**3 + af3*(1000-P)**4)
+    # Eqn. 75
+    dfdT = (0.016*((Tc-155)/300)**3.8 + 16*af1/300*((Tc-155)/300)**15) * \
+        (af2*(1000-P)**3 + af3*(1000-P)**4)
+    # Eqn. 74
+    dfdP = -(((Tc-155)/300)**4.8 + af1*((Tc-155)/300)**16) * \
+        (3*af2*(1000-P)**2 + 4*af3*(1000-P)**3)
+    d2bdT2 = 2 * bg3  # Eqn. 73
+    d2adT2 = 2 * ag3  # Eqn. 72
+    dbdT = bg2 + 2*bg3*Tc  # Eqn. 71
+    dadT = ag2 + 2*ag3*Tc  # Eqn. 70
+    
+    if isinstance(d2fdT2, complex): d2fdT2 = float(&#39;NaN&#39;)
+    if isinstance(dfdT, complex): dfdT = float(&#39;NaN&#39;)
+    if isinstance(dfdP, complex): dfdP = float(&#39;NaN&#39;)
+    if isinstance(d2bdT2, complex): d2bdT2 = float(&#39;NaN&#39;)
+    if isinstance(d2adT2, complex): d2adT2 = float(&#39;NaN&#39;)
+    if isinstance(dbdT, complex): dbdT = float(&#39;NaN&#39;)
+    if isinstance(dadT, complex): dadT = float(&#39;NaN&#39;)
+    
+    if not np.isnan(alpha) and not np.isnan(daldT):
+        # Eqn. 69
+        dgadT = bg*rhohat*alpha*(1-rhohat)**(bg-1) + math.log(1-rhohat)*g/ag*dbdT  
+        D = rhohat
+        
+        # transcribed from SUPCRT92/reac92.f
+        dDdT = -D * alpha
+        #dDdP = D * beta
+        dDdTT = -D * (daldT - alpha**2)
+        Db = (1-D)**bg
+        dDbdT = -bg*(1-D)**(bg-1)*dDdT + math.log(1-D)*Db*dbdT
+        dDbdTT = -(bg*(1-D)**(bg-1)*dDdTT + (1-D)**(bg-1)*dDdT*dbdT + \
+            bg*dDdT*(-(bg-1)*(1-D)**(bg-2)*dDdT + math.log(1-D)*(1-D)**(bg-1)*dbdT)) + \
+            math.log(1-D)*(1-D)**bg*d2bdT2 - (1-D)**bg*dbdT*dDdT/(1-D) + math.log(1-D)*dbdT*dDbdT
+        d2gdT2 = ag*dDbdTT + 2*dDbdT*dadT + Db*d2adT2
+        
+        if ifg:
+            d2gdT2 = d2gdT2 - d2fdT2
+        
+        dgdT = g/ag*dadT + ag*dgadT  # Eqn. 67
+        
+        if ifg:
+            dgdT = dgdT - dfdT
+        
+        # phew! done with those derivatives
+        out[&#34;dgdT&#34;] = dgdT
+        out[&#34;d2gdT2&#34;] = d2gdT2
+
+    if not np.isnan(beta) :
+        dgdP = -bg*rhohat*beta*g*(1-rhohat)**-1  # Eqn. 66
+        if ifg:
+            dgdP = dgdP - dfdP
+        out[&#34;dgdP&#34;] = dgdP
+    
+    return(out)
+
+# CHNOSZ/cgl.R
+# calculate standard thermodynamic properties of non-aqueous species
+# 20060729 jmd
+
+def cgl(property = None, parameters = None, T = 298.15, P = 1):
+    # calculate properties of crystalline, liquid (except H2O) and gas species
+    Tr = 298.15
+    Pr = 1
+    # the number of T, P conditions
+    ncond = 1 # max([len(T), len(P)])
+    # initialize output dict
+    out_dict = dict()
+    # loop over each species
+    
+    for k in parameters.index:
+        
+        if parameters[&#34;state&#34;][k] == &#34;aq&#34;:
+            out_dict[k] = {p:float(&#39;NaN&#39;) for p in property}
+        else:
+            
+            # the parameters for *this* species
+            PAR = copy.copy(parameters.loc[k])
+
+            PAR[&#34;a2.b&#34;] = copy.copy(PAR[&#34;a2.b&#34;]*10**-3)
+            PAR[&#34;a3.c&#34;] = copy.copy(PAR[&#34;a3.c&#34;]*10**5)
+            PAR[&#34;c1.e&#34;] = copy.copy(PAR[&#34;c1.e&#34;]*10**-5)
+
+            # GB: converted code won&#39;t handle Berman minerals to begin with
+    #         if(all(is.na(PAR[9:21]))) {
+    #             # use Berman equations (parameters not in thermo()$OBIGT)
+    #             properties &lt;- berman(PAR[&#34;name&#34;], T=T, P=P, thisinfo=PAR)
+    #             iprop &lt;- match(property, colnames(properties))
+    #             values &lt;- properties[, iprop, drop=FALSE]
+    #         } else {
+
+            # in CHNOSZ, we have
+            # 1 cm^3 bar --&gt; convert(1, &#34;calories&#34;) == 0.02390057 cal
+            # but REAC92D.F in SUPCRT92 uses
+            cm3bar_to_cal = 0.023901488 # cal
+            # start with NA values
+            values = dict()
+            # a test for availability of heat capacity coefficients (a, b, c, d, e, f)
+            # based on the column assignments in thermo()$OBIGT
+
+            if any([True if not np.isnan(p) else False for p in list(PAR.iloc[13:19])]):
+                # we have at least one of the heat capacity coefficients;
+                # zero out any NA&#39;s in the rest (leave lambda and T of transition (columns 19-20) alone)
+                PAR.iloc[13:19] = [0 if np.isnan(p) else p for p in list(PAR.iloc[13:19])]
+                # calculate the heat capacity and its integrals
+                Cp = PAR[&#34;a1.a&#34;] + PAR[&#34;a2.b&#34;]*T + PAR[&#34;a3.c&#34;]*T**-2 + PAR[&#34;a4.d&#34;]*T**-0.5 + PAR[&#34;c1.e&#34;]*T**2 + PAR[&#34;c2.f&#34;]*T**PAR[&#34;omega.lambda&#34;]
+                intCpdT = PAR[&#34;a1.a&#34;]*(T - Tr) + PAR[&#34;a2.b&#34;]*(T**2 - Tr**2)/2 + PAR[&#34;a3.c&#34;]*(1/T - 1/Tr)/-1 + PAR[&#34;a4.d&#34;]*(T**0.5 - Tr**0.5)/0.5 + PAR[&#34;c1.e&#34;]*(T**3-Tr**3)/3
+                intCpdlnT = PAR[&#34;a1.a&#34;]*math.log(T / Tr) + PAR[&#34;a2.b&#34;]*(T - Tr) + PAR[&#34;a3.c&#34;]*(T**-2 - Tr**-2)/-2 + PAR[&#34;a4.d&#34;]*(T**-0.5 - Tr**-0.5)/-0.5  + PAR[&#34;c1.e&#34;]*(T**2 - Tr**2)/2
+
+                # do we also have the lambda parameter (Cp term with adjustable exponent on T)?
+                if not np.isnan(PAR[&#34;omega.lambda&#34;]) and PAR[&#34;omega.lambda&#34;] != 0:
+                    # equations for lambda adapted from Helgeson et al., 1998 (doi:10.1016/S0016-7037(97)00219-6)
+                    if PAR[&#34;omega.lambda&#34;] == -1:
+                        intCpdT = intCpdT + PAR[&#34;c2.f&#34;]*log(T/Tr) 
+                    else:
+                        intCpdT = intCpdT - PAR[&#34;c2.f&#34;]*( T**(PAR[&#34;omega.lambda&#34;] + 1) - Tr**(PAR[&#34;omega.lambda&#34;] + 1) ) / (PAR[&#34;omega.lambda&#34;] + 1)
+                    intCpdlnT = intCpdlnT + PAR[&#34;c2.f&#34;]*(T**PAR[&#34;omega.lambda&#34;] - Tr**PAR[&#34;omega.lambda&#34;]) / PAR[&#34;omega.lambda&#34;]
+
+            else:
+                # use constant heat capacity if the coefficients are not available
+                Cp = PAR[&#34;Cp&#34;]
+                intCpdT = PAR[&#34;Cp&#34;]*(T - Tr)
+                intCpdlnT = PAR[&#34;Cp&#34;]*math.log(T / Tr)
+                # in case Cp is listed as NA, set the integrals to 0 at Tr
+                if T == Tr:
+                    intCpdT = 0
+                    intCpdlnT = 0
+
+
+            # volume and its integrals
+            if PAR[&#34;name&#34;] in [&#34;quartz&#34;, &#34;coesite&#34;]:
+                # volume calculations for quartz and coesite
+                qtz = quartz_coesite(PAR, T, P)
+                V = qtz[&#34;V&#34;]
+                intVdP = qtz[&#34;intVdP&#34;]
+                intdVdTdP = qtz[&#34;intdVdTdP&#34;]
+
+            else:
+                # for other minerals, volume is constant (Helgeson et al., 1978)
+                V = PAR[&#34;V&#34;]
+                # if the volume is NA, set its integrals to zero
+                if np.isnan(PAR[&#34;V&#34;]):
+                    intVdP = 0
+                    intdVdTdP = 0
+                else:
+                    intVdP = PAR[&#34;V&#34;]*(P - Pr) * cm3bar_to_cal
+                    intdVdTdP = 0
+
+            # get the values of each of the requested thermodynamic properties
+            for i,prop in enumerate(property):
+                if prop == &#34;Cp&#34;: values[&#34;Cp&#34;] = Cp
+                if prop == &#34;V&#34;: values[&#34;V&#34;] = V
+                if prop == &#34;E&#34;: values[&#34;E&#34;] = float(&#39;NaN&#39;)
+                if prop == &#34;kT&#34;: values[&#34;kT&#34;] = float(&#39;NaN&#39;)
+                if prop == &#34;G&#34;:
+                    # calculate S * (T - Tr), but set it to 0 at Tr (in case S is NA)
+                    Sterm = PAR[&#34;S&#34;]*(T - Tr)
+                    if T == Tr:
+                        Sterm = 0
+
+                    values[&#34;G&#34;] = PAR[&#34;G&#34;] - Sterm + intCpdT - T*intCpdlnT + intVdP
+                if prop == &#34;H&#34;:
+                    values[&#34;H&#34;] = PAR[&#34;H&#34;] + intCpdT + intVdP - T*intdVdTdP
+                if prop == &#34;S&#34;: values[&#34;S&#34;] = PAR[&#34;S&#34;] + intCpdlnT - intdVdTdP
+
+            out_dict[k] = values # species have to be numbered instead of named because of name repeats (e.g., cr polymorphs)
+
+    return out_dict
+
+
+### unexported function ###
+
+# calculate GHS and V corrections for quartz and coesite 20170929
+# (these are the only mineral phases for which SUPCRT92 uses an inconstant volume)
+def quartz_coesite(PAR, T, P):
+    # the corrections are 0 for anything other than quartz and coesite
+    if not PAR[&#34;name&#34;] in [&#34;quartz&#34;, &#34;coesite&#34;]:
+        return(dict(G=0, H=0, S=0, V=0))
+    # Tr, Pr and TtPr (transition temperature at Pr)
+    Pr = 1      # bar
+    Tr = 298.15 # K
+    TtPr = 848  # K
+    # constants from SUP92D.f
+    aa = 549.824
+    ba = 0.65995
+    ca = -0.4973e-4
+    VPtTta = 23.348
+    VPrTtb = 23.72
+    Stran = 0.342
+    # constants from REAC92D.f
+    VPrTra = 22.688 # VPrTr(a-quartz)
+    Vdiff = 2.047   # VPrTr(a-quartz) - VPrTr(coesite)
+    k = 38.5       # dPdTtr(a/b-quartz)
+    #k &lt;- 38.45834    # calculated in CHNOSZ: dPdTtr(info(&#34;quartz&#34;))
+    # code adapted from REAC92D.f
+    qphase = PAR[&#34;state&#34;].replace(&#34;cr&#34;, &#34;&#34;)
+    
+    if qphase == &#34;2&#34;:
+        Pstar = P
+        Sstar = 0
+        V = copy.copy(VPrTtb)
+    else:
+        Pstar = Pr + k * (T - TtPr)
+        Sstar = copy.copy(Stran)
+        V = VPrTra + ca*(P-Pr) + (VPtTta - VPrTra - ca*(P-Pr))*(T-Tr) / (TtPr + (P-Pr)/k - Tr)
+    
+    if T &lt; TtPr:
+        Pstar = Pr
+        Sstar = 0
+
+    if PAR[&#34;name&#34;] == &#34;coesite&#34;:
+        VPrTra = VPrTra - Vdiff
+        VPrTtb = VPrTtb - Vdiff
+        V = V - Vdiff
+    
+    cm3bar_to_cal = 0.023901488
+    GVterm = cm3bar_to_cal * (VPrTra * (P - Pstar) + VPrTtb * (Pstar - Pr) - \
+        0.5 * ca * (2 * Pr * (P - Pstar) - (P**2 - Pstar**2)) - \
+        ca * k * (T - Tr) * (P - Pstar) + \
+        k * (ba + aa * ca * k) * (T - Tr) * math.log((aa + P/k) / (aa + Pstar/k)))
+    SVterm = cm3bar_to_cal * (-k * (ba + aa * ca * k) * \
+        math.log((aa + P/k) / (aa + Pstar/k)) + ca * k * (P - Pstar)) - Sstar
+    
+    # note the minus sign on &#34;SVterm&#34; in order that intdVdTdP has the correct sign
+    return dict(intVdP=GVterm, intdVdTdP=-SVterm, V=V)
+
+
+def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
+    
+    OBIGT_out = OBIGT.copy()
+    for i in range(0, OBIGT.shape[0]):
+        
+        # we only convert column 20 for aqueous species (omega), not for cgl species (lambda)
+        if tocal and OBIGT.iloc[i, :][&#34;E_units&#34;] == &#34;J&#34; and OBIGT.iloc[i, :][&#34;state&#34;] == &#34;aq&#34;:
+            OBIGT_out.iloc[i, 8:12] = OBIGT.iloc[i, 8:12]/4.184
+            OBIGT_out.iloc[i, 13:20] = OBIGT.iloc[i, 13:20]/4.184
+            OBIGT_out.iloc[i, OBIGT.columns.get_loc(&#39;E_units&#39;)] = &#34;cal&#34;
+            
+        elif tocal and OBIGT.iloc[i, :][&#34;E_units&#34;] == &#34;J&#34;:
+            OBIGT_out.iloc[i, 8:12] = OBIGT.iloc[i, 8:12]/4.184
+            OBIGT_out.iloc[i, 13:19] = OBIGT.iloc[i, 13:19]/4.184
+            OBIGT_out.iloc[i, OBIGT.columns.get_loc(&#39;E_units&#39;)] = &#34;cal&#34;
+        
+        # fill in one of missing G, H, S
+        # for use esp. by subcrt because NA for one of G, H or S 
+        # will preclude calculations at high T
+        if fixGHS:
+            # which entries are missing just one
+            imiss = [np.isnan(v) for v in OBIGT.iloc[i, 8:11]]
+            if sum(imiss) == 1:
+                
+                ii = np.where(imiss)[0][0]
+                
+                if OBIGT_out.columns[8+ii] == &#34;G&#34;:
+                    H = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;H&#39;)]
+                    S = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;S&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    G = H - T*(S - Selem)
+                    OBIGT_out.iloc[i, 8+ii] = G
+                elif OBIGT_out.columns[8+ii] == &#34;H&#34;:
+                    G = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;G&#39;)]
+                    S = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;S&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    H = G + T*(S - Selem)
+                    OBIGT_out.iloc[i, 8+ii] = H
+                elif OBIGT_out.columns[8+ii] == &#34;S&#34;:
+                    G = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;G&#39;)]
+                    H = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;H&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    G = H - T*(S - Selem)
+                    S = Selem + (G - H)/T
+                    OBIGT_out.iloc[i, 8+ii] = S
+    
+    return OBIGT_out</code></pre>
+</details>
+</section>
+<section>
+</section>
+<section>
+</section>
+<section>
+<h2 class="section-title" id="header-functions">Functions</h2>
+<dl>
+<dt id="AqEquil.HKF_cgl.G2logK"><code class="name flex">
+<span>def <span class="ident">G2logK</span></span>(<span>G, Tc)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def G2logK(G, Tc):
+    # Gas constant R is in cal/mol K
+    return G / (-math.log(10) * 1.9872 * (273.15+Tc))</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.OBIGT2eos"><code class="name flex">
+<span>def <span class="ident">OBIGT2eos</span></span>(<span>OBIGT, fixGHS=True, tocal=True)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def OBIGT2eos(OBIGT, fixGHS=True, tocal=True):
+    
+    OBIGT_out = OBIGT.copy()
+    for i in range(0, OBIGT.shape[0]):
+        
+        # we only convert column 20 for aqueous species (omega), not for cgl species (lambda)
+        if tocal and OBIGT.iloc[i, :][&#34;E_units&#34;] == &#34;J&#34; and OBIGT.iloc[i, :][&#34;state&#34;] == &#34;aq&#34;:
+            OBIGT_out.iloc[i, 8:12] = OBIGT.iloc[i, 8:12]/4.184
+            OBIGT_out.iloc[i, 13:20] = OBIGT.iloc[i, 13:20]/4.184
+            OBIGT_out.iloc[i, OBIGT.columns.get_loc(&#39;E_units&#39;)] = &#34;cal&#34;
+            
+        elif tocal and OBIGT.iloc[i, :][&#34;E_units&#34;] == &#34;J&#34;:
+            OBIGT_out.iloc[i, 8:12] = OBIGT.iloc[i, 8:12]/4.184
+            OBIGT_out.iloc[i, 13:19] = OBIGT.iloc[i, 13:19]/4.184
+            OBIGT_out.iloc[i, OBIGT.columns.get_loc(&#39;E_units&#39;)] = &#34;cal&#34;
+        
+        # fill in one of missing G, H, S
+        # for use esp. by subcrt because NA for one of G, H or S 
+        # will preclude calculations at high T
+        if fixGHS:
+            # which entries are missing just one
+            imiss = [np.isnan(v) for v in OBIGT.iloc[i, 8:11]]
+            if sum(imiss) == 1:
+                
+                ii = np.where(imiss)[0][0]
+                
+                if OBIGT_out.columns[8+ii] == &#34;G&#34;:
+                    H = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;H&#39;)]
+                    S = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;S&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    G = H - T*(S - Selem)
+                    OBIGT_out.iloc[i, 8+ii] = G
+                elif OBIGT_out.columns[8+ii] == &#34;H&#34;:
+                    G = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;G&#39;)]
+                    S = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;S&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    H = G + T*(S - Selem)
+                    OBIGT_out.iloc[i, 8+ii] = H
+                elif OBIGT_out.columns[8+ii] == &#34;S&#34;:
+                    G = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;G&#39;)]
+                    H = OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;H&#39;)]
+                    Selem = entropy(OBIGT_out.iloc[i, OBIGT_out.columns.get_loc(&#39;formula&#39;)])
+                    T = 298.15
+                    G = H - T*(S - Selem)
+                    S = Selem + (G - H)/T
+                    OBIGT_out.iloc[i, 8+ii] = S
+    
+    return OBIGT_out</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.calc_G_TP"><code class="name flex">
+<span>def <span class="ident">calc_G_TP</span></span>(<span>OBIGT, Tc, P, water_model)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calc_G_TP(OBIGT, Tc, P, water_model):
+    
+    aq_out, H2O_Pt = hkf(property=[&#34;G&#34;], parameters=OBIGT,
+                         T=273.15+Tc, P=P, contrib=[&#34;n&#34;, &#34;s&#34;, &#34;o&#34;],
+                         H2O_props=[&#34;rho&#34;], water_model=water_model)
+    
+    cgl_out = cgl(property=[&#34;G&#34;], parameters=OBIGT, T=273.15+Tc, P=P)
+    
+    aq_col = pd.DataFrame.from_dict(aq_out, orient=&#34;index&#34;)
+    cgl_col = pd.DataFrame.from_dict(cgl_out, orient=&#34;index&#34;)
+
+    G_TP_df = pd.concat([aq_col, cgl_col], axis=1)
+    G_TP_df.columns = [&#39;aq&#39;,&#39;cgl&#39;]
+    
+    OBIGT[&#34;G_TP&#34;] = G_TP_df[&#39;aq&#39;].combine_first(G_TP_df[&#39;cgl&#39;])
+    
+    rows_added = 0
+    
+    # add a row for water
+    if &#34;H2O&#34; not in list(OBIGT[&#34;name&#34;]):
+        OBIGT = OBIGT.append(pd.DataFrame([[float(&#39;NaN&#39;)] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;name&#39;)] = &#34;H2O&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;tag&#39;)] = &#34;nan&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;G_TP&#39;)] = float(water(&#34;G&#34;, water_model, T=Tc+273.15, P=P)[&#34;G&#34;])
+        rows_added += 1
+
+    # add a row for protons
+    if &#34;H+&#34; not in list(OBIGT[&#34;name&#34;]):
+        OBIGT = OBIGT.append(pd.DataFrame([[float(&#39;NaN&#39;)] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;name&#39;)] = &#34;H+&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;tag&#39;)] = &#34;nan&#34;
+        OBIGT.iloc[-1, OBIGT.columns.get_loc(&#39;G_TP&#39;)] = 0
+        rows_added += 1
+    
+    return OBIGT, rows_added</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.calc_logK"><code class="name flex">
+<span>def <span class="ident">calc_logK</span></span>(<span>OBIGT_df, Tc, P, TP_i, water_model)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def calc_logK(OBIGT_df, Tc, P, TP_i, water_model):
+    
+    OBIGT_TP, rows_added = calc_G_TP(OBIGT_df, Tc, P, water_model)
+    
+    dissrxn2logK_out = []
+    for i in OBIGT_TP.index:
+        dissrxn2logK_out.append(dissrxn2logK(OBIGT_TP, i, Tc))
+    assert len(dissrxn2logK_out) == OBIGT_TP.shape[0]
+    
+    OBIGT_TP[&#39;dissrxn_logK_&#39;+str(TP_i)] = dissrxn2logK_out
+    
+    # remove any rows added by calc_G_TP
+    OBIGT_TP.drop(OBIGT_TP.tail(rows_added).index, inplace = True)
+    
+    return OBIGT_TP</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.cgl"><code class="name flex">
+<span>def <span class="ident">cgl</span></span>(<span>property=None, parameters=None, T=298.15, P=1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cgl(property = None, parameters = None, T = 298.15, P = 1):
+    # calculate properties of crystalline, liquid (except H2O) and gas species
+    Tr = 298.15
+    Pr = 1
+    # the number of T, P conditions
+    ncond = 1 # max([len(T), len(P)])
+    # initialize output dict
+    out_dict = dict()
+    # loop over each species
+    
+    for k in parameters.index:
+        
+        if parameters[&#34;state&#34;][k] == &#34;aq&#34;:
+            out_dict[k] = {p:float(&#39;NaN&#39;) for p in property}
+        else:
+            
+            # the parameters for *this* species
+            PAR = copy.copy(parameters.loc[k])
+
+            PAR[&#34;a2.b&#34;] = copy.copy(PAR[&#34;a2.b&#34;]*10**-3)
+            PAR[&#34;a3.c&#34;] = copy.copy(PAR[&#34;a3.c&#34;]*10**5)
+            PAR[&#34;c1.e&#34;] = copy.copy(PAR[&#34;c1.e&#34;]*10**-5)
+
+            # GB: converted code won&#39;t handle Berman minerals to begin with
+    #         if(all(is.na(PAR[9:21]))) {
+    #             # use Berman equations (parameters not in thermo()$OBIGT)
+    #             properties &lt;- berman(PAR[&#34;name&#34;], T=T, P=P, thisinfo=PAR)
+    #             iprop &lt;- match(property, colnames(properties))
+    #             values &lt;- properties[, iprop, drop=FALSE]
+    #         } else {
+
+            # in CHNOSZ, we have
+            # 1 cm^3 bar --&gt; convert(1, &#34;calories&#34;) == 0.02390057 cal
+            # but REAC92D.F in SUPCRT92 uses
+            cm3bar_to_cal = 0.023901488 # cal
+            # start with NA values
+            values = dict()
+            # a test for availability of heat capacity coefficients (a, b, c, d, e, f)
+            # based on the column assignments in thermo()$OBIGT
+
+            if any([True if not np.isnan(p) else False for p in list(PAR.iloc[13:19])]):
+                # we have at least one of the heat capacity coefficients;
+                # zero out any NA&#39;s in the rest (leave lambda and T of transition (columns 19-20) alone)
+                PAR.iloc[13:19] = [0 if np.isnan(p) else p for p in list(PAR.iloc[13:19])]
+                # calculate the heat capacity and its integrals
+                Cp = PAR[&#34;a1.a&#34;] + PAR[&#34;a2.b&#34;]*T + PAR[&#34;a3.c&#34;]*T**-2 + PAR[&#34;a4.d&#34;]*T**-0.5 + PAR[&#34;c1.e&#34;]*T**2 + PAR[&#34;c2.f&#34;]*T**PAR[&#34;omega.lambda&#34;]
+                intCpdT = PAR[&#34;a1.a&#34;]*(T - Tr) + PAR[&#34;a2.b&#34;]*(T**2 - Tr**2)/2 + PAR[&#34;a3.c&#34;]*(1/T - 1/Tr)/-1 + PAR[&#34;a4.d&#34;]*(T**0.5 - Tr**0.5)/0.5 + PAR[&#34;c1.e&#34;]*(T**3-Tr**3)/3
+                intCpdlnT = PAR[&#34;a1.a&#34;]*math.log(T / Tr) + PAR[&#34;a2.b&#34;]*(T - Tr) + PAR[&#34;a3.c&#34;]*(T**-2 - Tr**-2)/-2 + PAR[&#34;a4.d&#34;]*(T**-0.5 - Tr**-0.5)/-0.5  + PAR[&#34;c1.e&#34;]*(T**2 - Tr**2)/2
+
+                # do we also have the lambda parameter (Cp term with adjustable exponent on T)?
+                if not np.isnan(PAR[&#34;omega.lambda&#34;]) and PAR[&#34;omega.lambda&#34;] != 0:
+                    # equations for lambda adapted from Helgeson et al., 1998 (doi:10.1016/S0016-7037(97)00219-6)
+                    if PAR[&#34;omega.lambda&#34;] == -1:
+                        intCpdT = intCpdT + PAR[&#34;c2.f&#34;]*log(T/Tr) 
+                    else:
+                        intCpdT = intCpdT - PAR[&#34;c2.f&#34;]*( T**(PAR[&#34;omega.lambda&#34;] + 1) - Tr**(PAR[&#34;omega.lambda&#34;] + 1) ) / (PAR[&#34;omega.lambda&#34;] + 1)
+                    intCpdlnT = intCpdlnT + PAR[&#34;c2.f&#34;]*(T**PAR[&#34;omega.lambda&#34;] - Tr**PAR[&#34;omega.lambda&#34;]) / PAR[&#34;omega.lambda&#34;]
+
+            else:
+                # use constant heat capacity if the coefficients are not available
+                Cp = PAR[&#34;Cp&#34;]
+                intCpdT = PAR[&#34;Cp&#34;]*(T - Tr)
+                intCpdlnT = PAR[&#34;Cp&#34;]*math.log(T / Tr)
+                # in case Cp is listed as NA, set the integrals to 0 at Tr
+                if T == Tr:
+                    intCpdT = 0
+                    intCpdlnT = 0
+
+
+            # volume and its integrals
+            if PAR[&#34;name&#34;] in [&#34;quartz&#34;, &#34;coesite&#34;]:
+                # volume calculations for quartz and coesite
+                qtz = quartz_coesite(PAR, T, P)
+                V = qtz[&#34;V&#34;]
+                intVdP = qtz[&#34;intVdP&#34;]
+                intdVdTdP = qtz[&#34;intdVdTdP&#34;]
+
+            else:
+                # for other minerals, volume is constant (Helgeson et al., 1978)
+                V = PAR[&#34;V&#34;]
+                # if the volume is NA, set its integrals to zero
+                if np.isnan(PAR[&#34;V&#34;]):
+                    intVdP = 0
+                    intdVdTdP = 0
+                else:
+                    intVdP = PAR[&#34;V&#34;]*(P - Pr) * cm3bar_to_cal
+                    intdVdTdP = 0
+
+            # get the values of each of the requested thermodynamic properties
+            for i,prop in enumerate(property):
+                if prop == &#34;Cp&#34;: values[&#34;Cp&#34;] = Cp
+                if prop == &#34;V&#34;: values[&#34;V&#34;] = V
+                if prop == &#34;E&#34;: values[&#34;E&#34;] = float(&#39;NaN&#39;)
+                if prop == &#34;kT&#34;: values[&#34;kT&#34;] = float(&#39;NaN&#39;)
+                if prop == &#34;G&#34;:
+                    # calculate S * (T - Tr), but set it to 0 at Tr (in case S is NA)
+                    Sterm = PAR[&#34;S&#34;]*(T - Tr)
+                    if T == Tr:
+                        Sterm = 0
+
+                    values[&#34;G&#34;] = PAR[&#34;G&#34;] - Sterm + intCpdT - T*intCpdlnT + intVdP
+                if prop == &#34;H&#34;:
+                    values[&#34;H&#34;] = PAR[&#34;H&#34;] + intCpdT + intVdP - T*intdVdTdP
+                if prop == &#34;S&#34;: values[&#34;S&#34;] = PAR[&#34;S&#34;] + intCpdlnT - intdVdTdP
+
+            out_dict[k] = values # species have to be numbered instead of named because of name repeats (e.g., cr polymorphs)
+
+    return out_dict</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.convert_cm3bar"><code class="name flex">
+<span>def <span class="ident">convert_cm3bar</span></span>(<span>value)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def convert_cm3bar(value):
+    return value*4.184 * 10</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.dissrxn2logK"><code class="name flex">
+<span>def <span class="ident">dissrxn2logK</span></span>(<span>OBIGT, i, Tc)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def dissrxn2logK(OBIGT, i, Tc):
+    
+    this_dissrxn = OBIGT.iloc[i, OBIGT.columns.get_loc(&#39;dissrxn&#39;)]
+    
+    try:
+        split_dissrxn = this_dissrxn.split(&#34; &#34;)
+    except:
+        return float(&#39;NaN&#39;)
+    
+    coeff = [float(n) for n in split_dissrxn[::2]]
+    species = split_dissrxn[1::2]
+    try:
+        G = sum([float(c*OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]) for c,sp in zip(coeff, species)])
+    except:
+        G_list = []
+        for ii, sp in enumerate(species):
+            G_TP = OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]
+            if len(G_TP) == 1:
+                G_list.append(float(coeff[ii]*OBIGT.loc[OBIGT[&#34;name&#34;]==sp, &#34;G_TP&#34;]))
+            else:
+                ### check valid polymorph T
+
+                # get polymorph entries of OBIGT that match mineral
+                poly_df = copy.copy(OBIGT.loc[OBIGT[&#34;name&#34;]==sp,:])
+                # ensure polymorph df is sorted according to cr, cr2, cr3... etc.
+                poly_df = poly_df.sort_values(&#34;state&#34;)
+
+                z_Ts = list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;z.T&#34;])
+
+                last_t = float(&#39;-inf&#39;)
+                appended=False
+                for iii,t in enumerate(z_Ts):
+
+                    if Tc+273.15 &gt; last_t and Tc+273.15 &lt; t:
+                        G_list.append(float(coeff[ii]*list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;G_TP&#34;])[iii]))
+                        appended=True
+                    if not appended and z_Ts[-1] == t:
+                        G_list.append(float(coeff[ii]*list(poly_df.loc[poly_df[&#34;name&#34;]==sp, &#34;G_TP&#34;])[iii]))
+                    last_t = t
+
+        G = sum(G_list)
+
+    return G2logK(G, Tc)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.entropy"><code class="name flex">
+<span>def <span class="ident">entropy</span></span>(<span>formula)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def entropy(formula):
+    chnosz = importr(&#34;CHNOSZ&#34;)
+    return float(chnosz.entropy(formula))</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.gfun"><code class="name flex">
+<span>def <span class="ident">gfun</span></span>(<span>rhohat, Tc, P, alpha, daldT, beta)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def gfun(rhohat, Tc, P, alpha, daldT, beta):
+    ## g and f functions for describing effective electrostatic radii of ions
+    ## split from hkf() 20120123 jmd      
+    ## based on equations in
+    ## Shock EL, Oelkers EH, Johnson JW, Sverjensky DA, Helgeson HC, 1992
+    ## Calculation of the Thermodynamic Properties of Aqueous Species at High Pressures 
+    ## and Temperatures: Effective Electrostatic Radii, Dissociation Constants and 
+    ## Standard Partial Molal Properties to 1000 degrees C and 5 kbar
+    ## J. Chem. Soc. Faraday Trans., 88(6), 803-826  doi:10.1039/FT9928800803
+    # rhohat - density of water in g/cm3
+    # Tc - temperature in degrees Celsius
+    # P - pressure in bars
+    # start with an output list of zeros
+    out0 = float(len(rhohat))
+    out = dict(g=out0, dgdT=out0, d2gdT2=out0, dgdP=out0)
+    
+    rhohat = rhohat[0]
+    alpha = alpha[0]
+    daldT = daldT[0]
+    beta = beta[0]
+    
+    # only rhohat less than 1 will give results other than zero
+    if rhohat &gt;= 1:
+        return {&#34;g&#34;:0, &#34;dgdT&#34;:0, &#34;d2gdT2&#34;:0, &#34;dgdP&#34;:0}
+
+    # eta in Eq. 1
+    eta = 1.66027E5
+    # Table 3
+    ag1 = -2.037662
+    ag2 = 5.747000E-3
+    ag3 = -6.557892E-6
+    bg1 = 6.107361
+    bg2 = -1.074377E-2
+    bg3 = 1.268348E-5
+    # Eq. 25
+    ag = ag1 + ag2 * Tc + ag3 * Tc ** 2
+    # Eq. 26
+    bg = bg1 + bg2 * Tc + bg3 * Tc ** 2
+    # Eq. 24
+    g = ag * (1 - rhohat) ** bg
+    
+    # Table 4
+    af1 = 0.3666666E2
+    af2 = -0.1504956E-9
+    af3 = 0.5017997E-13
+    
+    # Eq. 33
+    f = ( ((Tc - 155) / 300) ** 4.8 + af1 * ((Tc - 155) / 300) ** 16 ) * \
+        ( af2 * (1000 - P) ** 3 + af3 * (1000 - P) ** 4 )
+    
+    # limits of the f function (region II of Fig. 6)
+    if Tc &gt; 155 and P &lt; 1000 and Tc &lt; 355:
+        ifg = True
+    else:
+        ifg = False
+    
+    # Eq. 32
+    if ifg and not isinstance(f, complex):
+        g = g*ifg - f*ifg
+    
+    # at P &gt; 6000 bar (in DEW calculations), g is zero 20170926
+    if P &gt; 6000:
+        g = 0
+
+    ## now we have g at P, T
+    # put the results in their right place (where rhohat &lt; 1)
+    out[&#34;g&#34;] = g
+    
+    ## the rest is to get its partial derivatives with pressure and temperature
+    ## after Johnson et al., 1992
+    # alpha - coefficient of isobaric expansivity (K^-1)
+    # daldT - temperature derivative of coefficient of isobaric expansivity (K^-2)
+    # beta - coefficient of isothermal compressibility (bar^-1)
+    # if these are NULL or NA (for IAPWS-95 and DEW), we skip the calculation
+    if np.isnan(alpha): alpha = float(&#39;NaN&#39;)
+    if np.isnan(daldT): daldT = float(&#39;NaN&#39;)
+    if np.isnan(beta): beta = float(&#39;NaN&#39;)
+    # Eqn. 76
+    d2fdT2 = (0.0608/300*((Tc-155)/300)**2.8 + af1/375*((Tc-155)/300)**14) * (af2*(1000-P)**3 + af3*(1000-P)**4)
+    # Eqn. 75
+    dfdT = (0.016*((Tc-155)/300)**3.8 + 16*af1/300*((Tc-155)/300)**15) * \
+        (af2*(1000-P)**3 + af3*(1000-P)**4)
+    # Eqn. 74
+    dfdP = -(((Tc-155)/300)**4.8 + af1*((Tc-155)/300)**16) * \
+        (3*af2*(1000-P)**2 + 4*af3*(1000-P)**3)
+    d2bdT2 = 2 * bg3  # Eqn. 73
+    d2adT2 = 2 * ag3  # Eqn. 72
+    dbdT = bg2 + 2*bg3*Tc  # Eqn. 71
+    dadT = ag2 + 2*ag3*Tc  # Eqn. 70
+    
+    if isinstance(d2fdT2, complex): d2fdT2 = float(&#39;NaN&#39;)
+    if isinstance(dfdT, complex): dfdT = float(&#39;NaN&#39;)
+    if isinstance(dfdP, complex): dfdP = float(&#39;NaN&#39;)
+    if isinstance(d2bdT2, complex): d2bdT2 = float(&#39;NaN&#39;)
+    if isinstance(d2adT2, complex): d2adT2 = float(&#39;NaN&#39;)
+    if isinstance(dbdT, complex): dbdT = float(&#39;NaN&#39;)
+    if isinstance(dadT, complex): dadT = float(&#39;NaN&#39;)
+    
+    if not np.isnan(alpha) and not np.isnan(daldT):
+        # Eqn. 69
+        dgadT = bg*rhohat*alpha*(1-rhohat)**(bg-1) + math.log(1-rhohat)*g/ag*dbdT  
+        D = rhohat
+        
+        # transcribed from SUPCRT92/reac92.f
+        dDdT = -D * alpha
+        #dDdP = D * beta
+        dDdTT = -D * (daldT - alpha**2)
+        Db = (1-D)**bg
+        dDbdT = -bg*(1-D)**(bg-1)*dDdT + math.log(1-D)*Db*dbdT
+        dDbdTT = -(bg*(1-D)**(bg-1)*dDdTT + (1-D)**(bg-1)*dDdT*dbdT + \
+            bg*dDdT*(-(bg-1)*(1-D)**(bg-2)*dDdT + math.log(1-D)*(1-D)**(bg-1)*dbdT)) + \
+            math.log(1-D)*(1-D)**bg*d2bdT2 - (1-D)**bg*dbdT*dDdT/(1-D) + math.log(1-D)*dbdT*dDbdT
+        d2gdT2 = ag*dDbdTT + 2*dDbdT*dadT + Db*d2adT2
+        
+        if ifg:
+            d2gdT2 = d2gdT2 - d2fdT2
+        
+        dgdT = g/ag*dadT + ag*dgadT  # Eqn. 67
+        
+        if ifg:
+            dgdT = dgdT - dfdT
+        
+        # phew! done with those derivatives
+        out[&#34;dgdT&#34;] = dgdT
+        out[&#34;d2gdT2&#34;] = d2gdT2
+
+    if not np.isnan(beta) :
+        dgdP = -bg*rhohat*beta*g*(1-rhohat)**-1  # Eqn. 66
+        if ifg:
+            dgdP = dgdP - dfdP
+        out[&#34;dgdP&#34;] = dgdP
+    
+    return(out)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.hkf"><code class="name flex">
+<span>def <span class="ident">hkf</span></span>(<span>property=None, parameters=None, T=298.15, P=1, contrib=['n', 's', 'o'], H2O_props=['rho'], water_model='SUPCRT92')</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def hkf(property=None, parameters=None, T=298.15, P=1,
+    contrib = [&#34;n&#34;, &#34;s&#34;, &#34;o&#34;], H2O_props=[&#34;rho&#34;], water_model=&#34;SUPCRT92&#34;):
+    # calculate G, H, S, Cp, V, kT, and/or E using
+    # the revised HKF equations of state
+    # H2O_props - H2O properties needed for subcrt() output
+    # constants
+    Tr = 298.15 # K
+    Pr = 1      # bar
+    Theta = 228 # K
+    Psi = 2600  # bar
+    
+    # GB conversion notes: hkf function is not vectorized...
+#     # make T and P equal length
+#     if not P == &#34;Psat&#34;:
+#         if len(P) &lt; len(T):
+#             P = [P]*len(T)
+#         if len(T) &lt; len(P):
+#             T = [T]*len(P)
+    
+    # GB conversion note: handle error messages later
+#     # nonsolvation, solvation, and origination contribution
+#     notcontrib &lt;- ! contrib %in% c(&#34;n&#34;, &#34;s&#34;, &#34;o&#34;)
+#     if(TRUE %in% notcontrib) stop(paste(&#34;contrib must be in c(&#39;n&#39;, &#39;s&#39;, &#39;o); got&#34;, c2s(contrib[notcontrib])))
+    
+    # get water properties
+    # rho - for subcrt() output and g function
+    # Born functions and epsilon - for HKF calculations
+    H2O_props += [&#34;QBorn&#34;, &#34;XBorn&#34;, &#34;YBorn&#34;, &#34;epsilon&#34;]
+
+    if water_model == &#34;SUPCRT92&#34;:
+      # using H2O92D.f from SUPCRT92: alpha, daldT, beta - for partial derivatives of omega (g function)
+      H2O_props += [&#34;alpha&#34;, &#34;daldT&#34;, &#34;beta&#34;]
+    
+    elif water_model == &#34;IAPWS95&#34;:
+      # using IAPWS-95: NBorn, UBorn - for compressibility, expansibility
+      H2O_props += [&#34;NBorn&#34;, &#34;UBorn&#34;]
+    
+    elif water_model == &#34;DEW&#34;:
+      # using DEW model: get beta to calculate dgdP
+      H2O_props += [&#34;beta&#34;]
+    
+    H2O_PrTr = water(H2O_props, water_model, T=Tr, P=Pr) # pyCHNOSZ&#39;s water function does not handle lists yet, hence splitting this into two steps
+    H2O_PT = water(H2O_props, water_model, T=T, P=P) # pyCHNOSZ&#39;s water function does not handle lists yet, hence splitting this into two steps
+    ZBorn = -1 / H2O_PT.loc[&#34;1&#34;, &#34;epsilon&#34;]
+    ZBorn_PrTr = -1 / H2O_PrTr.loc[&#34;1&#34;, &#34;epsilon&#34;]
+    
+    # a class to store the result
+    out_dict = {} # dictionary to store output
+    
+    for k in parameters.index:
+        
+        if parameters[&#34;state&#34;][k] != &#34;aq&#34;:
+            out_dict[k] = {p:float(&#39;NaN&#39;) for p in property}
+        else:
+            sp = parameters[&#34;name&#34;][k]
+
+            # loop over each species
+            PAR = copy.copy(parameters.loc[k, :])
+
+            PAR[&#34;a1.a&#34;] = copy.copy(PAR[&#34;a1.a&#34;]*10**-1)
+            PAR[&#34;a2.b&#34;] = copy.copy(PAR[&#34;a2.b&#34;]*10**2)
+            PAR[&#34;a4.d&#34;] = copy.copy(PAR[&#34;a4.d&#34;]*10**4)
+            PAR[&#34;c2.f&#34;] = copy.copy(PAR[&#34;c2.f&#34;]*10**4)
+            PAR[&#34;omega.lambda&#34;] = copy.copy(PAR[&#34;omega.lambda&#34;]*10**5)
+
+            # substitute Cp and V for missing EoS parameters
+            # here we assume that the parameters are in the same position as in thermo()$OBIGT
+            # we don&#39;t need this if we&#39;re just looking at solvation properties (Cp_s_var, V_s_var)
+
+            # GB conversion note: this block checks various things about EOS parameters.
+            # for now, just set hasEOS to True
+            hasEOS = True # delete this once the following block is converted to python
+    #         if &#34;n&#34; in contrib:
+    #             # put the heat capacity in for c1 if both c1 and c2 are missing
+    #             if all(is.na(PAR[, 18:19])):
+    #                 PAR[, 18] = PAR[&#34;Cp&#34;]
+    #             # put the volume in for a1 if a1, a2, a3 and a4 are missing
+    #             if all(is.na(PAR[, 14:17])):
+    #                 PAR[, 14] = convert(PAR[&#34;V&#34;], &#34;calories&#34;)
+    #             # test for availability of the EoS parameters
+    #             hasEOS = any(!is.na(PAR[, 14:21]))
+    #             # if at least one of the EoS parameters is available, zero out any NA&#39;s in the rest
+    #             if hasEOS:
+    #                 PAR[, 14:21][, is.na(PAR[, 14:21])] = 0
+
+            # compute values of omega(P,T) from those of omega(Pr,Tr)
+            # using g function etc. (Shock et al., 1992 and others)
+            omega = PAR[&#34;omega.lambda&#34;]  # omega_PrTr
+            # its derivatives are zero unless the g function kicks in
+            dwdP, dwdT, d2wdT2 = 0, 0, 0
+            Z = PAR[&#34;z.T&#34;]
+
+            omega_PT = PAR[&#34;omega.lambda&#34;]
+            if Z != 0 and Z != &#34;NA&#34; and PAR[&#34;name&#34;] != &#34;H+&#34;:
+                # compute derivatives of omega: g and f functions (Shock et al., 1992; Johnson et al., 1992)
+                rhohat = H2O_PT[&#34;rho&#34;]/1000  # just converting kg/m3 to g/cm3
+
+                
+                # temporarily filter out Python&#39;s warnings about dividing by zero, which is possible
+                # with the equations in the gfunction
+                # Possible complex output is acounted for in gfun().
+                with warnings.catch_warnings():
+                    warnings.simplefilter(&#39;ignore&#39;)
+                    g = gfun(rhohat, T-273.15, P, H2O_PT[&#34;alpha&#34;], H2O_PT[&#34;daldT&#34;], H2O_PT[&#34;beta&#34;])
+
+
+                # after SUPCRT92/reac92.f
+                eta = 1.66027E5
+                reref = (Z**2) / (omega/eta + Z/(3.082 + 0))
+                re = reref + abs(Z) * g[&#34;g&#34;]
+                omega_PT = eta * (Z**2/re - Z/(3.082 + g[&#34;g&#34;]))
+                Z3 = abs(Z**3)/re**2 - Z/(3.082 + g[&#34;g&#34;])**2
+                Z4 = abs(Z**4)/re**3 - Z/(3.082 + g[&#34;g&#34;])**3
+                dwdP = (-eta * Z3 * g[&#34;dgdP&#34;])
+                dwdT = (-eta * Z3 * g[&#34;dgdT&#34;])
+                d2wdT2 = (2 * eta * Z4 * g[&#34;dgdT&#34;]**2 - eta * Z3 * g[&#34;d2gdT2&#34;])
+
+            # loop over each property
+            w = float(&#39;NaN&#39;)
+            for i,PROP in enumerate(property) :
+
+                # over nonsolvation, solvation, or origination contributions
+                hkf_p = 0
+
+                for icontrib in contrib :
+                    # various contributions to the properties
+                    if icontrib == &#34;n&#34;:
+                        # nonsolvation ghs equations
+                        if PROP == &#34;H&#34;:
+                            p_c = PAR[&#34;c1.e&#34;]*(T-Tr) - PAR[&#34;c2.f&#34;]*(1/(T-Theta)-1/(Tr-Theta))
+                            p_a = PAR[&#34;a1.a&#34;]*(P-Pr) + PAR[&#34;a2.b&#34;]*math.log((Psi+P)/(Psi+Pr)) + \
+                              ((2*T-Theta)/(T-Theta)**2)*(PAR[&#34;a3.c&#34;]*(P-Pr)+PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))
+                            p = p_c + p_a
+                        elif PROP == &#34;S&#34;:
+                            p_c = PAR[&#34;c1.e&#34;]*math.log(T/Tr) - \
+                              (PAR[&#34;c2.f&#34;]/Theta)*( 1/(T-Theta)-1/(Tr-Theta) + \
+                              math.log( (Tr*(T-Theta))/(T*(Tr-Theta)) )/Theta )
+                            p_a = (T-Theta)**(-2)*(PAR[&#34;a3.c&#34;]*(P-Pr)+PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))
+                            p = p_c + p_a
+                        elif PROP == &#34;G&#34;:
+                            p_c = -PAR[&#34;c1.e&#34;]*(T*math.log(T/Tr)-T+Tr) - \
+                              PAR[&#34;c2.f&#34;]*( (1/(T-Theta)-1/(Tr-Theta))*((Theta-T)/Theta) - \
+                              (T/Theta**2)*math.log((Tr*(T-Theta))/(T*(Tr-Theta))) )
+                            p_a = PAR[&#34;a1.a&#34;]*(P-Pr) + PAR[&#34;a2.b&#34;]*math.log((Psi+P)/(Psi+Pr)) + \
+                              (PAR[&#34;a3.c&#34;]*(P-Pr) + PAR[&#34;a4.d&#34;]*math.log((Psi+P)/(Psi+Pr)))/(T-Theta)
+                            p = p_c + p_a
+                            # at Tr,Pr, if the origination contribution is not NA, ensure the solvation contribution is 0, not NA
+                            if not np.isnan(PAR[&#34;G&#34;]):
+                                if T==Tr and P==Pr:
+                                    p = 0
+                        # nonsolvation cp v kt e equations
+                        elif PROP == &#34;Cp&#34;:
+                            p = PAR[&#34;c1.e&#34;] + PAR[&#34;c2.f&#34;] * ( T - Theta ) ** (-2)        
+                        elif PROP == &#34;V&#34;:
+                            p = convert_cm3bar(PAR[&#34;a1.a&#34;]) + \
+                              convert_cm3bar(PAR[&#34;a2.b&#34;]) / (Psi + P) + \
+                              (convert_cm3bar(PAR[&#34;a3.c&#34;]) + convert_cm3bar(PAR[&#34;a4.d&#34;]) / (Psi + P)) / (T - Theta)
+#                         elif PROP == &#34;kT&#34;:
+#                             p = (convert(PAR[&#34;a2.b&#34;], &#34;cm3bar&#34;) + \
+#                               convert(PAR[&#34;a4.d&#34;], &#34;cm3bar&#34;) / (T - Theta)) * (Psi + P) ** (-2)
+#                         elif PROP == &#34;E&#34;:
+#                             p = convert( - (PAR[&#34;a3.c&#34;] + PAR[&#34;a4.d&#34;] / convert((Psi + P), &#34;calories&#34;)) * \
+#                               (T - Theta) ** (-2), &#34;cm3bar&#34;)
+                        else:
+                            print(&#34;BAD&#34;)
+
+                    if icontrib == &#34;s&#34;:
+                        # solvation ghs equations
+                        if PROP == &#34;G&#34;:
+                            p = -omega_PT*(ZBorn+1) + omega*(ZBorn_PrTr+1) + omega*H2O_PrTr.loc[&#34;1&#34;, &#34;YBorn&#34;]*(T-Tr)
+                            # at Tr,Pr, if the origination contribution is not NA, ensure the solvation contribution is 0, not NA
+                            if(np.isnan(PAR[&#34;G&#34;])):
+                                if T==Tr and P==Pr:
+                                    p = 0
+                        if PROP == &#34;H&#34;: 
+                            p = -omega_PT*(ZBorn+1) + omega_PT*T*H2O_PT.loc[&#34;1&#34;, &#34;YBorn&#34;] + T*(ZBorn+1)*dwdT + \
+                                   omega*(ZBorn_PrTr+1) - omega*Tr*H2O_PrTr.loc[&#34;1&#34;, &#34;YBorn&#34;]
+                        if PROP == &#34;S&#34;:
+                            p = omega_PT*H2O_PT.loc[&#34;1&#34;,&#34;YBorn&#34;] + (ZBorn+1)*dwdT - omega*H2O_PrTr.loc[&#34;1&#34;,&#34;YBorn&#34;]
+                        # solvation cp v kt e equations
+                        if PROP == &#34;Cp&#34;:
+                            p = omega_PT*T*H2O_PT.loc[&#34;1&#34;,&#34;XBorn&#34;] + 2*T*H2O_PT.loc[&#34;1&#34;,&#34;YBorn&#34;]*dwdT + T*(ZBorn+1)*d2wdT2
+                        if PROP == &#34;V&#34;:
+                            p = -convert_cm3bar(omega_PT) * \
+                                H2O_PT.loc[&#34;1&#34;, &#34;QBorn&#34;] + convert_cm3bar(dwdP) * (-ZBorn - 1)
+                        # TODO: the partial derivatives of omega are not included here here for kt and e
+                        # (to do it, see p. 820 of SOJ+92 ... but kt requires d2wdP2 which we don&#34;t have yet)
+                        if PROP == &#34;kT&#34;:
+                            p = convert_cm3bar(omega) * H2O_PT[&#34;NBorn&#34;]
+                        if PROP == &#34;E&#34;:
+                            p = -convert_cm3bar(omega) * H2O_PT[&#34;UBorn&#34;]
+
+                    if icontrib == &#34;o&#34;:
+                        # origination ghs equations
+                        if PROP == &#34;G&#34;:
+                            p = PAR[&#34;G&#34;] - PAR[&#34;S&#34;] * (T-Tr)
+                            # don&#34;t inherit NA from PAR$S at Tr
+                            if T == Tr:
+                                p = PAR[&#34;G&#34;]
+                        elif PROP == &#34;H&#34;:
+                            p = PAR[&#34;H&#34;]
+                        elif PROP == &#34;S&#34;:
+                            p = PAR[&#34;S&#34;]
+                        # origination eos equations (Cp, V, kT, E): senseless
+                        else:
+                            p = 0 * T
+
+                    # accumulate the contribution
+                    hkf_p = hkf_p + p
+                
+                # species have to be numbered (k) instead of named because of name repeats in db (e.g., cr polymorphs)
+                if i &gt; 0:
+                    out_dict[k][PROP] = hkf_p
+                else:
+                    out_dict[k] = {PROP:hkf_p}
+
+    return(out_dict, H2O_PT)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.quartz_coesite"><code class="name flex">
+<span>def <span class="ident">quartz_coesite</span></span>(<span>PAR, T, P)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def quartz_coesite(PAR, T, P):
+    # the corrections are 0 for anything other than quartz and coesite
+    if not PAR[&#34;name&#34;] in [&#34;quartz&#34;, &#34;coesite&#34;]:
+        return(dict(G=0, H=0, S=0, V=0))
+    # Tr, Pr and TtPr (transition temperature at Pr)
+    Pr = 1      # bar
+    Tr = 298.15 # K
+    TtPr = 848  # K
+    # constants from SUP92D.f
+    aa = 549.824
+    ba = 0.65995
+    ca = -0.4973e-4
+    VPtTta = 23.348
+    VPrTtb = 23.72
+    Stran = 0.342
+    # constants from REAC92D.f
+    VPrTra = 22.688 # VPrTr(a-quartz)
+    Vdiff = 2.047   # VPrTr(a-quartz) - VPrTr(coesite)
+    k = 38.5       # dPdTtr(a/b-quartz)
+    #k &lt;- 38.45834    # calculated in CHNOSZ: dPdTtr(info(&#34;quartz&#34;))
+    # code adapted from REAC92D.f
+    qphase = PAR[&#34;state&#34;].replace(&#34;cr&#34;, &#34;&#34;)
+    
+    if qphase == &#34;2&#34;:
+        Pstar = P
+        Sstar = 0
+        V = copy.copy(VPrTtb)
+    else:
+        Pstar = Pr + k * (T - TtPr)
+        Sstar = copy.copy(Stran)
+        V = VPrTra + ca*(P-Pr) + (VPtTta - VPrTra - ca*(P-Pr))*(T-Tr) / (TtPr + (P-Pr)/k - Tr)
+    
+    if T &lt; TtPr:
+        Pstar = Pr
+        Sstar = 0
+
+    if PAR[&#34;name&#34;] == &#34;coesite&#34;:
+        VPrTra = VPrTra - Vdiff
+        VPrTtb = VPrTtb - Vdiff
+        V = V - Vdiff
+    
+    cm3bar_to_cal = 0.023901488
+    GVterm = cm3bar_to_cal * (VPrTra * (P - Pstar) + VPrTtb * (Pstar - Pr) - \
+        0.5 * ca * (2 * Pr * (P - Pstar) - (P**2 - Pstar**2)) - \
+        ca * k * (T - Tr) * (P - Pstar) + \
+        k * (ba + aa * ca * k) * (T - Tr) * math.log((aa + P/k) / (aa + Pstar/k)))
+    SVterm = cm3bar_to_cal * (-k * (ba + aa * ca * k) * \
+        math.log((aa + P/k) / (aa + Pstar/k)) + ca * k * (P - Pstar)) - Sstar
+    
+    # note the minus sign on &#34;SVterm&#34; in order that intdVdTdP has the correct sign
+    return dict(intVdP=GVterm, intdVdTdP=-SVterm, V=V)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.HKF_cgl.water"><code class="name flex">
+<span>def <span class="ident">water</span></span>(<span>props, water_model, T=25, P=1)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def water(props, water_model, T=25, P=1):
+    
+    if not isinstance(props, list):
+        props = [props]
+    
+    chnosz = importr(&#34;CHNOSZ&#34;)
+    chnosz.water(water_model)
+    return chnosz.water(ro.StrVector([str(p) for p in props]), T=T, P=P, P1=False)</code></pre>
+</details>
+</dd>
+</dl>
+</section>
+<section>
+</section>
+</article>
+<nav id="sidebar">
+<h1>Index</h1>
+<div class="toc">
+<ul></ul>
+</div>
+<ul id="index">
+<li><h3>Super-module</h3>
+<ul>
+<li><code><a title="AqEquil" href="index.html">AqEquil</a></code></li>
+</ul>
+</li>
+<li><h3><a href="#header-functions">Functions</a></h3>
+<ul class="two-column">
+<li><code><a title="AqEquil.HKF_cgl.G2logK" href="#AqEquil.HKF_cgl.G2logK">G2logK</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.OBIGT2eos" href="#AqEquil.HKF_cgl.OBIGT2eos">OBIGT2eos</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.calc_G_TP" href="#AqEquil.HKF_cgl.calc_G_TP">calc_G_TP</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.calc_logK" href="#AqEquil.HKF_cgl.calc_logK">calc_logK</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.cgl" href="#AqEquil.HKF_cgl.cgl">cgl</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.convert_cm3bar" href="#AqEquil.HKF_cgl.convert_cm3bar">convert_cm3bar</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.dissrxn2logK" href="#AqEquil.HKF_cgl.dissrxn2logK">dissrxn2logK</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.entropy" href="#AqEquil.HKF_cgl.entropy">entropy</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.gfun" href="#AqEquil.HKF_cgl.gfun">gfun</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.hkf" href="#AqEquil.HKF_cgl.hkf">hkf</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.quartz_coesite" href="#AqEquil.HKF_cgl.quartz_coesite">quartz_coesite</a></code></li>
+<li><code><a title="AqEquil.HKF_cgl.water" href="#AqEquil.HKF_cgl.water">water</a></code></li>
+</ul>
+</li>
+</ul>
+</nav>
+</main>
+<footer id="footer">
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.10.0</a>.</p>
+</footer>
+</body>
+</html>
