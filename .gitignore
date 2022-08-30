@@ -3,6 +3,7 @@
 
 # Include only these folders:
 !AqEquil/
+!AqEquil/*
 !AqEquil/*/
 !html/
 !html/AqEquil/
