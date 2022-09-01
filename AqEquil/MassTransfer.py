@@ -347,6 +347,8 @@ class Mass_Transfer:
                             xyb=None,
                             path_margin=0.25,
                             flip_xy=False,
+                            show_annotation=True,
+                            annotation_coords=[0,0],
                             show_nonparticipating_mineral_lines = False,
                             path_line_color = "red",
                             path_point_fill_color = "red",
@@ -386,6 +388,18 @@ class Mass_Transfer:
         
         flip_xy : bool, default False
             Transpose the plot so the x and y variables switch axes?
+
+        show_annotation : bool, default True
+            Show annotation in the bottom left of the figure? The annotation
+            includes the species used for balance, the temperature, and
+            the pressure.
+
+        annotation_coords : list, default [0,0]
+            List of two numeric values representing the X and Y coordinates of
+            the annotation, where 0,0 is the bottom left, 0.5,0 is the bottom
+            center, 1,0 is the bottom right, 1,1 is the top right, and so on.
+            The annotation includes the species used for balance, the
+            temperature and the pressure.
 
         show_nonparticipating_mineral_lines : bool, default False
             Depict lines for minerals even if those minerals do not participate
@@ -489,16 +503,17 @@ class Mass_Transfer:
         for result in itertools.combinations(alist, 2):
             element_plot_pairs.append(list(result))
 
-        if xyb == None:
-            element_plot_triad = []
-            for pair in element_plot_pairs:
-                elem_not_in_pair = [e for e in self.all_elements_of_interest if e not in pair]
-                for e in elem_not_in_pair:
-                    triad_to_append = pair + [e]
-                    element_plot_triad.append(triad_to_append)
-        else:
-            element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-        
+#         if xyb == None:
+        element_plot_triad = []
+        for pair in element_plot_pairs:
+            elem_not_in_pair = [e for e in self.all_elements_of_interest if e not in pair]
+            for e in elem_not_in_pair:
+                triad_to_append = pair + [e]
+                element_plot_triad.append(triad_to_append)
+#         else:
+#             element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+            
+    
         if colormap == "bw":
             if borders == 0:
                 borders = 1
@@ -511,6 +526,7 @@ class Mass_Transfer:
         pred_minerals_from_fields_list = []
         pred_minerals_from_lines_list = []
         for triad in element_plot_triad:
+            
             # do a quick first pass at making figures to see which points are projections.
             fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                 triad, T=self.T, P=self.P,
@@ -523,12 +539,13 @@ class Mass_Transfer:
             fig_list.append(fig)
             pred_minerals_from_fields_list.append(pred_minerals_from_fields)
             pred_minerals_from_lines_list.append(pred_minerals_from_lines)
-
         
         # determine which line segments in the reaction path are projections
-        # and which are actually in the plane of the diagram
+        # and which are actually in the plane of the diagram.
+        # This is the "first pass"
         fig_list_projected_points = []
-        for i,fig in enumerate(fig_list):
+        for i,triad in enumerate(element_plot_triad):
+            
             projected_points = ["projection"]*self.moles_product_minerals.shape[0]
             for irow in range(0, self.moles_product_minerals.shape[0]):
                 
@@ -551,13 +568,18 @@ class Mass_Transfer:
                         
             fig_list_projected_points.append(projected_points)
         
+        if isinstance(xyb, list):
+            element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+        
         fig_list = []
         for i,triad in enumerate(element_plot_triad):
             # re-run figure generation, passing in a list of which points are projected.
-            fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
+            fig, _ , _ = self.__plot_reaction_path_main(
                                                 triad, T=self.T, P=self.P,
                                                 path_margin=self.path_margin,
                                                 flip_xy=flip_xy,
+                                                show_annotation=show_annotation,
+                                                annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
@@ -778,7 +800,7 @@ class Mass_Transfer:
                                         plot_width=4, plot_height=3, ppi=122, res=300,
                                         annotation=None, annotation_coords=[0, 0],
                                         messages=False):
-
+        
         plot_x_range, plot_y_range = self.__get_plot_range(x_vals, y_vals)
 
         xlab,ylab = self.__get_xy_labs(plot_basis_x, plot_basis_y)
@@ -786,7 +808,7 @@ class Mass_Transfer:
         args = {plot_basis_x:plot_x_range+[res],
                 plot_basis_y:plot_y_range+[res],
                 "T":self.T, "P":self.P, "messages":messages}
-
+        
         if field_minerals_exist:
             
             # check each value of Xi to see which mineral is most predominant
@@ -798,8 +820,9 @@ class Mass_Transfer:
                              "T":self.T, "P":self.P, "messages":messages}
                 
                 a = affinity(**args_temp)
-                e = equilibrate(a, messages=False)
-                table = diagram(e, interactive=True, fig_out=False, plot_it=False, messages=False)
+                e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
+                table = diagram(e, interactive=True, fig_out=False, plot_it=False, messages=messages)
+                
                 pred_minerals_from_fields.append(table["prednames"][0])
             
             a = affinity(**args)
@@ -809,6 +832,7 @@ class Mass_Transfer:
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
                            xlab=xlab, ylab=ylab, annotation=annotation,
+                           annotation_coords=annotation_coords,
                            plot_it=False, messages=messages)
             
             return table, fig, pred_minerals_from_fields
@@ -822,15 +846,15 @@ class Mass_Transfer:
                            layout_xaxis_range=plot_x_range,
                            layout_yaxis_range=plot_y_range,
                            )
-
-            fig.add_annotation(x=annotation_coords[0],
-                               y=annotation_coords[1],
-                               xref="paper",
-                               yref="paper",
-                               align='left',
-                               text=annotation,
-                               bgcolor="rgba(255, 255, 255, 0.5)",
-                               showarrow=False)
+            if show_annotation:
+                fig.add_annotation(x=annotation_coords[0],
+                                   y=annotation_coords[1],
+                                   xref="paper",
+                                   yref="paper",
+                                   align='left',
+                                   text=annotation,
+                                   bgcolor="rgba(255, 255, 255, 0.5)",
+                                   showarrow=False)
 
             fig.update_layout(
                 width=plot_width*ppi, height=plot_height*ppi,
@@ -961,6 +985,8 @@ class Mass_Transfer:
     def __plot_reaction_path_main(self,
                                   triad, T=25, P=1, path_margin=0.25,
                                   flip_xy=False,
+                                  show_annotation=False,
+                                  annotation_coords=[0,0],
                                   show_nonparticipating_mineral_lines = False,
                                   path_line_color = "black",
                                   path_point_fill_color = "black",
@@ -1053,19 +1079,33 @@ class Mass_Transfer:
             species(field_minerals_to_plot)#, add=True)
         except:
             field_minerals_exist = False
-
+            
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
 
+        if self.P <= 1:
+            bar_bars = "bar"
+        else:
+            bar_bars = "bars"
+        
+        if show_annotation:
+            annotation = "Balanced on: "+chemlabel(self.__get_basis_from_elem(div_var_name))+"<br>"+'%g'%(self.T)+" °C, "+'%g'%(self.P)+" "+bar_bars
+        else:
+            annotation = None
+        
         table,fig,pred_minerals_from_fields = self.__plot_reaction_path_background(
             basis_species_x, basis_species_y, div_var_name, x_vals, y_vals,
             plot_width=plot_width, plot_height=plot_height, ppi=ppi, res=res,
             colormap=colormap, borders=borders,
+            annotation_coords=annotation_coords,
             field_minerals_exist=field_minerals_exist, path_margin=self.path_margin,
-            annotation="Balanced on: "+chemlabel(self.__get_basis_from_elem(div_var_name)),
-            messages=False)
+            annotation=annotation, messages=False)
         
         # plot minerals with a single element of interest as a line
         plot_x_range, plot_y_range = self.__get_plot_range(x_vals, y_vals)
+        
+        line_styles = ['dot', 'dash', 'dashdot', 'longdash', 'longdashdot']
+        line_i = 0
+        line_width = 1
         
         if first_pass:
             fig = None
@@ -1073,12 +1113,23 @@ class Mass_Transfer:
             for mineral in x_minerals_to_plot + y_minerals_to_plot + xy_minerals_to_plot:
                 if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns):
                     continue
+                
+                # deal with mineral line style (dot, dashed, etc.)
+                if line_i % 5 == 0:
+                    if line_i != 0:
+                        line_width += 0.5
+                    line_i = 0
 
+                    
+                line_style = line_styles[line_i]
+                    
                 eoi = self.__get_elem_ox_of_interest_in_minerals(mineral)
 
                 logK = self.__calc_dissrxn_logK(mineral, T, P)
                 mineral_formula_dict = self.__get_mineral_elem_ox_dict_interest(mineral)
 
+                xlab,ylab = self.__get_xy_labs(basis_species_x, basis_species_y)
+                
                 if len(eoi) == 1:
 
                     # if the element of interest is not in the current element pair, move on
@@ -1091,12 +1142,14 @@ class Mass_Transfer:
                         y0 = min(plot_y_range)
                         y1 = max(plot_y_range)
                         color = v_line_color
+                        hovertemplate=mineral+'<br>'+xlab+' = '+str(round(x0, 3))
                     elif self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[1]:
                         # horizontal line
                         y0, y1 = (-1/mineral_formula_dict[e_pair[1]])*logK, (-1/mineral_formula_dict[e_pair[1]])*logK
                         x0 = min(plot_x_range)
                         x1 = max(plot_x_range)
                         color=h_line_color
+                        hovertemplate=mineral+'<br>'+ylab+' = '+str(round(y0))
 
                 if len(eoi) == 2:
 
@@ -1106,11 +1159,19 @@ class Mass_Transfer:
                     x1 = max(plot_x_range)
                     y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
                     y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
+                    intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
+                    hovertemplate = mineral+'<br>slope = '+str(round(line_slope))+'<br>intercept = '+str(round(intercept))+'<extra></extra>'
 
                 fig.add_trace(
-                    go.Scatter(x=[x0, x1], y=[y0, y1], mode="lines", name=mineral, line=dict(color=color, width=1, dash='dot')),
+                    go.Scatter(x=[x0, x1], y=[y0, y1], mode="lines",
+                               name=mineral,
+                               line=dict(color=color, width=line_width, dash=line_style),
+                               hovertemplate=hovertemplate,
+                              ),
                 )
+                
+                line_i += 1
         
             fig = self.__add_reaction_path_to_plot(x_vals, y_vals, xi_vals, fig,
                                                    basis_species_x, basis_species_y,
