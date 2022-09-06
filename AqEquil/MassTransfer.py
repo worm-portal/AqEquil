@@ -298,6 +298,9 @@ class Mass_Transfer:
 
         df = pd.DataFrame(species_dict)
         
+        if 'None' in df.columns:
+            df = df.drop(['None'], axis=1)
+        
         return df
         
         
@@ -496,86 +499,12 @@ class Mass_Transfer:
         all_elements_of_interest = list(set(all_elements_of_interest))
         
         self.all_elements_of_interest = all_elements_of_interest
-        
-        # get a list of elem pairs for plotting
-        alist = self.all_elements_of_interest
-        element_plot_pairs = []
-        for result in itertools.combinations(alist, 2):
-            element_plot_pairs.append(list(result))
-
-#         if xyb == None:
-        element_plot_triad = []
-        for pair in element_plot_pairs:
-            elem_not_in_pair = [e for e in self.all_elements_of_interest if e not in pair]
-            for e in elem_not_in_pair:
-                triad_to_append = pair + [e]
-                element_plot_triad.append(triad_to_append)
-#         else:
-#             element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-            
-    
-        if colormap == "bw":
-            if borders == 0:
-                borders = 1
-            colormap = "none"
-            h_line_color = "black"
-            v_line_color = "black"
-            d_line_color = "black"
-        
-        fig_list = []
-        pred_minerals_from_fields_list = []
-        pred_minerals_from_lines_list = []
-        for triad in element_plot_triad:
-            
-            # do a quick first pass at making figures to see which points are projections.
-            fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
-                                                triad, T=self.T, P=self.P,
-                                                show_nonparticipating_mineral_lines=False, # no need for this in first pass
-                                                path_margin=self.path_margin,
-                                                flip_xy=flip_xy,
-                                                first_pass=True, # flag for skipping certain calculations/plotting
-                                                res=1) # low res first pass
-            
-            fig_list.append(fig)
-            pred_minerals_from_fields_list.append(pred_minerals_from_fields)
-            pred_minerals_from_lines_list.append(pred_minerals_from_lines)
-        
-        # determine which line segments in the reaction path are projections
-        # and which are actually in the plane of the diagram.
-        # This is the "first pass"
-        fig_list_projected_points = []
-        for i,triad in enumerate(element_plot_triad):
-            
-            projected_points = ["projection"]*self.moles_product_minerals.shape[0]
-            for irow in range(0, self.moles_product_minerals.shape[0]):
                 
-                # get names of minerals formed at this xi
-                formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral>0]
-
-                for mineral in formed_minerals:
-                    
-                    available_pred_minerals_from_fields = [l[i] for l in pred_minerals_from_fields_list]
-                
-                    if mineral == pred_minerals_from_fields_list[i][irow]:
-                        # if this mineral is in pred_minerals_from_fields_list,
-                        # then it is NOT a projection.
-                        projected_points[irow] = "real"
-                    if mineral in available_pred_minerals_from_fields and mineral in pred_minerals_from_lines_list[i]:
-                        # if this mineral is in the irowth location of any of the
-                        # lists in pred_minerals_from_lines_list, it is NOT a
-                        # projection.
-                        projected_points[irow] = "real"
-                        
-            fig_list_projected_points.append(projected_points)
-        
-        if isinstance(xyb, list):
-            element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-        
-        fig_list = []
-        for i,triad in enumerate(element_plot_triad):
-            # re-run figure generation, passing in a list of which points are projected.
+        if len(all_elements_of_interest) == 2:
+            
             fig, _ , _ = self.__plot_reaction_path_main(
-                                                triad, T=self.T, P=self.P,
+                                                triad = all_elements_of_interest,
+                                                T=self.T, P=self.P,
                                                 path_margin=self.path_margin,
                                                 flip_xy=flip_xy,
                                                 show_annotation=show_annotation,
@@ -595,10 +524,111 @@ class Mass_Transfer:
                                                 ppi=ppi,
                                                 colormap=colormap,
                                                 borders=borders,
-                                                projected_points=fig_list_projected_points[i],
+                                                projected_points=["real"]*self.moles_product_minerals.shape[0],
                                                 first_pass=False)
+        
+            return [fig]
+        
+        elif len(all_elements_of_interest) >= 3:
 
-            fig_list.append(fig)
+            # get a list of elem pairs for plotting
+            alist = self.all_elements_of_interest
+            element_plot_pairs = []
+            for result in itertools.combinations(alist, 2):
+                element_plot_pairs.append(list(result))
+
+            element_plot_triad = []
+            for pair in element_plot_pairs:
+                elem_not_in_pair = [e for e in self.all_elements_of_interest if e not in pair]
+                for e in elem_not_in_pair:
+                    triad_to_append = pair + [e]
+                    element_plot_triad.append(triad_to_append)
+
+            if colormap == "bw":
+                if borders == 0:
+                    borders = 1
+                colormap = "none"
+                h_line_color = "black"
+                v_line_color = "black"
+                d_line_color = "black"
+
+            fig_list = []
+            pred_minerals_from_fields_list = []
+            pred_minerals_from_lines_list = []
+            for triad in element_plot_triad:
+
+                # do a quick first pass at making figures to see which points are projections.
+                fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
+                                                    triad, T=self.T, P=self.P,
+                                                    show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                    path_margin=self.path_margin,
+                                                    flip_xy=flip_xy,
+                                                    first_pass=True, # flag for skipping certain calculations/plotting
+                                                    res=1) # low res first pass
+
+                fig_list.append(fig)
+                pred_minerals_from_fields_list.append(pred_minerals_from_fields)
+                pred_minerals_from_lines_list.append(pred_minerals_from_lines)
+
+            # determine which line segments in the reaction path are projections
+            # and which are actually in the plane of the diagram.
+            # This is the "first pass"
+            fig_list_projected_points = []
+            for i,triad in enumerate(element_plot_triad):
+
+                projected_points = ["projection"]*self.moles_product_minerals.shape[0]
+                for irow in range(0, self.moles_product_minerals.shape[0]):
+
+                    # get names of minerals formed at this xi
+                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral>0]
+
+                    available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
+
+                    for mineral in formed_minerals:
+
+                        if mineral == pred_minerals_from_fields_list[i][irow]:
+                            # if this mineral is in pred_minerals_from_fields_list,
+                            # then it is NOT a projection.
+                            projected_points[irow] = "real"
+                        if mineral in available_pred_minerals_from_fields and mineral in pred_minerals_from_lines_list[i]:
+                            # if this mineral is in the irowth location of any of the
+                            # lists in pred_minerals_from_lines_list, it is NOT a
+                            # projection.
+                            projected_points[irow] = "real"
+
+                fig_list_projected_points.append(projected_points)
+
+            if isinstance(xyb, list):
+                element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+
+            fig_list = []
+            for i,triad in enumerate(element_plot_triad):
+                # re-run figure generation, passing in a list of which points are projected.
+                fig, _ , _ = self.__plot_reaction_path_main(
+                                                    triad, T=self.T, P=self.P,
+                                                    path_margin=self.path_margin,
+                                                    flip_xy=flip_xy,
+                                                    show_annotation=show_annotation,
+                                                    annotation_coords=annotation_coords,
+                                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                    path_line_color=path_line_color,
+                                                    path_point_fill_color=path_point_fill_color,
+                                                    path_point_line_color=path_point_line_color,
+                                                    projected_point_fill_color=projected_point_fill_color,
+                                                    projected_point_line_color=projected_point_line_color,
+                                                    h_line_color=h_line_color,
+                                                    v_line_color=v_line_color,
+                                                    d_line_color=d_line_color,
+                                                    res=res,
+                                                    plot_width=plot_width,
+                                                    plot_height=plot_height,
+                                                    ppi=ppi,
+                                                    colormap=colormap,
+                                                    borders=borders,
+                                                    projected_points=fig_list_projected_points[i],
+                                                    first_pass=False)
+
+                fig_list.append(fig)
         
         return fig_list
         
@@ -821,7 +851,7 @@ class Mass_Transfer:
                 
                 a = affinity(**args_temp)
                 e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
-                table = diagram(e, interactive=True, fig_out=False, plot_it=False, messages=messages)
+                table = diagram(e, balance=self.__get_basis_from_elem(div_var_name), interactive=True, fig_out=False, plot_it=False, messages=messages)
                 
                 pred_minerals_from_fields.append(table["prednames"][0])
             
@@ -846,15 +876,15 @@ class Mass_Transfer:
                            layout_xaxis_range=plot_x_range,
                            layout_yaxis_range=plot_y_range,
                            )
-            if show_annotation:
-                fig.add_annotation(x=annotation_coords[0],
-                                   y=annotation_coords[1],
-                                   xref="paper",
-                                   yref="paper",
-                                   align='left',
-                                   text=annotation,
-                                   bgcolor="rgba(255, 255, 255, 0.5)",
-                                   showarrow=False)
+
+            fig.add_annotation(x=annotation_coords[0],
+                               y=annotation_coords[1],
+                               xref="paper",
+                               yref="paper",
+                               align='left',
+                               text=annotation,
+                               bgcolor="rgba(255, 255, 255, 0.5)",
+                               showarrow=False)
 
             fig.update_layout(
                 width=plot_width*ppi, height=plot_height*ppi,
@@ -1007,7 +1037,11 @@ class Mass_Transfer:
                                   first_pass=False):
 
         e_pair = triad[0:2]
-        div_var_name = triad[2]
+        
+        if len(triad) == 3:
+            div_var_name = triad[2]
+        elif len(triad) == 2:
+            div_var_name = "None"
 
         if flip_xy:
             e_pair.reverse()
@@ -1087,8 +1121,10 @@ class Mass_Transfer:
         else:
             bar_bars = "bars"
         
-        if show_annotation:
+        if show_annotation and div_var_name != "None":
             annotation = "Balanced on: "+chemlabel(self.__get_basis_from_elem(div_var_name))+"<br>"+'%g'%(self.T)+" °C, "+'%g'%(self.P)+" "+bar_bars
+        elif show_annotation:
+            annotation = '%g'%(self.T)+" °C, "+'%g'%(self.P)+" "+bar_bars
         else:
             annotation = None
         
@@ -1111,6 +1147,7 @@ class Mass_Transfer:
             fig = None
         else:
             for mineral in x_minerals_to_plot + y_minerals_to_plot + xy_minerals_to_plot:
+                
                 if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns):
                     continue
                 
