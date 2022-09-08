@@ -937,7 +937,7 @@ class Speciation(object):
         df['y_variable'] = df['y_variable'].apply(chemlabel)
         
         
-        if unit_type == "energy supply" or unit_type == "affinity":
+        if (unit_type == "energy supply" or unit_type == "affinity") and self.affinity_energy_reactions_table != None:
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
