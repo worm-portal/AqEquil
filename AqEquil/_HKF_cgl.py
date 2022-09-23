@@ -82,10 +82,18 @@ def dissrxn2logK(OBIGT, i, Tc):
     
     this_dissrxn = OBIGT.iloc[i, OBIGT.columns.get_loc('dissrxn')]
     
+    if this_dissrxn == "nan":
+        this_dissrxn = OBIGT.iloc[i, OBIGT.columns.get_loc('regenerate_dissrxn')]
+    
+#     print(OBIGT["name"][i], this_dissrxn)
+    
     try:
+        this_dissrxn = this_dissrxn.strip()
         split_dissrxn = this_dissrxn.split(" ")
     except:
         return float('NaN')
+    
+    
     
     coeff = [float(n) for n in split_dissrxn[::2]]
     species = split_dissrxn[1::2]

@@ -499,12 +499,15 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
         # For each oxidation state of this element in the non-basis species,
         # pick the closest strict or aux basis species.
         if(is.list(sp_ox_elem)){
+          # Species has an element in two different oxidation states
+          # e.g., hastingsite has both Fe+2 and Fe+3
+
           # When there is more than one instance of this element in the non-basis species,
           # find the basis species with the closest oxidation states and assign.
           chosen_basis_species_vec <- c()
           basis_ave_ox_states <- unlist(basis_df["ave_ox_state_of_elem"]) 
         
-          names(basis_ave_ox_states) <- row.names(basis_df)
+          names(basis_ave_ox_states) <- unlist(basis_df["formula_ox_modded"])
           for(i in 1:length(sp_ox_elem)){
             if(!("Z" %in% names(sp_ox_elem[[i]]))){
               sp_ox_elem[[i]]["Z"] <- 0
@@ -522,14 +525,17 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
           
             
         }else{
+          # Species has an element with one oxidation state
+          # e.g., aegerine has Fe+3 (not Fe+3 AND Fe+2)
+            
           # Find the basis species with the closest oxidation state to the
           # element inside the non-basis species and assign.
           if(!("Z" %in% names(sp_ox_elem))){
             sp_ox_elem["Z"] <- 0
           }
           basis_ave_ox_states <- unlist(basis_df["ave_ox_state_of_elem"])
-          names(basis_ave_ox_states) <- row.names(basis_df)
-          
+          names(basis_ave_ox_states) <-  unlist(basis_df["formula_ox_modded"])
+            
           # if there is more than one basis species matching the oxidation state of
           # this element in the non-basis species, just pick the first one, thus the [1].
           # Maybe there is a better way to decide but I'm going with this for now.
@@ -540,7 +546,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
           names(sp_num_elem) <- chosen_basis_name
             
           chosen_basis[[elem]] <- sp_num_elem/n_elem_in_basis
-            
+          
         }
 
       }
@@ -596,6 +602,10 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   
   # load thermodynamic data
   thermo_df <- read.csv(filename, stringsAsFactors=F)
+  
+  # remove leading and trailing whitespace from dissrxn and formula_ox columns
+  ws_cols <- c("dissrxn", "formula_ox")
+  thermo_df[ws_cols] <- lapply(thermo_df[ws_cols], trimws)
     
   # exclude rows based on categories
   if(length(exclude_category) > 0){
@@ -1015,6 +1025,12 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       species_in_dissrxns_that_are_not_basis <- c(species_in_dissrxns_that_are_not_basis, basis)
     }
   }
+
+  if(length(missing_basis_species) == 1){
+    if(is.na(missing_basis_species)){
+      missing_basis_species = c()
+    }
+  }
                                    
   if(length(missing_basis_species) > 0){
     for(species in thermo_df[, "name"]){
@@ -1106,11 +1122,24 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     nonbasis_names <- unique(nonbasis_names)
     basis_names <- names(basis_idx)[basis_idx]
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
-    vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
-  }
-                                  
-  thermo_df[is.na(thermo_df)]='' 
+    if(!identical(basis_names, character(0))){
+      vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
+    }
 
+    # replace dissrxns with any regenerated dissrxns
+    for(name in names){
+        
+#       print(name)
+#       print(dissrxns[[name]])
+#       print(thermo_df[thermo_df["name"]==name, "dissrxn"])
+        
+      thermo_df[thermo_df["name"]==name, "dissrxn"] <- dissrxns[[name]]
+    }
+  }
+#   print(tail(thermo_df))
+                                  
+  thermo_df[is.na(thermo_df)]=''
+  
   out_list = list("OBIGT_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
                                   
   return(out_list)

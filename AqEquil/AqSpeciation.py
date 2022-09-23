@@ -937,7 +937,7 @@ class Speciation(object):
         df['y_variable'] = df['y_variable'].apply(chemlabel)
         
         
-        if (unit_type == "energy supply" or unit_type == "affinity") and self.affinity_energy_reactions_table != None:
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
@@ -4117,6 +4117,13 @@ class AqEquil:
         self.__print_captured_r_output()
         
         OBIGT_df = out_list.rx2("OBIGT_df")
+        
+#         regenerated_dissrxns = out_list.rx2("dissrxns")
+        
+#         regenerated_dissrxn_dict = {}
+#         for name in regenerated_dissrxns.names:
+#             if name != "basis_list":
+#                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
         
         OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
                                         float_cols=["G", "H", "S", "Cp",

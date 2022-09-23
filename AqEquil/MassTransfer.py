@@ -353,6 +353,7 @@ class Mass_Transfer:
                             show_annotation=True,
                             annotation_coords=[0,0],
                             show_nonparticipating_mineral_lines = False,
+                            path_line_type = "markers+lines",
                             path_line_color = "red",
                             path_point_fill_color = "red",
                             path_point_line_color = "red",
@@ -408,6 +409,10 @@ class Mass_Transfer:
             Depict lines for minerals even if those minerals do not participate
             in the reaction? This does not affect the mineral field of the
             diagram, only the mineral planes denoted as lines.
+        
+        path_line_type : str, default "markers+lines"
+            Reaction path line type. Can be either "markers+lines", "lines", or
+            "markers".
         
         path_line_color, str, default "black"
             Color of reaction path line.
@@ -496,12 +501,21 @@ class Mass_Transfer:
         all_elements_of_interest = []
         for mineral in minerals_formed:
             all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
-        all_elements_of_interest = list(set(all_elements_of_interest))
+        all_elements_of_interest_pre = list(set(all_elements_of_interest))
+        
+        # filter out elements like Fe+0, which has no aqueous species representative
+        # for which to create an axis.
+        bad_elem = []
+        for elem in all_elements_of_interest_pre:
+            if list(self.thermodata_csv.loc[self.thermodata_csv['name'] == self.__get_basis_from_elem(elem), 'state'])[0] != 'aq':
+                bad_elem.append(elem)
+        all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
-                
+        
+        # if there are only 2 elements of interest, these become the axes, and there is no
+        # need to fuss with real vs projected points.
         if len(all_elements_of_interest) == 2:
-            
             fig, _ , _ = self.__plot_reaction_path_main(
                                                 triad = all_elements_of_interest,
                                                 T=self.T, P=self.P,
@@ -510,6 +524,7 @@ class Mass_Transfer:
                                                 show_annotation=show_annotation,
                                                 annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                path_line_type=path_line_type,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
                                                 path_point_line_color=path_point_line_color,
@@ -555,48 +570,59 @@ class Mass_Transfer:
             fig_list = []
             pred_minerals_from_fields_list = []
             pred_minerals_from_lines_list = []
-            for triad in element_plot_triad:
+            
+            if path_line_type == "lines":
+                projected_points = ["real"]*self.moles_product_minerals.shape[0]
+                fig_list_projected_points = [projected_points]*len(element_plot_triad)
+                
+            elif path_line_type in ["markers+lines", "markers"]:
+                for triad in element_plot_triad:
 
-                # do a quick first pass at making figures to see which points are projections.
-                fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
-                                                    triad, T=self.T, P=self.P,
-                                                    show_nonparticipating_mineral_lines=False, # no need for this in first pass
-                                                    path_margin=self.path_margin,
-                                                    flip_xy=flip_xy,
-                                                    first_pass=True, # flag for skipping certain calculations/plotting
-                                                    res=1) # low res first pass
+                    # do a quick first pass at making figures to see which points are projections.
+                    fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
+                                                        triad, T=self.T, P=self.P,
+                                                        show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                        path_margin=self.path_margin,
+                                                        flip_xy=flip_xy,
+                                                        first_pass=True, # flag for skipping certain calculations/plotting
+                                                        res=1) # low res first pass
 
-                fig_list.append(fig)
-                pred_minerals_from_fields_list.append(pred_minerals_from_fields)
-                pred_minerals_from_lines_list.append(pred_minerals_from_lines)
+                    fig_list.append(fig)
+                    pred_minerals_from_fields_list.append(pred_minerals_from_fields)
+                    pred_minerals_from_lines_list.append(pred_minerals_from_lines)
 
-            # determine which line segments in the reaction path are projections
-            # and which are actually in the plane of the diagram.
-            # This is the "first pass"
-            fig_list_projected_points = []
-            for i,triad in enumerate(element_plot_triad):
+                # determine which line segments in the reaction path are projections
+                # and which are actually in the plane of the diagram.
+                # This is the "first pass"
+                fig_list_projected_points = []
+                for i,triad in enumerate(element_plot_triad):
 
-                projected_points = ["projection"]*self.moles_product_minerals.shape[0]
-                for irow in range(0, self.moles_product_minerals.shape[0]):
+                    projected_points = ["projection"]*self.moles_product_minerals.shape[0]
+                    for irow in range(0, self.moles_product_minerals.shape[0]):
 
-                    # get names of minerals formed at this xi
-                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral>0]
+                        # get names of minerals formed at this xi
+                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral>0]
 
-                    available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
+                        available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
-                    for mineral in formed_minerals:
+                        for mineral in formed_minerals:
 
-                        if mineral == pred_minerals_from_fields_list[i][irow]:
-                            # if this mineral is in pred_minerals_from_fields_list,
-                            # then it is NOT a projection.
-                            projected_points[irow] = "real"
-                        if mineral in available_pred_minerals_from_fields and mineral in pred_minerals_from_lines_list[i]:
-                            # if this mineral is in the irowth location of any of the
-                            # lists in pred_minerals_from_lines_list, it is NOT a
-                            # projection.
-                            projected_points[irow] = "real"
+                            if mineral == pred_minerals_from_fields_list[i][irow]:
+                                # if this mineral is in pred_minerals_from_fields_list,
+                                # then it is NOT a projection.
+                                projected_points[irow] = "real"
+                            if mineral in available_pred_minerals_from_fields and mineral in pred_minerals_from_lines_list[i]:
+                                # if this mineral is in the irowth location of any of the
+                                # lists in pred_minerals_from_lines_list, it is NOT a
+                                # projection.
+                                projected_points[irow] = "real"
 
-                fig_list_projected_points.append(projected_points)
+                    fig_list_projected_points.append(projected_points)
+                    
+            else:
+                msg = ("path_line_type can only be 'markers+lines', 'lines', "
+                       "or 'markers'")
+                self.err_handler.raise_exception(msg)
 
             if isinstance(xyb, list):
                 element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
@@ -611,6 +637,7 @@ class Mass_Transfer:
                                                     show_annotation=show_annotation,
                                                     annotation_coords=annotation_coords,
                                                     show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                    path_line_type=path_line_type,
                                                     path_line_color=path_line_color,
                                                     path_point_fill_color=path_point_fill_color,
                                                     path_point_line_color=path_point_line_color,
@@ -908,6 +935,7 @@ class Mass_Transfer:
     def __add_reaction_path_to_plot(self, x_vals, y_vals, xi_vals, fig,
                                     basis_species_x, basis_species_y,
                                     path_margin=0.25, projected_points=[],
+                                    path_line_type = "markers+lines",
                                     path_line_color = "black",
                                     path_point_fill_color = "black",
                                     path_point_line_color = "black",
@@ -924,30 +952,23 @@ class Mass_Transfer:
 
         xlab,ylab = self.__get_xy_labs(basis_species_x, basis_species_y)
         
-
-        fig.add_trace(
-            go.Scatter(
-                x=x_vals,
-                y=y_vals,
-                line=go.scatter.Line(color=path_line_color),
-                marker=dict(
-                    color=path_point_fill_color,
-                    line=dict(
-                        color=path_point_line_color,
-                        width=2
-                    )
-                ),
-                mode='markers+lines',
-                showlegend=True,
-                name='reaction path',
-                text = xi_vals,
-                hovertemplate = 'Xi = %{text}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
-                legendgroup='reaction path',
+        if path_line_type in ["markers+lines", "lines"]:
+            fig.add_trace(
+                go.Scatter(
+                    x=x_vals,
+                    y=y_vals,
+                    line=go.scatter.Line(color=path_line_color),
+                    mode='lines',
+                    showlegend=True,
+                    name='reaction path',
+                    text = xi_vals,
+                    hovertemplate = 'Xi = %{text}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
+                    legendgroup='reaction path',
+                )
             )
-        )
         
-
-        if len(projected_points) > 0:
+        
+        if len(projected_points) > 0 and path_line_type in ["markers+lines", "markers"]:
             
             x_vals_real = []
             x_vals_projected = []
@@ -1018,6 +1039,7 @@ class Mass_Transfer:
                                   show_annotation=False,
                                   annotation_coords=[0,0],
                                   show_nonparticipating_mineral_lines = False,
+                                  path_line_type = "markers+lines",
                                   path_line_color = "black",
                                   path_point_fill_color = "black",
                                   path_point_line_color = "black",
@@ -1045,19 +1067,19 @@ class Mass_Transfer:
 
         if flip_xy:
             e_pair.reverse()
-
+            
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
-
+        
         basis_sp_list = list(self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"].columns)[2:-1]
         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
         basis_sp_list = list(set(basis_sp_list))
-
+        
         if basis_species_x not in basis_sp_list:
             basis_sp_list += [basis_species_x]
         if basis_species_y not in basis_sp_list:
             basis_sp_list += [basis_species_y]
-
+            
         try:
             basis(basis_sp_list)
         except:
@@ -1113,7 +1135,7 @@ class Mass_Transfer:
             species(field_minerals_to_plot)#, add=True)
         except:
             field_minerals_exist = False
-            
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
 
         if self.P <= 1:
@@ -1214,6 +1236,7 @@ class Mass_Transfer:
                                                    basis_species_x, basis_species_y,
                                                    path_margin=self.path_margin,
                                                    projected_points=projected_points,
+                                                   path_line_type=path_line_type,
                                                    path_line_color=path_line_color,
                                                    path_point_fill_color=path_point_fill_color,
                                                    path_point_line_color=path_point_line_color,
