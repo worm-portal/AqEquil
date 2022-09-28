@@ -3176,6 +3176,11 @@ class AqEquil:
         alter_options_dict = {}
         if len(alter_options) > 0:
             for ao in alter_options:
+                if not isinstance(ao, list):
+                    err = ("alter_options must be a list of lists, e.g.,\n"
+                          "[['CaCl+', 'AugmentLogK', -1], ['CaOH+', 'Suppress']]"
+                          "\nor\n[['CaHCO3+', 'Suppress']]")
+                    self.err_handler.raise_exception(err)
                 key = ao[0]
                 if ao[1] == "Suppress" and len(ao) == 2:
                     ao += ["0"]
@@ -3243,7 +3248,7 @@ class AqEquil:
                                 verbose=verbose)
                 
                 self.runeqpt(data0_lettercode, dynamic_db=True)
-
+                
                 if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                     # store contents of data1 file in AqEquil object
                     with open("data1."+data0_lettercode, mode='rb') as data1:

@@ -186,6 +186,8 @@ class Mass_Transfer:
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
         
+        self.inactive_species = self.__get_inactive_species()
+        
         if isinstance(thermodata_csv, pd.DataFrame) or isinstance(thermodata_csv, str):
             # these operations require a WORM-style thermodynamic database CSV
             
@@ -203,7 +205,12 @@ class Mass_Transfer:
                 self.err_handler.raise_exception("Cannot process reaction output "
                     "because the thermodynamic database specified by thermodata_csv "
                     "is not the a WORM-style dataframe or CSV file.")
-
+            
+            # remove inactive species from the database to prevent them from
+            # showing up as mineral fields or saturation lines
+            if len(self.inactive_species) > 0:
+                self.df = self.df[~self.df.name.isin(self.inactive_species)]
+                
             basis_df = self.df[self.df["tag"] == "basis"]
             aux_df = self.df[self.df["tag"] == "aux"]
             refstate_df = self.df[self.df["tag"] == "refstate"]
@@ -215,7 +222,7 @@ class Mass_Transfer:
         self.aq_distribution = self.__get_aq_distribution()
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
-
+        
         
     def mine_6o_table(self,
                       table_start="--- Distribution of Aqueous Solute Species ---",
@@ -302,6 +309,36 @@ class Mass_Transfer:
             df = df.drop(['None'], axis=1)
         
         return df
+    
+    
+    def __get_inactive_species(self):
+        
+        f=open(self.six_o_file, mode='r')
+        lines=f.readlines()
+        f.close()
+
+        table_start = "--- Inactive Species ---"
+        table_stop = "The activity coefficients of aqueous species"
+
+        vals=[]
+        collect_values=False
+        for i in lines:
+            if collect_values and table_stop in i:
+                # stop collecting
+                break
+            if table_start in i:
+                # start collecting
+                collect_values = True
+                got_value = False
+            if collect_values:
+                if table_start not in i:
+                    split_i = i.strip().split(' ')
+                    split_i_clean = [v for v in split_i if v != '' and v != "None"]
+                    if len(split_i_clean) > 0:
+                        vals.append(split_i_clean[0])
+                        got_value = True
+        
+        return vals
         
         
     def __get_aq_distribution(self):
@@ -576,6 +613,17 @@ class Mass_Transfer:
                 fig_list_projected_points = [projected_points]*len(element_plot_triad)
                 
             elif path_line_type in ["markers+lines", "markers"]:
+                
+                if isinstance(xyb, list):
+                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                    xyb_i = None
+                    # get index of triad that matches xyb:
+                    for i,triad in enumerate(element_plot_triad):
+                        if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
+                            xyb_i = i
+                    if xyb_i == None:
+                        print("ERROR!")
+                
                 for triad in element_plot_triad:
 
                     # do a quick first pass at making figures to see which points are projections.
@@ -623,10 +671,13 @@ class Mass_Transfer:
                 msg = ("path_line_type can only be 'markers+lines', 'lines', "
                        "or 'markers'")
                 self.err_handler.raise_exception(msg)
-
+                
             if isinstance(xyb, list):
-                element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-
+                # if xyb is defined, make element_plot_triad have a length of 1
+                element_plot_triad = xyb_element_plot_triad
+                # give the list of projected points lists a length of 1
+                fig_list_projected_points = [fig_list_projected_points[xyb_i]]
+                
             fig_list = []
             for i,triad in enumerate(element_plot_triad):
                 # re-run figure generation, passing in a list of which points are projected.
