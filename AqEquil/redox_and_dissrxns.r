@@ -57,46 +57,67 @@ order_thermo_df <- function(thermo_df, fixed_species, verbose){
   aux_entries_with_only_strict <- aux_entries[split_and_check_dissrxn(aux_entries[, "dissrxn"], basis_entries[, "name"], fixed_species), ]
   aux_entries_with_other_aux   <- aux_entries[!split_and_check_dissrxn(aux_entries[, "dissrxn"], basis_entries[, "name"], fixed_species), ]
   aux_entries_with_strict_aux <- aux_entries_with_other_aux[split_and_check_dissrxn(aux_entries_with_other_aux[, "dissrxn"], c(aux_entries_with_only_strict[, "name"], basis_entries[, "name"]), fixed_species), ]
-  
+    
   if(!identical(aux_entries_with_other_aux[, "dissrxn"], character(0))){
     aux_entries_with_nonstrict_aux <- aux_entries_with_other_aux[!split_and_check_dissrxn(aux_entries_with_other_aux[, "dissrxn"], c(aux_entries_with_only_strict[, "name"], basis_entries[, "name"]), fixed_species), ]
   }else{
     aux_entries_with_nonstrict_aux <- data.frame()
   }
-      
-#   print(nrow(aux_entries))
-#   print(nrow(aux_entries_with_other_aux))
-#   print(nrow(aux_entries_with_nonstrict_aux))
-#   print(aux_entries_with_nonstrict_aux[, "name"])
 
   if(nrow(aux_entries_with_nonstrict_aux) > 0){
     # sort aux species with nonstrict aux so that their order of 
     # declaration won't cause EQPT errors.
     counter <- 0
-    previous_state <- aux_entries_with_nonstrict_aux[,"name"]
-    while(counter < 10){
+    max_counter_steps <- 10
+    while(counter < max_counter_steps){
       counter <- counter + 1
+      previous_state <- aux_entries_with_nonstrict_aux[,"name"]
       for(i in 1:nrow(aux_entries_with_nonstrict_aux)){
+        # for each auxiliary species with other aux species in its dissrxn...
+        # get s, a vector of containing species in its dissxn
         s <- str_split(aux_entries_with_nonstrict_aux[i, "dissrxn"], " ")[[1]]
         s <- s[2:length(s)]
         s <- s[!s %in% fixed_species]
+        s <- s[!s %in% c(aux_entries_with_nonstrict_aux[i, "name"])] # exclude itself
         for(sp in s){
+          # for each species in the dissrxn...
           for(ii in 1:nrow(aux_entries_with_nonstrict_aux)){
+            # for each row in the nonstrict aux df...
             if(sp == aux_entries_with_nonstrict_aux[ii,"name"]){
-              aux_entries_with_nonstrict_aux <- insertRow(aux_entries_with_nonstrict_aux, aux_entries_with_nonstrict_aux[i, ], ii+1)
-              aux_entries_with_nonstrict_aux <- aux_entries_with_nonstrict_aux[-c(i), ]
+              # if the species is in the nonstrict aux df,
+              # copy the original aux species directly after the aux species in
+              # its dissrxn.
+              if(i < ii){
+                  # if the original aux species is in a row before the aux species
+                  # in its dissrxn, reorder it.
+                  
+#                   print("Original aux species:")
+#                   print(aux_entries_with_nonstrict_aux[i, "name"])
+#                   print("... the aux species in its dissrxn:")
+#                   print(aux_entries_with_nonstrict_aux[ii, "name"])
+#                   print("The i's")
+#                   print(i)
+#                   print(ii)
+
+                  aux_entries_with_nonstrict_aux <- insertRow(aux_entries_with_nonstrict_aux, aux_entries_with_nonstrict_aux[i, ], ii+1)
+
+                  # and delete the original row
+                  aux_entries_with_nonstrict_aux <- aux_entries_with_nonstrict_aux[-c(i), ]
+              }
             }
           }
         }
       }
+        
       #print(aux_entries_with_nonstrict_aux[, "name"])
+        
       if(all(aux_entries_with_nonstrict_aux[,"name"] == previous_state)){
         break
       }
       previous_state <- aux_entries_with_nonstrict_aux[,"name"]
       
     }
-    if(counter >= 10){
+    if(counter >= max_counter_steps){
       m <- paste("Warning: Could not automatically re-order the auxiliary basis species",
                  paste(aux_entries_with_nonstrict_aux[,"name"], collapse=", "), ". This might happen if there are",
                  "many interdependencies of auxiliary basis species in their dissociation reactions.")
@@ -602,7 +623,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   
   # load thermodynamic data
   thermo_df <- read.csv(filename, stringsAsFactors=F)
-  
+    
   # remove leading and trailing whitespace from dissrxn and formula_ox columns
   ws_cols <- c("dissrxn", "formula_ox")
   thermo_df[ws_cols] <- lapply(thermo_df[ws_cols], trimws)
@@ -1012,7 +1033,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
     }
   }
   all_basis_species <- unique(all_basis_species)
-
+                                   
   # check whether there are species in dissociation reactions that are missing or
   # not tagged in the database as 'basis' or 'aux'.
   missing_basis_species <- c()
@@ -1025,7 +1046,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
       species_in_dissrxns_that_are_not_basis <- c(species_in_dissrxns_that_are_not_basis, basis)
     }
   }
-
+                                   
   if(length(missing_basis_species) == 1){
     if(is.na(missing_basis_species)){
       missing_basis_species = c()
