@@ -21,14 +21,12 @@ vmessage <- function(m, vlevel, verbose){
 # Spaces can be added before the string by specifying spaces_after=FALSE
 fillspace <- function(str, nspaces, spaces_after=TRUE){
 tryCatch({
-  out <<- ifelse(spaces_after,
+    out <<- ifelse(spaces_after,
          paste0(str, paste(rep(" ", nspaces-nchar(str)), collapse="")),
          paste0(paste(rep(" ", nspaces-nchar(str)), collapse=""), str))
     },
     error = function(e){
-        print(paste("ERROR with ", str))
-        str <<- "TEST"
-            
+        out <<- ""
       },
       warning = function(w){
         print(paste("WARNING"))

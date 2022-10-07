@@ -2507,6 +2507,7 @@ class AqEquil:
                  input_filename,
                  db="wrm",
                  db_solid_solution=None,
+                 db_logK=None,
                  activity_model="b-dot",
                  redox_flag="logfO2",
                  redox_aux="Fe+3",
@@ -3045,6 +3046,9 @@ class AqEquil:
             db_args["dynamic_db"] = True
             db_args["verbose"] = self.verbose
             db_args["generate_template"] = False
+            
+            if db_logK != None:
+                db_args["filename_free_logK"] = db_logK
             
             if db_solid_solution != None:
                 if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
@@ -3754,10 +3758,14 @@ class AqEquil:
                                                     "c2.f", "omega.lambda", "z.T",
                                                     "azero", "neutral_ion_type",
                                                     "logK1", "logK2", "logK3", "logK4",
-                                                    "logK5", "logK6", "logK7", "logK8"],
+                                                    "logK5", "logK6", "logK7", "logK8",
+                                                    "T1", "T2", "T3", "T4", "T5", "T6",
+                                                    "T7", "T8"],
                                         str_cols=["name", "abbrv", "state", "formula",
                                                   "ref1", "ref2", "date",
-                                                  "E_units", "tag", "dissrxn", "formula_ox"],
+                                                  "E_units", "tag", "dissrxn", "formula_ox",
+                                                  "P1", "P2", "P3", "P4", "P5", "P6",
+                                                  "P7", "P8"],
                                         NA_string=""):
 
         df.replace(NA_string, np.nan, inplace=True)
@@ -3834,27 +3842,23 @@ class AqEquil:
         
         # handle free logK values
         if "logK1" in OBIGT_df.columns:
-            for i,val in enumerate(list(OBIGT_df["logK1"])):
-                if not math.isnan(val):
-                    dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_0"] = val
-                if len(grid_temps) > 1:
-                    if not math.isnan(OBIGT_df["logK2"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_1"] = list(OBIGT_df["logK2"])[i]
-                    if not math.isnan(OBIGT_df["logK3"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_2"] = list(OBIGT_df["logK3"])[i]
-                    if not math.isnan(OBIGT_df["logK4"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_3"] = list(OBIGT_df["logK4"])[i]
-                    if not math.isnan(OBIGT_df["logK5"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_4"] = list(OBIGT_df["logK5"])[i]
-                    if not math.isnan(OBIGT_df["logK6"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_5"] = list(OBIGT_df["logK6"])[i]
-                    if not math.isnan(OBIGT_df["logK7"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_6"] = list(OBIGT_df["logK7"])[i]
-                    if not math.isnan(OBIGT_df["logK8"][i]):
-                        dissrxn_logK.loc[dissrxn_logK["name"]==OBIGT_df["name"][i], "logK_7"] = list(OBIGT_df["logK8"])[i]
-        
-        # test
-        dissrxn_logK.to_csv("dissrxn_logK.csv", index=False)
+
+            free_logK_df = OBIGT_df.dropna(subset=['logK1'])
+            
+            for i,sp in enumerate(free_logK_df["name"]):
+                logK_grid = list(free_logK_df[["logK1", "logK2", "logK3",
+                                               "logK4", "logK5", "logK6",
+                                               "logK7", "logK8"]].iloc[i]) # logK at T and P in datasheet
+                
+                T_grid = list(free_logK_df[["T1", "T2", "T3",
+                                            "T4", "T5", "T6",
+                                            "T7", "T8"]].iloc[i]) # T for free logK grid
+                
+                
+                for ii,T in enumerate(grid_temps):
+                    logK = self.__interpolate_logK(T, logK_grid, T_grid)
+                    
+                    dissrxn_logK.loc[(dissrxn_logK.name == sp), "logK_"+str(ii)] = logK
         
         # remove duplicate rows (e.g., for mineral polymorphs)
         dissrxn_logK = dissrxn_logK.drop_duplicates("name")
@@ -4138,30 +4142,10 @@ class AqEquil:
             # TODO: check that pressure is valid
     
             free_logK_df = pd.read_csv(filename_free_logK)
-            
-            # dataframe storing interpolated logK vals and other info
-            df_interp_logK = copy.copy(free_logK_df[["name", "abbrv", "formula", "state",
-                                           "ref1", "ref2", "date", "dissrxn",
-                                           "tag", "formula_ox", "azero"]])
-            
-            for i in range(1,9):
-                df_interp_logK["logK"+str(i)] = [np.nan]*df_interp_logK.shape[0]
-            
-            for i,sp in enumerate(free_logK_df["name"]):
-                logK_grid = list(free_logK_df[["logK1", "logK2", "logK3",
-                                               "logK4", "logK5", "logK6",
-                                               "logK7", "logK8"]].iloc[i]) # logK at T and P in datasheet
-                
-                T_grid = list(free_logK_df[["T1", "T2", "T3",
-                                            "T4", "T5", "T6",
-                                            "T7", "T8"]].iloc[i]) # T for free logK grid
-                
-                for ii,T in enumerate(grid_temps):
-                    logK = self.__interpolate_logK(T, logK_grid, T_grid)
-                    df_interp_logK.loc[i, "logK"+str(ii+1)] = logK
-            
-            df_interp_logK = self.__clean_rpy2_pandas_conversion(df_interp_logK)
-            thermo_df = pd.concat([thermo_df, df_interp_logK])
+   
+            free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
+            thermo_df = pd.concat([thermo_df, free_logK_df], ignore_index=True)
+            thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
         
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
@@ -4216,7 +4200,10 @@ class AqEquil:
 #         thermo_df["ref2"] = thermo_df["ref2"].astype(str)
 #         thermo_df["dissrxn"] = thermo_df["dissrxn"].astype(str)
 #         thermo_df["tag"] = thermo_df["tag"].astype(str)
-        OBIGT_df = self.__clean_rpy2_pandas_conversion(thermo_df)
+
+        thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
+        thermo_df.to_csv("test2.csv")
+        ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
                                db=db,
