@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = True
+<pre><code class="python">DEBUGGING_R = False
 FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;, &#34;OH-&#34;, &#34;O2&#34;, &#34;H2O(g)&#34;]
 
 import os
@@ -63,7 +63,7 @@ import plotly.graph_objects as go
 # rpy2 for Python and R integration
 import rpy2.rinterface_lib.callbacks
 import logging
-rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR)   # will display errors, but not warnings
+rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR) # will display errors, but not warnings
 
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
@@ -82,7 +82,7 @@ class Error_Handler:
     errors regardless of origin will be shown without traceback until the
     notebook kernel is restarted.
     
-    Attributes
+    Parameters
     ----------
     clean : bool
         Report exceptions without traceback? If True, only the error message is
@@ -580,8 +580,8 @@ class Speciation(object):
             &#34;Alk., mg/L HCO3-&#34; : (&#34;alkalinity&#34;, &#34;mg/L HCO3-&#34;),
             &#34;pX&#34; : (&#34;-(log activity)&#34;, &#34;-log(mol/kg)&#34;),
             &#34;activity&#34; : (&#34;activity&#34;, &#34;&#34;),
-            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;log(kg/mol)&#34;),
-            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;kg/mol&#34;),
+            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;&#34;),
+            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;&#34;),
             &#34;affinity_kcal&#34; : (&#34;affinity&#34;, &#34;kcal/mol&#34;),
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
@@ -816,7 +816,7 @@ class Speciation(object):
             determines the size of interactive plots.
         
         colormap : str, default &#34;WORM&#34;
-            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            Name of the colormap to color plotted data. Accepts &#34;WORM&#34;,
             &#34;colorblind&#34;, or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
@@ -965,7 +965,7 @@ class Speciation(object):
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
-        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+        if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
@@ -1068,7 +1068,7 @@ class Speciation(object):
             Size of scatterpoints.
         
         colormap : str, default &#34;WORM&#34;
-            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            Name of the colormap to color the plotted data. Accepts &#34;WORM&#34;,
             &#34;colorblind&#34;, or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
@@ -2169,6 +2169,7 @@ class AqEquil:
         Moves all EQPT output and data0 into the eqpt_files folder
         &#34;&#34;&#34;
         
+        self.__mk_check_del_directory(&#34;eqpt_files&#34;)
         if os.path.exists(&#34;eqpt_log.txt&#34;) and os.path.isfile(&#34;eqpt_log.txt&#34;):
             shutil.move(&#34;eqpt_log.txt&#34;, &#34;eqpt_files/eqpt_log.txt&#34;)
         if os.path.exists(&#34;data1f.txt&#34;) and os.path.isfile(&#34;data1f.txt&#34;):
@@ -2231,7 +2232,7 @@ class AqEquil:
                 msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                        &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
             self.err_handler.raise_exception(msg)
-
+        
         self.__move_eqpt_extra_output()
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path
@@ -2628,6 +2629,10 @@ class AqEquil:
             &#34;wrm_solid_solutions.csv&#34;
             - The URL of a CSV file containing solid solution parameters, e.g.,
             &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+        
+        activity_model : str, default &#34;b-dot&#34;
+            Activity model to use for speciation. Can be either &#34;b-dot&#34;,
+            or &#34;davies&#34;. NOTE: the &#34;pitzer&#34; model is not yet implemented.
         
         redox_flag : str, default &#34;O2(g)&#34;
             Determines which column in the sample input file sets the overall
@@ -3142,7 +3147,6 @@ class AqEquil:
                 grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
                               &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
                 
-                
             grid_press_numeric = [float(n) for n in grid_press]
             if min(grid_press_numeric) == 1:
                 P1=True
@@ -3201,6 +3205,11 @@ class AqEquil:
         alter_options_dict = {}
         if len(alter_options) &gt; 0:
             for ao in alter_options:
+                if not isinstance(ao, list):
+                    err = (&#34;alter_options must be a list of lists, e.g.,\n&#34;
+                          &#34;[[&#39;CaCl+&#39;, &#39;AugmentLogK&#39;, -1], [&#39;CaOH+&#39;, &#39;Suppress&#39;]]&#34;
+                          &#34;\nor\n[[&#39;CaHCO3+&#39;, &#39;Suppress&#39;]]&#34;)
+                    self.err_handler.raise_exception(err)
                 key = ao[0]
                 if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                     ao += [&#34;0&#34;]
@@ -3268,7 +3277,7 @@ class AqEquil:
                                 verbose=verbose)
                 
                 self.runeqpt(data0_lettercode, dynamic_db=True)
-
+                
                 if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                     # store contents of data1 file in AqEquil object
                     with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
@@ -3761,9 +3770,6 @@ class AqEquil:
     def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, verbose):
         
-#         for line in data0_file_lines:
-#             print(line)
-        
         self.__capture_r_output()
         
         r_check_TP_grid = pkg_resources.resource_string(
@@ -4145,6 +4151,13 @@ class AqEquil:
         self.__print_captured_r_output()
         
         OBIGT_df = out_list.rx2(&#34;OBIGT_df&#34;)
+        
+#         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
+        
+#         regenerated_dissrxn_dict = {}
+#         for name in regenerated_dissrxns.names:
+#             if name != &#34;basis_list&#34;:
+#                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
         
         OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
                                         float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
@@ -5793,6 +5806,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         Moves all EQPT output and data0 into the eqpt_files folder
         &#34;&#34;&#34;
         
+        self.__mk_check_del_directory(&#34;eqpt_files&#34;)
         if os.path.exists(&#34;eqpt_log.txt&#34;) and os.path.isfile(&#34;eqpt_log.txt&#34;):
             shutil.move(&#34;eqpt_log.txt&#34;, &#34;eqpt_files/eqpt_log.txt&#34;)
         if os.path.exists(&#34;data1f.txt&#34;) and os.path.isfile(&#34;data1f.txt&#34;):
@@ -5855,7 +5869,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                        &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
             self.err_handler.raise_exception(msg)
-
+        
         self.__move_eqpt_extra_output()
 
         os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path
@@ -6252,6 +6266,10 @@ calculation. 2 for all messages, 1 for errors or warnings only,
             &#34;wrm_solid_solutions.csv&#34;
             - The URL of a CSV file containing solid solution parameters, e.g.,
             &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+        
+        activity_model : str, default &#34;b-dot&#34;
+            Activity model to use for speciation. Can be either &#34;b-dot&#34;,
+            or &#34;davies&#34;. NOTE: the &#34;pitzer&#34; model is not yet implemented.
         
         redox_flag : str, default &#34;O2(g)&#34;
             Determines which column in the sample input file sets the overall
@@ -6766,7 +6784,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                 grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
                               &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
                 
-                
             grid_press_numeric = [float(n) for n in grid_press]
             if min(grid_press_numeric) == 1:
                 P1=True
@@ -6825,6 +6842,11 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         alter_options_dict = {}
         if len(alter_options) &gt; 0:
             for ao in alter_options:
+                if not isinstance(ao, list):
+                    err = (&#34;alter_options must be a list of lists, e.g.,\n&#34;
+                          &#34;[[&#39;CaCl+&#39;, &#39;AugmentLogK&#39;, -1], [&#39;CaOH+&#39;, &#39;Suppress&#39;]]&#34;
+                          &#34;\nor\n[[&#39;CaHCO3+&#39;, &#39;Suppress&#39;]]&#34;)
+                    self.err_handler.raise_exception(err)
                 key = ao[0]
                 if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                     ao += [&#34;0&#34;]
@@ -6892,7 +6914,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
                                 verbose=verbose)
                 
                 self.runeqpt(data0_lettercode, dynamic_db=True)
-
+                
                 if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                     # store contents of data1 file in AqEquil object
                     with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
@@ -7385,9 +7407,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, verbose):
         
-#         for line in data0_file_lines:
-#             print(line)
-        
         self.__capture_r_output()
         
         r_check_TP_grid = pkg_resources.resource_string(
@@ -7769,6 +7788,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         self.__print_captured_r_output()
         
         OBIGT_df = out_list.rx2(&#34;OBIGT_df&#34;)
+        
+#         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
+        
+#         regenerated_dissrxn_dict = {}
+#         for name in regenerated_dissrxns.names:
+#             if name != &#34;basis_list&#34;:
+#                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
         
         OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
                                         float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
@@ -8772,339 +8798,346 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def create_data0(self,
-                 db,
-                 filename,
-                 filename_ss=None,
-                 data0_formula_ox_name=None,
-                 suppress_redox=[],
-                 water_model=&#34;SUPCRT92&#34;,
-                 activity_model=&#34;b-dot&#34;,
-                 exceed_Ttr=True,
-                 grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
-                             200.0000, 250.0000, 300.0000, 350.0000],
-                 grid_press=&#34;Psat&#34;,
-                 P1=True,
-                 plot_poly_fit=False,
-                 infer_formula_ox=False,
-                 generate_template=True,
-                 template_name=None,
-                 template_type=&#34;strict&#34;,
-                 exclude_category={},
-                 fill_data0=True,
-                 dynamic_db=False,
-                 verbose=1):
-    &#34;&#34;&#34;
-    Create a data0 file from a custom thermodynamic dataset.
-    
-    Parameters
-    ----------
-    db : str
-        Desired three letter code of data0 output.
+<pre><code class="python">    def create_data0(self,
+                     db,
+                     filename,
+                     filename_ss=None,
+                     data0_formula_ox_name=None,
+                     suppress_redox=[],
+                     water_model=&#34;SUPCRT92&#34;,
+                     activity_model=&#34;b-dot&#34;,
+                     exceed_Ttr=True,
+                     grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
+                                 200.0000, 250.0000, 300.0000, 350.0000],
+                     grid_press=&#34;Psat&#34;,
+                     P1=True,
+                     plot_poly_fit=False,
+                     infer_formula_ox=False,
+                     generate_template=True,
+                     template_name=None,
+                     template_type=&#34;strict&#34;,
+                     exclude_category={},
+                     fill_data0=True,
+                     dynamic_db=False,
+                     verbose=1):
+        &#34;&#34;&#34;
+        Create a data0 file from a custom thermodynamic dataset.
         
-    filename : str
-        Name of csv file containing thermodynamic data in the OBIGT format.
+        Parameters
+        ----------
+        db : str
+            Desired three letter code of data0 output.
+            
+        filename : str
+            Name of csv file containing thermodynamic data in the OBIGT format.
+            
+        filename_ss : str, optional
+            Name of file containing solid solution parameters.
         
-    filename_ss : str, optional
-        Name of file containing solid solution parameters.
-    
-    data0_formula_ox_name : str, optional
-        Name of supplementary file containing data0 parameters and inferred
-        formula oxidation states. Ignored if `infer_formula_ox` is False.
-        See `infer_formula_ox` for more detail.
-    
-    suppress_redox : list of str, default []
-        Suppress equilibrium between oxidation states of listed elements
-        (Cl, H, and O cannot be included).
-
-    water_model : str, default &#34;SUPCRT92&#34;
-        This is an experimental feature that is not yet fully supported.
-        Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
-        These models are described here: http://chnosz.net/manual/water.html
-
-    exceed_Ttr : bool, default True
-        Calculate Gibbs energies of mineral phases and other species
-        beyond their transition temperatures?
-
-    grid_temps : list of eight float, default [0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000]
-        Eight temperature values that make up the T-P grid.
-    
-    grid_press : list of float, default &#34;Psat&#34;
-        Eight pressure values that make up the T-P grid. &#34;Psat&#34; for
-        calculations along the liquid-vapor saturation curve.
-    
-    P1 : bool, default True,
-        Use pressure of 1 bar below 100 degrees C instead of calculated
-        values of Psat? Ignored if `grid_press` is not &#34;Psat&#34;.
-    
-    plot_poly_fit : bool, default False
-        Plot the polynomial fit of the temperature pressure grid?
-    
-    infer_formula_ox : bool, default False
-        Create a supplementary file containing data0 parameters and
-        inferred formula oxidation states? This option is useful for
-        creating as many entries in the formula_ox column when creating a
-        new supplementary file. Note that compounds like DySO4+ result in
-        blank entries in formula_ox because the redox states of two
-        elements, Dy and S, would have to be estimated together; S has many
-        oxidation states and Dy&#39;s oxidation states are not hard-coded.
-    
-    generate_template : bool, default True
-        Generate a CSV sample input template customized to this data0?
-        Columns include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and all strict
-        basis species.
-    
-    template_name : str, optional
-        Name of the sample input template file generated. If no name is
-        supplied, defaults to &#39;sample_template_xyz.csv&#39;, where &#39;xyz&#39; is
-        the three letter code given to `db`. Ignored if `generate_template`
-        is False.
-    
-    template_type : str, either &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;
-        Determines which columns are written to the sample template.
-        - &#39;strict&#39; includes strict basis species
-        - &#39;all basis&#39; includes strict and auxiliary basis species
-        - &#39;all species&#39; includes all species in the thermodynamic database
-        Ignored if `generate_template` is False.
-    
-    exclude_category : dict
-        Exclude species from the custom thermodynamic dataset based on
-        column values. For instance,
-        `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
-        will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
-        the column &#34;category_1&#34;.
-    
-    dynamic_db : bool, default False
-        Are data0 files being created dynamically? If unsure, use False.
-        Used by `speciate` to display valid messages.
-    
-    verbose : int, 0, 1, or 2, default 1
-        Level determining how many messages are returned during a
-        calculation. 2 for all messages, 1 for errors or warnings only,
-        0 for silent.
-    &#34;&#34;&#34;
-    
-    # Check that thermodynamic database input files exist and are formatted
-    # correctly.
-    self._check_database_file(filename)
-    if filename_ss != None:
-        self.__file_exists(filename_ss)
-    
-    self.verbose = verbose
-    
-    if not dynamic_db:
-        if self.verbose &gt;= 1:
-            print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
-    
-    if len(grid_temps) not in [1, 8]:
-        self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have either one or eight values.&#34;)
-    if isinstance(grid_press, list):
-        if len(grid_press) not in [1, 8]:
-            self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have either one or eight values.&#34;)
-    
-    if sum([T &gt;= 10000 for T in grid_temps]):
-        self.err_handler.raise_exception(&#34;Grid temperatures must be below 10k °C.&#34;)
-    
-    if isinstance(grid_press, list):
-        if sum([P &gt;= 10000 for P in grid_press]):
-            self.err_handler.raise_exception(&#34;Grid pressures must be below 10 kilobars.&#34;)
-
-    if water_model == &#34;SUPCRT92&#34;:
-        min_T = 0
-        max_T = 2250
-        min_P = 0
-        max_P = 30000
-    elif water_model == &#34;IAPWS95&#34;:
-        min_T = 0
-        max_T = 1000
-        min_P = 0
-        max_P = 10000
-    elif water_model == &#34;DEW&#34;:
-        min_T = 0
-        max_T = 1000
-        min_P = 1000
-        max_P = 60000
-    else:
-        self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
-                        &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
-    
-    # check that T and P are above minimum values
-    if sum([T &lt;= min_T for T in grid_temps]):
-        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
-              &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
-              &#34;temperature range for the {} water model.&#34;.format(water_model))
-    if isinstance(grid_press, list):
-        if sum([P &lt; min_P for P in grid_press]):
-            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
-                  &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
-                  &#34;pressure for the {} water model.&#34;.format(water_model))
-    
-    # check that T and P are below maximum values
-    if sum([T &gt; max_T for T in grid_temps]):
-        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
-              &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
-              &#34;temperature for the {} water model.&#34;.format(water_model))
-    if isinstance(grid_press, list):
-        if sum([P &gt; max_P for P in grid_press]):
-            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
-                  &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
-                  &#34;pressure for the {} water model.&#34;.format(water_model))
+        data0_formula_ox_name : str, optional
+            Name of supplementary file containing data0 parameters and inferred
+            formula oxidation states. Ignored if `infer_formula_ox` is False.
+            See `infer_formula_ox` for more detail.
         
-    if water_model != &#34;SUPCRT92&#34;:
-        print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
+        suppress_redox : list of str, default []
+            Suppress equilibrium between oxidation states of listed elements
+            (Cl, H, and O cannot be included).
 
-    if generate_template:
+        water_model : str, default &#34;SUPCRT92&#34;
+            This is an experimental feature that is not yet fully supported.
+            Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
+            These models are described here: http://chnosz.net/manual/water.html
+
+        exceed_Ttr : bool, default True
+            Calculate Gibbs energies of mineral phases and other species
+            beyond their transition temperatures?
+
+        grid_temps : list of eight float, default [0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000]
+            Eight temperature values that make up the T-P grid.
+        
+        grid_press : list of float, default &#34;Psat&#34;
+            Eight pressure values that make up the T-P grid. &#34;Psat&#34; for
+            calculations along the liquid-vapor saturation curve.
+        
+        P1 : bool, default True,
+            Use pressure of 1 bar below 100 degrees C instead of calculated
+            values of Psat? Ignored if `grid_press` is not &#34;Psat&#34;.
+        
+        plot_poly_fit : bool, default False
+            Plot the polynomial fit of the temperature pressure grid?
+        
+        infer_formula_ox : bool, default False
+            Create a supplementary file containing data0 parameters and
+            inferred formula oxidation states? This option is useful for
+            creating as many entries in the formula_ox column when creating a
+            new supplementary file. Note that compounds like DySO4+ result in
+            blank entries in formula_ox because the redox states of two
+            elements, Dy and S, would have to be estimated together; S has many
+            oxidation states and Dy&#39;s oxidation states are not hard-coded.
+        
+        generate_template : bool, default True
+            Generate a CSV sample input template customized to this data0?
+            Columns include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and all strict
+            basis species.
+        
+        template_name : str, optional
+            Name of the sample input template file generated. If no name is
+            supplied, defaults to &#39;sample_template_xyz.csv&#39;, where &#39;xyz&#39; is
+            the three letter code given to `db`. Ignored if `generate_template`
+            is False.
+        
+        template_type : str, either &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;
+            Determines which columns are written to the sample template.
+            - &#39;strict&#39; includes strict basis species
+            - &#39;all basis&#39; includes strict and auxiliary basis species
+            - &#39;all species&#39; includes all species in the thermodynamic database
+            Ignored if `generate_template` is False.
+        
+        exclude_category : dict
+            Exclude species from the custom thermodynamic dataset based on
+            column values. For instance,
+            `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
+            will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
+            the column &#34;category_1&#34;.
+        
+        dynamic_db : bool, default False
+            Are data0 files being created dynamically? If unsure, use False.
+            Used by `speciate` to display valid messages.
+        
+        verbose : int, 0, 1, or 2, default 1
+            Level determining how many messages are returned during a
+            calculation. 2 for all messages, 1 for errors or warnings only,
+            0 for silent.
+        &#34;&#34;&#34;
+        
+        # Check that thermodynamic database input files exist and are formatted
+        # correctly.
+        self._check_database_file(filename)
+        if filename_ss != None:
+            self.__file_exists(filename_ss)
+        
+        self.verbose = verbose
+        
+        if not dynamic_db:
+            if self.verbose &gt;= 1:
+                print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
+        
+        if len(grid_temps) not in [1, 8]:
+            self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have either one or eight values.&#34;)
+        if isinstance(grid_press, list):
+            if len(grid_press) not in [1, 8]:
+                self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have either one or eight values.&#34;)
+        
+        if sum([T &gt;= 10000 for T in grid_temps]):
+            self.err_handler.raise_exception(&#34;Grid temperatures must be below 10k °C.&#34;)
+        
+        if isinstance(grid_press, list):
+            if sum([P &gt;= 10000 for P in grid_press]):
+                self.err_handler.raise_exception(&#34;Grid pressures must be below 10 kilobars.&#34;)
+
+        if water_model == &#34;SUPCRT92&#34;:
+            min_T = 0
+            max_T = 2250
+            min_P = 0
+            max_P = 30000
+        elif water_model == &#34;IAPWS95&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 0
+            max_P = 10000
+        elif water_model == &#34;DEW&#34;:
+            min_T = 0
+            max_T = 1000
+            min_P = 1000
+            max_P = 60000
+        else:
+            self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+                            &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
+        
+        # check that T and P are above minimum values
+        if sum([T &lt;= min_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
+                  &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
+                  &#34;temperature range for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &lt; min_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
+                      &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+        
+        # check that T and P are below maximum values
+        if sum([T &gt; max_T for T in grid_temps]):
+            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
+                  &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
+                  &#34;temperature for the {} water model.&#34;.format(water_model))
+        if isinstance(grid_press, list):
+            if sum([P &gt; max_P for P in grid_press]):
+                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
+                      &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
+                      &#34;pressure for the {} water model.&#34;.format(water_model))
+            
+        if water_model != &#34;SUPCRT92&#34;:
+            print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
+    
+        if generate_template:
+            if template_name == None:
+                template_name = &#34;sample_template_{}.csv&#34;.format(db)
+            
+            try:
+                # check if template can be generated in specified location
+                with open(template_name, &#39;w&#39;) as fp:
+                    pass
+            except:
+                self.err_handler.raise_exception(&#34;The file {} could not be &#34;.format(template_name)+&#34;&#34;
+                    &#34;created. Is this a valid file path?&#34;)
+        
+        template = pkg_resources.resource_string(
+            __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
+        suppress_redox = _convert_to_RVector(suppress_redox)
+        
+        if filename_ss == None:
+            filename_ss = ro.r(&#34;NULL&#34;)
+        if data0_formula_ox_name == None:
+            data0_formula_ox_name = ro.r(&#34;NULL&#34;)
         if template_name == None:
             template_name = &#34;sample_template_{}.csv&#34;.format(db)
-        
-        try:
-            # check if template can be generated in specified location
-            with open(template_name, &#39;w&#39;) as fp:
-                pass
-        except:
-            self.err_handler.raise_exception(&#34;The file {} could not be &#34;.format(template_name)+&#34;&#34;
-                &#34;created. Is this a valid file path?&#34;)
-    
-    template = pkg_resources.resource_string(
-        __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
-    suppress_redox = _convert_to_RVector(suppress_redox)
-    
-    if filename_ss == None:
-        filename_ss = ro.r(&#34;NULL&#34;)
-    if data0_formula_ox_name == None:
-        data0_formula_ox_name = ro.r(&#34;NULL&#34;)
-    if template_name == None:
-        template_name = &#34;sample_template_{}.csv&#34;.format(db)
-    if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
-        self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
-                        &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
+        if template_type not in [&#39;strict&#39;, &#39;all basis&#39;, &#39;all species&#39;]:
+            self.err_handler.raise_exception(&#34;template_type {} &#34;.format(template_type)+&#34;is not&#34;
+                            &#34;recognized. Try &#39;strict&#39;, &#39;all basis&#39;, or &#39;all species&#39;&#34;)
 
-    # if elements are being redox-suppressed, exclude all species with a
-    # formula containing one or more of the redox-suppressed elements if the
-    # species does not have a formula_ox.
-    # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
-    #       if sulfur is redox-suppressed.
-    if len(suppress_redox) &gt; 0:
-        thermo_db = pd.read_csv(filename)
-        thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
-        if thermo_db_no_formula_ox.shape[0] &gt; 0:
-            sp_names_to_exclude = []
-            for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
-                f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
-                f_elems = list(parse_formula(f).keys())
-                for elem in suppress_redox:
-                    if elem in f_elems:
-                        sp_names_to_exclude.append(sp)
-            exclude_category[&#34;name&#34;] = sp_names_to_exclude
-            if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
-                print(&#34;Excluding the following chemical species because &#34;
-                      &#34;they contain redox-suppressed elements but do not &#34;
-                      &#34;have element oxidation states given in the &#34;
-                      &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
-                      &#34;&#34;+str(sp_names_to_exclude))
+        # if elements are being redox-suppressed, exclude all species with a
+        # formula containing one or more of the redox-suppressed elements if the
+        # species does not have a formula_ox.
+        # e.g., if &#34;methionine&#34; does not have a formula_ox, ensure it is excluded
+        #       if sulfur is redox-suppressed.
+        if len(suppress_redox) &gt; 0:
+            thermo_db = pd.read_csv(filename)
+            thermo_db_no_formula_ox = thermo_db[thermo_db[&#34;formula_ox&#34;].isnull()]
+            if thermo_db_no_formula_ox.shape[0] &gt; 0:
+                sp_names_to_exclude = []
+                for i,sp in enumerate(thermo_db_no_formula_ox[&#34;name&#34;]):
+                    f = thermo_db_no_formula_ox.iloc[i, thermo_db_no_formula_ox.columns.get_loc(&#34;formula&#34;)]
+                    f_elems = list(parse_formula(f).keys())
+                    for elem in suppress_redox:
+                        if elem in f_elems:
+                            sp_names_to_exclude.append(sp)
+                exclude_category[&#34;name&#34;] = sp_names_to_exclude
+                if self.verbose &gt; 0 and len(sp_names_to_exclude) &gt; 0:
+                    print(&#34;Excluding the following chemical species because &#34;
+                          &#34;they contain redox-suppressed elements but do not &#34;
+                          &#34;have element oxidation states given in the &#34;
+                          &#34;&#39;formula_ox&#39; column of the thermodynamic database: &#34;
+                          &#34;&#34;+str(sp_names_to_exclude))
+            
+        if len(exclude_category) &gt; 0:
+            exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
+        else:
+            exclude_category_R = {}
+        exclude_category_R = ro.ListVector(exclude_category_R)
         
-    if len(exclude_category) &gt; 0:
-        exclude_category_R =  {k:_convert_to_RVector(l) for k,l in zip(exclude_category.keys(), exclude_category.values())}
-    else:
-        exclude_category_R = {}
-    exclude_category_R = ro.ListVector(exclude_category_R)
-    
-    self.__capture_r_output()
+        self.__capture_r_output()
 
-    r_redox_dissrxns = pkg_resources.resource_string(
-        __name__, &#39;redox_and_dissrxns.r&#39;).decode(&#34;utf-8&#34;)
-    
-    ro.r(r_redox_dissrxns)
-    
-    out_list = ro.r.suppress_redox_and_generate_dissrxns(filename=filename,
-                           filename_ss=filename_ss,
-                           db=db,
-                           water_model=water_model,
-                           template=template,
-                           exceed_Ttr=exceed_Ttr,
-                           data0_formula_ox_name=data0_formula_ox_name,
-                           suppress_redox=suppress_redox,
-                           infer_formula_ox=infer_formula_ox,
-                           exclude_category=exclude_category_R,
-                           fixed_species=_convert_to_RVector(FIXED_SPECIES),
-                           verbose=self.verbose)
-    
-    self.__print_captured_r_output()
-    
-    OBIGT_df = out_list.rx2(&#34;OBIGT_df&#34;)
-    
-    OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
-                                    float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
-                                                &#34;V&#34;, &#34;a1.a&#34;, &#34;a2.b&#34;,
-                                                &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;,
-                                                &#34;c2.f&#34;, &#34;omega.lambda&#34;, &#34;z.T&#34;,
-                                                &#34;azero&#34;, &#34;neutral_ion_type&#34;],
-                                    str_cols=[&#34;name&#34;, &#34;abbrv&#34;, &#34;state&#34;, &#34;formula&#34;,
-                                              &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;,
-                                              &#34;E_units&#34;, &#34;tag&#34;, &#34;dissrxn&#34;],
-                                    NA_string=&#34;&#34;)
-    
-    # convert E units and calculate missing GHS values
-    OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
-    
-    self.__capture_r_output()
-    
-    r_create_data0 = pkg_resources.resource_string(
-        __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
-    
-    ro.r(r_create_data0)
-    
-    # assemble data0 file
-    data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
-                      filename_ss=filename_ss,
-                      db=db,
-                      water_model=water_model,
-                      template=template,
-                      dissrxns=out_list.rx2(&#34;dissrxns&#34;),
-                      basis_pref=out_list.rx2(&#34;basis_pref&#34;),
-                      exceed_Ttr=exceed_Ttr,
-                      fixed_species=_convert_to_RVector(FIXED_SPECIES),
-                      verbose=self.verbose)
-    
-    self.__print_captured_r_output()
-    
-    data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
-
-    if generate_template:
+        r_redox_dissrxns = pkg_resources.resource_string(
+            __name__, &#39;redox_and_dissrxns.r&#39;).decode(&#34;utf-8&#34;)
         
-        r_generate_template = pkg_resources.resource_string(
-            __name__, &#39;generate_template.r&#39;).decode(&#34;utf-8&#34;)
-    
-        ro.r(r_generate_template)
+        ro.r(r_redox_dissrxns)
+        
+        out_list = ro.r.suppress_redox_and_generate_dissrxns(filename=filename,
+                               filename_ss=filename_ss,
+                               db=db,
+                               water_model=water_model,
+                               template=template,
+                               exceed_Ttr=exceed_Ttr,
+                               data0_formula_ox_name=data0_formula_ox_name,
+                               suppress_redox=suppress_redox,
+                               infer_formula_ox=infer_formula_ox,
+                               exclude_category=exclude_category_R,
+                               fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                               verbose=self.verbose)
+        
+        self.__print_captured_r_output()
+        
+        OBIGT_df = out_list.rx2(&#34;OBIGT_df&#34;)
+        
+#         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
+        
+#         regenerated_dissrxn_dict = {}
+#         for name in regenerated_dissrxns.names:
+#             if name != &#34;basis_list&#34;:
+#                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
+        
+        OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
+                                        float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
+                                                    &#34;V&#34;, &#34;a1.a&#34;, &#34;a2.b&#34;,
+                                                    &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;,
+                                                    &#34;c2.f&#34;, &#34;omega.lambda&#34;, &#34;z.T&#34;,
+                                                    &#34;azero&#34;, &#34;neutral_ion_type&#34;],
+                                        str_cols=[&#34;name&#34;, &#34;abbrv&#34;, &#34;state&#34;, &#34;formula&#34;,
+                                                  &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;,
+                                                  &#34;E_units&#34;, &#34;tag&#34;, &#34;dissrxn&#34;],
+                                        NA_string=&#34;&#34;)
+        
+        # convert E units and calculate missing GHS values
+        OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
         
         self.__capture_r_output()
         
-        ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
-                               template_name=template_name,
-                               template_type=template_type,
-                               fixed_species=_convert_to_RVector(FIXED_SPECIES))
-
+        r_create_data0 = pkg_resources.resource_string(
+            __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+        
+        ro.r(r_create_data0)
+        
+        # assemble data0 file
+        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
+                          filename_ss=filename_ss,
+                          db=db,
+                          water_model=water_model,
+                          template=template,
+                          dissrxns=out_list.rx2(&#34;dissrxns&#34;),
+                          basis_pref=out_list.rx2(&#34;basis_pref&#34;),
+                          exceed_Ttr=exceed_Ttr,
+                          fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                          verbose=self.verbose)
+        
         self.__print_captured_r_output()
+        
+        data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
+
+        if generate_template:
+            
+            r_generate_template = pkg_resources.resource_string(
+                __name__, &#39;generate_template.r&#39;).decode(&#34;utf-8&#34;)
+        
+            ro.r(r_generate_template)
+            
+            self.__capture_r_output()
+            
+            ro.r.generate_template(thermo_df=ro.conversion.py2rpy(OBIGT_df),
+                                   template_name=template_name,
+                                   template_type=template_type,
+                                   fixed_species=_convert_to_RVector(FIXED_SPECIES))
+
+            self.__print_captured_r_output()
+        
+        if fill_data0:
+
+            # begin TP-dependent processes
+            self.__fill_data0(OBIGT_df=OBIGT_df,
+                            data0_file_lines=copy.deepcopy(data0_file_lines),
+                            grid_temps=grid_temps,
+                            grid_press=grid_press,
+                            db=db,
+                            water_model=water_model,
+                            activity_model=activity_model,
+                            P1=P1,
+                            plot_poly_fit=plot_poly_fit,
+                            verbose=self.verbose)
     
-    if fill_data0:
+        else:
+            return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
-        # begin TP-dependent processes
-        self.__fill_data0(OBIGT_df=OBIGT_df,
-                        data0_file_lines=copy.deepcopy(data0_file_lines),
-                        grid_temps=grid_temps,
-                        grid_press=grid_press,
-                        db=db,
-                        water_model=water_model,
-                        activity_model=activity_model,
-                        P1=P1,
-                        plot_poly_fit=plot_poly_fit,
-                        verbose=self.verbose)
-
-    else:
-        return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
-
-    if self.verbose &gt; 0:
-        print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
+        if self.verbose &gt; 0:
+            print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
@@ -9864,7 +9897,7 @@ cell reactions.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil', path_3o='/var/lib/private/gmboyer/AqEquil', path_3p='/var/lib/private/gmboyer/AqEquil', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -9980,7 +10013,7 @@ This parameter is for internal use.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
-<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6p='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil', path_6o='/var/lib/private/gmboyer/AqEquil', path_6p='/var/lib/private/gmboyer/AqEquil', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ6 on a .6i input file.</p>
@@ -10156,7 +10189,7 @@ This parameter is for internal use.</dd>
             msg = (&#34;EQPT could not create data1.&#34;+db+&#34; from &#34;
                    &#34;data0.&#34;+db+&#34;. Check eqpt_log.txt for details.&#34;)
         self.err_handler.raise_exception(msg)
-
+    
     self.__move_eqpt_extra_output()
 
     os.environ[&#39;EQ36DA&#39;] = self.eq36da  # reset default EQ36 db path</code></pre>
@@ -10401,6 +10434,9 @@ located in the current working directory, e.g.,
 "wrm_solid_solutions.csv"
 - The URL of a CSV file containing solid solution parameters, e.g.,
 "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"</dd>
+<dt><strong><code>activity_model</code></strong> :&ensp;<code>str</code>, default <code>"b-dot"</code></dt>
+<dd>Activity model to use for speciation. Can be either "b-dot",
+or "davies". NOTE: the "pitzer" model is not yet implemented.</dd>
 <dt><strong><code>redox_flag</code></strong> :&ensp;<code>str</code>, default <code>"O2(g)"</code></dt>
 <dd>
 <p>Determines which column in the sample input file sets the overall
@@ -10690,6 +10726,10 @@ db_args = {
         &#34;wrm_solid_solutions.csv&#34;
         - The URL of a CSV file containing solid solution parameters, e.g.,
         &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+    
+    activity_model : str, default &#34;b-dot&#34;
+        Activity model to use for speciation. Can be either &#34;b-dot&#34;,
+        or &#34;davies&#34;. NOTE: the &#34;pitzer&#34; model is not yet implemented.
     
     redox_flag : str, default &#34;O2(g)&#34;
         Determines which column in the sample input file sets the overall
@@ -11204,7 +11244,6 @@ db_args = {
             grid_press = [&#34;1.0000&#34;, &#34;1.0000&#34;, &#34;1.0132&#34;, &#34;4.7572&#34;,
                           &#34;15.5365&#34;, &#34;39.7365&#34;, &#34;85.8378&#34;, &#34;165.2113&#34;]
             
-            
         grid_press_numeric = [float(n) for n in grid_press]
         if min(grid_press_numeric) == 1:
             P1=True
@@ -11263,6 +11302,11 @@ db_args = {
     alter_options_dict = {}
     if len(alter_options) &gt; 0:
         for ao in alter_options:
+            if not isinstance(ao, list):
+                err = (&#34;alter_options must be a list of lists, e.g.,\n&#34;
+                      &#34;[[&#39;CaCl+&#39;, &#39;AugmentLogK&#39;, -1], [&#39;CaOH+&#39;, &#39;Suppress&#39;]]&#34;
+                      &#34;\nor\n[[&#39;CaHCO3+&#39;, &#39;Suppress&#39;]]&#34;)
+                self.err_handler.raise_exception(err)
             key = ao[0]
             if ao[1] == &#34;Suppress&#34; and len(ao) == 2:
                 ao += [&#34;0&#34;]
@@ -11330,7 +11374,7 @@ db_args = {
                             verbose=verbose)
             
             self.runeqpt(data0_lettercode, dynamic_db=True)
-
+            
             if os.path.exists(&#34;data1.&#34;+data0_lettercode) and os.path.isfile(&#34;data1.&#34;+data0_lettercode):
                 # store contents of data1 file in AqEquil object
                 with open(&#34;data1.&#34;+data0_lettercode, mode=&#39;rb&#39;) as data1:
@@ -11817,7 +11861,7 @@ encounters a bug, will display a full traceback.</p>
 <p>If the error handler prints an error message without traceback, all future
 errors regardless of origin will be shown without traceback until the
 notebook kernel is restarted.</p>
-<h2 id="attributes">Attributes</h2>
+<h2 id="parameters">Parameters</h2>
 <dl>
 <dt><strong><code>clean</code></strong> :&ensp;<code>bool</code></dt>
 <dd>Report exceptions without traceback? If True, only the error message is
@@ -11840,7 +11884,7 @@ shown. Ignored if AqEquil is not being run in a Jupyter notebook.</dd>
     errors regardless of origin will be shown without traceback until the
     notebook kernel is restarted.
     
-    Attributes
+    Parameters
     ----------
     clean : bool
         Report exceptions without traceback? If True, only the error message is
@@ -12093,8 +12137,8 @@ speciation report.</dd>
             &#34;Alk., mg/L HCO3-&#34; : (&#34;alkalinity&#34;, &#34;mg/L HCO3-&#34;),
             &#34;pX&#34; : (&#34;-(log activity)&#34;, &#34;-log(mol/kg)&#34;),
             &#34;activity&#34; : (&#34;activity&#34;, &#34;&#34;),
-            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;log(kg/mol)&#34;),
-            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;kg/mol&#34;),
+            &#34;log_gamma&#34; : (&#34;log gamma&#34;, &#34;&#34;),
+            &#34;gamma&#34; : (&#34;gamma&#34;, &#34;&#34;),
             &#34;affinity_kcal&#34; : (&#34;affinity&#34;, &#34;kcal/mol&#34;),
             &#34;%&#34; : (&#34;&#34;, &#34;%&#34;),
             &#34;Eh_volts&#34; : (&#34;Eh&#34;, &#34;volts&#34;),
@@ -12329,7 +12373,7 @@ speciation report.</dd>
             determines the size of interactive plots.
         
         colormap : str, default &#34;WORM&#34;
-            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            Name of the colormap to color plotted data. Accepts &#34;WORM&#34;,
             &#34;colorblind&#34;, or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
@@ -12478,7 +12522,7 @@ speciation report.</dd>
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
-        if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+        if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
@@ -12581,7 +12625,7 @@ speciation report.</dd>
             Size of scatterpoints.
         
         colormap : str, default &#34;WORM&#34;
-            Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+            Name of the colormap to color the plotted data. Accepts &#34;WORM&#34;,
             &#34;colorblind&#34;, or matplotlib colormaps.
             See https://matplotlib.org/stable/tutorials/colors/colormaps.html
             The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
@@ -13321,7 +13365,7 @@ respectively?</dd>
 <dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
 determines the size of interactive plots.</dd>
 <dt><strong><code>colormap</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
-<dd>Name of the colormap to color the scatterpoints. Accepts "WORM",
+<dd>Name of the colormap to color plotted data. Accepts "WORM",
 "colorblind", or matplotlib colormaps.
 See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">https://matplotlib.org/stable/tutorials/colors/colormaps.html</a>
 The "colorblind" colormap is referenced from Wong, B. Points of view:
@@ -13390,7 +13434,7 @@ figure is simply displayed.</dd>
         determines the size of interactive plots.
     
     colormap : str, default &#34;WORM&#34;
-        Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+        Name of the colormap to color plotted data. Accepts &#34;WORM&#34;,
         &#34;colorblind&#34;, or matplotlib colormaps.
         See https://matplotlib.org/stable/tutorials/colors/colormaps.html
         The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:
@@ -13539,7 +13583,7 @@ figure is simply displayed.</dd>
     df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
     
     
-    if unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;:
+    if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
         
         # get formatted reactions to display
         if not isinstance(self.reactions_for_plotting, pd.DataFrame):
@@ -14544,7 +14588,7 @@ determines the size of interactive plots.</dd>
 <dt><strong><code>point_size</code></strong> :&ensp;<code>numeric</code>, default <code>10</code></dt>
 <dd>Size of scatterpoints.</dd>
 <dt><strong><code>colormap</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
-<dd>Name of the colormap to color the scatterpoints. Accepts "WORM",
+<dd>Name of the colormap to color the plotted data. Accepts "WORM",
 "colorblind", or matplotlib colormaps.
 See <a href="https://matplotlib.org/stable/tutorials/colors/colormaps.html">https://matplotlib.org/stable/tutorials/colors/colormaps.html</a>
 The "colorblind" colormap is referenced from Wong, B. Points of view:
@@ -14614,7 +14658,7 @@ figure is simply displayed.</dd>
         Size of scatterpoints.
     
     colormap : str, default &#34;WORM&#34;
-        Name of the colormap to color the scatterpoints. Accepts &#34;WORM&#34;,
+        Name of the colormap to color the plotted data. Accepts &#34;WORM&#34;,
         &#34;colorblind&#34;, or matplotlib colormaps.
         See https://matplotlib.org/stable/tutorials/colors/colormaps.html
         The &#34;colorblind&#34; colormap is referenced from Wong, B. Points of view:

@@ -552,8 +552,8 @@ class Speciation(object):
             "Alk., mg/L HCO3-" : ("alkalinity", "mg/L HCO3-"),
             "pX" : ("-(log activity)", "-log(mol/kg)"),
             "activity" : ("activity", ""),
-            "log_gamma" : ("log gamma", "log(kg/mol)"),
-            "gamma" : ("gamma", "kg/mol"),
+            "log_gamma" : ("log gamma", ""),
+            "gamma" : ("gamma", ""),
             "affinity_kcal" : ("affinity", "kcal/mol"),
             "%" : ("", "%"),
             "Eh_volts" : ("Eh", "volts"),
@@ -2141,6 +2141,7 @@ class AqEquil:
         Moves all EQPT output and data0 into the eqpt_files folder
         """
         
+        self.__mk_check_del_directory("eqpt_files")
         if os.path.exists("eqpt_log.txt") and os.path.isfile("eqpt_log.txt"):
             shutil.move("eqpt_log.txt", "eqpt_files/eqpt_log.txt")
         if os.path.exists("data1f.txt") and os.path.isfile("data1f.txt"):
@@ -2203,7 +2204,7 @@ class AqEquil:
                 msg = ("EQPT could not create data1."+db+" from "
                        "data0."+db+". Check eqpt_log.txt for details.")
             self.err_handler.raise_exception(msg)
-
+        
         self.__move_eqpt_extra_output()
 
         os.environ['EQ36DA'] = self.eq36da  # reset default EQ36 db path

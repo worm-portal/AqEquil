@@ -213,6 +213,11 @@ class Mass_Transfer:
                 
             basis_df = self.df[self.df["tag"] == "basis"]
             aux_df = self.df[self.df["tag"] == "aux"]
+            
+            # remove basis or aux species with no formula ox state col
+            aux_df = aux_df[aux_df["formula_ox"] != ""]
+            aux_df = aux_df[~aux_df['formula_ox'].isnull()]
+            
             refstate_df = self.df[self.df["tag"] == "refstate"]
             self.basis_df = pd.concat([basis_df])
             self.basis_aux_df = pd.concat([basis_df, aux_df, refstate_df])
