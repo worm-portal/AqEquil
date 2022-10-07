@@ -20,10 +20,22 @@ vmessage <- function(m, vlevel, verbose){
 # e.g., "H2O" becomes "H2O    " if nspaces=7.
 # Spaces can be added before the string by specifying spaces_after=FALSE
 fillspace <- function(str, nspaces, spaces_after=TRUE){
-    
-  ifelse(spaces_after,
+tryCatch({
+  out <<- ifelse(spaces_after,
          paste0(str, paste(rep(" ", nspaces-nchar(str)), collapse="")),
          paste0(paste(rep(" ", nspaces-nchar(str)), collapse=""), str))
+    },
+    error = function(e){
+        print(paste("ERROR with ", str))
+        str <<- "TEST"
+            
+      },
+      warning = function(w){
+        print(paste("WARNING"))
+      }
+  )
+
+  return(out)
 }
 
 
