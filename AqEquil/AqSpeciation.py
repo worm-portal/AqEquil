@@ -948,19 +948,30 @@ class Speciation(object):
 
             y_find = [yi.replace("_energy", "").replace("_affinity", "") for yi in y]
             
-            rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()*len(x)
+            rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
             
+            # get the formatted reactions in the right order, then add as a
+            # column in df
+            formatted_rxn_list = []
+            for rxn in rxns:
+                for i in range(0,len(x)):
+                    formatted_rxn_list.append(rxn)
+            df["formatted_rxns"] = formatted_rxn_list
+
             if len(y) == 1:
                 ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
-                
+            
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x="name", y="y_value",
                 height=plot_height*ppi, width=plot_width*ppi,
                 color='y_variable', barmode='group',
                 labels={'y_value': ylabel}, template="simple_white",
-                color_discrete_map=dict_species_color, custom_data=[rxns])
-        
-            fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}<br>%{customdata[0]}")
+                color_discrete_map=dict_species_color, custom_data=['formatted_rxns'])
+            
+            
+            
+            fig.update_traces(
+                hovertemplate = "%{x} <br>"+ylabel+": %{y}<br>%{customdata}")
 
         else:
             
