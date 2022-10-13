@@ -50,6 +50,7 @@ split_and_check_dissrxn <- function(dissrxn, strict_basis_names, fixed_species){
 # the middle (and sort them to prevent EQ3 errors), and everything else at the
 # end.
 order_thermo_df <- function(thermo_df, fixed_species, verbose){
+    
   basis_entries <- filter(thermo_df, tag=="basis")
   aux_entries   <- filter(thermo_df, tag=="aux")
   other_entries <- filter(thermo_df, tag!="basis" & tag!="aux")
@@ -79,10 +80,12 @@ order_thermo_df <- function(thermo_df, fixed_species, verbose){
         s <- s[2:length(s)]
         s <- s[!s %in% fixed_species]
         s <- s[!s %in% c(aux_entries_with_nonstrict_aux[i, "name"])] # exclude itself
+          
         for(sp in s){
           # for each species in the dissrxn...
           for(ii in 1:nrow(aux_entries_with_nonstrict_aux)){
             # for each row in the nonstrict aux df...
+              
             if(sp == aux_entries_with_nonstrict_aux[ii,"name"]){
               # if the species is in the nonstrict aux df,
               # copy the original aux species directly after the aux species in
@@ -605,8 +608,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 
 
                             
-suppress_redox_and_generate_dissrxns <- function(filename,
-                              filename_ss,
+suppress_redox_and_generate_dissrxns <- function(thermo_df,
                               db,
                               water_model,
                               template,
@@ -618,11 +620,13 @@ suppress_redox_and_generate_dissrxns <- function(filename,
                               fixed_species=c("H2O", "H+", "O2(g)", "water", "Cl-", "e-"),
                               verbose=1){
     
+  
+    
   # specify molecules to balance H, O, and charge (Z)
   HOZ_balancers <- c("H+", "O2(g)", "H2O") # might be dataset-specific (e.g., "O2(g)")
   
-  # load thermodynamic data
-  thermo_df <- read.csv(filename, stringsAsFactors=F)
+#   # load thermodynamic data
+#   thermo_df <- read.csv(filename, stringsAsFactors=F)
     
   # remove leading and trailing whitespace from dissrxn and formula_ox columns
   ws_cols <- c("dissrxn", "formula_ox")
@@ -873,7 +877,7 @@ suppress_redox_and_generate_dissrxns <- function(filename,
   # on strict basis, then aux that depend on other aux, then everything else.
   # Prevents EQPT errors.
   thermo_df <- order_thermo_df(thermo_df, fixed_species, verbose)
-
+                                   
   thermo_df %>% mutate_if(is.factor, as.character) -> thermo_df
                                    
   # include modified file in CHNOSZ database

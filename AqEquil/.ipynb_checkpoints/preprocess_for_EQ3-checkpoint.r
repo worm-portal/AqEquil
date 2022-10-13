@@ -241,6 +241,7 @@ write_3i_file <- function(df,
                           charge_balance_on,
                           suppress,
                           alter_options,
+                          aq_scale,
                           get_solid_solutions,
                           input_dir,
                           redox_flag,
@@ -248,10 +249,7 @@ write_3i_file <- function(df,
                           default_logfO2,
                           water_model,
                           warned_about_redox_column,
-<<<<<<< HEAD
                           activity_model,
-=======
->>>>>>> origin
                           verbose){
     
     
@@ -793,7 +791,6 @@ write_3i_file <- function(df,
   "|  [ ] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
   "|------------------------------------------------------------------------------|",
   "|Iopg Activity Coefficient Option Switches (\"( 0)\" marks default choices)      |",
-<<<<<<< HEAD
   "|------------------------------------------------------------------------------|", sep="\n")
 
 davies_box <- " "
@@ -814,14 +811,6 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
   paste0("|  [", bdot_box, "] ( 0) The B-dot equation                                                 |"),
   paste0("|  [", pitzer_box, "] ( 1) Pitzer's equations                                                 |"),
   paste0("|  [ ] ( 2) HC + DH equations                                                  |"),
-=======
-  "|------------------------------------------------------------------------------|",
-  "|iopg(1) - Aqueous Species Activity Coefficient Model:                         |",
-  "|  [ ] (-1) The Davies equation                                                |",
-  "|  [x] ( 0) The B-dot equation                                                 |",
-  "|  [ ] ( 1) Pitzer's equations                                                 |",
-  "|  [ ] ( 2) HC + DH equations                                                  |",
->>>>>>> origin
   "|------------------------------------------------------------------------------|",
   "|iopg(2) - Choice of pH Scale (Rescales Activity Coefficients):                |",
   "|  [ ] (-1) \"Internal\" pH scale (no rescaling)                                 |",
@@ -924,7 +913,9 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
   "|------------------------------------------------------------------------------|",
   "|Sat. flag tolerance     | 0.00000E+00| (tolspf)                               |",
   "|------------------------------------------------------------------------------|",
-  "|Aq. Phase Scale Factor  | 1.00000E+00| (scamas)                               |",
+  paste0("|Aq. Phase Scale Factor  |",
+         format(sprintf("%.5E", as.numeric(aq_scale)), width=12, justify="right"),
+         "| (scamas)                               |"),
   "|------------------------------------------------------------------------------|",
   "|End of problem                                                                |",
   "|------------------------------------------------------------------------------|", sep="\n")
@@ -934,11 +925,7 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
                       eq3.temperature, eq3.header3, eq3.density,
                       eq3.header4, eq3.cb_block, eq3.header5,
                       redox_block, eq3.header6, aqueous_block,
-<<<<<<< HEAD
                       eq3.ender1, alter_block, eq3.ender2, eq3.ender3,
-=======
-                      eq3.ender1, alter_block, eq3.ender2,
->>>>>>> origin
                       collapse = "")
 
 

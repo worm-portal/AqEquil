@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -948,19 +948,30 @@ class Speciation(object):
 
             y_find = [yi.replace("_energy", "").replace("_affinity", "") for yi in y]
             
-            rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()*len(x)
+            rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
             
+            # get the formatted reactions in the right order, then add as a
+            # column in df
+            formatted_rxn_list = []
+            for rxn in rxns:
+                for i in range(0,len(x)):
+                    formatted_rxn_list.append(rxn)
+            df["formatted_rxns"] = formatted_rxn_list
+
             if len(y) == 1:
                 ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
-                
+            
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x="name", y="y_value",
                 height=plot_height*ppi, width=plot_width*ppi,
                 color='y_variable', barmode='group',
                 labels={'y_value': ylabel}, template="simple_white",
-                color_discrete_map=dict_species_color, custom_data=[rxns])
-        
-            fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}<br>%{customdata[0]}")
+                color_discrete_map=dict_species_color, custom_data=['formatted_rxns'])
+            
+            
+            
+            fig.update_traces(
+                hovertemplate = "%{x} <br>"+ylabel+": %{y}<br>%{customdata}")
 
         else:
             
@@ -2483,11 +2494,31 @@ class AqEquil:
 
         fig.show(config=config)
 
-
+    
+    @staticmethod
+    def __interpolate_logK(T, logK_grid, T_grid):
+        
+        # turns off poor polyfit warning
+        # TODO: restore polyfit warning setting afterward
+        warnings.simplefilter('ignore', np.RankWarning)
+        
+        model_1 = np.poly1d(np.polyfit(T_grid[:5], logK_grid[:5], 5))
+        model_2 = np.poly1d(np.polyfit(T_grid[4:], logK_grid[4:], 5))
+        if T >= T_grid[0] and T <= T_grid[5]:
+            logK = model_1(T)
+        elif T > T_grid[5] and T <= T_grid[7]:
+            logK = model_2(T)
+        else:
+            logK = np.nan
+            print("Error: cannot calculate logK for a temperature outside of range.")
+        return logK
+        
+        
     def speciate(self,
                  input_filename,
                  db="wrm",
                  db_solid_solution=None,
+                 db_logK=None,
                  activity_model="b-dot",
                  redox_flag="logfO2",
                  redox_aux="Fe+3",
@@ -2498,6 +2529,7 @@ class AqEquil:
                  charge_balance_on="none",
                  suppress_missing=True,
                  strict_minimum_pressure=True,
+                 aq_scale=1,
                  verbose=1,
                  report_filename=None,
                  get_aq_dist=True,
@@ -2684,7 +2716,11 @@ class AqEquil:
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
             not go below the minimum pressure in the TP grid of the data0 file?
-            
+        
+        aq_scale : float, default 1
+            Scale factor for the mass of the aqueous phase. By default, the
+            aqueous phase is 1 kg of solvent.
+        
         verbose : int, 0, 1, or 2, default 1
             Level determining how many messages are returned during a
             calculation. 2 for all messages, 1 for errors or warnings only,
@@ -3022,6 +3058,9 @@ class AqEquil:
             db_args["verbose"] = self.verbose
             db_args["generate_template"] = False
             
+            if db_logK != None:
+                db_args["filename_free_logK"] = db_logK
+            
             if db_solid_solution != None:
                 if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
                     if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
@@ -3288,6 +3327,7 @@ class AqEquil:
                                charge_balance_on=charge_balance_on,
                                suppress=_convert_to_RVector(suppress),
                                alter_options=alter_options,
+                               aq_scale=aq_scale,
                                get_solid_solutions=get_solid_solutions,
                                input_dir=input_dir,
                                redox_flag=redox_flag,
@@ -3722,12 +3762,30 @@ class AqEquil:
         return speciation
 
     @staticmethod
-    def __clean_rpy2_pandas_conversion(df, float_cols, str_cols, NA_string=""):
+    def __clean_rpy2_pandas_conversion(df,
+                                       float_cols=["G", "H", "S", "Cp",
+                                                    "V", "a1.a", "a2.b",
+                                                    "a3.c", "a4.d", "c1.e",
+                                                    "c2.f", "omega.lambda", "z.T",
+                                                    "azero", "neutral_ion_type",
+                                                    "logK1", "logK2", "logK3", "logK4",
+                                                    "logK5", "logK6", "logK7", "logK8",
+                                                    "T1", "T2", "T3", "T4", "T5", "T6",
+                                                    "T7", "T8"],
+                                        str_cols=["name", "abbrv", "state", "formula",
+                                                  "ref1", "ref2", "date",
+                                                  "E_units", "tag", "dissrxn", "formula_ox",
+                                                  "P1", "P2", "P3", "P4", "P5", "P6",
+                                                  "P7", "P8"],
+                                        NA_string=""):
+
         df.replace(NA_string, np.nan, inplace=True)
         for col in float_cols:
-            df[col] = df[col].astype(float)
+            if col in df.columns:
+                df[col] = df[col].astype(float)
         for col in str_cols:
-            df[col] = df[col].astype(str)
+            if col in df.columns:
+                df[col] = df[col].astype(str)
         return df
     
 
@@ -3793,7 +3851,25 @@ class AqEquil:
     
         dissrxn_logK = pd.DataFrame(dissrxn_logK_dict)
         
-#         dissrxn_logK.to_csv("dissrxn_logK.csv", index=False)
+        # handle free logK values
+        if "logK1" in OBIGT_df.columns:
+
+            free_logK_df = OBIGT_df.dropna(subset=['logK1'])
+            
+            for i,sp in enumerate(free_logK_df["name"]):
+                logK_grid = list(free_logK_df[["logK1", "logK2", "logK3",
+                                               "logK4", "logK5", "logK6",
+                                               "logK7", "logK8"]].iloc[i]) # logK at T and P in datasheet
+                
+                T_grid = list(free_logK_df[["T1", "T2", "T3",
+                                            "T4", "T5", "T6",
+                                            "T7", "T8"]].iloc[i]) # T for free logK grid
+                
+                
+                for ii,T in enumerate(grid_temps):
+                    logK = self.__interpolate_logK(T, logK_grid, T_grid)
+                    
+                    dissrxn_logK.loc[(dissrxn_logK.name == sp), "logK_"+str(ii)] = logK
         
         # remove duplicate rows (e.g., for mineral polymorphs)
         dissrxn_logK = dissrxn_logK.drop_duplicates("name")
@@ -3867,6 +3943,7 @@ class AqEquil:
                      db,
                      filename,
                      filename_ss=None,
+                     filename_free_logK=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      water_model="SUPCRT92",
@@ -3978,6 +4055,20 @@ class AqEquil:
         # Check that thermodynamic database input files exist and are formatted
         # correctly.
         self._check_database_file(filename)
+        thermo_df = pd.read_csv(filename)
+        
+        thermo_df = thermo_df.astype({'name':'str', 'abbrv':'str', 'formula':'str',
+                                      'state':'str', 'ref1':'str', 'ref2':'str',
+                                      'date': 'str', 'E_units':'str',
+                                      'G':'float', 'H':'float', 'S':'float',
+                                      'Cp':'float', 'V':'float', 'a1.a':'float',
+                                      'a2.b':'float', 'a3.c':'float', 'a4.d':'float',
+                                      'c1.e':'float', 'c2.f':'float',
+                                      'omega.lambda':'float', 'z.T':'float',
+                                      'azero':'float', 'neutral_ion_type':'float',
+                                      'dissrxn':'str', 'tag':'str',
+                                      'formula_ox':'str', 'category_1':'str'})
+        
         if filename_ss != None:
             self.__file_exists(filename_ss)
         
@@ -4056,6 +4147,17 @@ class AqEquil:
                 self.err_handler.raise_exception("The file {} could not be ".format(template_name)+""
                     "created. Is this a valid file path?")
         
+        # interpolate logK values from "free logK" datasheet at T and P
+        if isinstance(filename_free_logK, str):
+            
+            # TODO: check that pressure is valid
+    
+            free_logK_df = pd.read_csv(filename_free_logK)
+   
+            free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
+            thermo_df = pd.concat([thermo_df, free_logK_df], ignore_index=True)
+            thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
+        
         template = pkg_resources.resource_string(
             __name__, 'data0.min').decode("utf-8")
         suppress_redox = _convert_to_RVector(suppress_redox)
@@ -4076,8 +4178,7 @@ class AqEquil:
         # e.g., if "methionine" does not have a formula_ox, ensure it is excluded
         #       if sulfur is redox-suppressed.
         if len(suppress_redox) > 0:
-            thermo_db = pd.read_csv(filename)
-            thermo_db_no_formula_ox = thermo_db[thermo_db["formula_ox"].isnull()]
+            thermo_db_no_formula_ox = thermo_df[thermo_df["formula_ox"].isnull()]
             if thermo_db_no_formula_ox.shape[0] > 0:
                 sp_names_to_exclude = []
                 for i,sp in enumerate(thermo_db_no_formula_ox["name"]):
@@ -4107,8 +4208,15 @@ class AqEquil:
         
         ro.r(r_redox_dissrxns)
         
-        out_list = ro.r.suppress_redox_and_generate_dissrxns(filename=filename,
-                               filename_ss=filename_ss,
+#         thermo_df["ref2"] = thermo_df["ref2"].astype(str)
+#         thermo_df["dissrxn"] = thermo_df["dissrxn"].astype(str)
+#         thermo_df["tag"] = thermo_df["tag"].astype(str)
+
+        thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
+        thermo_df.to_csv("test2.csv")
+        ro.conversion.py2rpy(thermo_df)
+        
+        out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
                                db=db,
                                water_model=water_model,
                                template=template,
@@ -4131,16 +4239,7 @@ class AqEquil:
 #             if name != "basis_list":
 #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
         
-        OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df,
-                                        float_cols=["G", "H", "S", "Cp",
-                                                    "V", "a1.a", "a2.b",
-                                                    "a3.c", "a4.d", "c1.e",
-                                                    "c2.f", "omega.lambda", "z.T",
-                                                    "azero", "neutral_ion_type"],
-                                        str_cols=["name", "abbrv", "state", "formula",
-                                                  "ref1", "ref2", "date",
-                                                  "E_units", "tag", "dissrxn"],
-                                        NA_string="")
+        OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df)
         
         # convert E units and calculate missing GHS values
         OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
@@ -4151,6 +4250,8 @@ class AqEquil:
             __name__, 'create_data0.r').decode("utf-8")
         
         ro.r(r_create_data0)
+        
+        ro.conversion.py2rpy(OBIGT_df)
         
         # assemble data0 file
         data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
@@ -4167,6 +4268,11 @@ class AqEquil:
         self.__print_captured_r_output()
         
         data0_file_lines = data0_file_lines[0].split("\n")
+#         print("lines:")
+#         print(str(data0_file_lines))
+#         with open('test.txt', 'w') as f:
+#             for line in data0_file_lines:
+#                 f.write(f"{line}\n")
 
         if generate_template:
             
