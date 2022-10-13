@@ -500,8 +500,10 @@ mine_3o <- function(this_file,
                          reaction = character(0),
                          limiting = character(0),
                          stringsAsFactors = FALSE)
-      
+    
+    rxn_counter <- 0
     for(rxn in rxn_table){
+      rxn_counter <- rxn_counter+1
         
       rxn_split <- unlist(strsplit(rxn, "\t"))
       rxn_name  <- rxn_split[1]
@@ -603,7 +605,7 @@ mine_3o <- function(this_file,
         if(length(not_lim_index) == 0){
           molality_div_stoich <- reactant_molalities/abs(reactant_stoich)
         }else if(all(reactant_names %in% not_limiting)){
-
+            
           # if there are no limiting reactants (e.g., reactants are all minerals)
           # then append NAs and continue...
           df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
@@ -670,7 +672,8 @@ mine_3o <- function(this_file,
       energy_supply <- (this_energy*1000)/4.184 # in cal/kg
         
       # append results
-      df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
+      df_rxn <- rbind(df_rxn, data.frame(row.names=rxn_counter,
+                                         rxn=rxn_name,
                                          affinity=affinity_per_mol_e,
                                          energy_supply=energy_supply,
                                          mol_rxn=mol_rxn,
