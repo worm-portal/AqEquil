@@ -14,3 +14,7 @@
 !LICENSE.txt
 !setup.py
 
+# Ignore pycache
+AqEquil/__pycache__/*
+AqEquil/__pycache__/
+AqEquil/__pycache__

@@ -206,6 +206,9 @@ class Mass_Transfer:
                     "because the thermodynamic database specified by thermodata_csv "
                     "is not the a WORM-style dataframe or CSV file.")
             
+            # remove species that do not have Gibbs free energy values
+            self.df = self.df[~self.df["G"].isna()]
+            
             # remove inactive species from the database to prevent them from
             # showing up as mineral fields or saturation lines
             if len(self.inactive_species) > 0:
@@ -1269,13 +1272,14 @@ class Mass_Transfer:
                 if len(eoi) == 2:
 
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
-
+                    
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
                     y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
                     y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
                     intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
+                    
                     hovertemplate = mineral+'<br>slope = '+str(round(line_slope))+'<br>intercept = '+str(round(intercept))+'<extra></extra>'
 
                 fig.add_trace(
