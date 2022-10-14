@@ -397,7 +397,8 @@ class Mass_Transfer:
                             flip_xy=False,
                             show_annotation=True,
                             annotation_coords=[0,0],
-                            show_nonparticipating_mineral_lines = False,
+                            show_nonparticipating_mineral_lines=False,
+                            minerals_to_show=[],
                             path_line_type = "markers+lines",
                             path_line_color = "red",
                             path_point_fill_color = "red",
@@ -569,6 +570,7 @@ class Mass_Transfer:
                                                 show_annotation=show_annotation,
                                                 annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                minerals_to_show=minerals_to_show,
                                                 path_line_type=path_line_type,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
@@ -638,6 +640,7 @@ class Mass_Transfer:
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
                                                         show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                        minerals_to_show=[], # no need for this in first pass
                                                         path_margin=self.path_margin,
                                                         flip_xy=flip_xy,
                                                         first_pass=True, # flag for skipping certain calculations/plotting
@@ -696,6 +699,7 @@ class Mass_Transfer:
                                                     show_annotation=show_annotation,
                                                     annotation_coords=annotation_coords,
                                                     show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                    minerals_to_show=minerals_to_show,
                                                     path_line_type=path_line_type,
                                                     path_line_color=path_line_color,
                                                     path_point_fill_color=path_point_fill_color,
@@ -1098,6 +1102,7 @@ class Mass_Transfer:
                                   show_annotation=False,
                                   annotation_coords=[0,0],
                                   show_nonparticipating_mineral_lines = False,
+                                  minerals_to_show=[],
                                   path_line_type = "markers+lines",
                                   path_line_color = "black",
                                   path_point_fill_color = "black",
@@ -1229,7 +1234,7 @@ class Mass_Transfer:
         else:
             for mineral in x_minerals_to_plot + y_minerals_to_plot + xy_minerals_to_plot:
                 
-                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns):
+                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns) and mineral not in minerals_to_show:
                     continue
                 
                 # deal with mineral line style (dot, dashed, etc.)
