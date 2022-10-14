@@ -1312,6 +1312,165 @@ class Mass_Transfer:
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
     
+    def plot_elements(self, units="molality", log=True, plot_width=4, plot_height=3, ppi=122):
+        
+        """
+        Generate a line plot of the log activities of aqueous species as a
+        function of the log of the extent of reaction (log Xi).
+        
+        Parameters
+        ----------
+        units : str, default "molality"
+            Units of elemental abundance to plot. Can be "molality", "ppm",
+            or "molarity".
+        
+        log : bool, default True
+            Display elemental abundances in log scale?
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        """
+        
+        title = "Concentrations of dissolved elements"
+        if hasattr(self, 'tab'):
+            if units == "molality":
+                df = self.tab["Table C1 Dissolved elements(molality)"]
+                ylab = "{}molality"
+                startcol = 2 # specific to table C1
+            elif units == "ppm":
+                df = self.tab["Table C2 Dissolved elements(ppm: mg/kg.sol)"]
+                ylab = "{}ppm"
+                startcol = 2 # specific to table C2
+            elif units == "molarity":
+                df = self.tab["Table C3 Dissolved elements(molarity)"]
+                ylab = "{}molarity"
+                startcol = 2 # specific to table C3
+                
+        else:
+            self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
+                "cannot be processed. This is likely because a thermodynamic database CSV "
+                "was not provided when Mass_Transfer() was called.")
+
+
+        df = pd.melt(df, id_vars="Xi", value_vars=df.columns[startcol:])
+        df.columns = ["Xi", "variable", "value"]
+        df["variable"] = df["variable"].apply(chemlabel)
+
+        df["Xi"] = pd.to_numeric(df["Xi"])
+
+        df["value"] = pd.to_numeric(df["value"])
+        df["value"] = df["value"].fillna(0)
+        df["value"] = df["value"].replace(0, np.nan)
+
+        with np.errstate(divide='ignore'):
+            df['log Xi'] = np.log10(df['Xi'])
+            if log:
+                df['value'] = np.log10(df['value'])
+                ylab = ylab.format("log ")
+        if not log:
+            ylab = ylab.format("")
+                
+        xlab = "log Xi"
+        xvar = "log Xi"
+
+        fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode='svg',
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          legend_title=None,
+                          yaxis={'showexponent': 'all',
+                                 'exponentformat': 'power'},
+                         )
+
+        if isinstance(title, str):
+            fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+
+        return fig
+    
+    
+    def plot_pH(self, x_type="log_xi", title=None, plot_width=4, plot_height=3, ppi=122):
+        
+        """
+        Generate a line plot of pH as a function of the log of the extent of
+        reaction (log Xi).
+        
+        Parameters
+        ----------
+        x_type : str, default "log_xi"
+            Variable to appear on the x-axis. Can be either "log_xi" or "xi".
+        
+        title : str
+            Title of the plot to display.
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        """
+
+        df = self.aq_distribution
+
+        df = pd.melt(df, id_vars="Xi", value_vars=["H+"])
+        df.columns = ["Xi", "variable", "value"]
+        
+        df["variable"] = "pH"
+
+        df["Xi"] = pd.to_numeric(df["Xi"])
+
+        df["value"] = -pd.to_numeric(df["value"])
+        df["value"] = df["value"].fillna(0)
+        df["value"] = df["value"].replace(0, np.nan)
+
+        if x_type == "log_xi":
+            xlab = "log Xi"
+            xvar = "log Xi"
+            with np.errstate(divide='ignore'):
+                df['log Xi'] = np.log10(df['Xi'])
+        elif x_type == "xi":
+            xlab = "Xi"
+            xvar = "Xi"
+        else:
+            self.err_handler.raise_exception(("x_type must be set to either "
+                "'log_xi' or 'xi'"))
+        
+        ylab = "pH"
+
+        fig = px.line(df, x=xvar, y="value", template="simple_white",
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode='svg',
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          showlegend=False)
+
+        if isinstance(title, str):
+            fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+
+        return fig
+    
+    
     def plot_product_minerals(self, show_reactant_minerals=False,
                               plot_width=4, plot_height=3, ppi=122):
         
@@ -1346,25 +1505,23 @@ class Mass_Transfer:
             title = "Moles of product minerals"
 
         df = pd.melt(df, id_vars="Xi", value_vars=df.columns[1:])
-        df.columns = ["log Xi", "variable", "value"]
+        df.columns = ["Xi", "variable", "value"]
         df = df[df["variable"] != "None"]
 
 
-        df["log Xi"] = pd.to_numeric(df["log Xi"])
+        df["Xi"] = pd.to_numeric(df["Xi"])
 
         df["value"] = pd.to_numeric(df["value"])
         df["value"] = df["value"].fillna(0)
         df["value"] = df["value"].replace(0, np.nan)
 
         with np.errstate(divide='ignore'):
-            df['log Xi'] = np.log10(df['log Xi'])
+            df['log Xi'] = np.log10(df['Xi'])
             df['value'] = np.log10(df['value'])
             
-        
         xlab = "log Xi"
         ylab = "log moles"
         xvar = "log Xi"
-
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -1411,7 +1568,7 @@ class Mass_Transfer:
             if hasattr(self, 'tab'):
                 df = self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"]
                 title = "Solute basis species"
-                startcol = 2 # specific to table D1
+                startcol = 2 # specific to table E2
             else:
                 self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
                     "cannot be processed. This is likely because a thermodynamic database CSV "
@@ -1422,24 +1579,21 @@ class Mass_Transfer:
             startcol = 1
 
         df = pd.melt(df, id_vars="Xi", value_vars=df.columns[startcol:])
-        df.columns = ["log Xi", "variable", "value"]
+        df.columns = ["Xi", "variable", "value"]
         df["variable"] = df["variable"].apply(chemlabel)
 
-        df["log Xi"] = pd.to_numeric(df["log Xi"])
+        df["Xi"] = pd.to_numeric(df["Xi"])
 
         df["value"] = pd.to_numeric(df["value"])
         df["value"] = df["value"].fillna(0)
         df["value"] = df["value"].replace(0, np.nan)
 
         with np.errstate(divide='ignore'):
-            df['log Xi'] = np.log10(df['log Xi'])
-#             df['value'] = np.log10(df['value'])
+            df['log Xi'] = np.log10(df['Xi'])
             
-        
         xlab = "log Xi"
         ylab = "log activity"
         xvar = "log Xi"
-
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
