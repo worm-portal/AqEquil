@@ -18,3 +18,6 @@
 AqEquil/__pycache__/*
 AqEquil/__pycache__/
 AqEquil/__pycache__
+.ipynb_checkpoints
+.ipynb_checkpoints/
+.ipynb_checkpoints/*
