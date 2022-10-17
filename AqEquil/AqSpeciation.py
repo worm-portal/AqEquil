@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -4213,7 +4213,6 @@ class AqEquil:
 #         thermo_df["tag"] = thermo_df["tag"].astype(str)
 
         thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
-        thermo_df.to_csv("test2.csv")
         ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
