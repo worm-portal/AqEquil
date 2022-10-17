@@ -234,6 +234,9 @@ class Mass_Transfer:
                     &#34;because the thermodynamic database specified by thermodata_csv &#34;
                     &#34;is not the a WORM-style dataframe or CSV file.&#34;)
             
+            # remove species that do not have Gibbs free energy values
+            self.df = self.df[~self.df[&#34;G&#34;].isna()]
+            
             # remove inactive species from the database to prevent them from
             # showing up as mineral fields or saturation lines
             if len(self.inactive_species) &gt; 0:
@@ -422,7 +425,8 @@ class Mass_Transfer:
                             flip_xy=False,
                             show_annotation=True,
                             annotation_coords=[0,0],
-                            show_nonparticipating_mineral_lines = False,
+                            show_nonparticipating_mineral_lines=False,
+                            minerals_to_show=[],
                             path_line_type = &#34;markers+lines&#34;,
                             path_line_color = &#34;red&#34;,
                             path_point_fill_color = &#34;red&#34;,
@@ -594,6 +598,7 @@ class Mass_Transfer:
                                                 show_annotation=show_annotation,
                                                 annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                minerals_to_show=minerals_to_show,
                                                 path_line_type=path_line_type,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
@@ -663,6 +668,7 @@ class Mass_Transfer:
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
                                                         show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                        minerals_to_show=[], # no need for this in first pass
                                                         path_margin=self.path_margin,
                                                         flip_xy=flip_xy,
                                                         first_pass=True, # flag for skipping certain calculations/plotting
@@ -721,6 +727,7 @@ class Mass_Transfer:
                                                     show_annotation=show_annotation,
                                                     annotation_coords=annotation_coords,
                                                     show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                    minerals_to_show=minerals_to_show,
                                                     path_line_type=path_line_type,
                                                     path_line_color=path_line_color,
                                                     path_point_fill_color=path_point_fill_color,
@@ -1123,6 +1130,7 @@ class Mass_Transfer:
                                   show_annotation=False,
                                   annotation_coords=[0,0],
                                   show_nonparticipating_mineral_lines = False,
+                                  minerals_to_show=[],
                                   path_line_type = &#34;markers+lines&#34;,
                                   path_line_color = &#34;black&#34;,
                                   path_point_fill_color = &#34;black&#34;,
@@ -1254,7 +1262,7 @@ class Mass_Transfer:
         else:
             for mineral in x_minerals_to_plot + y_minerals_to_plot + xy_minerals_to_plot:
                 
-                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns):
+                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns) and mineral not in minerals_to_show:
                     continue
                 
                 # deal with mineral line style (dot, dashed, etc.)
@@ -1297,13 +1305,14 @@ class Mass_Transfer:
                 if len(eoi) == 2:
 
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
-
+                    
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
                     y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
                     y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
                     intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
+                    
                     hovertemplate = mineral+&#39;&lt;br&gt;slope = &#39;+str(round(line_slope))+&#39;&lt;br&gt;intercept = &#39;+str(round(intercept))+&#39;&lt;extra&gt;&lt;/extra&gt;&#39;
 
                 fig.add_trace(
@@ -1330,6 +1339,165 @@ class Mass_Transfer:
         pred_minerals_from_lines = x_minerals_to_plot+y_minerals_to_plot+xy_minerals_to_plot
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
+    
+    def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+        
+        &#34;&#34;&#34;
+        Generate a line plot of the log activities of aqueous species as a
+        function of the log of the extent of reaction (log Xi).
+        
+        Parameters
+        ----------
+        units : str, default &#34;molality&#34;
+            Units of elemental abundance to plot. Can be &#34;molality&#34;, &#34;ppm&#34;,
+            or &#34;molarity&#34;.
+        
+        log : bool, default True
+            Display elemental abundances in log scale?
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        &#34;&#34;&#34;
+        
+        title = &#34;Concentrations of dissolved elements&#34;
+        if hasattr(self, &#39;tab&#39;):
+            if units == &#34;molality&#34;:
+                df = self.tab[&#34;Table C1 Dissolved elements(molality)&#34;]
+                ylab = &#34;{}molality&#34;
+                startcol = 2 # specific to table C1
+            elif units == &#34;ppm&#34;:
+                df = self.tab[&#34;Table C2 Dissolved elements(ppm: mg/kg.sol)&#34;]
+                ylab = &#34;{}ppm&#34;
+                startcol = 2 # specific to table C2
+            elif units == &#34;molarity&#34;:
+                df = self.tab[&#34;Table C3 Dissolved elements(molarity)&#34;]
+                ylab = &#34;{}molarity&#34;
+                startcol = 2 # specific to table C3
+                
+        else:
+            self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
+                &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
+                &#34;was not provided when Mass_Transfer() was called.&#34;)
+
+
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
+
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
+
+        df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
+        df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+        df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+
+        with np.errstate(divide=&#39;ignore&#39;):
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+            if log:
+                df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+                ylab = ylab.format(&#34;log &#34;)
+        if not log:
+            ylab = ylab.format(&#34;&#34;)
+                
+        xlab = &#34;log Xi&#34;
+        xvar = &#34;log Xi&#34;
+
+        fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          legend_title=None,
+                          yaxis={&#39;showexponent&#39;: &#39;all&#39;,
+                                 &#39;exponentformat&#39;: &#39;power&#39;},
+                         )
+
+        if isinstance(title, str):
+            fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+        return fig
+    
+    
+    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+        
+        &#34;&#34;&#34;
+        Generate a line plot of pH as a function of the log of the extent of
+        reaction (log Xi).
+        
+        Parameters
+        ----------
+        x_type : str, default &#34;log_xi&#34;
+            Variable to appear on the x-axis. Can be either &#34;log_xi&#34; or &#34;xi&#34;.
+        
+        title : str
+            Title of the plot to display.
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        &#34;&#34;&#34;
+
+        df = self.aq_distribution
+
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=[&#34;H+&#34;])
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        
+        df[&#34;variable&#34;] = &#34;pH&#34;
+
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
+
+        df[&#34;value&#34;] = -pd.to_numeric(df[&#34;value&#34;])
+        df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+        df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+
+        if x_type == &#34;log_xi&#34;:
+            xlab = &#34;log Xi&#34;
+            xvar = &#34;log Xi&#34;
+            with np.errstate(divide=&#39;ignore&#39;):
+                df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+        elif x_type == &#34;xi&#34;:
+            xlab = &#34;Xi&#34;
+            xvar = &#34;Xi&#34;
+        else:
+            self.err_handler.raise_exception((&#34;x_type must be set to either &#34;
+                &#34;&#39;log_xi&#39; or &#39;xi&#39;&#34;))
+        
+        ylab = &#34;pH&#34;
+
+        fig = px.line(df, x=xvar, y=&#34;value&#34;, template=&#34;simple_white&#34;,
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          showlegend=False)
+
+        if isinstance(title, str):
+            fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+        return fig
+    
     
     def plot_product_minerals(self, show_reactant_minerals=False,
                               plot_width=4, plot_height=3, ppi=122):
@@ -1365,25 +1533,23 @@ class Mass_Transfer:
             title = &#34;Moles of product minerals&#34;
 
         df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
-        df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df = df[df[&#34;variable&#34;] != &#34;None&#34;]
 
 
-        df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
         with np.errstate(divide=&#39;ignore&#39;):
-            df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
             df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
             
-        
         xlab = &#34;log Xi&#34;
         ylab = &#34;log moles&#34;
         xvar = &#34;log Xi&#34;
-
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -1430,7 +1596,7 @@ class Mass_Transfer:
             if hasattr(self, &#39;tab&#39;):
                 df = self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;]
                 title = &#34;Solute basis species&#34;
-                startcol = 2 # specific to table D1
+                startcol = 2 # specific to table E2
             else:
                 self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
                     &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
@@ -1441,24 +1607,21 @@ class Mass_Transfer:
             startcol = 1
 
         df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
-        df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
-        df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
         with np.errstate(divide=&#39;ignore&#39;):
-            df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
-#             df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
             
-        
         xlab = &#34;log Xi&#34;
         ylab = &#34;log activity&#34;
         xvar = &#34;log Xi&#34;
-
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -3232,6 +3395,9 @@ the point.</dd>
                     &#34;because the thermodynamic database specified by thermodata_csv &#34;
                     &#34;is not the a WORM-style dataframe or CSV file.&#34;)
             
+            # remove species that do not have Gibbs free energy values
+            self.df = self.df[~self.df[&#34;G&#34;].isna()]
+            
             # remove inactive species from the database to prevent them from
             # showing up as mineral fields or saturation lines
             if len(self.inactive_species) &gt; 0:
@@ -3420,7 +3586,8 @@ the point.</dd>
                             flip_xy=False,
                             show_annotation=True,
                             annotation_coords=[0,0],
-                            show_nonparticipating_mineral_lines = False,
+                            show_nonparticipating_mineral_lines=False,
+                            minerals_to_show=[],
                             path_line_type = &#34;markers+lines&#34;,
                             path_line_color = &#34;red&#34;,
                             path_point_fill_color = &#34;red&#34;,
@@ -3592,6 +3759,7 @@ the point.</dd>
                                                 show_annotation=show_annotation,
                                                 annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                minerals_to_show=minerals_to_show,
                                                 path_line_type=path_line_type,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
@@ -3661,6 +3829,7 @@ the point.</dd>
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
                                                         show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                        minerals_to_show=[], # no need for this in first pass
                                                         path_margin=self.path_margin,
                                                         flip_xy=flip_xy,
                                                         first_pass=True, # flag for skipping certain calculations/plotting
@@ -3719,6 +3888,7 @@ the point.</dd>
                                                     show_annotation=show_annotation,
                                                     annotation_coords=annotation_coords,
                                                     show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                    minerals_to_show=minerals_to_show,
                                                     path_line_type=path_line_type,
                                                     path_line_color=path_line_color,
                                                     path_point_fill_color=path_point_fill_color,
@@ -4121,6 +4291,7 @@ the point.</dd>
                                   show_annotation=False,
                                   annotation_coords=[0,0],
                                   show_nonparticipating_mineral_lines = False,
+                                  minerals_to_show=[],
                                   path_line_type = &#34;markers+lines&#34;,
                                   path_line_color = &#34;black&#34;,
                                   path_point_fill_color = &#34;black&#34;,
@@ -4252,7 +4423,7 @@ the point.</dd>
         else:
             for mineral in x_minerals_to_plot + y_minerals_to_plot + xy_minerals_to_plot:
                 
-                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns):
+                if not show_nonparticipating_mineral_lines and mineral not in list(self.moles_product_minerals.columns) and mineral not in minerals_to_show:
                     continue
                 
                 # deal with mineral line style (dot, dashed, etc.)
@@ -4295,13 +4466,14 @@ the point.</dd>
                 if len(eoi) == 2:
 
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
-
+                    
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
                     y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
                     y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
                     intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
+                    
                     hovertemplate = mineral+&#39;&lt;br&gt;slope = &#39;+str(round(line_slope))+&#39;&lt;br&gt;intercept = &#39;+str(round(intercept))+&#39;&lt;extra&gt;&lt;/extra&gt;&#39;
 
                 fig.add_trace(
@@ -4328,6 +4500,165 @@ the point.</dd>
         pred_minerals_from_lines = x_minerals_to_plot+y_minerals_to_plot+xy_minerals_to_plot
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
+    
+    def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+        
+        &#34;&#34;&#34;
+        Generate a line plot of the log activities of aqueous species as a
+        function of the log of the extent of reaction (log Xi).
+        
+        Parameters
+        ----------
+        units : str, default &#34;molality&#34;
+            Units of elemental abundance to plot. Can be &#34;molality&#34;, &#34;ppm&#34;,
+            or &#34;molarity&#34;.
+        
+        log : bool, default True
+            Display elemental abundances in log scale?
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        &#34;&#34;&#34;
+        
+        title = &#34;Concentrations of dissolved elements&#34;
+        if hasattr(self, &#39;tab&#39;):
+            if units == &#34;molality&#34;:
+                df = self.tab[&#34;Table C1 Dissolved elements(molality)&#34;]
+                ylab = &#34;{}molality&#34;
+                startcol = 2 # specific to table C1
+            elif units == &#34;ppm&#34;:
+                df = self.tab[&#34;Table C2 Dissolved elements(ppm: mg/kg.sol)&#34;]
+                ylab = &#34;{}ppm&#34;
+                startcol = 2 # specific to table C2
+            elif units == &#34;molarity&#34;:
+                df = self.tab[&#34;Table C3 Dissolved elements(molarity)&#34;]
+                ylab = &#34;{}molarity&#34;
+                startcol = 2 # specific to table C3
+                
+        else:
+            self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
+                &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
+                &#34;was not provided when Mass_Transfer() was called.&#34;)
+
+
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
+
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
+
+        df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
+        df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+        df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+
+        with np.errstate(divide=&#39;ignore&#39;):
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+            if log:
+                df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+                ylab = ylab.format(&#34;log &#34;)
+        if not log:
+            ylab = ylab.format(&#34;&#34;)
+                
+        xlab = &#34;log Xi&#34;
+        xvar = &#34;log Xi&#34;
+
+        fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          legend_title=None,
+                          yaxis={&#39;showexponent&#39;: &#39;all&#39;,
+                                 &#39;exponentformat&#39;: &#39;power&#39;},
+                         )
+
+        if isinstance(title, str):
+            fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+        return fig
+    
+    
+    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+        
+        &#34;&#34;&#34;
+        Generate a line plot of pH as a function of the log of the extent of
+        reaction (log Xi).
+        
+        Parameters
+        ----------
+        x_type : str, default &#34;log_xi&#34;
+            Variable to appear on the x-axis. Can be either &#34;log_xi&#34; or &#34;xi&#34;.
+        
+        title : str
+            Title of the plot to display.
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+        &#34;&#34;&#34;
+
+        df = self.aq_distribution
+
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=[&#34;H+&#34;])
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        
+        df[&#34;variable&#34;] = &#34;pH&#34;
+
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
+
+        df[&#34;value&#34;] = -pd.to_numeric(df[&#34;value&#34;])
+        df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+        df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+
+        if x_type == &#34;log_xi&#34;:
+            xlab = &#34;log Xi&#34;
+            xvar = &#34;log Xi&#34;
+            with np.errstate(divide=&#39;ignore&#39;):
+                df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+        elif x_type == &#34;xi&#34;:
+            xlab = &#34;Xi&#34;
+            xvar = &#34;Xi&#34;
+        else:
+            self.err_handler.raise_exception((&#34;x_type must be set to either &#34;
+                &#34;&#39;log_xi&#39; or &#39;xi&#39;&#34;))
+        
+        ylab = &#34;pH&#34;
+
+        fig = px.line(df, x=xvar, y=&#34;value&#34;, template=&#34;simple_white&#34;,
+                              width=plot_width*ppi,  height=plot_height*ppi,
+                              labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                             )
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          showlegend=False)
+
+        if isinstance(title, str):
+            fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+        return fig
+    
     
     def plot_product_minerals(self, show_reactant_minerals=False,
                               plot_width=4, plot_height=3, ppi=122):
@@ -4363,25 +4694,23 @@ the point.</dd>
             title = &#34;Moles of product minerals&#34;
 
         df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
-        df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df = df[df[&#34;variable&#34;] != &#34;None&#34;]
 
 
-        df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
         with np.errstate(divide=&#39;ignore&#39;):
-            df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
             df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
             
-        
         xlab = &#34;log Xi&#34;
         ylab = &#34;log moles&#34;
         xvar = &#34;log Xi&#34;
-
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -4428,7 +4757,7 @@ the point.</dd>
             if hasattr(self, &#39;tab&#39;):
                 df = self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;]
                 title = &#34;Solute basis species&#34;
-                startcol = 2 # specific to table D1
+                startcol = 2 # specific to table E2
             else:
                 self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
                     &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
@@ -4439,24 +4768,21 @@ the point.</dd>
             startcol = 1
 
         df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
-        df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+        df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
-        df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+        df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
         with np.errstate(divide=&#39;ignore&#39;):
-            df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
-#             df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
             
-        
         xlab = &#34;log Xi&#34;
         ylab = &#34;log activity&#34;
         xvar = &#34;log Xi&#34;
-
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -4840,79 +5166,194 @@ determines the size of interactive plots.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def plot_aqueous_species(self, plot_basis=False,
-                             plot_width=4, plot_height=3, ppi=122):
+<pre><code class="python">def plot_aqueous_species(self, plot_basis=False,
+                         plot_width=4, plot_height=3, ppi=122):
+    
+    &#34;&#34;&#34;
+    Generate a line plot of the log activities of aqueous species as a
+    function of the log of the extent of reaction (log Xi).
+    
+    Parameters
+    ----------
+    plot_basis : bool, default False
+        Plot basis species only?
         
-        &#34;&#34;&#34;
-        Generate a line plot of the log activities of aqueous species as a
-        function of the log of the extent of reaction (log Xi).
+    plot_width, plot_height : numeric, default 4 by 3
+        Width and height of the plot, in inches. Size of interactive plots
+        is also determined by pixels per inch, set by the parameter `ppi`.
         
-        Parameters
-        ----------
-        plot_basis : bool, default False
-            Plot basis species only?
-            
-        plot_width, plot_height : numeric, default 4 by 3
-            Width and height of the plot, in inches. Size of interactive plots
-            is also determined by pixels per inch, set by the parameter `ppi`.
-            
-        ppi : numeric, default 122
-            Pixels per inch. Along with `plot_width` and `plot_height`,
-            determines the size of interactive plots.
-            
-        Returns
-        -------
-        fig : Plotly figure object
-            A line plot.
-        &#34;&#34;&#34;
+    ppi : numeric, default 122
+        Pixels per inch. Along with `plot_width` and `plot_height`,
+        determines the size of interactive plots.
         
-        if plot_basis:
-            if hasattr(self, &#39;tab&#39;):
-                df = self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;]
-                title = &#34;Solute basis species&#34;
-                startcol = 2 # specific to table D1
-            else:
-                self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
-                    &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
-                    &#34;was not provided when Mass_Transfer() was called.&#34;)
+    Returns
+    -------
+    fig : Plotly figure object
+        A line plot.
+    &#34;&#34;&#34;
+    
+    if plot_basis:
+        if hasattr(self, &#39;tab&#39;):
+            df = self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;]
+            title = &#34;Solute basis species&#34;
+            startcol = 2 # specific to table E2
         else:
-            df = self.aq_distribution
-            title = &#34;Solute species&#34;
-            startcol = 1
+            self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
+                &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
+                &#34;was not provided when Mass_Transfer() was called.&#34;)
+    else:
+        df = self.aq_distribution
+        title = &#34;Solute species&#34;
+        startcol = 1
 
-        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
-        df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
-        df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
+    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+    df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+    df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
-        df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+    df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
-        df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
-        df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
-        df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+    df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
+    df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+    df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
-        with np.errstate(divide=&#39;ignore&#39;):
-            df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
-#             df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
-            
+    with np.errstate(divide=&#39;ignore&#39;):
+        df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
         
-        xlab = &#34;log Xi&#34;
-        ylab = &#34;log activity&#34;
-        xvar = &#34;log Xi&#34;
+    xlab = &#34;log Xi&#34;
+    ylab = &#34;log activity&#34;
+    xvar = &#34;log Xi&#34;
+
+    fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
+                          width=plot_width*ppi,  height=plot_height*ppi,
+                          labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                         )
+
+    fig.update_layout(xaxis_title=xlab,
+                      yaxis_title=ylab,
+                      legend_title=None)
+
+    if isinstance(title, str):
+        fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+    return fig</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.MassTransfer.Mass_Transfer.plot_elements"><code class="name flex">
+<span>def <span class="ident">plot_elements</span></span>(<span>self, units='molality', log=True, plot_width=4, plot_height=3, ppi=122)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate a line plot of the log activities of aqueous species as a
+function of the log of the extent of reaction (log Xi).</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>units</code></strong> :&ensp;<code>str</code>, default <code>"molality"</code></dt>
+<dd>Units of elemental abundance to plot. Can be "molality", "ppm",
+or "molarity".</dd>
+<dt><strong><code>log</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Display elemental abundances in log scale?</dd>
+<dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
+<dd>Width and height of the plot, in inches. Size of interactive plots
+is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
+<dt><strong><code>ppi</code></strong> :&ensp;<code>numeric</code>, default <code>122</code></dt>
+<dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
+determines the size of interactive plots.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A line plot.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+    
+    &#34;&#34;&#34;
+    Generate a line plot of the log activities of aqueous species as a
+    function of the log of the extent of reaction (log Xi).
+    
+    Parameters
+    ----------
+    units : str, default &#34;molality&#34;
+        Units of elemental abundance to plot. Can be &#34;molality&#34;, &#34;ppm&#34;,
+        or &#34;molarity&#34;.
+    
+    log : bool, default True
+        Display elemental abundances in log scale?
+    
+    plot_width, plot_height : numeric, default 4 by 3
+        Width and height of the plot, in inches. Size of interactive plots
+        is also determined by pixels per inch, set by the parameter `ppi`.
+        
+    ppi : numeric, default 122
+        Pixels per inch. Along with `plot_width` and `plot_height`,
+        determines the size of interactive plots.
+        
+    Returns
+    -------
+    fig : Plotly figure object
+        A line plot.
+    &#34;&#34;&#34;
+    
+    title = &#34;Concentrations of dissolved elements&#34;
+    if hasattr(self, &#39;tab&#39;):
+        if units == &#34;molality&#34;:
+            df = self.tab[&#34;Table C1 Dissolved elements(molality)&#34;]
+            ylab = &#34;{}molality&#34;
+            startcol = 2 # specific to table C1
+        elif units == &#34;ppm&#34;:
+            df = self.tab[&#34;Table C2 Dissolved elements(ppm: mg/kg.sol)&#34;]
+            ylab = &#34;{}ppm&#34;
+            startcol = 2 # specific to table C2
+        elif units == &#34;molarity&#34;:
+            df = self.tab[&#34;Table C3 Dissolved elements(molarity)&#34;]
+            ylab = &#34;{}molarity&#34;
+            startcol = 2 # specific to table C3
+            
+    else:
+        self.err_handler.raise_exception(&#34;Cannot plot basis species because the TAB file &#34;
+            &#34;cannot be processed. This is likely because a thermodynamic database CSV &#34;
+            &#34;was not provided when Mass_Transfer() was called.&#34;)
 
 
-        fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
-                              width=plot_width*ppi,  height=plot_height*ppi,
-                              labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
-                             )
+    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+    df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+    df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
-        fig.update_layout(xaxis_title=xlab,
-                          yaxis_title=ylab,
-                          legend_title=None)
+    df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
-        if isinstance(title, str):
-            fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+    df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
+    df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+    df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
-        return fig</code></pre>
+    with np.errstate(divide=&#39;ignore&#39;):
+        df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+        if log:
+            df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+            ylab = ylab.format(&#34;log &#34;)
+    if not log:
+        ylab = ylab.format(&#34;&#34;)
+            
+    xlab = &#34;log Xi&#34;
+    xvar = &#34;log Xi&#34;
+
+    fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
+                          width=plot_width*ppi,  height=plot_height*ppi,
+                          labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                         )
+
+    fig.update_layout(xaxis_title=xlab,
+                      yaxis_title=ylab,
+                      legend_title=None,
+                      yaxis={&#39;showexponent&#39;: &#39;all&#39;,
+                             &#39;exponentformat&#39;: &#39;power&#39;},
+                     )
+
+    if isinstance(title, str):
+        fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+    return fig</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_mass_contribution"><code class="name flex">
@@ -5041,6 +5482,104 @@ extent of reaction, Xi.</dd>
         fig.show()</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.MassTransfer.Mass_Transfer.plot_pH"><code class="name flex">
+<span>def <span class="ident">plot_pH</span></span>(<span>self, x_type='log_xi', title=None, plot_width=4, plot_height=3, ppi=122)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Generate a line plot of pH as a function of the log of the extent of
+reaction (log Xi).</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>x_type</code></strong> :&ensp;<code>str</code>, default <code>"log_xi"</code></dt>
+<dd>Variable to appear on the x-axis. Can be either "log_xi" or "xi".</dd>
+<dt><strong><code>title</code></strong> :&ensp;<code>str</code></dt>
+<dd>Title of the plot to display.</dd>
+<dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
+<dd>Width and height of the plot, in inches. Size of interactive plots
+is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
+<dt><strong><code>ppi</code></strong> :&ensp;<code>numeric</code>, default <code>122</code></dt>
+<dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
+determines the size of interactive plots.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
+<dd>A line plot.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+    
+    &#34;&#34;&#34;
+    Generate a line plot of pH as a function of the log of the extent of
+    reaction (log Xi).
+    
+    Parameters
+    ----------
+    x_type : str, default &#34;log_xi&#34;
+        Variable to appear on the x-axis. Can be either &#34;log_xi&#34; or &#34;xi&#34;.
+    
+    title : str
+        Title of the plot to display.
+    
+    plot_width, plot_height : numeric, default 4 by 3
+        Width and height of the plot, in inches. Size of interactive plots
+        is also determined by pixels per inch, set by the parameter `ppi`.
+        
+    ppi : numeric, default 122
+        Pixels per inch. Along with `plot_width` and `plot_height`,
+        determines the size of interactive plots.
+        
+    Returns
+    -------
+    fig : Plotly figure object
+        A line plot.
+    &#34;&#34;&#34;
+
+    df = self.aq_distribution
+
+    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=[&#34;H+&#34;])
+    df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+    
+    df[&#34;variable&#34;] = &#34;pH&#34;
+
+    df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
+
+    df[&#34;value&#34;] = -pd.to_numeric(df[&#34;value&#34;])
+    df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
+    df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
+
+    if x_type == &#34;log_xi&#34;:
+        xlab = &#34;log Xi&#34;
+        xvar = &#34;log Xi&#34;
+        with np.errstate(divide=&#39;ignore&#39;):
+            df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
+    elif x_type == &#34;xi&#34;:
+        xlab = &#34;Xi&#34;
+        xvar = &#34;Xi&#34;
+    else:
+        self.err_handler.raise_exception((&#34;x_type must be set to either &#34;
+            &#34;&#39;log_xi&#39; or &#39;xi&#39;&#34;))
+    
+    ylab = &#34;pH&#34;
+
+    fig = px.line(df, x=xvar, y=&#34;value&#34;, template=&#34;simple_white&#34;,
+                          width=plot_width*ppi,  height=plot_height*ppi,
+                          labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
+                         )
+
+    fig.update_layout(xaxis_title=xlab,
+                      yaxis_title=ylab,
+                      showlegend=False)
+
+    if isinstance(title, str):
+        fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
+
+    return fig</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_product_minerals"><code class="name flex">
 <span>def <span class="ident">plot_product_minerals</span></span>(<span>self, show_reactant_minerals=False, plot_width=4, plot_height=3, ppi=122)</span>
 </code></dt>
@@ -5101,25 +5640,23 @@ determines the size of interactive plots.</dd>
         title = &#34;Moles of product minerals&#34;
 
     df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
-    df.columns = [&#34;log Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
+    df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
     df = df[df[&#34;variable&#34;] != &#34;None&#34;]
 
 
-    df[&#34;log Xi&#34;] = pd.to_numeric(df[&#34;log Xi&#34;])
+    df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
     df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
     df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
     df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
 
     with np.errstate(divide=&#39;ignore&#39;):
-        df[&#39;log Xi&#39;] = np.log10(df[&#39;log Xi&#39;])
+        df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
         df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
         
-    
     xlab = &#34;log Xi&#34;
     ylab = &#34;log moles&#34;
     xvar = &#34;log Xi&#34;
-
 
     fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                           width=plot_width*ppi,  height=plot_height*ppi,
@@ -5137,7 +5674,7 @@ determines the size of interactive plots.</dd>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_reaction_paths"><code class="name flex">
-<span>def <span class="ident">plot_reaction_paths</span></span>(<span>self, xyb=None, path_margin=0.25, flip_xy=False, show_annotation=True, annotation_coords=[0, 0], show_nonparticipating_mineral_lines=False, path_line_type='markers+lines', path_line_color='red', path_point_fill_color='red', path_point_line_color='red', projected_point_fill_color='white', projected_point_line_color='red', h_line_color='black', v_line_color='black', d_line_color='black', res=300, plot_width=4, plot_height=3, ppi=122, borders=0, colormap='bw')</span>
+<span>def <span class="ident">plot_reaction_paths</span></span>(<span>self, xyb=None, path_margin=0.25, flip_xy=False, show_annotation=True, annotation_coords=[0, 0], show_nonparticipating_mineral_lines=False, minerals_to_show=[], path_line_type='markers+lines', path_line_color='red', path_point_fill_color='red', path_point_line_color='red', projected_point_fill_color='white', projected_point_line_color='red', h_line_color='black', v_line_color='black', d_line_color='black', res=300, plot_width=4, plot_height=3, ppi=122, borders=0, colormap='bw')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create interactive plots of reaction paths in geochemical variable
@@ -5243,7 +5780,8 @@ specified, fig_list will only contain the single figure of interest.</dd>
                         flip_xy=False,
                         show_annotation=True,
                         annotation_coords=[0,0],
-                        show_nonparticipating_mineral_lines = False,
+                        show_nonparticipating_mineral_lines=False,
+                        minerals_to_show=[],
                         path_line_type = &#34;markers+lines&#34;,
                         path_line_color = &#34;red&#34;,
                         path_point_fill_color = &#34;red&#34;,
@@ -5415,6 +5953,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                                             show_annotation=show_annotation,
                                             annotation_coords=annotation_coords,
                                             show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                            minerals_to_show=minerals_to_show,
                                             path_line_type=path_line_type,
                                             path_line_color=path_line_color,
                                             path_point_fill_color=path_point_fill_color,
@@ -5484,6 +6023,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                 fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                     triad, T=self.T, P=self.P,
                                                     show_nonparticipating_mineral_lines=False, # no need for this in first pass
+                                                    minerals_to_show=[], # no need for this in first pass
                                                     path_margin=self.path_margin,
                                                     flip_xy=flip_xy,
                                                     first_pass=True, # flag for skipping certain calculations/plotting
@@ -5542,6 +6082,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                                                 show_annotation=show_annotation,
                                                 annotation_coords=annotation_coords,
                                                 show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                                minerals_to_show=minerals_to_show,
                                                 path_line_type=path_line_type,
                                                 path_line_color=path_line_color,
                                                 path_point_fill_color=path_point_fill_color,
@@ -6779,7 +7320,9 @@ the point.</dd>
 <ul class="">
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.mine_6o_table" href="#AqEquil.MassTransfer.Mass_Transfer.mine_6o_table">mine_6o_table</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_aqueous_species" href="#AqEquil.MassTransfer.Mass_Transfer.plot_aqueous_species">plot_aqueous_species</a></code></li>
+<li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_elements" href="#AqEquil.MassTransfer.Mass_Transfer.plot_elements">plot_elements</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_mass_contribution" href="#AqEquil.MassTransfer.Mass_Transfer.plot_mass_contribution">plot_mass_contribution</a></code></li>
+<li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_pH" href="#AqEquil.MassTransfer.Mass_Transfer.plot_pH">plot_pH</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_product_minerals" href="#AqEquil.MassTransfer.Mass_Transfer.plot_product_minerals">plot_product_minerals</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.plot_reaction_paths" href="#AqEquil.MassTransfer.Mass_Transfer.plot_reaction_paths">plot_reaction_paths</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.print_tabs" href="#AqEquil.MassTransfer.Mass_Transfer.print_tabs">print_tabs</a></code></li>

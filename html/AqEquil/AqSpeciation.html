@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = True
+<pre><code class="python">DEBUGGING_R = False
 FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;, &#34;OH-&#34;, &#34;O2&#34;, &#34;H2O(g)&#34;]
 
 import os
@@ -4241,7 +4241,6 @@ class AqEquil:
 #         thermo_df[&#34;tag&#34;] = thermo_df[&#34;tag&#34;].astype(str)
 
         thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
-        thermo_df.to_csv(&#34;test2.csv&#34;)
         ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
@@ -7973,7 +7972,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 #         thermo_df[&#34;tag&#34;] = thermo_df[&#34;tag&#34;].astype(str)
 
         thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
-        thermo_df.to_csv(&#34;test2.csv&#34;)
         ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
@@ -9273,7 +9271,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 #         thermo_df[&#34;tag&#34;] = thermo_df[&#34;tag&#34;].astype(str)
 
         thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
-        thermo_df.to_csv(&#34;test2.csv&#34;)
         ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
