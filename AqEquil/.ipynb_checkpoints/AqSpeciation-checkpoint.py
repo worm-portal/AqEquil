@@ -2149,8 +2149,14 @@ class AqEquil:
                       "heterogeneous equilibrium option if the mineral or gas "
                       "contains a redox-suppressed element.")
         
+        sample_temps = [float(t) for t in list(df_in["Temperature"])[1:]]
+        if "Pressure" in df_in.columns:
+            sample_press = [float(p) if p.lower() != 'psat' else 'psat' for p in list(df_in["Pressure"])[1:]]
+        else:
+            sample_press = ['psat']*len(sample_temps)
         
-        return
+        
+        return sample_temps, sample_press
         
         
     def __move_eqpt_extra_output(self):
@@ -2512,23 +2518,13 @@ class AqEquil:
         logK_grid = logK_grid_trunc
         T_grid = T_grid[0:grid_len]
         
-        # TODO: make different polyfits for logK grid lengths 2 thru 8.
-        # 2 points would essentially be linear
-        # 3 points would curve, etc. ..8 points as usual
-        
-        print("Calc...")
-        print(logK_grid)
-        print(T_grid)
-        
         if T > max(T_grid) or T < min(T_grid):
             return np.nan
-        
         
         # turns off poor polyfit warning
         # TODO: restore polyfit warning setting afterward
         warnings.simplefilter('ignore', np.RankWarning)
         
-        # experimental (not yet used)
         n_mid1 = math.floor(len(T_grid)/2)-1
         n_mid2 = n_mid1+1
         
@@ -2545,31 +2541,23 @@ class AqEquil:
         else:
             logK = np.nan
         
+        ### TEST
+        print("Calc...")
+        print(logK_grid)
+        print(T_grid)
+        
         from matplotlib import pyplot as plt
         plt.plot(T_grid, logK_grid, 'o')
-        plt.plot(T_grid[:n_mid2], model_1(T_grid[:n_mid2]))
-        plt.plot(T_grid[n_mid1:], model_2(T_grid[n_mid1:]))
+        T_m1 = np.linspace(min(T_grid[:n_mid2]), max(T_grid[:n_mid2]), 100)
+        T_m2 = np.linspace(min(T_grid[n_mid1:]), max(T_grid[n_mid1:]), 100)
+        plt.plot(T_m1, model_1(T_m1))
+        plt.plot(T_m2, model_2(T_m2))
         
+        print("T, logk")
+        print(T)
+        print(logK)
+        ###
         
-#         poly_coeffs_1 = np.polyfit(T_grid[:4], logK_grid[:4], len(T_grid[:4])-1)
-#         poly_coeffs_2 = np.polyfit(T_grid[3:], logK_grid[3:], len(T_grid[3:])-1)
-        
-#         model_1 = np.poly1d(poly_coeffs_1)
-#         model_2 = np.poly1d(poly_coeffs_2)
-         
-#         if T >= T_grid[0] and T <= T_grid[3]:
-#             logK = model_1(T)
-#         elif T > T_grid[3] and T <= T_grid[7]:
-#             logK = model_2(T)
-#         else:
-#             logK = np.nan
-            
-#         from matplotlib import pyplot as plt
-#         plt.plot(T_grid, logK_grid, 'o')
-#         plt.plot(T_grid[:4], model_1(T_grid[:4]))
-#         plt.plot(T_grid[3:], model_2(T_grid[3:]))
-        
-
         return logK
         
         
@@ -3061,7 +3049,8 @@ class AqEquil:
         
         # check input sample file for errors
         if activity_model != 'pitzer': # TODO: allow check_sample_input_file() to handle pitzer
-            self._check_sample_input_file(input_filename, exclude, db, custom_data0,
+            sample_temps, sample_press = self._check_sample_input_file(
+                                          input_filename, exclude, db, custom_data0,
                                           dynamic_db, charge_balance_on, suppress_missing,
                                           redox_suppression)
         
@@ -3116,6 +3105,8 @@ class AqEquil:
             db_args["dynamic_db"] = True
             db_args["verbose"] = self.verbose
             db_args["generate_template"] = False
+            db_args["dynamic_db_sample_temps"] = sample_temps
+            db_args["dynamic_db_sample_press"] = sample_press
             
             if db_logK != None:
                 db_args["filename_free_logK"] = db_logK
@@ -3997,7 +3988,7 @@ class AqEquil:
                 f.write("%s" % item)
         
 
-    def __get_i_of_valid_free_logK_sp(self, free_logK_df, grid_temps, grid_press):
+    def __get_i_of_valid_free_logK_sp(self, free_logK_df, grid_temps, grid_press, dynamic_db, db_sp_names):
             """
             Check for species in the free logK database with pressure values that
             are permitted in the context of grid_temps and grid_press, then
@@ -4005,17 +3996,22 @@ class AqEquil:
             """
             
             if not isinstance(grid_press, list):
-                # "Psat" to ["psat"]*8
+                # "Psat" to ["psat"]
                 grid_press_list = [grid_press.lower()]
             else:
                 grid_press_list = grid_press
 
             valid_sp_i = []
+            rejected_sp_i = []
             
             print("grid press list")
             print(grid_press_list)
+            print("grid temps")
+            print(grid_temps)
             
             for i,sp in enumerate(list(free_logK_df["name"])):
+                
+                valid = False
                 
                 sp_temps_grid = [free_logK_df.iloc[i]["T"+str(ii)] for ii in range(1,9) if not math.isnan(free_logK_df.iloc[i]["T"+str(ii)])]
                 sp_press_grid_init = [float(free_logK_df.iloc[i]["P"+str(ii)]) if free_logK_df.iloc[i]["P"+str(ii)] not in ["Psat", "psat"] else 'psat' for ii in range(1,9)]
@@ -4031,26 +4027,60 @@ class AqEquil:
 
                 print(sp, i)
                 print(sp_press_grid)
-                        
-                if len(grid_temps) == 1:
-                    # dynamic db option.
-                    
-                    if (grid_temps[0], str(grid_press_list[0])) in [(sp_temps_grid[ii], sp_press_grid[ii]) for ii in range(0,sp_grid_len)]:
-                        # If multiple pressures in file for a sp, only one logK in file must match the single T and P of the sample for a species to be included.
-                        valid_sp_i.append(i)
-                    elif (grid_temps[0], grid_press_list[0]) in [(sp_temps_grid[ii], sp_press_grid[ii]) for ii in range(0,sp_grid_len)]:
-                        # as above, but no string check for "psat"
-                        valid_sp_i.append(i)
 
                 if _all_equal(sp_press_grid + grid_press_list):
                     # If all pressures in file for a sp are equal, and all grid pressures match file pressure...
                     if min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid):
                         # ... and if all grid temperatures are within minimum and maximum file temperatures, species is valid
                         valid_sp_i.append(i)
+                        valid = True
+                elif sp_press_grid == grid_press_list and sp_temps_grid == grid_temps:
+                    # need to test this!
+                    valid_sp_i.append(i)
+                    valid = True
+                
+                if not valid:
+                    rejected_sp_i.append(i)
 
+            # loop through valid species and reject them if their dissociation reactions
+            # contain species that have been rejected.
+            
+            valid_sp_i = list(dict.fromkeys(valid_sp_i))
+            while True:
+                valid_sp_i_before = copy.deepcopy(valid_sp_i)
+                valid_sp_i, rejected_sp_i = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i, free_logK_df, db_sp_names)
+                if valid_sp_i_before == valid_sp_i:
+                    break
+                    
             print(valid_sp_i)
                         
-            return list(dict.fromkeys(valid_sp_i))
+            return valid_sp_i
+            
+    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i, free_logK_df, db_sp_names):
+        
+        valid_sp_names = list(free_logK_df.iloc[valid_sp_i]["name"])
+        rejected_sp_names = list(free_logK_df.iloc[rejected_sp_i]["name"])
+        
+        print("VALID SP NAMES")
+        print(valid_sp_names)
+        print("REJECTED SP NAMES")
+        print(rejected_sp_names)
+
+        for i in valid_sp_i:
+            dissrxn_i = free_logK_df.iloc[i]["dissrxn"]
+            dissrxn_sp = dissrxn_i.split(" ")[1::2] # get species names from dissrxn
+            dissrxn_sp = dissrxn_sp[1:] # ignore the species itself
+            
+            print("DISSRXN SP")
+            print(dissrxn_sp)
+            
+            for sp in dissrxn_sp:
+                if sp in rejected_sp_names and sp not in valid_sp_names and sp not in db_sp_names:
+                    valid_sp_i.remove(i)
+                    rejected_sp_i.append(i)
+                    return valid_sp_i, rejected_sp_i
+                    
+        return valid_sp_i, rejected_sp_i
             
         
     def create_data0(self,
@@ -4075,6 +4105,8 @@ class AqEquil:
                      exclude_category={},
                      fill_data0=True,
                      dynamic_db=False,
+                     dynamic_db_sample_temps=[],
+                     dynamic_db_sample_press=[],
                      verbose=1):
         """
         Create a data0 file from a custom thermodynamic dataset.
@@ -4263,10 +4295,21 @@ class AqEquil:
         
         # interpolate logK values from "free logK" datasheet at T and P
         if isinstance(filename_free_logK, str):
-
+            
+            if len(dynamic_db_sample_temps) > 0:
+                grid_or_sample_temps = dynamic_db_sample_temps
+            else:
+                grid_or_sample_temps = grid_temps
+                
+            if len(dynamic_db_sample_press) > 0:
+                grid_or_sample_press = dynamic_db_sample_press
+            else:
+                grid_or_sample_press = grid_press
+                
+            
             free_logK_df = pd.read_csv(filename_free_logK)
             free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
-            valid_i = self.__get_i_of_valid_free_logK_sp(free_logK_df, grid_temps, grid_press)
+            valid_i = self.__get_i_of_valid_free_logK_sp(free_logK_df, grid_or_sample_temps, grid_or_sample_press, dynamic_db, db_sp_names=thermo_df["name"])
             free_logK_df_valid = copy.deepcopy(free_logK_df.iloc[valid_i])
             thermo_df = pd.concat([thermo_df, free_logK_df_valid], ignore_index=True)
             
