@@ -9,6 +9,7 @@ import copy
 import collections
 import dill
 import math
+from itertools import groupby
 
 from urllib.request import urlopen
 
@@ -354,6 +355,12 @@ def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
         colors = [(c[0], c[1], c[2], alpha) for c in colors]
     
     return colors
+
+
+def _all_equal(iterable):
+    # check that all elements of a list are equal
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
 
 
 def chemlabel(name, charge_sign_at_end=False):
@@ -2453,6 +2460,9 @@ class AqEquil:
     def __plot_TP_grid_polyfit(self, xvals, yvals, poly_coeffs_1, poly_coeffs_2,
                                res=500, width=600, height=300):
 
+        print("R COEFFS")
+        print(poly_coeffs_1)
+        print(poly_coeffs_2)
         
         
         f1_x = np.linspace(xvals[0], xvals[3], num=res)
@@ -2495,22 +2505,71 @@ class AqEquil:
         fig.show(config=config)
 
     
-    @staticmethod
-    def __interpolate_logK(T, logK_grid, T_grid):
+    def __interpolate_logK(self, T, logK_grid, T_grid):
+        
+        logK_grid_trunc = [t for t in logK_grid if not math.isnan(t)]
+        grid_len = len(logK_grid_trunc)
+        logK_grid = logK_grid_trunc
+        T_grid = T_grid[0:grid_len]
+        
+        # TODO: make different polyfits for logK grid lengths 2 thru 8.
+        # 2 points would essentially be linear
+        # 3 points would curve, etc. ..8 points as usual
+        
+        print("Calc...")
+        print(logK_grid)
+        print(T_grid)
+        
+        if T > max(T_grid) or T < min(T_grid):
+            return np.nan
+        
         
         # turns off poor polyfit warning
         # TODO: restore polyfit warning setting afterward
         warnings.simplefilter('ignore', np.RankWarning)
         
-        model_1 = np.poly1d(np.polyfit(T_grid[:5], logK_grid[:5], 5))
-        model_2 = np.poly1d(np.polyfit(T_grid[4:], logK_grid[4:], 5))
-        if T >= T_grid[0] and T <= T_grid[5]:
+        # experimental (not yet used)
+        n_mid1 = math.floor(len(T_grid)/2)-1
+        n_mid2 = n_mid1+1
+        
+        poly_coeffs_1 = np.polyfit(T_grid[:n_mid2], logK_grid[:n_mid2], len(T_grid[:n_mid2])-1)
+        poly_coeffs_2 = np.polyfit(T_grid[n_mid1:], logK_grid[n_mid1:], len(T_grid[n_mid1:])-1)
+        
+        model_1 = np.poly1d(poly_coeffs_1)
+        model_2 = np.poly1d(poly_coeffs_2)
+        
+        if T >= T_grid[0] and T <= T_grid[n_mid1]:
             logK = model_1(T)
-        elif T > T_grid[5] and T <= T_grid[7]:
+        elif T > T_grid[n_mid1] and T <= T_grid[-1]:
             logK = model_2(T)
         else:
             logK = np.nan
-            print("Error: cannot calculate logK for a temperature outside of range.")
+        
+        from matplotlib import pyplot as plt
+        plt.plot(T_grid, logK_grid, 'o')
+        plt.plot(T_grid[:n_mid2], model_1(T_grid[:n_mid2]))
+        plt.plot(T_grid[n_mid1:], model_2(T_grid[n_mid1:]))
+        
+        
+#         poly_coeffs_1 = np.polyfit(T_grid[:4], logK_grid[:4], len(T_grid[:4])-1)
+#         poly_coeffs_2 = np.polyfit(T_grid[3:], logK_grid[3:], len(T_grid[3:])-1)
+        
+#         model_1 = np.poly1d(poly_coeffs_1)
+#         model_2 = np.poly1d(poly_coeffs_2)
+         
+#         if T >= T_grid[0] and T <= T_grid[3]:
+#             logK = model_1(T)
+#         elif T > T_grid[3] and T <= T_grid[7]:
+#             logK = model_2(T)
+#         else:
+#             logK = np.nan
+            
+#         from matplotlib import pyplot as plt
+#         plt.plot(T_grid, logK_grid, 'o')
+#         plt.plot(T_grid[:4], model_1(T_grid[:4]))
+#         plt.plot(T_grid[3:], model_2(T_grid[3:]))
+        
+
         return logK
         
         
@@ -3795,10 +3854,11 @@ class AqEquil:
         # e.g. 12.433 becomes "12.4330" if k=4
         kstr = '{:.'+str(k)+'f}'
         return kstr.format(round(x, k)).strip()
-
+    
     
     def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, verbose):
+        
         
         self.__capture_r_output()
         
@@ -3855,7 +3915,7 @@ class AqEquil:
         if "logK1" in OBIGT_df.columns:
 
             free_logK_df = OBIGT_df.dropna(subset=['logK1'])
-            
+    
             for i,sp in enumerate(free_logK_df["name"]):
                 logK_grid = list(free_logK_df[["logK1", "logK2", "logK3",
                                                "logK4", "logK5", "logK6",
@@ -3914,8 +3974,6 @@ class AqEquil:
             # todo: make this more robust to catch any potential logK_grid skips
             if "logK_grid_"+name in data0_file_lines:
                 data0_file_lines[data0_file_lines.index("logK_grid_"+name)] = logK_list
-#             else:
-#                 self.err_handler.raise_exception("__fill_data0() could not handle species "+name)
 
         # handle data0 header section
         self.__capture_r_output()
@@ -3938,7 +3996,63 @@ class AqEquil:
             for item in data0_file_lines:
                 f.write("%s" % item)
         
-    
+
+    def __get_i_of_valid_free_logK_sp(self, free_logK_df, grid_temps, grid_press):
+            """
+            Check for species in the free logK database with pressure values that
+            are permitted in the context of grid_temps and grid_press, then
+            return their indices.
+            """
+            
+            if not isinstance(grid_press, list):
+                # "Psat" to ["psat"]*8
+                grid_press_list = [grid_press.lower()]
+            else:
+                grid_press_list = grid_press
+
+            valid_sp_i = []
+            
+            print("grid press list")
+            print(grid_press_list)
+            
+            for i,sp in enumerate(list(free_logK_df["name"])):
+                
+                sp_temps_grid = [free_logK_df.iloc[i]["T"+str(ii)] for ii in range(1,9) if not math.isnan(free_logK_df.iloc[i]["T"+str(ii)])]
+                sp_press_grid_init = [float(free_logK_df.iloc[i]["P"+str(ii)]) if free_logK_df.iloc[i]["P"+str(ii)] not in ["Psat", "psat"] else 'psat' for ii in range(1,9)]
+
+                sp_grid_len = len(sp_temps_grid)
+                
+                sp_press_grid = []
+                for p in sp_press_grid_init:
+                    if isinstance(p, str):
+                        sp_press_grid.append(p)
+                    elif not math.isnan(p):
+                        sp_press_grid.append(p)
+
+                print(sp, i)
+                print(sp_press_grid)
+                        
+                if len(grid_temps) == 1:
+                    # dynamic db option.
+                    
+                    if (grid_temps[0], str(grid_press_list[0])) in [(sp_temps_grid[ii], sp_press_grid[ii]) for ii in range(0,sp_grid_len)]:
+                        # If multiple pressures in file for a sp, only one logK in file must match the single T and P of the sample for a species to be included.
+                        valid_sp_i.append(i)
+                    elif (grid_temps[0], grid_press_list[0]) in [(sp_temps_grid[ii], sp_press_grid[ii]) for ii in range(0,sp_grid_len)]:
+                        # as above, but no string check for "psat"
+                        valid_sp_i.append(i)
+
+                if _all_equal(sp_press_grid + grid_press_list):
+                    # If all pressures in file for a sp are equal, and all grid pressures match file pressure...
+                    if min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid):
+                        # ... and if all grid temperatures are within minimum and maximum file temperatures, species is valid
+                        valid_sp_i.append(i)
+
+            print(valid_sp_i)
+                        
+            return list(dict.fromkeys(valid_sp_i))
+            
+        
     def create_data0(self,
                      db,
                      filename,
@@ -4149,13 +4263,15 @@ class AqEquil:
         
         # interpolate logK values from "free logK" datasheet at T and P
         if isinstance(filename_free_logK, str):
-            
-            # TODO: check that pressure is valid
-    
+
             free_logK_df = pd.read_csv(filename_free_logK)
-   
             free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
-            thermo_df = pd.concat([thermo_df, free_logK_df], ignore_index=True)
+            valid_i = self.__get_i_of_valid_free_logK_sp(free_logK_df, grid_temps, grid_press)
+            free_logK_df_valid = copy.deepcopy(free_logK_df.iloc[valid_i])
+            thermo_df = pd.concat([thermo_df, free_logK_df_valid], ignore_index=True)
+            
+            thermo_df.to_csv("test2.csv")
+            
             thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
         
         template = pkg_resources.resource_string(
@@ -4290,7 +4406,7 @@ class AqEquil:
             self.__print_captured_r_output()
         
         if fill_data0:
-
+            
             # begin TP-dependent processes
             self.__fill_data0(OBIGT_df=OBIGT_df,
                             data0_file_lines=copy.deepcopy(data0_file_lines),
