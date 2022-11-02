@@ -633,10 +633,10 @@ mine_3o <- function(this_file,
         # reactant runs out. The math should work out the same regardless of which limiting
         # reactant is chosen.
         which_limiting <- which_limiting[1]
-
+          
         # calculate moles of rxn before limiting reactant runs out
         mol_rxn <- reactant_molalities[which_limiting] / abs(reactant_stoich[which_limiting])
-        
+          
         # calculate reactant molalities that remain when the limiting reactant runs out
         remaining_reactant_molalities <- reactant_molalities - abs(reactant_stoich) * mol_rxn
         

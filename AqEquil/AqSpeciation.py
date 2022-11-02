@@ -2541,22 +2541,22 @@ class AqEquil:
         else:
             logK = np.nan
         
-        ### TEST
-        print("Calc...")
-        print(logK_grid)
-        print(T_grid)
+#         ### TEST
+#         print("Calc...")
+#         print(logK_grid)
+#         print(T_grid)
         
-        from matplotlib import pyplot as plt
-        plt.plot(T_grid, logK_grid, 'o')
-        T_m1 = np.linspace(min(T_grid[:n_mid2]), max(T_grid[:n_mid2]), 100)
-        T_m2 = np.linspace(min(T_grid[n_mid1:]), max(T_grid[n_mid1:]), 100)
-        plt.plot(T_m1, model_1(T_m1))
-        plt.plot(T_m2, model_2(T_m2))
+#         from matplotlib import pyplot as plt
+#         plt.plot(T_grid, logK_grid, 'o')
+#         T_m1 = np.linspace(min(T_grid[:n_mid2]), max(T_grid[:n_mid2]), 100)
+#         T_m2 = np.linspace(min(T_grid[n_mid1:]), max(T_grid[n_mid1:]), 100)
+#         plt.plot(T_m1, model_1(T_m1))
+#         plt.plot(T_m2, model_2(T_m2))
         
-        print("T, logk")
-        print(T)
-        print(logK)
-        ###
+#         print("T, logk")
+#         print(T)
+#         print(logK)
+#         ###
         
         return logK
         
@@ -4002,16 +4002,9 @@ class AqEquil:
                 grid_press_list = grid_press
 
             valid_sp_i = []
-            rejected_sp_i = []
-            
-            print("grid press list")
-            print(grid_press_list)
-            print("grid temps")
-            print(grid_temps)
+            rejected_sp_i_dict = {}
             
             for i,sp in enumerate(list(free_logK_df["name"])):
-                
-                valid = False
                 
                 sp_temps_grid = [free_logK_df.iloc[i]["T"+str(ii)] for ii in range(1,9) if not math.isnan(free_logK_df.iloc[i]["T"+str(ii)])]
                 sp_press_grid_init = [float(free_logK_df.iloc[i]["P"+str(ii)]) if free_logK_df.iloc[i]["P"+str(ii)] not in ["Psat", "psat"] else 'psat' for ii in range(1,9)]
@@ -4025,22 +4018,47 @@ class AqEquil:
                     elif not math.isnan(p):
                         sp_press_grid.append(p)
 
-                print(sp, i)
-                print(sp_press_grid)
-
-                if _all_equal(sp_press_grid + grid_press_list):
-                    # If all pressures in file for a sp are equal, and all grid pressures match file pressure...
-                    if min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid):
-                        # ... and if all grid temperatures are within minimum and maximum file temperatures, species is valid
-                        valid_sp_i.append(i)
-                        valid = True
-                elif sp_press_grid == grid_press_list and sp_temps_grid == grid_temps:
+                if sp_press_grid == grid_press_list and sp_temps_grid == grid_temps:
+                    # If pressures and temperature grid exactly matches that of the sp...
                     # need to test this!
                     valid_sp_i.append(i)
-                    valid = True
+                elif min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list):
+                    # If all grid temperatures are within minimum and maximum file temperatures,
+                    # and all pressures in file for the sp are equal, and all grid pressures match
+                    # file pressure, then the species is valid
+                    valid_sp_i.append(i)
                 
-                if not valid:
-                    rejected_sp_i.append(i)
+                else:
+                    # species is invalid. Define reasons.
+                    
+                    reject_reason_list = []
+                    
+                    if min(grid_temps) < min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list):
+                        min_sp = str(min(sp_temps_grid))
+                        min_grid = str(min(grid_temps))
+                        if dynamic_db:
+                            reject_reason_list.append("Minimum temperature in this batch of samples is "+min_grid+"°C, which is below the minimum applicability temperature of this species is "+min_sp+"°C.")
+                        else:
+                            reject_reason_list.append("Minimum temperature in this data0 file is "+min_grid+"°C, which is below the minimum applicability temperature of this species is "+min_sp+"°C.")
+                    
+                    if max(grid_temps) > max(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list):
+                        max_sp = str(max(sp_temps_grid))
+                        max_grid = str(max(grid_temps))
+                        if dynamic_db:
+                            reject_reason_list.append("Maximum temperature in this batch of samples is "+max_grid+"°C, which is above the maximum applicability temperature of this species is "+max_sp+"°C.")
+                        else:
+                            reject_reason_list.append("Maximum temperature in this data0 file is "+max_grid+"°C, which is above the maximum applicability temperature of this species is "+max_sp+"°C.")
+                    
+                    if not _all_equal(sp_press_grid + grid_press_list):
+                        if dynamic_db:
+                            reject_reason_list.append("Mismatch between pressures of samples in this batch and the applicable pressures for this species.")
+                        else:
+                            reject_reason_list.append("Mismatch between desired pressure grid of data0 file and the applicable pressures for this species.")
+                    
+                    if len(reject_reason_list) == 0:
+                        reject_reason_list.append("Unknown")
+                    
+                    rejected_sp_i_dict[i] = "\n".join(reject_reason_list)
 
             # loop through valid species and reject them if their dissociation reactions
             # contain species that have been rejected.
@@ -4048,39 +4066,37 @@ class AqEquil:
             valid_sp_i = list(dict.fromkeys(valid_sp_i))
             while True:
                 valid_sp_i_before = copy.deepcopy(valid_sp_i)
-                valid_sp_i, rejected_sp_i = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i, free_logK_df, db_sp_names)
+                valid_sp_i, rejected_sp_i_dict = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
                 if valid_sp_i_before == valid_sp_i:
                     break
-                    
-            print(valid_sp_i)
-                        
-            return valid_sp_i
             
-    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i, free_logK_df, db_sp_names):
+            reject_indices = list(rejected_sp_i_dict.keys())
+            reject_names = list(free_logK_df.iloc[reject_indices]["name"])
+            reject_reasons =list(rejected_sp_i_dict.values())
+            
+            df_rejected_species = pd.DataFrame({'database index':reject_indices, "name":reject_names, "reason for rejection":reject_reasons})
+                        
+            return valid_sp_i, df_rejected_species
+            
+            
+    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
         
         valid_sp_names = list(free_logK_df.iloc[valid_sp_i]["name"])
-        rejected_sp_names = list(free_logK_df.iloc[rejected_sp_i]["name"])
         
-        print("VALID SP NAMES")
-        print(valid_sp_names)
-        print("REJECTED SP NAMES")
-        print(rejected_sp_names)
+        rejected_sp_names = list(free_logK_df.iloc[list(rejected_sp_i_dict.keys())]["name"])
 
         for i in valid_sp_i:
             dissrxn_i = free_logK_df.iloc[i]["dissrxn"]
             dissrxn_sp = dissrxn_i.split(" ")[1::2] # get species names from dissrxn
             dissrxn_sp = dissrxn_sp[1:] # ignore the species itself
             
-            print("DISSRXN SP")
-            print(dissrxn_sp)
-            
             for sp in dissrxn_sp:
                 if sp in rejected_sp_names and sp not in valid_sp_names and sp not in db_sp_names:
                     valid_sp_i.remove(i)
-                    rejected_sp_i.append(i)
-                    return valid_sp_i, rejected_sp_i
+                    rejected_sp_i_dict[i] = "Dissociation reaction contains the species " + sp + ", which has been rejected."
+                    return valid_sp_i, rejected_sp_i_dict
                     
-        return valid_sp_i, rejected_sp_i
+        return valid_sp_i, rejected_sp_i_dict
             
         
     def create_data0(self,
@@ -4309,11 +4325,9 @@ class AqEquil:
             
             free_logK_df = pd.read_csv(filename_free_logK)
             free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
-            valid_i = self.__get_i_of_valid_free_logK_sp(free_logK_df, grid_or_sample_temps, grid_or_sample_press, dynamic_db, db_sp_names=thermo_df["name"])
+            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(free_logK_df, grid_or_sample_temps, grid_or_sample_press, dynamic_db, db_sp_names=thermo_df["name"])
             free_logK_df_valid = copy.deepcopy(free_logK_df.iloc[valid_i])
             thermo_df = pd.concat([thermo_df, free_logK_df_valid], ignore_index=True)
-            
-            thermo_df.to_csv("test2.csv")
             
             thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
         
