@@ -118,7 +118,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         else:
             # all samples use the same data1.
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
-                f.write(speciation.data1)
+                f.write(speciation.data1["all_samples"])
 
         ae.runeq6(filename_6i, db="dyn", path_6i="rxn_6i",
                   dynamic_db_name=speciation.thermo_db_callname)

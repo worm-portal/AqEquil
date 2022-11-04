@@ -2888,19 +2888,6 @@ class AqEquil:
             Contains the results of the speciation calculation.
         
         """
-        
-        if custom_db == True:
-            print("Warning: the parameter 'custom_db' is deprecated. "
-                  "Specify a custom data0 file with the 'db' parameter.")
-        if custom_data0 == True:
-            print("Warning: the parameter 'custom_data0' is deprecated. "
-                  "Specify a custom data0 file with the 'db' parameter.")
-        if custom_obigt != None:
-            print("Warning: the parameter 'custom_obigt' is deprecated. Specify "
-                  "a custom thermodynamic database with the 'db' parameter. If "
-                  "a database is needed for affinity and energy calculations, "
-                  "use the parameter 'rxn_filename' to specify a CSV file of "
-                  "thermodynamic data or a TXT file with desired reactions.")
            
         self.thermo_db_callname = db
         if len(db) == 3:
@@ -2917,7 +2904,7 @@ class AqEquil:
                 
                 # store contents of data1 file in AqEquil object
                 with open(self.eq36da + "/data1." + db, mode='rb') as data1:
-                    self.data1 = data1.read()
+                    self.data1["all_samples"] = data1.read()
                 
             elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
                 
@@ -3143,7 +3130,7 @@ class AqEquil:
                 try:
                     # store contents of data1 file in AqEquil object
                     with open("data1."+data0_lettercode, mode='rb') as data1:
-                        self.data1 = data1.read()
+                        self.data1["all_samples"] = data1.read()
                     # move data1
                     shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
                 except:
