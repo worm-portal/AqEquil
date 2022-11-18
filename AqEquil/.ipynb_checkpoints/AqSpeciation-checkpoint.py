@@ -513,6 +513,8 @@ class AqEquil:
         self.raw_output_dict = {}
         self.raw_pickup_dict = {}
         self.data1 = {}
+        self.batch_T = []
+        self.batch_P = []
         
         self.logK_models = {}
         
@@ -1182,6 +1184,8 @@ class AqEquil:
         
         if logK_extrapolate=="none" and (T > max(T_grid) or T < min(T_grid)):
             return np.nan, "no fit"
+        elif logK_extrapolate=="no fit":
+            return np.nan, "no fit"
         
         # turns off poor polyfit warning
         # TODO: restore polyfit warning setting afterward
@@ -1241,10 +1245,10 @@ class AqEquil:
                 elif logK_extrapolate=="flat":
                     if T < T_grid[0]:
                         logK = logK_grid[0]
-                        model = "flat extrap."
+                        model = "flat extrap. 1"
                     elif T > T_grid[-1]:
                         logK = logK_grid[-1]
-                        model = "flat extrap."
+                        model = "flat extrap. 2"
                     else:
                         logK = np.nan
                         model = "no fit"
@@ -1276,6 +1280,7 @@ class AqEquil:
             # only one T_grid value
             if T == T_grid[0]:
                 logK = logK_grid[0]
+                model = "single point extrap."
             else:
                 # dependent on extrapolation option
                 if logK_extrapolate=="none":
@@ -1631,7 +1636,10 @@ class AqEquil:
             Contains the results of the speciation calculation.
         
         """
-           
+        
+        self.batch_T = []
+        self.batch_P = []
+        
         self.thermo_db_callname = db
         if len(db) == 3:
             # e.g., "wrm"
@@ -1828,7 +1836,11 @@ class AqEquil:
                 self.err_handler.raise_exception(err)
         else:
             custom_obigt = ro.r("NULL")
-            
+        
+        # reset logK_models whenever speciate() is called
+        # (prevents errors when speciations are run back-to-back)
+        self.logK_models = {}
+        
         # dynamic data0 creation per sample
         if dynamic_db:
             db_args["fill_data0"] = False
@@ -2070,6 +2082,7 @@ class AqEquil:
                                 P1=P1,
                                 plot_poly_fit=plot_poly_fit,
                                 logK_extrapolate=logK_extrapolate,
+                                dynamic_db=dynamic_db,
                                 verbose=verbose)
                 
                 self.runeqpt(data0_lettercode, dynamic_db=True)
@@ -2589,7 +2602,7 @@ class AqEquil:
     
     def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, logK_extrapolate,
-                   verbose):
+                   dynamic_db, verbose):
         
         
         self.__capture_r_output()
@@ -2643,12 +2656,18 @@ class AqEquil:
     
         dissrxn_logK = pd.DataFrame(dissrxn_logK_dict)
         
+        # remove duplicate rows (e.g., for mineral polymorphs)
+        dissrxn_logK = dissrxn_logK.drop_duplicates("name")
+        
         # handle free logK values
+        free_logK_names = []
         if "logK1" in OBIGT_df.columns:
-
+            
             free_logK_df = OBIGT_df.dropna(subset=['logK1'])
+            free_logK_names = list(free_logK_df["name"])
     
-            for i,sp in enumerate(free_logK_df["name"]):
+            sp_dupes = []
+            for i,sp in enumerate(free_logK_names):
                 logK_grid = list(free_logK_df[["logK1", "logK2", "logK3",
                                                "logK4", "logK5", "logK6",
                                                "logK7", "logK8"]].iloc[i]) # logK at T and P in datasheet
@@ -2673,17 +2692,48 @@ class AqEquil:
                                         "T_grid":T_grid,
                                         "P_grid":P_grid,
                                         "logK_extrapolate":logK_extrapolate,
+                                        "type":"free logK values",
                                         }
         
-        # remove duplicate rows (e.g., for mineral polymorphs)
-        dissrxn_logK = dissrxn_logK.drop_duplicates("name")
-
+                # check that there aren't duplicates between OBIGT-style datasheet and
+                # the 'free logK' datasheet
+                if sp in dissrxn_logK["name"]:
+                    sp_errs.append(sp)
+                    
+            if len(sp_dupes) > 0:
+                msg = ("The following species are duplicated between the "
+                       "thermodynamic datafiles used: " + ",".join(sp_errs))
+                self.err_handler.raise_exception(msg)
+        
+        # calculate and process logK values of species in the OBIGT-style datasheet
         for idx in range(0, dissrxn_logK.shape[0]):
 
             name = dissrxn_logK.iloc[idx, dissrxn_logK.columns.get_loc('name')]
 
             # format the logK reaction block of this species' data0 entry
             logK_grid = list(dissrxn_logK.iloc[idx, 1:9])
+            
+            if not dynamic_db:
+                if name not in self.logK_models.keys() and name not in free_logK_names:
+                    self.logK_models[name] = {"logK_grid":logK_grid,
+                                  "T_grid":grid_temps,
+                                  "P_grid":grid_press,
+                                  "logK_extrapolate":logK_extrapolate,
+                                  "type":"calculated logK values",
+                                  }
+            elif dynamic_db:
+                if name not in self.logK_models.keys() and name not in free_logK_names:
+                    self.logK_models[name] = {"logK_grid":[logK_grid[0]],
+                                              "T_grid":[grid_temps[0]],
+                                              "P_grid":[grid_press[0]],
+                                              "logK_extrapolate":"no fit",
+                                              "type":"calculated logK values",
+                                              }
+                    
+                elif name not in free_logK_names:
+                    self.logK_models[name]["logK_grid"] += [logK_grid[0]]
+                    self.logK_models[name]["T_grid"] += [grid_temps[0]]
+                    self.logK_models[name]["P_grid"] += [grid_press[0]]
 
             # filter out strict basis species
             # TODO: do this by species tag, not just whether it has a logK grid of all 0s
@@ -2741,29 +2791,105 @@ class AqEquil:
                 f.write("%s" % item)
 
                 
-    def plot_logK_fit(self, name, res=200):
+    def plot_logK_fit(self, name, plot_out=False, res=200, db_logK=None, logK_extrapolate=None, T_vals=[]):
+        """
+        Plot the fit of logK values used in the speciation.
+
+        Parameters
+        ----------
+        name : str
+            Name of the chemical species.
         
-        logK_grid = self.logK_models[name]["logK_grid"]
-        T_grid = self.logK_models[name]["T_grid"]
-        P_grid = self.logK_models[name]["P_grid"]
-        logK_extrapolate = self.logK_models[name]["logK_extrapolate"]
-        grid_temps = self.batch_T
+        plot_out : bool, default False
+            Return a Plotly figure object? If False, a figure is simply shown.
+            If True, the function returns a Plotly figure object and does
+            not show the plot.
+        
+        res : int
+            Resolution of the fit line. Higher resolutions will be smoother.
+            
+        db_logK : str, optional
+            File path of the thermodynamic database CSV containing this species
+            and its dissociation reaction logK values.
+        
+        logK_extrapolate : str, optional
+            Option for extrapolating logK values in the plot. Possible values
+            for this parameter include 'poly', 'linear', 'flat', or 'none'.
+            This is for planning and visualization only and does not affect
+            results in `speciate()` or `create_data0()`. Those functions have
+            their own parameters for setting logK extrapolation options.
+        
+        T_vals : list, optional
+            Option for visualizing how the fit of logK values will be
+            used to estimate the logK values at the temperatures specified in
+            the list given to this parameter. This is useful for visualizing
+            logK extrapolation options defined by `logK_extrapolate`.
+        
+        Returns
+        ----------
+        fig : a Plotly figure object
+            Returned if `plot_out` is True.
+
+        """
+        
+        if not isinstance(db_logK, str):
+            
+            if name not in self.logK_models.keys():
+                msg = "The chemical species " + str(name) + " is not recognized."
+                self.err_handler.raise_exception(msg)
+
+            logK_grid = self.logK_models[name]["logK_grid"]
+            T_grid = self.logK_models[name]["T_grid"]
+            P_grid = self.logK_models[name]["P_grid"]
+        
+        else:
+            df_logK = pd.read_csv(db_logK)
+            
+            i = list(df_logK["name"]).index(name)
+            
+            logK_grid = list(df_logK[["logK1", "logK2", "logK3",
+                                      "logK4", "logK5", "logK6",
+                                      "logK7", "logK8"]].iloc[i]) # logK at T and P in datasheet
+
+            T_grid = list(df_logK[["T1", "T2", "T3",
+                                   "T4", "T5", "T6",
+                                   "T7", "T8"]].iloc[i]) # T for free logK grid
+
+            P_grid = list(df_logK[["P1", "P2", "P3",
+                                   "P4", "P5", "P6",
+                                   "P7", "P8"]].iloc[i]) # P for free logK grid
+            
+            if not isinstance(logK_extrapolate, str):
+                logK_extrapolate = "none"
+            
+        
+        if not isinstance(logK_extrapolate, str):
+            logK_extrapolate = self.logK_models[name]["logK_extrapolate"]
+        
+        if len(T_vals) == 0:
+            grid_temps = self.batch_T
+        else:
+            grid_temps = T_vals
+        
         grid_press = self.batch_P
         
         T_grid = [t for t in T_grid if not pd.isna(t)]
         P_grid = [p for p in P_grid if not pd.isna(p)]
         logK_grid = [k for k in logK_grid if not pd.isna(k)]
         
-        
         fig = px.scatter(x=T_grid, y=logK_grid)
         
-        if min(grid_temps) <= min(T_grid):
-            plot_T_min = min(grid_temps)
+        if len(grid_temps) > 0:
+            if min(grid_temps) <= min(T_grid):
+                plot_T_min = min(grid_temps)
+            else:
+                plot_T_min = min(T_grid)
+            if max(grid_temps) >= max(T_grid):
+                plot_T_max = max(grid_temps)
+            else:
+                plot_T_max = max(T_grid)
         else:
             plot_T_min = min(T_grid)
-        if max(grid_temps) >= max(T_grid):
-            plot_T_max = max(grid_temps)
-        else:
             plot_T_max = max(T_grid)
         
         plot_temps = np.linspace(plot_T_min, plot_T_max, res)
@@ -2777,51 +2903,86 @@ class AqEquil:
         
         df_plot = pd.DataFrame({"T":plot_temps, "logK":pred_logK, "model":pred_model})
         
-        fig = px.line(df_plot, x='T', y='logK', color='model', title=name, template="simple_white")
+        if logK_extrapolate != "no fit":
+            fig = px.line(df_plot, x='T', y='logK', color='model', title=name, template="simple_white")
+        else:
+            fig = px.line(x=[0], y=[0], title=name, template="simple_white") # dummy figure
+            
         fig.update_traces(hovertemplate="T = %{x} °C<br>Predicted logK = %{y}<extra></extra>")
         fig.update_layout(xaxis_range=[min(plot_temps) - 0.15*(max(plot_temps) - min(plot_temps)),
-                                       max(plot_temps) + 0.15*(max(plot_temps) - min(plot_temps))])
+                                       max(plot_temps) + 0.15*(max(plot_temps) - min(plot_temps))],
+                          xaxis_title="T,°C", yaxis_title="logK")
         
-        for i,gt in enumerate(grid_temps):
-            # make vertical lines representing batch temperatures
-            
-            if i==0:
-                showlegend=True
-            else:
-                showlegend=False
+        logK_label = "fitted logK value(s)"
+        annotation = ""
+        
+        if len(grid_temps) > 0:
+            for i,gt in enumerate(grid_temps):
+                # make vertical lines representing batch temperatures
 
-            if isinstance(grid_press, str):
-                ht_samples= "T = "+str(gt) + " °C<br>P = PSAT<extra></extra>"
-            else:
-                ht_samples= "T = "+str(gt) + " °C<br>P = " + str(grid_press[i]) + " bar(s)<extra></extra>"
-            
-            if len(T_grid) > 1:
-                viz_logK, _ = self._interpolate_logK(gt, logK_grid, T_grid, logK_extrapolate)
-                vline_y_vals = [min(logK_grid)-0.15*(max(logK_grid)-min(logK_grid)), viz_logK]
-            else:
-                vline_y_vals = [logK_grid[0]-1, logK_grid[0]]
-            
-            fig.add_trace(
-                go.Scatter(x=[gt, gt],
-                           y=vline_y_vals,
-                           mode="lines",
-                           line=dict(color='rgba(255, 0, 0, 0.75)', width=3, dash="dot"),
-                           legendgroup='batch temperatures',
-                           name='batch temperatures',
-                           showlegend=showlegend,
-                           hovertemplate=ht_samples,
-                          ),
-            )
+                if i==0:
+                    showlegend=True
+                else:
+                    showlegend=False
+
+                if isinstance(grid_press, str):
+                    ht_samples= "T = "+str(gt) + " °C<br>P = PSAT<extra></extra>"
+                else:
+                    if len(grid_press) > 0:
+                        ht_samples= "T = "+str(gt) + " °C<br>P = " + str(grid_press[i]) + " bar(s)<extra></extra>"
+                    else:
+                        ht_samples= "T = "+str(gt) + " °C<extra></extra>"
+                        
+                if len(T_grid) > 1:
+                    
+                    if logK_extrapolate == "none" and (gt > max(T_grid) or gt < min(T_grid)):
+                        viz_logK = max(logK_grid)
+                    else:
+                        viz_logK, _ = self._interpolate_logK(gt, logK_grid, T_grid, logK_extrapolate)
+                    
+                    vline_y_vals = [min(logK_grid)-0.15*(max(logK_grid)-min(logK_grid)), viz_logK]
+                    
+                    
+                if logK_extrapolate == "no fit":
+                    vline_y_vals = [min(logK_grid)-0.15*(max(logK_grid)-min(logK_grid)), logK_grid[i]]
+                    logK_label = "calculated LogK value(s)"
+                    annotation = ("LogK values are calculated from<br>ΔG of dissociation into basis species"
+                                  "<br>at the T and P of the speciated samples<br>and do not require a fit.")
+
+                if _all_equal(logK_grid):
+                    # if a flat horizontal logK fit line...
+                    # then fix the y-axis range to prevent zoomed-in steppy wierdness
+                    fig.update_layout(yaxis_range=[logK_grid[0]-1,logK_grid[0]+1])
+                    vline_y_vals = [logK_grid[0]-1, logK_grid[0]]
+
+                fig.add_trace(
+                    go.Scatter(x=[gt, gt],
+                               y=vline_y_vals,
+                               mode="lines",
+                               line=dict(color='rgba(255, 0, 0, 0.75)', width=3, dash="dot"),
+                               legendgroup='batch temperatures',
+                               name='batch temperatures',
+                               showlegend=showlegend,
+                               hovertemplate=ht_samples,
+                              ),
+                )
         
         # add fitted logK points
-        fig.add_trace(go.Scatter(x=T_grid, y=logK_grid, name="fitted logK",
+        fig.add_trace(go.Scatter(x=T_grid, y=logK_grid, name=logK_label,
                                  mode='markers', marker=dict(color="black"),
                                  text = P_grid,
                                  hovertemplate="T = %{x} °C<br>P = %{text} bar(s)<br>logK = %{y}<extra></extra>",
                                  ),
                       )
         
-        return fig, df_plot
+        fig.add_annotation(x=0, y=0, xref="paper", yref="paper", align='left',
+                           text=annotation, bgcolor="rgba(255, 255, 255, 0.5)",
+                           showarrow=False)
+        
+        if plot_out:
+            return fig
+        else:
+            fig.show()
 
         
     def __get_i_of_valid_free_logK_sp(self, free_logK_df, grid_temps,
@@ -3156,6 +3317,10 @@ class AqEquil:
                 self.err_handler.raise_exception("The file {} could not be ".format(template_name)+""
                     "created. Is this a valid file path?")
         
+        # reset logK_models whenever create_data0() is called
+        # (prevents errors when create_data0() functions are run back-to-back)
+        self.logK_models = {}
+        
         # interpolate logK values from "free logK" datasheet at T and P
         if isinstance(filename_free_logK, str):
             
@@ -3329,6 +3494,7 @@ class AqEquil:
                             P1=P1,
                             plot_poly_fit=plot_poly_fit,
                             logK_extrapolate=logK_extrapolate,
+                            dynamic_db=dynamic_db,
                             verbose=self.verbose)
     
         else:
