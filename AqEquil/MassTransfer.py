@@ -109,8 +109,8 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         filename_6i = speciation.sample_data[sample_name]["filename"][:-3]+".6i"
         filename_6o = filename_6i[:-3]+".6o"
         filename_6p = filename_6i[:-3]+".6p"
-
-        if isinstance(speciation.data1, dict):
+        
+        if "all_samples" not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file("eq6_extra_out/data1.dyn")
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
@@ -277,10 +277,11 @@ class Mass_Transfer:
         collect_values = False
         for i in lines:
             if len(i.strip().split(' ')) > 1 and i.strip().split(' ')[0] == "Xi=":
-                xi_vals.append(float(i.split(' ')[-1]))
+                this_xi_val = float(i.split(' ')[-1])
             if table_stop in i:
                 collect_values = False
             if table_start in i:
+                xi_vals.append(this_xi_val) # appending here prevents mismatch where there can be more Xi vals than tables to mine
                 collect_values = True
             if collect_values:
                 if i.strip().split(' ')[0] not in ignore:
@@ -289,6 +290,11 @@ class Mass_Transfer:
         species = list(set(species))
         
         species_dict = {"Xi":xi_vals}
+        
+        if len(species) == 0:
+            df = pd.DataFrame(species_dict)
+            return df
+        
         for s in species:
 
             vals=[]
@@ -310,7 +316,7 @@ class Mass_Transfer:
                         vals.append(float(split_i_clean[col_index]))
                         got_value = True
             species_dict[s] = vals
-
+        
         df = pd.DataFrame(species_dict)
         
         if 'None' in df.columns:

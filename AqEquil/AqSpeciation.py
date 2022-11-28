@@ -517,6 +517,7 @@ class AqEquil:
         self.batch_P = []
         
         self.logK_models = {}
+        self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
         
 
     def __capture_r_output(self):
@@ -4462,6 +4463,7 @@ class Speciation(object):
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
+        self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
