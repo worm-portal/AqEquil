@@ -943,6 +943,12 @@ main_3o_mine <- function(files_3o,
       thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
       mod.OBIGT(custom_obigt, replace=TRUE) # produces a message
     })
+  }else{
+    if(get_affinity_energy && verbose > 0){
+      # default to using OBIGT in CHNOSZ
+      # this happens if redox reactions are generated with a CSV but a data0 or data1 file is used in the speciation
+      writeLines("  Warning: a WORM-style CSV thermodynamic database was not provided for the speciation calculation. Attempting to use the OBIGT thermodynamic database in the CHNOSZ package to calculate redox reaction affinity and energy supplies...")
+    }
   }
 
   rxn_table <- NULL

@@ -107,6 +107,14 @@ def load(filename, messages=True, hide_traceback=True):
     filename : str
         Name of the speciation file.
 
+    messages : bool, default True
+        Print messages produced by this function?
+
+    hide_traceback : bool, default True
+        Hide traceback message when encountering errors handled by this function?
+        When True, error messages handled by this class will be short and to
+        the point.
+
     Returns
     ----------
     An object of class `Speciation`.
@@ -294,6 +302,11 @@ def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
     
     alpha : float, default 1.0
         An alpha value between 0.0 (transparent) and 1.0 (opaque).
+
+    hide_traceback : bool, default True
+        Hide traceback message when encountering errors handled by this function?
+        When True, error messages handled by this class will be short and to
+        the point.
     
     Returns
     -------
@@ -431,7 +444,7 @@ def _html_chemname_format(name, charge_sign_at_end=False):
             name = name.replace("</sup>", "+</sup>")
 
     return(name)
-        
+    
     
 class AqEquil:
 
@@ -446,6 +459,35 @@ class AqEquil:
         
     eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
+    
+    db : str, default "wrm"
+        Determines which thermodynamic database is used in the speciation
+        calculation. There are several options available:
+        - Three letter file extension for the desired data1 database, e.g.,
+        "wrm". This will use a data1 file with this file extension, e.g.,
+        "data1.wrm" located in the path stored in the 'EQ36DA' environment
+        variable used by EQ3NR.
+        - The name of a data0 file located in the current working directory,
+        e.g., "data0.wrm". This data0 file will be compiled by EQPT
+        automatically during the speciation calculation.
+        - The name of a CSV file containing thermodynamic data located in
+        the current working directory, e.g., "wrm_data.csv". The CSV file
+        will be used to generate a data0 file for each sample (using
+        additional arguments from `db_args` if desired).
+        - The URL of a data0 file, e.g.,
+        "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
+        - The URL of a CSV file containing thermodynamic data, e.g.,
+        "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+        
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
+
+    hide_traceback : bool, default True
+        Hide traceback message when encountering errors handled by this class?
+        When True, error messages handled by this class will be short and to
+        the point.
     
     Attributes
     ----------
@@ -478,17 +520,14 @@ class AqEquil:
     
     affinity_energy_formatted_reactions : pd.DataFrame
         A pandas dataframe containing balanced redox reactions written in full.
-    
-    verbose : int, 0, 1, or 2, default 1
-        Level determining how many messages are returned during a
-        calculation. 2 for all messages, 1 for errors or warnings only,
-        0 for silent.
         
     """
 
     def __init__(self,
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
+                 db="wrm",
+                 verbose=1,
                  hide_traceback=True):
 
         self.eq36da = eq36da
@@ -502,7 +541,7 @@ class AqEquil:
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
         
-        self.verbose = 1
+        self.verbose = verbose
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
 
@@ -518,6 +557,9 @@ class AqEquil:
         
         self.logK_models = {}
         self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
+        
+        self.load_thermo_db(db, verbose=1)
+        
         
 
     def __capture_r_output(self):
@@ -720,7 +762,10 @@ class AqEquil:
             data_path = self.thermo_db_filename
         else:
             data_path = self.eq36da + "/data0." + db
-            
+        
+        if self.thermo_db_type == "data0 file" and self.thermo_db_source == "URL":
+            data_path = "data0." + self.data0_lettercode
+        
         if os.path.exists(data_path) and os.path.isfile(data_path):
             if self.thermo_db_type == "data0 file":
                 with open(data_path) as data0:
@@ -762,12 +807,14 @@ class AqEquil:
                             "the sample input file to 'H+' with the subheader "
                             "unit 'pH'.")
                         err_list.append(err_species_pH)
+            
         else:
-            err_no_data0 = ("Could not locate {}.".format(data_path) + " "
+            warn_no_data0 = ("Warning: Could not locate {}.".format(data_path) + " "
                 "Unable to determine if column headers included in "
                 "{} ".format(input_filename) + "match entries for species "
                 "in the requested thermodynamic database '{}'.".format(db))
-            err_list.append(err_no_data0)
+            if self.verbose > 0:
+                print(warn_no_data0)
         
         
         # are subheader units valid?
@@ -1303,9 +1350,183 @@ class AqEquil:
         return logK, model
         
         
+    def load_thermo_db(self, db, verbose=1):
+        """
+        
+        """
+        self.db = db
+        self.thermo_db_callname = db
+        if len(db) == 3 and isinstance(db, str):
+            # e.g., "wrm"
+            self.custom_data0 = False
+            self.data0_lettercode = db.lower()
+            self.dynamic_db = False
+            self.custom_obigt = None
+            self.db_csv_name = None
+            
+            # search for a data1 file in the eq36da directory
+            if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
+                self.thermo_db = None
+                self.thermo_db_type = "data1 file"
+                self.thermo_db_source = "file"
+                self.thermo_db_filename = "data1."+db
+                
+                # store contents of data1 file in AqEquil object
+                with open(self.eq36da + "/data1." + db, mode='rb') as data1_file:
+                    self.data1["all_samples"] = data1_file.read()
+                
+            elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
+                
+                if verbose > 0:
+                    print("data1." + db + " was not found in the EQ36DA directory "
+                          "but a data0."+db+" was found in the current working "
+                          "directory. Using it...")
+                
+                self.custom_data0 = True
+                self.data0_lettercode = db
+                self.dynamic_db = False
+                
+                # search for a data0 locally
+                with open("data0."+db) as data0_content:
+                    self.thermo_db = data0_content.read()
+                    self.thermo_db_type = "data0 file"
+                    self.thermo_db_source = "file"
+                    self.thermo_db_filename = "data0."+db
+                    
+            elif os.path.exists("data1." + db) and os.path.isfile("data1." + db):
+                if verbose > 0:
+                    print("data1." + db + " was not found in the EQ36DA directory "
+                          "but a data1."+db+" was found in the current working "
+                          "directory. Using it...")
+                
+                self.custom_data0 = True
+                self.data0_lettercode = db
+                self.dynamic_db = False
+                self.thermo_db = None
+                
+                # search for a data1 locally
+                
+                # store contents of data1 file in AqEquil object
+                with open("data1." + db, mode='rb') as data1_file:
+                    self.data1["all_samples"] = data1_file.read()
+                    self.thermo_db_type = "data1 file"
+                    self.thermo_db_source = "file"
+                    self.thermo_db_filename = "data1."+db
+                    
+            else:
+                msg = ("Could not locate a 'data1."+db+"' file in the EQ36DA "
+                      "directory, nor a 'data0."+db+"' or 'data1."+db+"' file in "
+                      "the current working directory.")
+                self.err_handler.raise_exception(msg)
+            
+            
+        elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "data0.wrm"
+            
+            self.custom_data0 = True
+            self.data0_lettercode = db[-3:].lower()
+            self.dynamic_db = False
+            self.db_csv_name = None
+            
+            if os.path.exists(db) and os.path.isfile(db):
+                with open(db) as data0_content:
+                    self.thermo_db = data0_content.read()
+                    self.thermo_db_type = "data0 file"
+                    self.thermo_db_source = "file"
+                    self.thermo_db_filename = db
+            else:
+                self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
+            
+        elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "wrm_data.csv"
+            
+            if os.path.exists(db) and os.path.isfile(db):
+                self.thermo_db = pd.read_csv(db)
+                self.thermo_db_type = "CSV file"
+                self.thermo_db_source = "file"
+                self.thermo_db_filename = db
+            else:
+                self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
+
+            self.dynamic_db = True
+            self.custom_data0 = False
+            self.custom_obigt = db
+            self.data0_lettercode = None
+            self.db_csv_name = db
+            
+        elif "data0." in db[-9:].lower() and db[-4:].lower() != ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
+
+            # Download from URL and decode as UTF-8 text.
+            with urlopen(db) as webpage:
+                data0_content = webpage.read().decode()
+            
+            data0_filename = "data0."+db[-3:].lower()
+            
+            # Save to data0 file.
+            with open(data0_filename, 'w') as output:
+                output.write(data0_content)
+                
+            self.thermo_db = data0_content
+            self.thermo_db_type = "data0 file"
+            self.thermo_db_source = "URL"
+            self.thermo_db_filename = data0_filename
+            self.thermo_db_callname = data0_filename
+                
+            self.custom_data0 = True
+            self.data0_lettercode = db[-3:]
+            self.dynamic_db = False
+            self.custom_obigt = None
+            self.db_csv_name = None
+            
+        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+            
+            # e.g., "wrm_data.csv"
+            self.db_csv_name = db.split("/")[-1].lower()
+            
+            # Download from URL and decode as UTF-8 text.
+            with urlopen(db) as webpage:
+                content = webpage.read().decode()
+            # Save to CSV file.
+            with open(self.db_csv_name, 'w') as output:
+                output.write(content)
+                
+            self.thermo_db = pd.read_csv(db)
+            self.thermo_db_type = "CSV file"
+            self.thermo_db_source = "URL"
+            self.thermo_db_filename = self.db_csv_name
+            self.thermo_db_callname = self.db_csv_name
+            
+            self.dynamic_db = True
+            self.custom_data0 = False
+            self.custom_obigt = self.db_csv_name
+            self.data0_lettercode = None
+            
+        else:
+            self.err_handler.raise_exception("Unrecognized thermodynamic "
+                "database '{}'".format(db)+" specified for db. A database can specified as:"
+                "\n - a three letter code designating a data0 file. e.g., db='wrm'"
+                "\n - a data0 file in your working directory. e.g., db='data0.wrm'"
+                "\n - a csv file in your working directory. e.g., db='wrm_data.csv'"
+                "\n - a URL directing to a data0 file. e.g.,"
+                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm'"
+                "\n\t (note the data0 file in the URL must have 'data0.' followed by a three letter code)"
+                "\n - a URL directing to a valid csv file. e.g.,"
+                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv'")
+    
+        
+        
+        
+        
+        
+
+    
+        
+        
     def speciate(self,
                  input_filename,
-                 db="wrm",
+                 db=None,
                  db_solid_solution=None,
                  db_logK=None,
                  logK_extrapolate="none",
@@ -1641,145 +1862,29 @@ class AqEquil:
         self.batch_T = []
         self.batch_P = []
         
-        self.thermo_db_callname = db
-        if len(db) == 3:
-            # e.g., "wrm"
-            custom_data0 = False
-            data0_lettercode = db.lower()
-            dynamic_db = False
-            
-            # search for a data1 file in the eq36da directory
-            if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
-                self.thermo_db = None
-                self.thermo_db_type = "data1 file"
-                self.thermo_db_filename = "data1."+db
-                
-                # store contents of data1 file in AqEquil object
-                with open(self.eq36da + "/data1." + db, mode='rb') as data1:
-                    self.data1["all_samples"] = data1.read()
-                
-            elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
-                
-                if verbose > 0:
-                    print("data1." + db + " was not found in the EQ36DA directory "
-                          "but a data0."+db+" was found in the current working "
-                          "directory. Using it...")
-                
-                custom_data0 = True
-                data0_lettercode = db
-                dynamic_db = False
-                
-                # search for a data0 locally
-                with open("data0."+db) as data0_content:
-                    self.thermo_db = data0_content.read()
-                    self.thermo_db_type = "data0 file"
-                    self.thermo_db_filename = "data0."+db
-                    
-            else:
-                msg = ("Could not locate a 'data1."+db+"' file in the EQ36DA "
-                      "directory, nor a 'data0."+db+"' file in the current "
-                      "working directory.")
-                self.err_handler.raise_exception(msg)
-            
-            
-        elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "data0.wrm"
-            
-            custom_data0 = True
-            data0_lettercode = db[-3:].lower()
-            dynamic_db = False
-            
-            if os.path.exists(db) and os.path.isfile(db):
-                with open(db) as data0_content:
-                    self.thermo_db = data0_content.read()
-                    self.thermo_db_type = "data0 file"
-                    self.thermo_db_filename = db
-            else:
-                self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
-            
-        elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "wrm_data.csv"
-            
-            if os.path.exists(db) and os.path.isfile(db):
-                self.thermo_db = pd.read_csv(db)
-                self.thermo_db_type = "CSV file"
-                self.thermo_db_filename = db
-            else:
-                self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
-            
-            db_args["filename"] = db
-            db_args["db"] = "dyn"
-
-            dynamic_db = True
-            custom_data0 = False
-            custom_obigt = db
-            
-            db_csv_name = db.split("/")[-1].lower()
-            
-        elif "data0." in db[-9:].lower() and db[-4:].lower() != ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(db) as webpage:
-                data0_content = webpage.read().decode()
-            
-            data0_filename = "data0."+db[-3:].lower()
-            
-            # Save to data0 file.
-            with open(data0_filename, 'w') as output:
-                output.write(data0_content)
-                
-            self.thermo_db = data0_content
-            self.thermo_db_type = "data0 file"
-            self.thermo_db_filename = data0_filename
-            self.thermo_db_callname = data0_filename
-                
-            custom_data0 = True
-            data0_lettercode = db[-3:]
-            dynamic_db = False
-            
-        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-            
-            # e.g., "wrm_data.csv"
-            db_csv_name = db.split("/")[-1].lower()
-            
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(db) as webpage:
-                content = webpage.read().decode()
-            # Save to CSV file.
-            with open(db_csv_name, 'w') as output:
-                output.write(content)
-                
-            self.thermo_db = pd.read_csv(db)
-            self.thermo_db_type = "CSV file"
-            self.thermo_db_filename = db_csv_name
-            self.thermo_db_callname = db_csv_name
-                
-            db_args["filename"] = db_csv_name
-            db_args["db"] = "dyn"
-            
-            dynamic_db = True
-            custom_data0 = False
-            custom_obigt = db_csv_name
-            
-        else:
-            self.err_handler.raise_exception("Unrecognized thermodynamic "
-                "database '{}'".format(db)+" specified for db. A database can specified as:"
-                "\n - a three letter code designating a data0 file. e.g., db='wrm'"
-                "\n - a data0 file in your working directory. e.g., db='data0.wrm'"
-                "\n - a csv file in your working directory. e.g., db='wrm_data.csv'"
-                "\n - a URL directing to a data0 file. e.g.,"
-                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm'"
-                "\n\t (note the data0 file in the URL must have 'data0.' followed by a three letter code)"
-                "\n - a URL directing to a valid csv file. e.g.,"
-                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv'")
-        
         self.verbose = verbose
+        
+        if db != None:
+            # load new thermodynamic database
+            self.load_thermo_db(db, self.verbose)
+        else:
+            db = self.db
+            
+        if self.thermo_db_type == "CSV file":
+            db_args["db"] = "dyn"
+            if self.thermo_db_source == "file":
+                db_args["filename"] = db
+            elif self.thermo_db_source == "URL":
+                db_args["filename"] = self.db_csv_name
+            
+        dynamic_db = self.dynamic_db
+        custom_data0 = self.custom_data0
+        custom_obigt = self.custom_obigt
+        data0_lettercode = self.data0_lettercode
         
         if (self.thermo_db_type == "data0 file" or self.thermo_db_type == "data1 file") and len(db_args) > 0:
             if self.verbose > 0:
-                print("Ignoring db_args because a premade data0 or data1 file is being used: '" + db + "'")
+                print("Warning: Ignoring db_args because a premade data0 or data1 file is being used: '" + db + "'")
             
         redox_suppression = False
         if "suppress_redox" in db_args.keys() and self.thermo_db_type != "data0 file" and self.thermo_db_type != "data1 file":
@@ -1875,21 +1980,26 @@ class AqEquil:
                     db_args["filename_ss"] = db_solid_solution_csv_name
                     
             if self.verbose > 0:
-                print("Getting '"+db_csv_name+"' ready. This will take a moment...")
+                print("Getting '"+self.db_csv_name+"' ready. This will take a moment...")
     
             OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
         if custom_data0 and not dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
-            self.runeqpt(data0_lettercode)
+            if self.thermo_db_type != "data1 file":
+                self.runeqpt(data0_lettercode)
             
             if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                 try:
                     # store contents of data1 file in AqEquil object
                     with open("data1."+data0_lettercode, mode='rb') as data1:
                         self.data1["all_samples"] = data1.read()
-                    # move data1
-                    shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
+                    # move or copy data1
+                    if self.thermo_db_type != "data1 file":
+                        shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
+                    else:
+                        shutil.copyfile("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
+                        
                 except:
                     if self.verbose > 0:
                         print('Error: Could not move', "data1."+data0_lettercode, "to eqpt_files")
@@ -1998,12 +2108,23 @@ class AqEquil:
                 self.affinity_energy_reactions_raw = pd.read_csv(rxn_filename, sep="\t", header=None, names=["col"+str(i) for i in range(1,50)])
                 load_rxn_file = True
             else:
+                if self.thermo_db_type != "CSV file":
+                    if self.verbose > 0:
+                        warn_msg = ("Warning: get_affinity_energy is set to True but "
+                            "the active thermodynamic database ("+self.db+") is not "
+                            "in CSV format. This indicates a possible mismatch between "
+                            "the thermodynamic database used to generate redox reactions "
+                            "and the one used in this speciation calculation. Continuing anyway...")
+                        print(warn_msg)
                 rxn_filename = self.affinity_energy_reactions_raw
                 load_rxn_file = False
+            
+
             
         else:
             rxn_filename = ""
             load_rxn_file=False
+
         
         # handle Alter/Suppress options
         # e.g. [["CaCl+", "AugmentLogK", -1], ["CaOH+", "Suppress"]]
@@ -2086,7 +2207,8 @@ class AqEquil:
                                 dynamic_db=dynamic_db,
                                 verbose=verbose)
                 
-                self.runeqpt(data0_lettercode, dynamic_db=True)
+                if self.thermo_db_type != "data1 file":
+                    self.runeqpt(data0_lettercode, dynamic_db=True)
                 
                 if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
                     # store contents of data1 file in AqEquil object
@@ -2147,7 +2269,7 @@ class AqEquil:
             
             
             if dynamic_db:
-                dynamic_db_name = db_csv_name
+                dynamic_db_name = self.db_csv_name
             else:
                 dynamic_db_name = None
             
@@ -3505,7 +3627,7 @@ class AqEquil:
             print("Finished creating data0.{}.".format(db))
             
 
-    def make_redox_reactions(self, db=None, redox_pairs="all", custom_obigt=None):
+    def make_redox_reactions(self, db=None, redox_pairs="all"):
         
         """
         Generate an organized collection of redox reactions for calculating
@@ -3535,26 +3657,33 @@ class AqEquil:
             If "all", generate all possible redox reactions from available half
             cell reactions.
         
-        custom_obigt : str
-            Deprecated.
-        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         """
         
-        if custom_obigt != None: # deprecation warning
-            print("Warning: The parameter 'custom_obigt' is deprecated. Use 'db'"
-                  " instead. Setting 'db' equal to 'custom_obigt' for now...")
-            db = custom_obigt
+        if db != None:
+            self.load_thermo_db(db, self.verbose)
+            
+        if self.thermo_db_type != "CSV file":
+            if self.verbose > 0:
+                warn_msg = ("Warning: Redox reactions require a WORM style "
+                           "thermodynamic database CSV file. Grabbing the most up-to-date WORM data from "
+                           "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv")
+                print(warn_msg)
+                print("Warning: thermodynamic database has switched from", str(self.db), "to wrm_data.csv...")
+            self.load_thermo_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
+                                verbose=self.verbose)
+            
+        db = self.db
         
         # reset all redox variables stored in the AqEquil class
         self.affinity_energy_reactions_raw = None
         self.affinity_energy_reactions_table = None
         self.affinity_energy_formatted_reactions = None
         
-        if self.verbose != 0:
+        if self.verbose > 1:
             print("Generating redox reactions...")
 
         err_msg = ("redox_pairs can either be 'all' or a list of integers "
@@ -3579,36 +3708,7 @@ class AqEquil:
         
         df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
         
-        if db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "wrm_data.csv"
-            
-            custom_obigt = db
-            
-            db_csv_name = db.split("/")[-1].lower() # not used
-            
-        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-            
-            # e.g., "wrm_data.csv"
-            db_csv_name = db.split("/")[-1].lower()
-            
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(db) as webpage:
-                content = webpage.read().decode()
-            # Save to CSV file.
-            with open(db_csv_name, 'w') as output:
-                output.write(content)
-                
-            custom_obigt = db_csv_name
-            
-        else:
-            self.err_handler.raise_exception("Unrecognized thermodynamic "
-                "database '{}'".format(db)+" specified for db. A database can specified as:"
-                "\n - a csv file in your working directory. e.g., db='wrm_data.csv'"
-                "\n - a URL directing to a valid csv file. e.g.,"
-                "\n\t db='https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv'")
-        
-        wrm_data = pd.read_csv(custom_obigt) #jordyn
+        wrm_data = pd.read_csv(self.custom_obigt)
         basis_df = wrm_data.loc[wrm_data['tag'] == 'basis']
         
         db_names = []
@@ -4429,6 +4529,16 @@ class Speciation(object):
     
     """
     Stores the output of a speciation calculation.
+    
+    Parameters
+    ----------
+    args : dict
+        Arguments inherited from class AqEquil.
+    
+    hide_traceback : bool, default True
+        Hide traceback message when encountering errors handled by this class?
+        When True, error messages handled by this class will be short and to
+        the point.
     
     Attributes
     ----------
