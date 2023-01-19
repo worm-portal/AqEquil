@@ -463,7 +463,8 @@ class Thermodata:
                  db = "WORM",
                  csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
                  solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
-                 logK=None,
+                 logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
+                 logK_extrapolate="none",
                  data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                  data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
                  eq36da=os.environ.get('EQ36DA'),
@@ -512,7 +513,8 @@ class Thermodata:
         self.solid_solution_db_filename = None
         
         # logK attributes
-        self.logK_active = True # currently not used
+        self.logK_active = True
+        self.logK_extrapolate = logK_extrapolate
         self.logK_db = None
         self.logK_db_source = None
         self.logK_db_filename = None
@@ -523,7 +525,9 @@ class Thermodata:
             if self.verbose > 0:
                 print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
             self.load_solid_solutions(solid_solutions, source="URL")
+            self.solid_solutions_active = True
             self.load_logK(logK, source="URL")
+            self.logK_active = True
             self.load_data0(data0, source="URL")
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
         
@@ -537,6 +541,8 @@ class Thermodata:
             
             self.data0_lettercode = db
             self.dynamic_db = False
+            self.logK_active = False
+            self.solid_solutions_active = False
             
             # search for a data1 file in the eq36da directory
             if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
@@ -604,6 +610,9 @@ class Thermodata:
             self.dynamic_db = False
             self.custom_obigt = None
             
+            self.logK_active = False
+            self.solid_solutions_active = False
+            
         elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "data0.wrm"
         
@@ -617,6 +626,9 @@ class Thermodata:
             self.data0_lettercode = db[-3:].lower()
             self.dynamic_db = False
             self.custom_obigt = None
+        
+            self.logK_active = False
+            self.solid_solutions_active = False
         
         elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "wrm_data.csv"
@@ -702,7 +714,7 @@ class Thermodata:
         
         
     def load_solid_solutions(self, db, source="url"):
-        if db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+        if source == "file":
             # e.g., "solid_solutions.csv"
 
             if os.path.exists(db) and os.path.isfile(db):
@@ -712,7 +724,7 @@ class Thermodata:
             else:
                 self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
                 
-        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+        elif source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
             
             self.solid_solution_db_filename, self.solid_solution_db = self.__df_from_url(db, save_csv=True)
@@ -724,12 +736,8 @@ class Thermodata:
 
                 
         
-    def load_logK(self, db, source="url"):
-        
-        if db == None:
-            return
-        
-        if db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
+    def load_logK(self, db, source="URL"):
+        if source == "file":
             # e.g., "logK.csv"
 
             if os.path.exists(db) and os.path.isfile(db):
@@ -739,12 +747,9 @@ class Thermodata:
             else:
                 self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
                 
-        elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/logK.csv"
+        elif source == "URL":
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv"
             
-            # e.g., "logK.csv"
-            self.logK_db_filename = db.split("/")[-1].lower()
-                
             self.logK_db_filename, self.logK_db = self.__df_from_url(db, save_csv=True)
             self.logK_db_source = "URL"
             
@@ -773,7 +778,6 @@ class Thermodata:
                     self.data0_db_filename = db
             else:
                 self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
-        
         
         
     def load_csv(self, db, source="URL"):
@@ -916,7 +920,7 @@ class AqEquil:
                  db=db,
                  csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
                  solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
-                 logK=None,
+                 logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
                  data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                  data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
                  eq36da=self.eq36da,
@@ -1309,12 +1313,13 @@ class AqEquil:
 
         os.environ['EQ36DA'] = self.eq36da  # reset default EQ36 db path
 
-        
+    
     def runeq3(self, filename_3i, db,
                samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd(),
+               data0_path=os.getcwd(),
                dynamic_db_name=None):
         
         """
@@ -1349,6 +1354,9 @@ class AqEquil:
         # get current working dir
         cwd = os.getcwd()
         
+        # set data0 path
+        os.environ['EQ36DA'] = data0_path
+        
         if samplename == None:
             samplename = filename_3i[:-3]
         
@@ -1363,14 +1371,14 @@ class AqEquil:
 
         filename_3o = filename_3i[:-1] + 'o'
         filename_3p = filename_3i[:-1] + 'p'
-
+        
         try:
             # rename output
             os.rename('output', filename_3o)
         except:
             if self.verbose > 0:
                 print('Error: EQ3 failed to produce output for ' + filename_3i)
-
+                
         try:
             # move output
             shutil.move(filename_3o,
@@ -1719,7 +1727,7 @@ class AqEquil:
                  db=None,
                  db_solid_solution=None,
                  db_logK=None,
-                 logK_extrapolate="none",
+                 logK_extrapolate=None,
                  activity_model="b-dot",
                  redox_flag="logfO2",
                  redox_aux="Fe+3",
@@ -2147,9 +2155,18 @@ class AqEquil:
             db_args["dynamic_db_sample_press"] = sample_press
             
             if db_logK != None:
-                db_args["filename_free_logK"] = db_logK
-                db_args["logK_extrapolate"] = logK_extrapolate
+                db_args["db_logK"] = pd.read_csv(db_logK)
+            elif self.thermo.logK_active:
+                db_args["db_logK"] = self.thermo.logK_db
             
+            if logK_extrapolate != None:
+                db_args["logK_extrapolate"] = logK_extrapolate
+            elif self.thermo.logK_active:
+                db_args["logK_extrapolate"] = self.thermo.logK_extrapolate
+                logK_extrapolate = self.thermo.logK_extrapolate
+            else:
+                logK_extrapolate = "none"
+
             if db_solid_solution != None:
                 if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
                     if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
@@ -2465,7 +2482,7 @@ class AqEquil:
             
             self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
-                        path_3p=pickup_dir, dynamic_db_name=dynamic_db_name)
+                        path_3p=pickup_dir, data0_path=os.environ['EQ36DA'], dynamic_db_name=dynamic_db_name)
             
             # store input, output, and pickup as dicts in AqEquil object
             try:
@@ -3415,9 +3432,9 @@ class AqEquil:
         
     def create_data0(self,
                      db,
+                     db_logK,
                      filename,
                      filename_ss=None,
-                     filename_free_logK=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
                      water_model="SUPCRT92",
@@ -3632,7 +3649,7 @@ class AqEquil:
         self.logK_models = {}
         
         # interpolate logK values from "free logK" datasheet at T and P
-        if isinstance(filename_free_logK, str):
+        if isinstance(db_logK, pd.DataFrame):
             
             if len(dynamic_db_sample_temps) > 0:
                 grid_or_sample_temps = dynamic_db_sample_temps
@@ -3644,9 +3661,7 @@ class AqEquil:
             else:
                 grid_or_sample_press = grid_press
                 
-            
-            free_logK_df = pd.read_csv(filename_free_logK)
-            free_logK_df = self.__clean_rpy2_pandas_conversion(free_logK_df)
+            free_logK_df = self.__clean_rpy2_pandas_conversion(self.thermo.logK_db)
             valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
