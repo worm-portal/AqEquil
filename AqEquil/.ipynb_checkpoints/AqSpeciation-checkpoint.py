@@ -467,6 +467,7 @@ class Thermodata:
                  logK_extrapolate="none",
                  data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                  data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
+                 download_csv_files=False,
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  verbose=1,
@@ -524,17 +525,16 @@ class Thermodata:
         if db == "WORM":
             if self.verbose > 0:
                 print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
-            self.load_solid_solutions(solid_solutions, source="URL")
+            self.load_solid_solutions(solid_solutions, source="URL", download_csv_files=download_csv_files)
             self.solid_solutions_active = True
-            self.load_logK(logK, source="URL")
+            self.load_logK(logK, source="URL", download_csv_files=download_csv_files)
             self.logK_active = True
-            self.load_data0(data0, source="URL")
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
         
-        self.set_active_db(self.db, self.verbose)
+        self.set_active_db(self.db, download_csv_files, self.verbose)
+
         
-        
-    def set_active_db(self, db, verbose=1):
+    def set_active_db(self, db, download_csv_files=False, verbose=1):
         
         if len(db) == 3:
             # e.g., "wrm"
@@ -547,7 +547,7 @@ class Thermodata:
             # search for a data1 file in the eq36da directory
             if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
                 self.thermo_db = None
-                self.thermo_db_type = "data1 file"
+                self.thermo_db_type = "data1"
                 self.thermo_db_source = "file"
                 self.thermo_db_filename = "data1."+db
 
@@ -566,7 +566,7 @@ class Thermodata:
 
                 self.thermo_db = self.data0_db
                 self.thermo_db_filename = self.data0_db_filename
-                self.thermo_db_type = "data0 file"
+                self.thermo_db_type = "data0"
                 self.thermo_db_source = "file"
                 self.custom_data0 = True
                 self.data0_lettercode = db[-3:].lower()
@@ -586,7 +586,7 @@ class Thermodata:
                 # store contents of data1 file in AqEquil object
                 with open("data1." + db, mode='rb') as data1_file:
                     self.data1["all_samples"] = data1_file.read()
-                    self.thermo_db_type = "data1 file"
+                    self.thermo_db_type = "data1"
                     self.thermo_db_source = "file"
                     self.thermo_db_filename = "data1."+db
 
@@ -603,7 +603,7 @@ class Thermodata:
             
             self.thermo_db = self.data0_db
             self.thermo_db_filename = self.data0_db_filename
-            self.thermo_db_type = "data0 file"
+            self.thermo_db_type = "data0"
             self.thermo_db_source = "URL"
             self.custom_data0 = True
             self.data0_lettercode = db[-3:]
@@ -620,7 +620,7 @@ class Thermodata:
         
             self.thermo_db = self.data0_db
             self.thermo_db_filename = self.data0_db_filename
-            self.thermo_db_type = "data0 file"
+            self.thermo_db_type = "data0"
             self.thermo_db_source = "file"
             self.custom_data0 = True
             self.data0_lettercode = db[-3:].lower()
@@ -637,7 +637,7 @@ class Thermodata:
             
             self.thermo_db = self.csv_db
             self.thermo_db_filename = self.csv_db_filename
-            self.thermo_db_type = "CSV file"
+            self.thermo_db_type = "CSV"
             self.thermo_db_source = "file"
             self.dynamic_db = True
             self.custom_data0 = False
@@ -647,11 +647,11 @@ class Thermodata:
         elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
             
-            self.load_csv(db, source="URL")
+            self.load_csv(db, source="URL", download_csv_files=download_csv_files)
             
             self.thermo_db = self.csv_db
             self.thermo_db_filename = self.csv_db_filename
-            self.thermo_db_type = "CSV file"
+            self.thermo_db_type = "CSV"
             self.thermo_db_source = "URL"
             self.dynamic_db = True
             self.custom_data0 = False
@@ -681,14 +681,14 @@ class Thermodata:
         self.db = db
 
         
-    def __df_from_url(self, url, save_csv=True):
+    def __df_from_url(self, url, download_csv_files=False):
         filename = url.split("/")[-1].lower()
         
         # Download from URL and decode as UTF-8 text.
         with urlopen(url) as webpage:
             content = webpage.read().decode()
         
-        if save_csv:
+        if download_csv_files:
             if self.verbose > 0:
                 print("Downloading", filename, "from", url)
             with open(filename, 'w') as output:
@@ -697,26 +697,24 @@ class Thermodata:
         return filename, pd.read_csv(StringIO(content), sep=",")
         
         
-    def __str_from_url(self, url, save_txt=True):
+    def __str_from_url(self, url):
         filename = url.split("/")[-1].lower()
         
         # Download from URL and decode as UTF-8 text.
         with urlopen(url) as webpage:
             txt_content = webpage.read().decode()
         
-        if save_txt:
-            if self.verbose > 0:
-                print("Downloading", filename, "from", url)
-            with open(filename, 'w') as output:
-                output.write(txt_content)
+        if self.verbose > 0:
+            print("Downloading", filename, "from", url)
+        with open(filename, 'w') as output:
+            output.write(txt_content)
         
         return filename, txt_content
         
         
-    def load_solid_solutions(self, db, source="url"):
+    def load_solid_solutions(self, db, source="url", download_csv_files=False):
         if source == "file":
             # e.g., "solid_solutions.csv"
-
             if os.path.exists(db) and os.path.isfile(db):
                 self.solid_solution_db = pd.read_csv(db)
                 self.solid_solution_db_source = "file"
@@ -726,8 +724,7 @@ class Thermodata:
                 
         elif source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
-            
-            self.solid_solution_db_filename, self.solid_solution_db = self.__df_from_url(db, save_csv=True)
+            self.solid_solution_db_filename, self.solid_solution_db = self.__df_from_url(db, download_csv_files=download_csv_files)
             self.solid_solution_db_source = "URL"
             
         else:
@@ -736,10 +733,9 @@ class Thermodata:
 
                 
         
-    def load_logK(self, db, source="URL"):
+    def load_logK(self, db, source="URL", download_csv_files=False):
         if source == "file":
             # e.g., "logK.csv"
-
             if os.path.exists(db) and os.path.isfile(db):
                 self.logK_db = pd.read_csv(db)
                 self.logK_db_source = "file"
@@ -749,8 +745,7 @@ class Thermodata:
                 
         elif source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv"
-            
-            self.logK_db_filename, self.logK_db = self.__df_from_url(db, save_csv=True)
+            self.logK_db_filename, self.logK_db = self.__df_from_url(db, download_csv_files=download_csv_files)
             self.logK_db_source = "URL"
             
         else:
@@ -762,35 +757,29 @@ class Thermodata:
         
         if source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-            
-            self.data0_db_filename, self.data0_db = self.__str_from_url(db, save_txt=True)
-            self.data0_db_type = "data0 file"
+            self.data0_db_filename, self.data0_db = self.__str_from_url(db)
+            self.data0_db_type = "data0"
             self.data0_db_source = "URL"
             
         elif source == "file":
             # e.g., "data0.wrm"
-            
             if os.path.exists(db) and os.path.isfile(db):
                 with open(db) as data0_content:
                     self.data0_db = data0_content.read()
-                    self.data0_db_type = "data0 file"
+                    self.data0_db_type = "data0"
                     self.data0_db_source = "file"
                     self.data0_db_filename = db
             else:
                 self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
         
         
-    def load_csv(self, db, source="URL"):
-        """
-        
-        """
+    def load_csv(self, db, source="URL", download_csv_files=False):
             
         if source == "file":
             # e.g., "wrm_data.csv"
-            
             if os.path.exists(db) and os.path.isfile(db):
                 self.csv_db = pd.read_csv(db)
-                self.csv_db_type = "CSV file"
+                self.csv_db_type = "CSV"
                 self.csv_db_source = "file"
                 self.csv_db_filename = db
             else:
@@ -798,10 +787,68 @@ class Thermodata:
         
         elif source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-            
-            self.csv_db_filename, self.csv_db = self.__df_from_url(db, save_csv=True)
-            self.csv_db_type = "CSV file"
+            self.csv_db_filename, self.csv_db = self.__df_from_url(db, download_csv_files=download_csv_files)
+            self.csv_db_type = "CSV"
             self.csv_db_source = "URL"
+
+        self.csv_db = self.csv_db.astype({'name':'str', 'abbrv':'str', 'formula':'str',
+                                      'state':'str', 'ref1':'str', 'ref2':'str',
+                                      'date': 'str', 'E_units':'str',
+                                      'G':'float', 'H':'float', 'S':'float',
+                                      'Cp':'float', 'V':'float', 'a1.a':'float',
+                                      'a2.b':'float', 'a3.c':'float', 'a4.d':'float',
+                                      'c1.e':'float', 'c2.f':'float',
+                                      'omega.lambda':'float', 'z.T':'float',
+                                      'azero':'float', 'neutral_ion_type':'float',
+                                      'dissrxn':'str', 'tag':'str',
+                                      'formula_ox':'str', 'category_1':'str'})
+        
+        # Check that thermodynamic database input files exist and are formatted correctly.
+        self._check_csv_db()
+        
+        
+    def _check_csv_db(self):
+        
+        """
+        Check for problems in the thermodynamic database CSV.
+        """
+        
+        thermo_df = self.csv_db
+        
+        # does this file have the proper headers?
+        required_headers = ["name", "abbrv", "formula", "state",
+                            "ref1", "ref2", "date", "E_units",
+                            "G", "H", "S", "Cp", "V",
+                            "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f",
+                            "omega.lambda", "z.T",
+                            "azero", "neutral_ion_type",
+                            "dissrxn", "tag", "formula_ox"]
+        
+        missing_headers = []
+        for header in required_headers:
+            if header not in thermo_df.columns:
+                missing_headers.append(header)
+        if len(missing_headers) > 0:
+            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+                   "is missing one or more required columns: "
+                   "{}".format(", ".join(missing_headers))+". "
+                   "Are these headers spelled correctly in the file?")
+            self.err_handler.raise_exception(msg)
+        
+        # does Cl-, O2(g), and O2 exist in the file?
+        required_species = ["Cl-", "O2", "O2(g)"]
+        missing_species = []
+        for species in required_species:
+            if species not in list(thermo_df["name"]):
+                missing_species.append(species)
+        if len(missing_species) > 0:
+            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+                   "is missing required species:"
+                   "{}".format(missing_species)+". Default thermodynamic values"
+                   " will be used.")
+            warnings.warn(msg)
+        
+        return
     
     
 class AqEquil:
@@ -885,6 +932,7 @@ class AqEquil:
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  db="WORM",
+                 download_csv_files=False,
                  verbose=1,
                  hide_traceback=True):
 
@@ -918,6 +966,7 @@ class AqEquil:
         
         self.thermo = Thermodata(
                  db=db,
+                 download_csv_files=download_csv_files,
                  csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
                  solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
                  logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
@@ -985,53 +1034,6 @@ class AqEquil:
             self.err_handler.raise_exception(err)
         
         return False
-    
-    
-    def _check_database_file(self, filename):
-        
-        """
-        Check for problems in the thermodynamic database CSV.
-        """
-        
-        # is the file a csv?
-        self.__file_exists(filename)
-        
-        thermo_df = pd.read_csv(filename)
-        
-        # does this file have the proper headers?
-        required_headers = ["name", "abbrv", "formula", "state",
-                            "ref1", "ref2", "date", "E_units",
-                            "G", "H", "S", "Cp", "V",
-                            "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f",
-                            "omega.lambda", "z.T",
-                            "azero", "neutral_ion_type",
-                            "dissrxn", "tag", "formula_ox"]
-        
-        missing_headers = []
-        for header in required_headers:
-            if header not in thermo_df.columns:
-                missing_headers.append(header)
-        if len(missing_headers) > 0:
-            msg = ("The thermodynamic database file '{}'".format(filename)+" "
-                   "is missing one or more required columns: "
-                   "{}".format(", ".join(missing_headers))+". "
-                   "Are these headers spelled correctly in the file?")
-            self.err_handler.raise_exception(msg)
-        
-        # does Cl-, O2(g), and O2 exist in the file?
-        required_species = ["Cl-", "O2", "O2(g)"]
-        missing_species = []
-        for species in required_species:
-            if species not in list(thermo_df["name"]):
-                missing_species.append(species)
-        if len(missing_species) > 0:
-            msg = ("The thermodynamic database file '{}'".format(filename)+" "
-                   "is missing required species:"
-                   "{}".format(missing_species)+". Default thermodynamic values"
-                   " will be used.")
-            warnings.warn(msg)
-        
-        return
 
     
     def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
@@ -1131,58 +1133,57 @@ class AqEquil:
         else:
             data_path = self.eq36da + "/data0." + db
         
-        if self.thermo.thermo_db_type == "data0 file" and self.thermo.thermo_db_source == "URL":
+        if self.thermo.thermo_db_type == "data0" and self.thermo.thermo_db_source == "URL":
             data_path = "data0." + self.thermo.data0_lettercode
         
-        if os.path.exists(data_path) and os.path.isfile(data_path):
-            if self.thermo.thermo_db_type == "data0 file":
-                with open(data_path) as data0:
-                    data0_lines = data0.readlines()
-                    start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
-                    end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
-                    db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
-            elif self.thermo.thermo_db_type == "CSV file":
-                df_OBIGT = pd.read_csv(data_path)
-                db_species = list(df_OBIGT["name"])
-            
-            if charge_balance_on == 'pH':
-                err_charge_balance_on_pH = ("To balance charge on pH, use "
-                    "charge_balance_on='H+'")
-                err_list.append(err_charge_balance_on_pH)
-            elif charge_balance_on in ['Temperature', 'logfO2']:
-                err_charge_balance_invalid_type = ("Cannot balance charge "
-                    "on {}.".format(charge_balance_on))
-                err_list.append(err_charge_balance_invalid_type)
-            elif charge_balance_on != "none" and charge_balance_on not in list(set(df_in_headercheck.columns)):
-                err_charge_balance_invalid_sp = ("The species chosen for charge balance"
-                    " '{}'".format(charge_balance_on)+""
-                    " was not found among the headers of the sample input file.")
-                err_list.append(err_charge_balance_invalid_sp)
-                
-            if self.thermo.thermo_db_type in ["data0 file", "CSV file"]:
-                for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                    if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
-                        err_species_not_in_db = ("The species '{}'".format(species) + " "
-                            "was not found in {}".format(data_path) + ". "
-                            "If the column contains data that should not be "
-                            "included in the speciation calculation, add the "
-                            "column name to the 'exclude' argument. Try "
-                            "help(AqEquil.AqEquil.speciate) "
-                            "for more information about 'exclude'.")
-                        err_list.append(err_species_not_in_db)
-                    elif species == 'pH':
-                        err_species_pH = ("Please rename the 'pH' column in "
-                            "the sample input file to 'H+' with the subheader "
-                            "unit 'pH'.")
-                        err_list.append(err_species_pH)
-            
-        else:
+        if not (os.path.exists(data_path) or os.path.isfile(data_path)) and self.thermo.thermo_db_source=="file":
             warn_no_data0 = ("Warning: Could not locate {}.".format(data_path) + " "
                 "Unable to determine if column headers included in "
                 "{} ".format(input_filename) + "match entries for species "
                 "in the requested thermodynamic database '{}'.".format(db))
             if self.verbose > 0:
                 print(warn_no_data0)
+            
+        if self.thermo.thermo_db_type == "data0":
+            data0_lines = self.thermo.thermo_db.split("\n")
+            start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
+            end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
+            db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+        elif self.thermo.thermo_db_type == "CSV":
+            df_OBIGT = self.thermo.thermo_db
+            db_species = list(df_OBIGT["name"])
+
+        if charge_balance_on == 'pH':
+            err_charge_balance_on_pH = ("To balance charge on pH, use "
+                "charge_balance_on='H+'")
+            err_list.append(err_charge_balance_on_pH)
+        elif charge_balance_on in ['Temperature', 'logfO2']:
+            err_charge_balance_invalid_type = ("Cannot balance charge "
+                "on {}.".format(charge_balance_on))
+            err_list.append(err_charge_balance_invalid_type)
+        elif charge_balance_on != "none" and charge_balance_on not in list(set(df_in_headercheck.columns)):
+            err_charge_balance_invalid_sp = ("The species chosen for charge balance"
+                " '{}'".format(charge_balance_on)+""
+                " was not found among the headers of the sample input file.")
+            err_list.append(err_charge_balance_invalid_sp)
+
+        if self.thermo.thermo_db_type in ["data0", "CSV"]:
+            for species in list(dict.fromkeys(df_in_headercheck.columns)):
+                if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
+                    err_species_not_in_db = ("The species '{}'".format(species) + " "
+                        "was not found in {}".format(data_path) + ". "
+                        "If the column contains data that should not be "
+                        "included in the speciation calculation, add the "
+                        "column name to the 'exclude' argument. Try "
+                        "help(AqEquil.AqEquil.speciate) "
+                        "for more information about 'exclude'.")
+                    err_list.append(err_species_not_in_db)
+                elif species == 'pH':
+                    err_species_pH = ("Please rename the 'pH' column in "
+                        "the sample input file to 'H+' with the subheader "
+                        "unit 'pH'.")
+                    err_list.append(err_species_pH)
+
         
         
         # are subheader units valid?
@@ -1762,7 +1763,6 @@ class AqEquil:
                  custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
-                 custom_obigt=None, # deprecated but used internally
                  db_args={}):
         
         """
@@ -2030,9 +2030,6 @@ class AqEquil:
             Delete the 'rxn_3i', 'rxn_3o', 'rxn_3p', and 'eqpt_files' folders
             containing raw EQ3NR input, output, pickup, and EQPT files once the
             speciation calculation is complete?
-        
-        custom_obigt : str, optional
-            Deprecated.
            
         db_args : dict, default {}
             Dictionary of arguments to modify how the thermodynamic database is
@@ -2068,24 +2065,24 @@ class AqEquil:
         else:
             db = self.thermo.db
             
-        if self.thermo.thermo_db_type == "CSV file":
+        if self.thermo.thermo_db_type == "CSV":
             db_args["db"] = "dyn"
-            if self.thermo.thermo_db_source == "file":
-                db_args["filename"] = db
-            elif self.thermo.thermo_db_source == "URL":
-                db_args["filename"] = self.thermo.thermo_db_filename
+#             if self.thermo.thermo_db_source == "file":
+#                 db_args["filename"] = db
+#             elif self.thermo.thermo_db_source == "URL":
+#                 db_args["filename"] = self.thermo.thermo_db_filename
             
         dynamic_db = self.thermo.dynamic_db
         custom_data0 = self.thermo.custom_data0
-        custom_obigt = self.thermo.custom_obigt
         data0_lettercode = self.thermo.data0_lettercode
         
-        if (self.thermo.thermo_db_type == "data0 file" or self.thermo.thermo_db_type == "data1 file") and len(db_args) > 0:
+        
+        if (self.thermo.thermo_db_type == "data0" or self.thermo.thermo_db_type == "data1") and len(db_args) > 0:
             if self.verbose > 0:
                 print("Warning: Ignoring db_args because a premade data0 or data1 file is being used: '" + db + "'")
             
         redox_suppression = False
-        if "suppress_redox" in db_args.keys() and self.thermo.thermo_db_type != "data0 file" and self.thermo.thermo_db_type != "data1 file":
+        if "suppress_redox" in db_args.keys() and self.thermo.thermo_db_type != "data0" and self.thermo.thermo_db_type != "data1":
             if len(db_args["suppress_redox"]) > 0:
                 redox_suppression = True
         
@@ -2128,18 +2125,6 @@ class AqEquil:
                 batch_3o_filename = "batch_3o_{}.rds".format(data0_lettercode)
         else:
             batch_3o_filename = ro.r("NULL")
-            
-        # custom obigt used for energy calculations (temporary fix to allow
-        # custom data to be imported into CHNOSZ for energy calculations)
-        # TODO: remove this and have code find custom data automatically. It's a tricky problem!
-        if isinstance(custom_obigt, str):
-            if os.path.exists(custom_obigt) and os.path.isfile(custom_obigt):
-                pass
-            else:
-                err = ("Could not find custom_obigt file {}.".format(custom_obigt))
-                self.err_handler.raise_exception(err)
-        else:
-            custom_obigt = ro.r("NULL")
         
         # reset logK_models whenever speciate() is called
         # (prevents errors when speciations are run back-to-back)
@@ -2155,9 +2140,7 @@ class AqEquil:
             db_args["dynamic_db_sample_press"] = sample_press
             
             if db_logK != None:
-                db_args["db_logK"] = pd.read_csv(db_logK)
-            elif self.thermo.logK_active:
-                db_args["db_logK"] = self.thermo.logK_db
+                self.thermo.load_logK(db_logK, source="file")
             
             if logK_extrapolate != None:
                 db_args["logK_extrapolate"] = logK_extrapolate
@@ -2193,7 +2176,7 @@ class AqEquil:
             
         if custom_data0 and not dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
-            if self.thermo.thermo_db_type != "data1 file":
+            if self.thermo.thermo_db_type != "data1":
                 self.runeqpt(data0_lettercode)
             
             if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
@@ -2202,7 +2185,7 @@ class AqEquil:
                     with open("data1."+data0_lettercode, mode='rb') as data1:
                         self.data1["all_samples"] = data1.read()
                     # move or copy data1
-                    if self.thermo.thermo_db_type != "data1 file":
+                    if self.thermo.thermo_db_type != "data1":
                         shutil.move("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
                     else:
                         shutil.copyfile("data1."+data0_lettercode, "eqpt_files/data1."+data0_lettercode)
@@ -2315,7 +2298,7 @@ class AqEquil:
                 self.affinity_energy_reactions_raw = pd.read_csv(rxn_filename, sep="\t", header=None, names=["col"+str(i) for i in range(1,50)])
                 load_rxn_file = True
             else:
-                if self.thermo.thermo_db_type != "CSV file":
+                if self.thermo.thermo_db_type != "CSV":
                     if self.verbose > 0:
                         warn_msg = ("Warning: get_affinity_energy is set to True but "
                             "the active thermodynamic database ("+self.thermo.db+") is not "
@@ -2414,7 +2397,7 @@ class AqEquil:
                                 dynamic_db=dynamic_db,
                                 verbose=verbose)
                 
-                if self.thermo.thermo_db_type != "data1 file":
+                if self.thermo.thermo_db_type != "data1":
                     self.runeqpt(data0_lettercode, dynamic_db=True)
                 
                 if os.path.exists("data1."+data0_lettercode) and os.path.isfile("data1."+data0_lettercode):
@@ -2516,6 +2499,11 @@ class AqEquil:
         files_3o = [file+".3o" for file in self.df_input_processed.index]
         
         df_input_processed_names = _convert_to_RVector(list(self.df_input_processed.columns))
+        
+        if self.thermo.thermo_db_type == "CSV":
+            custom_obigt = self.thermo.thermo_db
+        else:
+            custom_obigt = ro.r("NULL")
         
         # mine output
         self.__capture_r_output()
@@ -3118,7 +3106,7 @@ class AqEquil:
                 f.write("%s" % item)
 
                 
-    def plot_logK_fit(self, name, plot_out=False, res=200, db_logK=None, logK_extrapolate=None, T_vals=[]):
+    def plot_logK_fit(self, name, plot_out=False, res=200, internal=True, logK_extrapolate=None, T_vals=[]):
         """
         Plot the fit of logK values used in the speciation.
 
@@ -3135,9 +3123,8 @@ class AqEquil:
         res : int
             Resolution of the fit line. Higher resolutions will be smoother.
             
-        db_logK : str, optional
-            File path of the thermodynamic database CSV containing this species
-            and its dissociation reaction logK values.
+        internal : bool, default True
+            Reuse calculated fits if they already exist?
         
         logK_extrapolate : str, optional
             Option for extrapolating logK values in the plot. Possible values
@@ -3159,8 +3146,8 @@ class AqEquil:
 
         """
         
-        if not isinstance(db_logK, str):
-            
+        if internal and len(self.logK_models.keys()) > 0:
+            # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
                 msg = "The chemical species " + str(name) + " is not recognized."
                 self.err_handler.raise_exception(msg)
@@ -3170,7 +3157,8 @@ class AqEquil:
             P_grid = self.logK_models[name]["P_grid"]
         
         else:
-            df_logK = pd.read_csv(db_logK)
+            # load logK models from Thermodata class's logK_db
+            df_logK = self.thermo.logK_db
             
             i = list(df_logK["name"]).index(name)
             
@@ -3432,8 +3420,6 @@ class AqEquil:
         
     def create_data0(self,
                      db,
-                     db_logK,
-                     filename,
                      filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
@@ -3463,9 +3449,6 @@ class AqEquil:
         ----------
         db : str
             Desired three letter code of data0 output.
-            
-        filename : str
-            Name of csv file containing thermodynamic data in the OBIGT format.
             
         filename_ss : str, optional
             Name of file containing solid solution parameters.
@@ -3546,25 +3529,8 @@ class AqEquil:
             0 for silent.
         """
         
-        # Check that thermodynamic database input files exist and are formatted
-        # correctly.
-        self._check_database_file(filename)
-        thermo_df = pd.read_csv(filename)
-        
-        thermo_df = thermo_df.astype({'name':'str', 'abbrv':'str', 'formula':'str',
-                                      'state':'str', 'ref1':'str', 'ref2':'str',
-                                      'date': 'str', 'E_units':'str',
-                                      'G':'float', 'H':'float', 'S':'float',
-                                      'Cp':'float', 'V':'float', 'a1.a':'float',
-                                      'a2.b':'float', 'a3.c':'float', 'a4.d':'float',
-                                      'c1.e':'float', 'c2.f':'float',
-                                      'omega.lambda':'float', 'z.T':'float',
-                                      'azero':'float', 'neutral_ion_type':'float',
-                                      'dissrxn':'str', 'tag':'str',
-                                      'formula_ox':'str', 'category_1':'str'})
-        
-        if filename_ss != None:
-            self.__file_exists(filename_ss)
+        thermo_df = self.thermo.thermo_db
+        db_logK = self.thermo.logK_db
         
         self.verbose = verbose
         
@@ -3679,8 +3645,11 @@ class AqEquil:
             __name__, 'data0.min').decode("utf-8")
         suppress_redox = _convert_to_RVector(suppress_redox)
         
-        if filename_ss == None:
-            filename_ss = ro.r("NULL")
+        if self.thermo.solid_solutions_active:
+            solid_solution_df = ro.conversion.py2rpy(self.thermo.solid_solution_db)
+        else:
+            solid_solution_df = ro.r("NULL")
+            
         if data0_formula_ox_name == None:
             data0_formula_ox_name = ro.r("NULL")
         if template_name == None:
@@ -3771,7 +3740,7 @@ class AqEquil:
         
         # assemble data0 file
         data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
-                          filename_ss=filename_ss,
+                          solid_solution_df=solid_solution_df,
                           db=db,
                           water_model=water_model,
                           template=template,
@@ -3876,7 +3845,7 @@ class AqEquil:
         if db != None:
             self.thermo.set_active_db(db, self.verbose)
             
-        if self.thermo.thermo_db_type != "CSV file":
+        if self.thermo.thermo_db_type != "CSV":
             if self.verbose > 0:
                 if auto_load_db:
                     print("Warning: Redox reactions require a WORM-styled thermodynamic database CSV file.")
@@ -3921,7 +3890,7 @@ class AqEquil:
         
         df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
         
-        wrm_data = pd.read_csv(self.thermo.custom_obigt)
+        wrm_data = self.thermo.thermo_db
         basis_df = wrm_data.loc[wrm_data['tag'] == 'basis']
         
         db_names = []

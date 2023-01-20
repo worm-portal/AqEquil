@@ -937,7 +937,6 @@ main_3o_mine <- function(files_3o,
 
   # allow user to add their custom data as an OBIGT
   if(!is.null(custom_obigt)){
-    custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)
     custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
     suppressMessages({
       thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database

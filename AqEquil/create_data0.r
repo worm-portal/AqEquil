@@ -44,7 +44,7 @@ s_d <- function(x, k) trimws(format(round(x, k), nsmall=k, scientific=F))
 
 # main function
 create_data0 <- function(thermo_df,
-                         filename_ss=NULL,
+                         solid_solution_df=NULL,
                          db,
                          water_model,
                          template,
@@ -105,13 +105,6 @@ create_data0 <- function(thermo_df,
       tag_temp <- thermo_df[i, "tag"]
       names(tag_temp) <- thermo_df[i, "name"]
       tag_vec <- c(tag_vec, tag_temp)
-  }
-    
-
-  if(!is.null(filename_ss)){
-    ss_params <- read.csv(filename_ss, stringsAsFactors=FALSE)
-  }else{
-    ss_params <- data.frame()
   }
 
   # initialize vector of name differences between OBIGT and SLOP
@@ -410,10 +403,10 @@ create_data0 <- function(thermo_df,
   vmessage("Handling solid solutions...", 2, verbose)
 
   # handle solid solutions
-  if(!is.null(filename_ss)){
-    for(i in 1:nrow(ss_params)){
+  if(!is.null(solid_solution_df)){
+    for(i in 1:nrow(solid_solution_df)){
 
-      entry <- ss_params[i, ]
+      entry <- solid_solution_df[i, ]
       name <- entry$name
 
       vmessage(paste("Processing", name), 2, verbose)
