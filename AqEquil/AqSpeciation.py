@@ -932,6 +932,7 @@ class AqEquil:
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  db="WORM",
+                 logK_extrapolate="none",
                  download_csv_files=False,
                  verbose=1,
                  hide_traceback=True):
@@ -970,6 +971,7 @@ class AqEquil:
                  csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
                  solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
                  logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
+                 logK_extrapolate=logK_extrapolate,
                  data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                  data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
                  eq36da=self.eq36da,
@@ -1036,7 +1038,7 @@ class AqEquil:
         return False
 
     
-    def _check_sample_input_file(self, input_filename, exclude, db, custom_data0,
+    def _check_sample_input_file(self, input_filename, exclude, db,
                                        dynamic_db, charge_balance_on, suppress_missing,
                                        redox_suppression):
         """
@@ -1759,7 +1761,6 @@ class AqEquil:
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
                  get_charge_balance=True,
-                 custom_data0=False, # deprecated but used internally
                  custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
@@ -2014,12 +2015,6 @@ class AqEquil:
         
         get_charge_balance : bool, default True
             Calculate charge balance and ionic strength?
-            
-        custom_data0 : bool, default False
-            Deprecated.
-            
-        custom_db : bool, default False
-            Deprecated.
         
         batch_3o_filename : str, optional
             Name of rds (R object) file exported after the speciation
@@ -2067,14 +2062,9 @@ class AqEquil:
             
         if self.thermo.thermo_db_type == "CSV":
             db_args["db"] = "dyn"
-#             if self.thermo.thermo_db_source == "file":
-#                 db_args["filename"] = db
-#             elif self.thermo.thermo_db_source == "URL":
-#                 db_args["filename"] = self.thermo.thermo_db_filename
             
         dynamic_db = self.thermo.dynamic_db
-        custom_data0 = self.thermo.custom_data0
-        data0_lettercode = self.thermo.data0_lettercode
+        data0_lettercode = self.thermo.data0_lettercode # needs to be this way
         
         
         if (self.thermo.thermo_db_type == "data0" or self.thermo.thermo_db_type == "data1") and len(db_args) > 0:
@@ -2089,7 +2079,7 @@ class AqEquil:
         # check input sample file for errors
         if activity_model != 'pitzer': # TODO: allow check_sample_input_file() to handle pitzer
             sample_temps, sample_press = self._check_sample_input_file(
-                                          input_filename, exclude, db, custom_data0,
+                                          input_filename, exclude, db,
                                           dynamic_db, charge_balance_on, suppress_missing,
                                           redox_suppression)
         
@@ -2174,7 +2164,7 @@ class AqEquil:
     
             OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
-        if custom_data0 and not dynamic_db:
+        if self.thermo.custom_data0 and not dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
             if self.thermo.thermo_db_type != "data1":
                 self.runeqpt(data0_lettercode)
@@ -2490,7 +2480,7 @@ class AqEquil:
             if dynamic_db:
                 shutil.move("data0.dyn", "rxn_data0/"+filename_3i[0:-3]+"_data0.dat")
 
-        if custom_data0:
+        if self.thermo.custom_data0:
             os.environ['EQ36DA'] = self.eq36da
             # delete straggling data1 files generated after running eq3
             if os.path.exists("data1") and os.path.isfile("data1"):
@@ -3149,8 +3139,16 @@ class AqEquil:
         if internal and len(self.logK_models.keys()) > 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                msg = "The chemical species " + str(name) + " is not recognized."
-                self.err_handler.raise_exception(msg)
+                if name not in list(self.df_rejected_species["name"]):
+                    msg = "The chemical species " + str(name) + " is not recognized."
+                    self.err_handler.raise_exception(msg)
+                else:
+                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species['name'] == name, 'reason for rejection'])[0]
+                    
+                    msg = ("The chemical species " + str(name) + " cannot be "
+                           "plotted because it was rejected from the "
+                           "speciation:\n" + str(reject_reason))
+                    self.err_handler.raise_exception(msg)
 
             logK_grid = self.logK_models[name]["logK_grid"]
             T_grid = self.logK_models[name]["T_grid"]
@@ -3175,7 +3173,7 @@ class AqEquil:
                                    "P7", "P8"]].iloc[i]) # P for free logK grid
             
             if not isinstance(logK_extrapolate, str):
-                logK_extrapolate = "none"
+                logK_extrapolate = self.thermo.logK_extrapolate
             
         
         if not isinstance(logK_extrapolate, str):
@@ -3370,9 +3368,9 @@ class AqEquil:
                     
                     if not _all_equal(sp_press_grid + grid_press_list):
                         if dynamic_db:
-                            reject_reason_list.append("Mismatch between pressures of samples in this batch and the applicable pressures for this species.")
+                            reject_reason_list.append("Mismatch between pressures of samples in this batch and the applicable pressures for "+str(sp)+" given in the logK thermodynamic database.")
                         else:
-                            reject_reason_list.append("Mismatch between desired pressure grid of data0 file and the applicable pressures for this species.")
+                            reject_reason_list.append("Mismatch between desired pressure grid of data0 file and the applicable pressures for "+str(sp)+" given in the logK thermodynamic database.")
                     
                     if len(reject_reason_list) == 0:
                         reject_reason_list.append("Unknown")
