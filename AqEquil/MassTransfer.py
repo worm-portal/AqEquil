@@ -90,7 +90,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     """
     
     prev_wd = os.getcwd()
-    ae = AqEquil()
+    ae = AqEquil(load_thermo=False)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file("data1.dyn")
@@ -102,8 +102,6 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         else:
             shutil.rmtree(path)
             os.makedirs(path)
-            
-    os.environ['EQ36DA'] = "eq6_extra_out" # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
             
     for sample_name in list(speciation.sample_data.keys()):
         filename_6i = speciation.sample_data[sample_name]["filename"][:-3]+".6i"
@@ -121,7 +119,8 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
                 f.write(speciation.data1["all_samples"])
 
         ae.runeq6(filename_6i, db="dyn", path_6i="rxn_6i",
-                  dynamic_db_name=speciation.thermo_db_callname)
+                  data1_path="eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                  dynamic_db_name=speciation.thermo.thermo_db_filename)
         
         os.rename('tab', 'tab.csv')
         
@@ -131,8 +130,8 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         __delete_file("data1.dyn")
         __delete_file("data1")
         
-        if speciation.thermo_db_type == "CSV file":
-            m = Mass_Transfer(thermodata_csv=speciation.thermo_db,
+        if speciation.thermo.thermo_db_type == "CSV":
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name='tab.csv',
                               hide_traceback=hide_traceback)

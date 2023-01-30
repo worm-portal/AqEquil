@@ -508,13 +508,13 @@ class Thermodata:
         self.csv_db_filename = None
         
         # solid solution attributes
-        self.solid_solutions_active = True # currently not used
+        self.solid_solutions_active = False
         self.solid_solution_db = None
         self.solid_solution_db_source = None
         self.solid_solution_db_filename = None
         
         # logK attributes
-        self.logK_active = True
+        self.logK_active = False
         self.logK_extrapolate = logK_extrapolate
         self.logK_db = None
         self.logK_db_source = None
@@ -526,9 +526,7 @@ class Thermodata:
             if self.verbose > 0:
                 print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
             self.load_solid_solutions(solid_solutions, source="URL", download_csv_files=download_csv_files)
-            self.solid_solutions_active = True
             self.load_logK(logK, source="URL", download_csv_files=download_csv_files)
-            self.logK_active = True
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
         
         self.set_active_db(self.db, download_csv_files, self.verbose)
@@ -541,8 +539,6 @@ class Thermodata:
             
             self.data0_lettercode = db
             self.dynamic_db = False
-            self.logK_active = False
-            self.solid_solutions_active = False
             
             # search for a data1 file in the eq36da directory
             if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
@@ -610,9 +606,6 @@ class Thermodata:
             self.dynamic_db = False
             self.custom_obigt = None
             
-            self.logK_active = False
-            self.solid_solutions_active = False
-            
         elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "data0.wrm"
         
@@ -626,9 +619,6 @@ class Thermodata:
             self.data0_lettercode = db[-3:].lower()
             self.dynamic_db = False
             self.custom_obigt = None
-        
-            self.logK_active = False
-            self.solid_solutions_active = False
         
         elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "wrm_data.csv"
@@ -726,10 +716,12 @@ class Thermodata:
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
             self.solid_solution_db_filename, self.solid_solution_db = self.__df_from_url(db, download_csv_files=download_csv_files)
             self.solid_solution_db_source = "URL"
-            
         else:
             if self.verbose > 0:
                 print("No solid solution database loaded.")
+
+        if self.thermo_db_type == "CSV":
+            self.solid_solutions_active = True
 
                 
         
@@ -751,6 +743,9 @@ class Thermodata:
         else:
             if self.verbose > 0:
                 print("No logK database loaded.")
+                
+        if self.thermo_db_type == "CSV":
+            self.logK_active = True
         
         
     def load_data0(self, db, source="URL"):
@@ -935,6 +930,7 @@ class AqEquil:
                  logK_extrapolate="none",
                  download_csv_files=False,
                  verbose=1,
+                 load_thermo=True,
                  hide_traceback=True):
 
         self.eq36da = eq36da
@@ -965,21 +961,22 @@ class AqEquil:
         self.logK_models = {}
         self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
         
-        self.thermo = Thermodata(
-                 db=db,
-                 download_csv_files=download_csv_files,
-                 csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
-                 solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
-                 logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
-                 logK_extrapolate=logK_extrapolate,
-                 data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
-                 data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
-                 eq36da=self.eq36da,
-                 eq36co=self.eq36co,
-                 verbose=self.verbose,
-                 hide_traceback=hide_traceback)
+        if load_thermo:
+            self.thermo = Thermodata(
+                     db=db,
+                     download_csv_files=download_csv_files,
+                     csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
+                     solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
+                     logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
+                     logK_extrapolate=logK_extrapolate,
+                     data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
+                     data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
+                     eq36da=self.eq36da,
+                     eq36co=self.eq36co,
+                     verbose=self.verbose,
+                     hide_traceback=hide_traceback)
         
-        self.data1 = self.thermo.data1
+            self.data1 = self.thermo.data1
 
     def __capture_r_output(self):
         """
@@ -1317,12 +1314,14 @@ class AqEquil:
         os.environ['EQ36DA'] = self.eq36da  # reset default EQ36 db path
 
     
-    def runeq3(self, filename_3i, db,
+    def runeq3(self,
+               filename_3i,
+               db,
                samplename=None,
                path_3i=os.getcwd(),
                path_3o=os.getcwd(),
                path_3p=os.getcwd(),
-               data0_path=os.getcwd(),
+               data1_path=os.getcwd(),
                dynamic_db_name=None):
         
         """
@@ -1345,9 +1344,8 @@ class AqEquil:
         path_3p : path str, default current working directory
             Path of .3p pickup files.
         
-        dynamic_db_name : str, default None
-            Name of database used by `speciate` to speciate samples dynamically.
-            If unsure, use None.
+        data1_path : str, default None
+            File path of data1 file.
             
         dynamic_db_name : str
             Database name to be printed if dynamic databases are being used.
@@ -1358,7 +1356,7 @@ class AqEquil:
         cwd = os.getcwd()
         
         # set data0 path
-        os.environ['EQ36DA'] = data0_path
+        os.environ['EQ36DA'] = data1_path
         
         if samplename == None:
             samplename = filename_3i[:-3]
@@ -1409,11 +1407,14 @@ class AqEquil:
                     print('Error: Could not move', filename_3p, "to", path_3p)
 
                     
-    def runeq6(self, filename_6i, db,
+    def runeq6(self,
+               filename_6i,
+               db,
                samplename=None,
                path_6i=os.getcwd(),
                path_6o=os.getcwd(),
                path_6p=os.getcwd(),
+               data1_path=os.getcwd(),
                dynamic_db_name=None):
         
         """
@@ -1441,7 +1442,11 @@ class AqEquil:
             This parameter is for internal use.
         """
 
-
+        # get current working dir
+        cwd = os.getcwd()
+        
+        # set data0 path
+        os.environ['EQ36DA'] = data1_path
         
         if samplename == None:
             samplename = filename_6i[:-3]
@@ -2453,9 +2458,13 @@ class AqEquil:
             else:
                 dynamic_db_name = None
             
-            self.runeq3(filename_3i=filename_3i, db=data0_lettercode, samplename=samplename,
+            self.runeq3(filename_3i=filename_3i,
+                        db=data0_lettercode,
+                        samplename=samplename,
                         path_3i=input_dir, path_3o=output_dir,
-                        path_3p=pickup_dir, data0_path=os.environ['EQ36DA'], dynamic_db_name=dynamic_db_name)
+                        path_3p=pickup_dir,
+                        data1_path=os.environ['EQ36DA'],
+                        dynamic_db_name=dynamic_db_name)
             
             # store input, output, and pickup as dicts in AqEquil object
             try:
