@@ -825,7 +825,10 @@ class Mass_Transfer:
     def __get_mineral_elem_ox(self, mineral):
         split_list = list(self.df[self.df["name"]==mineral]["formula_ox"])[0].split()
         split_list_clean = [s.replace(" ", "") for s in split_list]
-        elem_ox_list = [re.findall(r"^(?:\d+|)([A-Z].*$)", s)[0] for s in split_list]
+        try:
+            elem_ox_list = [re.findall(r"^(?:\d+|)([A-Z].*$)", s)[0] for s in split_list_clean]
+        except:
+            elem_ox_list = []
         return elem_ox_list
 
     

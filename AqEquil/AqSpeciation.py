@@ -468,12 +468,14 @@ class Thermodata:
                  data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                  data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
                  download_csv_files=False,
+                 exclude_category={},
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  verbose=1,
                  hide_traceback=True):
     
         self.db = db
+        self.exclude_category = exclude_category
     
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
@@ -529,10 +531,12 @@ class Thermodata:
             self.load_logK(logK, source="URL", download_csv_files=download_csv_files)
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
         
-        self.set_active_db(self.db, download_csv_files, self.verbose)
+        self.set_active_db(db=self.db,
+                           download_csv_files=download_csv_files,
+                           verbose=self.verbose)
 
         
-    def set_active_db(self, db, download_csv_files=False, verbose=1):
+    def set_active_db(self, db=None, download_csv_files=False, verbose=1):
         
         if len(db) == 3:
             # e.g., "wrm"
@@ -801,6 +805,19 @@ class Thermodata:
         # Check that thermodynamic database input files exist and are formatted correctly.
         self._check_csv_db()
         
+        # exclude entries based on categories (e.g., {"category_1":["organic_aq", "organic_cr"]})
+        exclude_keys = list(self.exclude_category.keys())
+        if len(exclude_keys) > 0:
+            for key in exclude_keys:
+                if self.verbose > 0:
+                        print("Excluding", str(self.exclude_category[key]), "from column", str(key))
+                if isinstance(self.exclude_category[key], list):
+                    self.csv_db = self.csv_db[~self.csv_db[key].isin(self.exclude_category[key])]
+                elif isinstance(self.exclude_category[key], str):
+                    self.csv_db = self.csv_db[~self.csv_db[key] != self.exclude_category[key]]
+                else:
+                    pass
+        
         
     def _check_csv_db(self):
         
@@ -929,6 +946,7 @@ class AqEquil:
                  db="WORM",
                  logK_extrapolate="none",
                  download_csv_files=False,
+                 exclude_category={},
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
@@ -971,6 +989,7 @@ class AqEquil:
                      logK_extrapolate=logK_extrapolate,
                      data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
                      data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
+                     exclude_category=exclude_category,
                      eq36da=self.eq36da,
                      eq36co=self.eq36co,
                      verbose=self.verbose,
