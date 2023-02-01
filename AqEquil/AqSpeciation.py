@@ -453,20 +453,82 @@ class Thermodata:
     
     Parameters
     ----------
+    db : str, default "WORM"
+        Determines which thermodynamic database is used in the speciation
+        calculation. There are several options available:
+        - "WORM" will load the default WORM thermodynamic database,
+        solid solution database, and logK database. These files are retrieved
+        from https://github.com/worm-portal/WORM-db to ensure they are
+        up-to-date.
+        - Three letter file extension for the desired data1 database, e.g.,
+        "wrm". This will use a data1 file with this file extension, e.g.,
+        "data1.wrm" located in the path stored in the 'EQ36DA' environment
+        variable used by EQ3NR.
+        - The name of a data0 file located in the current working directory,
+        e.g., "data0.wrm". This data0 file will be compiled by EQPT
+        automatically during the speciation calculation.
+        - The name of a CSV file containing thermodynamic data located in
+        the current working directory, e.g., "wrm_data.csv". The CSV file
+        will be used to generate a data0 file for each sample (using
+        additional arguments from `db_args` if desired).
+        - The URL of a data0 file, e.g.,
+        "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
+        - The URL of a CSV file containing thermodynamic data, e.g.,
+        "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
     
-    Attributes
-    ----------
+    solid_solutions : str
+        Filepath of a CSV file containing parameters for solid solutions, e.g.,
+        "my_solid_solutions.csv". If `db` is set to "WORM" and `solid_solutions`
+        is not defined, then parameters for solid solutions will be retrieved
+        from "Solid_solutions.csv" at https://github.com/worm-portal/WORM-db
+    
+    logK : str
+        Filepath of a CSV file containing equilibrium constants for chemical
+        species, e.g., "my_logK_entries.csv". If `db` is set to "WORM" and `logK`
+        is not defined, then equilibrium constants will be retrieved from
+        "wrm_data_logK.csv" at https://github.com/worm-portal/WORM-db
+    
+    logK_extrapolate : str, default "none"
+        What method should be used to extrapolate equilibrium constants in the
+        logK database (defined by parameter `logK`) as a function of
+        temperature? Can be either "none", "flat", "poly", or "linear".
+    
+    download_csv_files : bool, default False
+        Download copies of database CSV files to your current working directory?
+    
+    exclude_category : dict
+        Exclude species from thermodynamic databases based on column values.
+        For instance,
+        `exclude_category={'category_1':["organic_aq", "organic_cr"]}`
+        will exclude all species that have "organic_aq" or "organic_cr" in
+        the column "category_1".
+        Species are excluded from the main thermodynamic database CSV and the
+        equilibrium constant (logK) CSV database. This parameter has no effect
+        if the thermodynamic database is a data0 or data1 file.
+    
+    eq36da : str, defaults to path given by the environment variable EQ36DA
+        Path to directory where data1 files are stored. 
+        
+    eq36co : str, defaults to path given by the environment variable EQ36CO
+        Path to directory where EQ3 executables are stored.
+        
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
+
+    hide_traceback : bool, default True
+        Hide traceback message when encountering errors handled by this class?
+        When True, error messages handled by this class will be short and to
+        the point.
     
     """
     
     def __init__(self,
                  db = "WORM",
-                 csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
-                 solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
-                 logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
+                 solid_solutions=None,
+                 logK=None,
                  logK_extrapolate="none",
-                 data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
-                 data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
                  download_csv_files=False,
                  exclude_category={},
                  eq36da=os.environ.get('EQ36DA'),
@@ -527,16 +589,26 @@ class Thermodata:
         if db == "WORM":
             if self.verbose > 0:
                 print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
-            self.load_solid_solutions(solid_solutions, source="URL", download_csv_files=download_csv_files)
-            self.load_logK(logK, source="URL", download_csv_files=download_csv_files)
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-        
-        self.set_active_db(db=self.db,
-                           download_csv_files=download_csv_files,
-                           verbose=self.verbose)
+            self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+            if solid_solutions == None:
+                self._load_solid_solutions("https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv", source="URL", download_csv_files=download_csv_files)
+            if logK == None:
+                self._load_logK("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv", source="URL", download_csv_files=download_csv_files)
+            
+        else:
+            self._set_active_db(db=self.db, download_csv_files=download_csv_files)
 
+        if solid_solutions != None:
+            self._load_solid_solutions(solid_solutions, source="file")
+        if logK != None:
+            self._load_logK(logK, source="file")
         
-    def set_active_db(self, db=None, download_csv_files=False, verbose=1):
+    def _set_active_db(self, db=None, download_csv_files=False):
+        """
+        Set the main active thermodynamic database to a CSV file, a data0 file,
+        or a data1 file on the server, a local file, or from a URL address.
+        """
         
         if len(db) == 3:
             # e.g., "wrm"
@@ -562,7 +634,7 @@ class Thermodata:
                           "but a data0."+db+" was found in the current working "
                           "directory. Using it...")
 
-                self.load_data0("data0." + db, source="file")
+                self._load_data0("data0." + db, source="file")
 
                 self.thermo_db = self.data0_db
                 self.thermo_db_filename = self.data0_db_filename
@@ -599,7 +671,7 @@ class Thermodata:
         elif "data0." in db[-9:].lower() and db[-4:].lower() != ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
             
-            self.load_data0(db, source="URL")
+            self._load_data0(db, source="URL")
             
             self.thermo_db = self.data0_db
             self.thermo_db_filename = self.data0_db_filename
@@ -613,7 +685,7 @@ class Thermodata:
         elif db[0:-4].lower() == "data0" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "data0.wrm"
         
-            self.load_data0(db, source="file")
+            self._load_data0(db, source="file")
         
             self.thermo_db = self.data0_db
             self.thermo_db_filename = self.data0_db_filename
@@ -627,7 +699,7 @@ class Thermodata:
         elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "wrm_data.csv"
             
-            self.load_csv(db, source="file")
+            self._load_csv(db, source="file")
             
             self.thermo_db = self.csv_db
             self.thermo_db_filename = self.csv_db_filename
@@ -641,7 +713,7 @@ class Thermodata:
         elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
             
-            self.load_csv(db, source="URL", download_csv_files=download_csv_files)
+            self._load_csv(db, source="URL", download_csv_files=download_csv_files)
             
             self.thermo_db = self.csv_db
             self.thermo_db_filename = self.csv_db_filename
@@ -676,6 +748,10 @@ class Thermodata:
 
         
     def __df_from_url(self, url, download_csv_files=False):
+        """
+        Get a filename and dataframe from a URL pointing to a CSV file.
+        """
+        
         filename = url.split("/")[-1].lower()
         
         # Download from URL and decode as UTF-8 text.
@@ -692,6 +768,10 @@ class Thermodata:
         
         
     def __str_from_url(self, url):
+        """
+        Get a filename and contents from a URL pointing to a txt file.
+        """
+        
         filename = url.split("/")[-1].lower()
         
         # Download from URL and decode as UTF-8 text.
@@ -706,7 +786,11 @@ class Thermodata:
         return filename, txt_content
         
         
-    def load_solid_solutions(self, db, source="url", download_csv_files=False):
+    def _load_solid_solutions(self, db, source="url", download_csv_files=False):
+        """
+        Load a solid solution database CSV file from a file or URL.
+        """
+        
         if source == "file":
             # e.g., "solid_solutions.csv"
             if os.path.exists(db) and os.path.isfile(db):
@@ -725,11 +809,19 @@ class Thermodata:
                 print("No solid solution database loaded.")
 
         if self.thermo_db_type == "CSV":
+            if self.verbose > 0:
+                print("Solid solution database", self.solid_solution_db_filename, "is active.")
             self.solid_solutions_active = True
+        else:
+            if self.verbose > 0:
+                print("Solid solution database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
 
                 
+    def _load_logK(self, db, source="URL", download_csv_files=False):
+        """
+        Load a logK database CSV file from a file or URL.
+        """
         
-    def load_logK(self, db, source="URL", download_csv_files=False):
         if source == "file":
             # e.g., "logK.csv"
             if os.path.exists(db) and os.path.isfile(db):
@@ -749,10 +841,20 @@ class Thermodata:
                 print("No logK database loaded.")
                 
         if self.thermo_db_type == "CSV":
+            if self.verbose > 0:
+                print("LogK database", self.logK_db_filename, "is active.")
             self.logK_active = True
+        else:
+            if self.verbose > 0:
+                print("LogK database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
+        
+        self.logK_db = self._exclude_category(df=self.logK_db, df_name=self.logK_db_filename)
         
         
-    def load_data0(self, db, source="URL"):
+    def _load_data0(self, db, source="URL"):
+        """
+        Load a data0 file from a file or URL.
+        """
         
         if source == "URL":
             # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
@@ -772,8 +874,11 @@ class Thermodata:
                 self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
         
         
-    def load_csv(self, db, source="URL", download_csv_files=False):
-            
+    def _load_csv(self, db, source="URL", download_csv_files=False):
+        """
+        Load a WORM-styled thermodynamic database CSV from a file or URL.
+        """
+        
         if source == "file":
             # e.g., "wrm_data.csv"
             if os.path.exists(db) and os.path.isfile(db):
@@ -805,22 +910,30 @@ class Thermodata:
         # Check that thermodynamic database input files exist and are formatted correctly.
         self._check_csv_db()
         
-        # exclude entries based on categories (e.g., {"category_1":["organic_aq", "organic_cr"]})
+        self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
+
+        
+    def _exclude_category(self, df, df_name):
+        """
+        Exclude entries from a df based on values in columns.
+        e.g., {"category_1":["organic_aq", "organic_cr"]}
+        """
+
         exclude_keys = list(self.exclude_category.keys())
         if len(exclude_keys) > 0:
             for key in exclude_keys:
                 if self.verbose > 0:
-                        print("Excluding", str(self.exclude_category[key]), "from column", str(key))
+                    print("Excluding", str(self.exclude_category[key]), "from column", str(key), "in", df_name)
                 if isinstance(self.exclude_category[key], list):
-                    self.csv_db = self.csv_db[~self.csv_db[key].isin(self.exclude_category[key])]
+                    df = df[~df[key].isin(self.exclude_category[key])]
                 elif isinstance(self.exclude_category[key], str):
-                    self.csv_db = self.csv_db[~self.csv_db[key] != self.exclude_category[key]]
+                    df = df[~df[key] != self.exclude_category[key]]
                 else:
-                    pass
+                    self.err_handler.raise_exception("The parameter exclude_category must either be a string or a list.")
+        return df
         
         
     def _check_csv_db(self):
-        
         """
         Check for problems in the thermodynamic database CSV.
         """
@@ -877,9 +990,13 @@ class AqEquil:
     eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
     
-    db : str, default "wrm"
+    db : str, default "WORM"
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        - "WORM" will load the default WORM thermodynamic database,
+        solid solution database, and logK database. These files are retrieved
+        from https://github.com/worm-portal/WORM-db to ensure they are
+        up-to-date.
         - Three letter file extension for the desired data1 database, e.g.,
         "wrm". This will use a data1 file with this file extension, e.g.,
         "data1.wrm" located in the path stored in the 'EQ36DA' environment
@@ -896,10 +1013,43 @@ class AqEquil:
         - The URL of a CSV file containing thermodynamic data, e.g.,
         "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
         
+    solid_solutions : str
+        Filepath of a CSV file containing parameters for solid solutions, e.g.,
+        "my_solid_solutions.csv". If `db` is set to "WORM" and `solid_solutions`
+        is not defined, then parameters for solid solutions will be retrieved
+        from "Solid_solutions.csv" at https://github.com/worm-portal/WORM-db
+    
+    logK : str
+        Filepath of a CSV file containing equilibrium constants for chemical
+        species, e.g., "my_logK_entries.csv". If `db` is set to "WORM" and `logK`
+        is not defined, then equilibrium constants will be retrieved from
+        "wrm_data_logK.csv" at https://github.com/worm-portal/WORM-db
+    
+    logK_extrapolate : str, default "none"
+        What method should be used to extrapolate equilibrium constants in the
+        logK database (defined by parameter `logK`) as a function of
+        temperature? Can be either "none", "flat", "poly", or "linear".
+    
+    download_csv_files : bool, default False
+        Download copies of database CSV files to your current working directory?
+    
+    exclude_category : dict
+        Exclude species from thermodynamic databases based on column values.
+        For instance,
+        `exclude_category={'category_1':["organic_aq", "organic_cr"]}`
+        will exclude all species that have "organic_aq" or "organic_cr" in
+        the column "category_1".
+        Species are excluded from the main thermodynamic database CSV and the
+        equilibrium constant (logK) CSV database. This parameter has no effect
+        if the thermodynamic database is a data0 or data1 file.
+        
     verbose : int, 0, 1, or 2, default 1
         Level determining how many messages are returned during a
         calculation. 2 for all messages, 1 for errors or warnings only,
         0 for silent.
+
+    load_thermo : bool, default True
+        Load thermodynamic database(s) when instantiating this class?
 
     hide_traceback : bool, default True
         Hide traceback message when encountering errors handled by this class?
@@ -944,6 +1094,8 @@ class AqEquil:
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  db="WORM",
+                 solid_solutions=None,
+                 logK=None,
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_category={},
@@ -982,13 +1134,10 @@ class AqEquil:
         if load_thermo:
             self.thermo = Thermodata(
                      db=db,
-                     download_csv_files=download_csv_files,
-                     csv="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
-                     solid_solutions="https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv",
-                     logK="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv",
+                     solid_solutions=solid_solutions,
+                     logK=logK,
                      logK_extrapolate=logK_extrapolate,
-                     data0="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm",
-                     data1="https://raw.githubusercontent.com/worm-portal/WORM-db/master/data1.wrm",
+                     download_csv_files=download_csv_files,
                      exclude_category=exclude_category,
                      eq36da=self.eq36da,
                      eq36co=self.eq36co,
@@ -2080,7 +2229,7 @@ class AqEquil:
         
         if db != None:
             # load new thermodynamic database
-            self.thermo.set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db, self.verbose)
         else:
             db = self.thermo.db
             
@@ -2154,7 +2303,7 @@ class AqEquil:
             db_args["dynamic_db_sample_press"] = sample_press
             
             if db_logK != None:
-                self.thermo.load_logK(db_logK, source="file")
+                self.thermo._load_logK(db_logK, source="file")
             
             if logK_extrapolate != None:
                 db_args["logK_extrapolate"] = logK_extrapolate
@@ -3869,7 +4018,7 @@ class AqEquil:
         """
         
         if db != None:
-            self.thermo.set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db, self.verbose)
             
         if self.thermo.thermo_db_type != "CSV":
             if self.verbose > 0:
@@ -3881,7 +4030,7 @@ class AqEquil:
             if auto_load_db:
                 if self.verbose > 0:
                     print("Warning: switching thermodynamic database from", str(self.thermo.thermo_db_filename), "to wrm_data.csv...")
-                self.thermo.set_active_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
+                self.thermo._set_active_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
                                     verbose=self.verbose)
             
         db = self.thermo.db
