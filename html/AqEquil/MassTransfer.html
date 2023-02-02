@@ -118,7 +118,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil()
+    ae = AqEquil(load_thermo=False)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file(&#34;data1.dyn&#34;)
@@ -131,14 +131,12 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
             shutil.rmtree(path)
             os.makedirs(path)
             
-    os.environ[&#39;EQ36DA&#39;] = &#34;eq6_extra_out&#34; # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
-            
     for sample_name in list(speciation.sample_data.keys()):
         filename_6i = speciation.sample_data[sample_name][&#34;filename&#34;][:-3]+&#34;.6i&#34;
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
-
-        if isinstance(speciation.data1, dict):
+        
+        if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
@@ -146,10 +144,11 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
-                f.write(speciation.data1)
+                f.write(speciation.data1[&#34;all_samples&#34;])
 
         ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  dynamic_db_name=speciation.thermo_db_callname)
+                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                  dynamic_db_name=speciation.thermo.thermo_db_filename)
         
         os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
         
@@ -159,8 +158,8 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         __delete_file(&#34;data1.dyn&#34;)
         __delete_file(&#34;data1&#34;)
         
-        if speciation.thermo_db_type == &#34;CSV file&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo_db,
+        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
                               tab_name=&#39;tab.csv&#39;,
                               hide_traceback=hide_traceback)
@@ -305,10 +304,11 @@ class Mass_Transfer:
         collect_values = False
         for i in lines:
             if len(i.strip().split(&#39; &#39;)) &gt; 1 and i.strip().split(&#39; &#39;)[0] == &#34;Xi=&#34;:
-                xi_vals.append(float(i.split(&#39; &#39;)[-1]))
+                this_xi_val = float(i.split(&#39; &#39;)[-1])
             if table_stop in i:
                 collect_values = False
             if table_start in i:
+                xi_vals.append(this_xi_val) # appending here prevents mismatch where there can be more Xi vals than tables to mine
                 collect_values = True
             if collect_values:
                 if i.strip().split(&#39; &#39;)[0] not in ignore:
@@ -317,6 +317,11 @@ class Mass_Transfer:
         species = list(set(species))
         
         species_dict = {&#34;Xi&#34;:xi_vals}
+        
+        if len(species) == 0:
+            df = pd.DataFrame(species_dict)
+            return df
+        
         for s in species:
 
             vals=[]
@@ -338,7 +343,7 @@ class Mass_Transfer:
                         vals.append(float(split_i_clean[col_index]))
                         got_value = True
             species_dict[s] = vals
-
+        
         df = pd.DataFrame(species_dict)
         
         if &#39;None&#39; in df.columns:
@@ -848,7 +853,10 @@ class Mass_Transfer:
     def __get_mineral_elem_ox(self, mineral):
         split_list = list(self.df[self.df[&#34;name&#34;]==mineral][&#34;formula_ox&#34;])[0].split()
         split_list_clean = [s.replace(&#34; &#34;, &#34;&#34;) for s in split_list]
-        elem_ox_list = [re.findall(r&#34;^(?:\d+|)([A-Z].*$)&#34;, s)[0] for s in split_list]
+        try:
+            elem_ox_list = [re.findall(r&#34;^(?:\d+|)([A-Z].*$)&#34;, s)[0] for s in split_list_clean]
+        except:
+            elem_ox_list = []
         return elem_ox_list
 
     
@@ -3189,7 +3197,7 @@ the point.</dd>
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil()
+    ae = AqEquil(load_thermo=False)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file(&#34;data1.dyn&#34;)
@@ -3202,14 +3210,12 @@ the point.</dd>
             shutil.rmtree(path)
             os.makedirs(path)
             
-    os.environ[&#39;EQ36DA&#39;] = &#34;eq6_extra_out&#34; # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
-            
     for sample_name in list(speciation.sample_data.keys()):
         filename_6i = speciation.sample_data[sample_name][&#34;filename&#34;][:-3]+&#34;.6i&#34;
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
-
-        if isinstance(speciation.data1, dict):
+        
+        if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
@@ -3217,10 +3223,11 @@ the point.</dd>
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
-                f.write(speciation.data1)
+                f.write(speciation.data1[&#34;all_samples&#34;])
 
         ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  dynamic_db_name=speciation.thermo_db_callname)
+                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                  dynamic_db_name=speciation.thermo.thermo_db_filename)
         
         os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
         
@@ -3230,8 +3237,8 @@ the point.</dd>
         __delete_file(&#34;data1.dyn&#34;)
         __delete_file(&#34;data1&#34;)
         
-        if speciation.thermo_db_type == &#34;CSV file&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo_db,
+        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
                               tab_name=&#39;tab.csv&#39;,
                               hide_traceback=hide_traceback)
@@ -3466,10 +3473,11 @@ the point.</dd>
         collect_values = False
         for i in lines:
             if len(i.strip().split(&#39; &#39;)) &gt; 1 and i.strip().split(&#39; &#39;)[0] == &#34;Xi=&#34;:
-                xi_vals.append(float(i.split(&#39; &#39;)[-1]))
+                this_xi_val = float(i.split(&#39; &#39;)[-1])
             if table_stop in i:
                 collect_values = False
             if table_start in i:
+                xi_vals.append(this_xi_val) # appending here prevents mismatch where there can be more Xi vals than tables to mine
                 collect_values = True
             if collect_values:
                 if i.strip().split(&#39; &#39;)[0] not in ignore:
@@ -3478,6 +3486,11 @@ the point.</dd>
         species = list(set(species))
         
         species_dict = {&#34;Xi&#34;:xi_vals}
+        
+        if len(species) == 0:
+            df = pd.DataFrame(species_dict)
+            return df
+        
         for s in species:
 
             vals=[]
@@ -3499,7 +3512,7 @@ the point.</dd>
                         vals.append(float(split_i_clean[col_index]))
                         got_value = True
             species_dict[s] = vals
-
+        
         df = pd.DataFrame(species_dict)
         
         if &#39;None&#39; in df.columns:
@@ -4009,7 +4022,10 @@ the point.</dd>
     def __get_mineral_elem_ox(self, mineral):
         split_list = list(self.df[self.df[&#34;name&#34;]==mineral][&#34;formula_ox&#34;])[0].split()
         split_list_clean = [s.replace(&#34; &#34;, &#34;&#34;) for s in split_list]
-        elem_ox_list = [re.findall(r&#34;^(?:\d+|)([A-Z].*$)&#34;, s)[0] for s in split_list]
+        try:
+            elem_ox_list = [re.findall(r&#34;^(?:\d+|)([A-Z].*$)&#34;, s)[0] for s in split_list_clean]
+        except:
+            elem_ox_list = []
         return elem_ox_list
 
     
@@ -5098,10 +5114,11 @@ containing the values of chemical species mined from the file.</dd>
     collect_values = False
     for i in lines:
         if len(i.strip().split(&#39; &#39;)) &gt; 1 and i.strip().split(&#39; &#39;)[0] == &#34;Xi=&#34;:
-            xi_vals.append(float(i.split(&#39; &#39;)[-1]))
+            this_xi_val = float(i.split(&#39; &#39;)[-1])
         if table_stop in i:
             collect_values = False
         if table_start in i:
+            xi_vals.append(this_xi_val) # appending here prevents mismatch where there can be more Xi vals than tables to mine
             collect_values = True
         if collect_values:
             if i.strip().split(&#39; &#39;)[0] not in ignore:
@@ -5110,6 +5127,11 @@ containing the values of chemical species mined from the file.</dd>
     species = list(set(species))
     
     species_dict = {&#34;Xi&#34;:xi_vals}
+    
+    if len(species) == 0:
+        df = pd.DataFrame(species_dict)
+        return df
+    
     for s in species:
 
         vals=[]
@@ -5131,7 +5153,7 @@ containing the values of chemical species mined from the file.</dd>
                     vals.append(float(split_i_clean[col_index]))
                     got_value = True
         species_dict[s] = vals
-
+    
     df = pd.DataFrame(species_dict)
     
     if &#39;None&#39; in df.columns:
