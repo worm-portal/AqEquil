@@ -633,10 +633,10 @@ mine_3o <- function(this_file,
         # reactant runs out. The math should work out the same regardless of which limiting
         # reactant is chosen.
         which_limiting <- which_limiting[1]
-
+          
         # calculate moles of rxn before limiting reactant runs out
         mol_rxn <- reactant_molalities[which_limiting] / abs(reactant_stoich[which_limiting])
-        
+          
         # calculate reactant molalities that remain when the limiting reactant runs out
         remaining_reactant_molalities <- reactant_molalities - abs(reactant_stoich) * mol_rxn
         
@@ -937,12 +937,17 @@ main_3o_mine <- function(files_3o,
 
   # allow user to add their custom data as an OBIGT
   if(!is.null(custom_obigt)){
-    custom_obigt <- read.csv(custom_obigt, stringsAsFactors=F)
     custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
     suppressMessages({
       thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
       mod.OBIGT(custom_obigt, replace=TRUE) # produces a message
     })
+  }else{
+    if(get_affinity_energy && verbose > 0){
+      # default to using OBIGT in CHNOSZ
+      # this happens if redox reactions are generated with a CSV but a data0 or data1 file is used in the speciation
+      writeLines("  Warning: a WORM-style CSV thermodynamic database was not provided for the speciation calculation. Attempting to use the OBIGT thermodynamic database in the CHNOSZ package to calculate redox reaction affinity and energy supplies...")
+    }
   }
 
   rxn_table <- NULL

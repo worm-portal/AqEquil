@@ -620,8 +620,6 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                               fixed_species=c("H2O", "H+", "O2(g)", "water", "Cl-", "e-"),
                               verbose=1){
     
-  
-    
   # specify molecules to balance H, O, and charge (Z)
   HOZ_balancers <- c("H+", "O2(g)", "H2O") # might be dataset-specific (e.g., "O2(g)")
   
@@ -894,7 +892,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                             "V", "a1.a", "a2.b", "a3.c",
                             "a4.d", "c1.e", "c2.f",
                             "omega.lambda", "z.T")
-
+                                   
   suppressMessages({
     thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
     mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message

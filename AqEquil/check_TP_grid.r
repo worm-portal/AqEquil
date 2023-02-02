@@ -46,7 +46,7 @@ check_TP_grid <- function(grid_temps, grid_press, P1, water_model="SUPCRT92", ch
 
     # fourth order polynomial for the second T-P range
     poly_coeffs_2 <- lm(grid_press[4:8] ~ poly(grid_temps[4:8], 4, raw=T))$coefficients # don't touch raw=T!
-
+      
     for(T in grid_temps[1:4]){
       if(is.na(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)){
           

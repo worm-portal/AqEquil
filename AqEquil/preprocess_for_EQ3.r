@@ -183,9 +183,9 @@ preprocess <- function(input_filename,
         
       if(any(is.na(df[, "Pressure_bar"]))){
         vprint(paste("Warning: a pressure value is missing for one or more",
-          "samples in the sample input file. Defaulting to liquid vapor",
+          "samples in the sample input file. Defaulting to water",
           "saturation pressure for these missing pressures..."),
-             verbose=verbose)
+          verbose=verbose)
           
         water(water_model)
         psat_pressures <- water("Psat", T=temp_degC+273.15)[[1]]
@@ -199,7 +199,7 @@ preprocess <- function(input_filename,
       # assume PSAT if no pressure column in sample input file
 
       vprint(paste("Warning: a column for Pressure was not found in the",
-        "sample input file. Defaulting to liquid vapor saturation pressure..."),
+        "sample input file. Defaulting to water saturation pressure..."),
              verbose=verbose)
       water(water_model)
       pressure_bar <- water("Psat", T=temp_degC+273.15)[[1]]
@@ -865,9 +865,9 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
   "|  [ ] ( 1) Print                                                              |",
   "|------------------------------------------------------------------------------|",
   "|iopr(10) - Print a Tabulation of the Pitzer Interaction Coefficients:         |",
-  "|  [x] ( 0) Don't print                                                        |",
+  "|  [ ] ( 0) Don't print                                                        |",
   "|  [ ] ( 1) Print a summary tabulation                                         |",
-  "|  [ ] ( 2) Print a more detailed tabulation                                   |",
+  "|  [x] ( 2) Print a more detailed tabulation                                   |",
   "|------------------------------------------------------------------------------|",
   "|iopr(17) - PICKUP file format (\"W\" or \"D\"):                                   |",
   "|  [x] ( 0) Use the format of the INPUT file                                   |",

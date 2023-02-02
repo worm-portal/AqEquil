@@ -90,7 +90,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     """
     
     prev_wd = os.getcwd()
-    ae = AqEquil()
+    ae = AqEquil(load_thermo=False)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file("data1.dyn")
@@ -103,14 +103,12 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
             shutil.rmtree(path)
             os.makedirs(path)
             
-    os.environ['EQ36DA'] = "eq6_extra_out" # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
-            
     for sample_name in list(speciation.sample_data.keys()):
         filename_6i = speciation.sample_data[sample_name]["filename"][:-3]+".6i"
         filename_6o = filename_6i[:-3]+".6o"
         filename_6p = filename_6i[:-3]+".6p"
-
-        if isinstance(speciation.data1, dict):
+        
+        if "all_samples" not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file("eq6_extra_out/data1.dyn")
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
@@ -118,10 +116,11 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         else:
             # all samples use the same data1.
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
-                f.write(speciation.data1)
+                f.write(speciation.data1["all_samples"])
 
         ae.runeq6(filename_6i, db="dyn", path_6i="rxn_6i",
-                  dynamic_db_name=speciation.thermo_db_callname)
+                  data1_path="eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                  dynamic_db_name=speciation.thermo.thermo_db_filename)
         
         os.rename('tab', 'tab.csv')
         
@@ -131,8 +130,8 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         __delete_file("data1.dyn")
         __delete_file("data1")
         
-        if speciation.thermo_db_type == "CSV file":
-            m = Mass_Transfer(thermodata_csv=speciation.thermo_db,
+        if speciation.thermo.thermo_db_type == "CSV":
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name='tab.csv',
                               hide_traceback=hide_traceback)
@@ -277,10 +276,11 @@ class Mass_Transfer:
         collect_values = False
         for i in lines:
             if len(i.strip().split(' ')) > 1 and i.strip().split(' ')[0] == "Xi=":
-                xi_vals.append(float(i.split(' ')[-1]))
+                this_xi_val = float(i.split(' ')[-1])
             if table_stop in i:
                 collect_values = False
             if table_start in i:
+                xi_vals.append(this_xi_val) # appending here prevents mismatch where there can be more Xi vals than tables to mine
                 collect_values = True
             if collect_values:
                 if i.strip().split(' ')[0] not in ignore:
@@ -289,6 +289,11 @@ class Mass_Transfer:
         species = list(set(species))
         
         species_dict = {"Xi":xi_vals}
+        
+        if len(species) == 0:
+            df = pd.DataFrame(species_dict)
+            return df
+        
         for s in species:
 
             vals=[]
@@ -310,7 +315,7 @@ class Mass_Transfer:
                         vals.append(float(split_i_clean[col_index]))
                         got_value = True
             species_dict[s] = vals
-
+        
         df = pd.DataFrame(species_dict)
         
         if 'None' in df.columns:
@@ -820,7 +825,10 @@ class Mass_Transfer:
     def __get_mineral_elem_ox(self, mineral):
         split_list = list(self.df[self.df["name"]==mineral]["formula_ox"])[0].split()
         split_list_clean = [s.replace(" ", "") for s in split_list]
-        elem_ox_list = [re.findall(r"^(?:\d+|)([A-Z].*$)", s)[0] for s in split_list]
+        try:
+            elem_ox_list = [re.findall(r"^(?:\d+|)([A-Z].*$)", s)[0] for s in split_list_clean]
+        except:
+            elem_ox_list = []
         return elem_ox_list
 
     
