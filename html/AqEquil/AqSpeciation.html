@@ -3588,7 +3588,7 @@ class AqEquil:
             valid_sp_i = list(dict.fromkeys(valid_sp_i))
             while True:
                 valid_sp_i_before = copy.deepcopy(valid_sp_i)
-                valid_sp_i, rejected_sp_i_dict = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
+                valid_sp_i, rejected_sp_i_dict = self._check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
                 if valid_sp_i_before == valid_sp_i:
                     break
             
@@ -3601,7 +3601,7 @@ class AqEquil:
             return valid_sp_i, df_rejected_species
             
             
-    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
+    def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
         
         valid_sp_names = list(free_logK_df.iloc[valid_sp_i][&#34;name&#34;])
         
@@ -6262,6 +6262,19 @@ class Speciation(object):
 
 
     def mt(self, sample):
+        &#34;&#34;&#34;
+        Retrieve mass transfer results for a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample for which to retrieve mass transfer results.
+            
+        Returns
+        -------
+        An object of class `AqEquil.MassTransfer.Mass_Transfer`.
+        &#34;&#34;&#34;
+        
         sample_data = getattr(self, &#34;sample_data&#34;)
         return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
 </details>
@@ -9184,7 +9197,7 @@ energy supplies during speciation.</dd>
             valid_sp_i = list(dict.fromkeys(valid_sp_i))
             while True:
                 valid_sp_i_before = copy.deepcopy(valid_sp_i)
-                valid_sp_i, rejected_sp_i_dict = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
+                valid_sp_i, rejected_sp_i_dict = self._check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
                 if valid_sp_i_before == valid_sp_i:
                     break
             
@@ -9197,7 +9210,7 @@ energy supplies during speciation.</dd>
             return valid_sp_i, df_rejected_species
             
             
-    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
+    def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
         
         valid_sp_names = list(free_logK_df.iloc[valid_sp_i][&#34;name&#34;])
         
@@ -10436,35 +10449,6 @@ energy supplies during speciation.</dd>
 </details>
 <h3>Methods</h3>
 <dl>
-<dt id="AqEquil.AqSpeciation.AqEquil.check_valid_free_logK_sp_dissrxn"><code class="name flex">
-<span>def <span class="ident">check_valid_free_logK_sp_dissrxn</span></span>(<span>self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
-    
-    valid_sp_names = list(free_logK_df.iloc[valid_sp_i][&#34;name&#34;])
-    
-    rejected_sp_names = list(free_logK_df.iloc[list(rejected_sp_i_dict.keys())][&#34;name&#34;])
-
-    for i in valid_sp_i:
-        dissrxn_i = free_logK_df.iloc[i][&#34;dissrxn&#34;]
-        dissrxn_sp = dissrxn_i.split(&#34; &#34;)[1::2] # get species names from dissrxn
-        dissrxn_sp = dissrxn_sp[1:] # ignore the species itself
-        
-        for sp in dissrxn_sp:
-            if sp in rejected_sp_names and sp not in valid_sp_names and sp not in db_sp_names:
-                valid_sp_i.remove(i)
-                rejected_sp_i_dict[i] = &#34;Dissociation reaction contains the species &#34; + sp + &#34;, which has been rejected.&#34;
-                return valid_sp_i, rejected_sp_i_dict
-                
-    return valid_sp_i, rejected_sp_i_dict</code></pre>
-</details>
-</dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.create_data0"><code class="name flex">
 <span>def <span class="ident">create_data0</span></span>(<span>self, db, filename_ss=None, data0_formula_ox_name=None, suppress_redox=[], water_model='SUPCRT92', activity_model='b-dot', exceed_Ttr=True, grid_temps=[0.01, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0], grid_press='Psat', P1=True, plot_poly_fit=False, logK_extrapolate='none', infer_formula_ox=False, generate_template=True, template_name=None, template_type='strict', exclude_category={}, fill_data0=True, dynamic_db=False, dynamic_db_sample_temps=[], dynamic_db_sample_press=[], verbose=1)</span>
 </code></dt>
@@ -11912,7 +11896,7 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq3"><code class="name flex">
-<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil', path_3o='/var/lib/private/gmboyer/AqEquil', path_3p='/var/lib/private/gmboyer/AqEquil', data1_path='/var/lib/private/gmboyer/AqEquil', dynamic_db_name=None)</span>
+<span>def <span class="ident">runeq3</span></span>(<span>self, filename_3i, db, samplename=None, path_3i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_3p='/var/lib/private/gmboyer/AqEquil-dev-branch', data1_path='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ3 on a .3i input file.</p>
@@ -12032,7 +12016,7 @@ This parameter is for internal use.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
-<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil', path_6o='/var/lib/private/gmboyer/AqEquil', path_6p='/var/lib/private/gmboyer/AqEquil', data1_path='/var/lib/private/gmboyer/AqEquil', dynamic_db_name=None)</span>
+<span>def <span class="ident">runeq6</span></span>(<span>self, filename_6i, db, samplename=None, path_6i='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6o='/var/lib/private/gmboyer/AqEquil-dev-branch', path_6p='/var/lib/private/gmboyer/AqEquil-dev-branch', data1_path='/var/lib/private/gmboyer/AqEquil-dev-branch', dynamic_db_name=None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Call EQ6 on a .6i input file.</p>
@@ -15311,6 +15295,19 @@ speciation report.</dd>
 
 
     def mt(self, sample):
+        &#34;&#34;&#34;
+        Retrieve mass transfer results for a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample for which to retrieve mass transfer results.
+            
+        Returns
+        -------
+        An object of class `AqEquil.MassTransfer.Mass_Transfer`.
+        &#34;&#34;&#34;
+        
         sample_data = getattr(self, &#34;sample_data&#34;)
         return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
 </details>
@@ -15779,12 +15776,32 @@ columns in a section (if a section name is provided).</dd>
 <span>def <span class="ident">mt</span></span>(<span>self, sample)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Retrieve mass transfer results for a sample.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>sample</code></strong> :&ensp;<code>str</code></dt>
+<dd>Name of the sample for which to retrieve mass transfer results.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>An object of class <code><a title="AqEquil.MassTransfer.Mass_Transfer" href="MassTransfer.html#AqEquil.MassTransfer.Mass_Transfer">Mass_Transfer</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def mt(self, sample):
+    &#34;&#34;&#34;
+    Retrieve mass transfer results for a sample.
+    
+    Parameters
+    ----------
+    sample : str
+        Name of the sample for which to retrieve mass transfer results.
+        
+    Returns
+    -------
+    An object of class `AqEquil.MassTransfer.Mass_Transfer`.
+    &#34;&#34;&#34;
+    
     sample_data = getattr(self, &#34;sample_data&#34;)
     return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
 </details>
@@ -17737,7 +17754,6 @@ the point.</dd>
 <li>
 <h4><code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code></h4>
 <ul class="">
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.check_valid_free_logK_sp_dissrxn" href="#AqEquil.AqSpeciation.AqEquil.check_valid_free_logK_sp_dissrxn">check_valid_free_logK_sp_dissrxn</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.make_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.make_redox_reactions">make_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.plot_logK_fit" href="#AqEquil.AqSpeciation.AqEquil.plot_logK_fit">plot_logK_fit</a></code></li>

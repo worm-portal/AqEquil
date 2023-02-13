@@ -142,11 +142,11 @@ create_data0 <- function(thermo_df,
       # if this species is marked as a preferred basis species, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "basis"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"][1] == "basis"){
       # if this is marked as a basis in the data0 supplemental file, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "aux"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"][1] == "aux"){
       # if this species is an auxiliary basis species, flag and continue with aqueous formatting
       aux_basis <- TRUE
     }

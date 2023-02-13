@@ -2547,7 +2547,7 @@ class AqEquil:
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.__fill_data0(OBIGT_df=OBIGT_df,
+                self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
                                 data0_file_lines=copy.deepcopy(data0_file_lines),
                                 grid_temps=[temp_degC],
                                 grid_press=[pressure_bar],
@@ -2985,8 +2985,8 @@ class AqEquil:
 
                     ss_df_list = []
                     for ss in list(sample_solid_solutions.names):
-                        df_ss_ideal = sample_solid_solutions.rx2[ss].rx2["ideal solution"]
-                        df_ss_mineral = sample_solid_solutions.rx2[ss].rx2["mineral"]
+                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2["ideal solution"])
+                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2["mineral"])
                         df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on='mineral', right_on='component', how='left')
                         df_merged.insert(0, 'solid solution', ss)
                         del df_merged['component']
@@ -3063,7 +3063,7 @@ class AqEquil:
                                                   "P1", "P2", "P3", "P4", "P5", "P6",
                                                   "P7", "P8"],
                                         NA_string=""):
-
+        
         df.replace(NA_string, np.nan, inplace=True)
         for col in float_cols:
             if col in df.columns:
@@ -3560,7 +3560,7 @@ class AqEquil:
             valid_sp_i = list(dict.fromkeys(valid_sp_i))
             while True:
                 valid_sp_i_before = copy.deepcopy(valid_sp_i)
-                valid_sp_i, rejected_sp_i_dict = self.check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
+                valid_sp_i, rejected_sp_i_dict = self._check_valid_free_logK_sp_dissrxn(valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names)
                 if valid_sp_i_before == valid_sp_i:
                     break
             
@@ -3573,7 +3573,7 @@ class AqEquil:
             return valid_sp_i, df_rejected_species
             
             
-    def check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
+    def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
         
         valid_sp_names = list(free_logK_df.iloc[valid_sp_i]["name"])
         
@@ -3801,8 +3801,9 @@ class AqEquil:
                 grid_or_sample_press = dynamic_db_sample_press
             else:
                 grid_or_sample_press = grid_press
-                
+            
             free_logK_df = self.__clean_rpy2_pandas_conversion(self.thermo.logK_db)
+
             valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
@@ -3874,6 +3875,7 @@ class AqEquil:
 #         thermo_df["tag"] = thermo_df["tag"].astype(str)
 
         thermo_df = self.__clean_rpy2_pandas_conversion(thermo_df)
+
         ro.conversion.py2rpy(thermo_df)
         
         out_list = ro.r.suppress_redox_and_generate_dissrxns(thermo_df=ro.conversion.py2rpy(thermo_df),
@@ -3891,6 +3893,7 @@ class AqEquil:
         self.__print_captured_r_output()
         
         OBIGT_df = out_list.rx2("OBIGT_df")
+        OBIGT_df=ro.conversion.rpy2py(OBIGT_df)
         
 #         regenerated_dissrxns = out_list.rx2("dissrxns")
         
@@ -3898,7 +3901,8 @@ class AqEquil:
 #         for name in regenerated_dissrxns.names:
 #             if name != "basis_list":
 #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
-        
+
+
         OBIGT_df = self.__clean_rpy2_pandas_conversion(OBIGT_df)
         
         # convert E units and calculate missing GHS values
@@ -3953,7 +3957,7 @@ class AqEquil:
         if fill_data0:
             
             # begin TP-dependent processes
-            self.__fill_data0(OBIGT_df=OBIGT_df,
+            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
                             data0_file_lines=copy.deepcopy(data0_file_lines),
                             grid_temps=grid_temps,
                             grid_press=grid_press,
@@ -4645,7 +4649,7 @@ class AqEquil:
                         test_df.iloc[i, j-2] = test_df.iloc[i, j]
                         test_df.iloc[i, j] = ''
 
-        file = test_df.to_csv(sep='\t', header=False, index=False, line_terminator='\n')
+        file = test_df.to_csv(sep='\t', header=False, index=False, lineterminator='\n')
 
         file = file.split("\n") #not sure if I should keep this
         
@@ -5858,8 +5862,8 @@ class Speciation(object):
             for species in sort_y_by:
                 if species not in df_sp["species"]:
                     for sample in set(df_sp["sample"]):
-                        df2 = {'sample':sample, 'basis':basis, 'species':species, 'factor':None, 'molality':None, 'percent':0}
-                        df_sp = df_sp.append(df2, ignore_index=True)
+                        df2 = pd.DataFrame({'sample':[sample], 'basis':[basis], 'species':[species], 'factor':[None], 'molality':[None], 'percent':[0]})
+                        df_sp = pd.concat([df_sp, df2], ignore_index=True)
     
         if sort_by != None:
             if sort_by in self.report.columns.get_level_values(0):
@@ -6234,5 +6238,18 @@ class Speciation(object):
 
 
     def mt(self, sample):
+        """
+        Retrieve mass transfer results for a sample.
+        
+        Parameters
+        ----------
+        sample : str
+            Name of the sample for which to retrieve mass transfer results.
+            
+        Returns
+        -------
+        An object of class `AqEquil.MassTransfer.Mass_Transfer`.
+        """
+        
         sample_data = getattr(self, "sample_data")
         return sample_data[sample]["mass_transfer"]

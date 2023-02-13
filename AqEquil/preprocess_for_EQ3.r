@@ -172,12 +172,15 @@ preprocess <- function(input_filename,
     }else{
       stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))
     }
-      
+    
     if(strict_minimum_pressure){
-      if(pressure_bar < minimum_pressure){
-        pressure_bar <- rep(minimum_pressure, length(temp_degC))
+      for(i in 1:length(pressure_bar)){
+        if(pressure_bar[i] < minimum_pressure){
+          pressure_bar[i] <- minimum_pressure
+        }
       }
     }
+      
   }else{
     if("Pressure_bar" %in% colnames(df)){
         
@@ -538,7 +541,7 @@ write_3i_file <- function(df,
   "|Temperature (C)         | ", sep="\n")
 
   eq3.temperature <- sprintf("%.5E", temp_degC[row])
-  
+    
   if (pressure_override){
     eq3.header3 <-              paste("| (tempc)                                |",
       "|------------------------------------------------------------------------------|",

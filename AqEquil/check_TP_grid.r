@@ -29,16 +29,16 @@ check_TP_grid <- function(grid_temps, grid_press, P1, water_model="SUPCRT92", ch
   
   # round grid temperatures to four decimal places
   grid_temps <- round(grid_temps, 4)
-
+    
   # calculate PSAT pressure if specified by user or if pressure grid
   # has a number of values that does not equal temperature grid length.
-  if(tolower(grid_press) == "psat"){
-      vmessage("Calculating pressure grid along liquid-vapor saturation curve...", 2, verbose)
-      grid_press <- water("Psat", T=grid_temps+273.15, P1=P1)[[1]]
-  }else{
-    grid_press <- as.numeric(grid_press)
+  if(tolower(grid_press[1]) == "psat"){
+    vmessage("Calculating pressure grid along liquid-vapor saturation curve...", 2, verbose)
+    grid_press <- water("Psat", T=grid_temps+273.15, P1=P1)[[1]]
   }
-
+    
+  grid_press <- as.numeric(grid_press)
+    
   # check TP polynomial
   if(length(grid_temps) == 8){
     # third order polynomial for the first T-P range
@@ -115,7 +115,7 @@ check_TP_grid <- function(grid_temps, grid_press, P1, water_model="SUPCRT92", ch
         
     
   }
-
+    
   return(list("grid_temps"=grid_temps, "grid_press"=grid_press,
               "poly_coeffs_1"=poly_coeffs_1, "poly_coeffs_2"=poly_coeffs_2))
 }

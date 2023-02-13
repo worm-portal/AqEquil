@@ -324,8 +324,11 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     sp_name = unique(sp_name)
   }
     
+  
+    
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
+      
     basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (thermo_df[, "name"])
     basis_elem <- c(basis_elem, names(basis_pref))
   }else{
@@ -350,7 +353,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 #     missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
 #     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
 #   }
-
+                   
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
@@ -368,7 +371,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 
     # get formula makeup of potential basis species
     frm_mkup <- lapply(unlist(lapply(lapply(lapply(basis_list[[elem]], FUN=info), FUN=info), `[`, "formula")), makeup)
-        
+      
     # if possible, narrow down this list to basis species with a matching element abundance of 1
     abund1 <- unlist(lapply(frm_mkup, function(x) x[elem]==1))
     if(sum(abund1 != 0)){
@@ -897,8 +900,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
     mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
   })
-
-
+                                   
   # begin handling basis preferences
   basis_df <- thermo_df %>%
     filter(tag=="basis")
@@ -963,7 +965,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     aux_pref <- list()
     aux_pref_names <- c()
   }
-                           
+                                   
   # EQ3 has Cl-, H2O, and O2(g) hard-coded as basis species for the
   # elements Cl, H, and O, respectively.
   basis_pref["Cl"] <- "Cl-"
@@ -1019,7 +1021,8 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   for(species in thermo_df[, "name"]){
     
     tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
-    if(tag != "basis"){
+      
+    if(tag[1] != "basis"){
       dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
       dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
       dissrxn_names <- dissrxn[c(FALSE, TRUE)] # get names of reactants and products
@@ -1125,7 +1128,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
   }
-                    
+                                   
   # generate dissociation reactions
   dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,

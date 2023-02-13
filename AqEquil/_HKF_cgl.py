@@ -56,18 +56,12 @@ def calc_G_TP(OBIGT, Tc, P, water_model):
     
     # add a row for water
     if "H2O" not in list(OBIGT["name"]):
-        OBIGT = OBIGT.append(pd.DataFrame([[float('NaN')] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('name')] = "H2O"
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('tag')] = "nan"
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('G_TP')] = float(water("G", water_model, T=Tc+273.15, P=P)["G"])
+        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H2O", "tag": "nan", "G_TP": float(ro.conversion.rpy2py(water("G", water_model, T=Tc+273.15, P=P))["G"])}, index=[OBIGT.shape[0]])], ignore_index=True)
         rows_added += 1
 
     # add a row for protons
     if "H+" not in list(OBIGT["name"]):
-        OBIGT = OBIGT.append(pd.DataFrame([[float('NaN')] * len(OBIGT.columns)], columns=OBIGT.columns), ignore_index=True)
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('name')] = "H+"
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('tag')] = "nan"
-        OBIGT.iloc[-1, OBIGT.columns.get_loc('G_TP')] = 0
+        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H+", "tag": "nan", "G_TP": 0}, index=[OBIGT.shape[0]])], ignore_index=True)
         rows_added += 1
     
     return OBIGT, rows_added
@@ -178,8 +172,9 @@ def hkf(property=None, parameters=None, T=298.15, P=1,
       # using DEW model: get beta to calculate dgdP
       H2O_props += ["beta"]
     
-    H2O_PrTr = water(H2O_props, water_model, T=Tr, P=Pr) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps
-    H2O_PT = water(H2O_props, water_model, T=T, P=P) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps
+    H2O_PrTr = ro.conversion.rpy2py(water(H2O_props, water_model, T=Tr, P=Pr)) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps
+    H2O_PT = ro.conversion.rpy2py(water(H2O_props, water_model, T=T, P=P)) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps
+    
     ZBorn = -1 / H2O_PT.loc["1", "epsilon"]
     ZBorn_PrTr = -1 / H2O_PrTr.loc["1", "epsilon"]
     
