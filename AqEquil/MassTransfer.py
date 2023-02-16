@@ -53,7 +53,13 @@ def __move_file(file, destination_dir, silent=False):
             print("Could not move", file, "to", destination_dir)
 
         
-def react(speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True):
+def react(speciation,
+          reaction_setup,
+          delete_generated_folders=False,
+          hide_traceback=True,
+          eq36da=os.environ.get('EQ36DA'),
+          eq36co=os.environ.get('EQ36CO'),
+         ):
     
     """
     Calculate how speciated water reacts with minerals and/or gases.
@@ -90,7 +96,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     """
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file("data1.dyn")
@@ -117,33 +123,23 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
             # all samples use the same data1.
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
                 f.write(speciation.data1["all_samples"])
-
-        ae.runeq6(filename_6i, db="dyn", path_6i="rxn_6i",
+                
+        ae.runeq6(filename_6i,
+                  db="dyn",
+                  path_6i="rxn_6i",
+                  path_6o="rxn_6o",
+                  path_6p="rxn_6p",
+                  path_extra_out="eq6_extra_out",
                   data1_path="eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
-        os.rename('tab', 'tab.csv')
-        
-        __move_file(filename_6o, "rxn_6o")
-        __move_file(filename_6p, "rxn_6p")
-
-        __delete_file("data1.dyn")
-        __delete_file("data1")
         
         if speciation.thermo.thermo_db_type == "CSV":
             m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file='rxn_6o/'+filename_6o,
-                              tab_name='tab.csv',
+                              tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
-    
-    __move_file("bakupa", "eq6_extra_out", silent=True)
-    __move_file("bakupb", "eq6_extra_out", silent=True)
-    __move_file("tabx", "eq6_extra_out", silent=True)
-    __move_file('tab.csv', "eq6_extra_out", silent=True)
-    __delete_file("eq6_extra_out/data1.dyn")
-    __delete_file("data1")
         
     if delete_generated_folders:
         __delete_dir("eq6_extra_out")

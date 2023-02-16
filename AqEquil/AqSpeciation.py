@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -126,7 +126,7 @@ def load(filename, messages=True, hide_traceback=True):
     if len(filename) <= 12:
         print("Attempting to load "+str(filename)+".speciation ...")
         filename = filename+".speciation"
-        
+    
     if 'speciation' in filename[-11:]:
         if os.path.exists(filename) and os.path.isfile(filename):
             pass
@@ -1117,9 +1117,6 @@ class AqEquil:
         self.verbose = verbose
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
-
-        os.environ['EQ36DA'] = self.eq36da  # set eq3 db directory
-        os.environ['EQ36CO'] = self.eq36co  # set eq3 .exe directory
         
         self.raw_input_dict = {}
         self.raw_output_dict = {}
@@ -1190,6 +1187,7 @@ class AqEquil:
         }
 
         if ext in filename[-4:]:
+            
             if os.path.exists(filename) and os.path.isfile(filename):
                 return True
             else:
@@ -1443,26 +1441,26 @@ class AqEquil:
             os.remove("data1."+db)
 
         self.__move_eqpt_extra_output()
-
-        os.environ['EQ36DA'] = os.getcwd()
-
-        args = ['/bin/csh', self.eq36co+'/runeqpt', db]
+        
+        args = ["cd", os.getcwd(), ";", self.eq36co+'/eqpt', os.getcwd()+"/data0."+db]
+        args = " ".join(args)
 
         try:
             self.__run_script_and_wait(args) # run EQPT
         except:
-            os.environ['EQ36DA'] = self.eq36da
             self.err_handler.raise_exception(
                 "Error: EQPT failed to run on {}.".format("data0."+db))
-            
+
         if os.path.exists("data1") and os.path.isfile("data1"):
             os.rename("data1", "data1."+db)
-        if os.path.exists("output") and os.path.isfile("output"):
-            os.rename("output", "eqpt_log.txt")
-        if os.path.exists("data1f") and os.path.isfile("data1f"):
-            os.rename("data1f", "data1f.txt")
-        if os.path.exists("slist") and os.path.isfile("slist"):
-            os.rename("slist", "slist.txt")
+        if os.path.exists("data0.d1") and os.path.isfile("data0.d1"):
+            os.rename("data0.d1", "data1."+db)
+        if os.path.exists("data0.po") and os.path.isfile("data0.po"):
+            os.rename("data0.po", "eqpt_log.txt")
+        if os.path.exists("data0.d1f") and os.path.isfile("data0.d1f"):
+            os.rename("data0.d1f", "data1f.txt")
+        if os.path.exists("data0.s") and os.path.isfile("data0.s"):
+            os.rename("data0.s", "slist.txt")
 
         if os.path.exists("data1."+db) and os.path.isfile("data1."+db):
             if self.verbose > 0:
@@ -1479,17 +1477,15 @@ class AqEquil:
         
         self.__move_eqpt_extra_output()
 
-        os.environ['EQ36DA'] = self.eq36da  # reset default EQ36 db path
-
     
     def runeq3(self,
                filename_3i,
                db,
                samplename=None,
-               path_3i=os.getcwd(),
-               path_3o=os.getcwd(),
-               path_3p=os.getcwd(),
-               data1_path=os.getcwd(),
+               path_3i="",
+               path_3o="",
+               path_3p="",
+               data1_path="",
                dynamic_db_name=None):
         
         """
@@ -1522,9 +1518,7 @@ class AqEquil:
 
         # get current working dir
         cwd = os.getcwd()
-        
-        # set data0 path
-        os.environ['EQ36DA'] = data1_path
+        cwdd = cwd + "/"
         
         if samplename == None:
             samplename = filename_3i[:-3]
@@ -1533,56 +1527,60 @@ class AqEquil:
             print('Using ' + db + ' to speciate ' + samplename)
         elif self.verbose > 0 and isinstance(dynamic_db_name, str):
             print('Using ' + dynamic_db_name + ' to speciate ' + samplename)
-
-        args = ['/bin/csh', self.eq36co+'/runeq3', db, path_3i + "/" + filename_3i]
+            
+        args = ["cd", cwdd+path_3i, ";", # change directory to where 3i files are stored
+                self.eq36co + '/eq3nr', # path to EQ3NR executable
+                cwdd + data1_path + "/data1." + db, # path to data1 file
+                cwdd + path_3i + "/" + filename_3i] # path to 3i file
+        
+        args = " ".join(args)
         
         self.__run_script_and_wait(args) # run EQ3
-
+        
         filename_3o = filename_3i[:-1] + 'o'
         filename_3p = filename_3i[:-1] + 'p'
         
-        try:
-            # rename output
-            os.rename('output', filename_3o)
-        except:
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_3o = [file for file in os.listdir(cwdd + path_3i) if ".3o" in file]
+        files_3p = [file for file in os.listdir(cwdd + path_3i) if ".3p" in file]
+        
+        if len(files_3o) == 0:
             if self.verbose > 0:
                 print('Error: EQ3 failed to produce output for ' + filename_3i)
-                
-        try:
-            # move output
-            shutil.move(filename_3o,
-                        path_3o + "/" + filename_3o)
-        except:
-            if self.verbose > 0:
-                print('Error: Could not move', filename_3o, "to", path_3o)
-
-        try:
-            # rename pickup
-            os.rename('pickup', filename_3p)
-            move_pickup = True
-        except:
-            if self.verbose > 0:
-                print('Error: EQ3 failed to produce a pickup file for ' + filename_3i)
-            move_pickup = False
-        
-        if move_pickup:
+        elif len(files_3o) == 1:
+            file_3o = files_3o[0]
             try:
-                # move pickup
-                shutil.move(filename_3p,
-                            path_3p + "/" + filename_3p)
+                # move output
+                shutil.move(cwdd + path_3i+"/"+file_3o, cwdd + path_3o+"/"+filename_3o)
             except:
-                if self.verbose > 0:
-                    print('Error: Could not move', filename_3p, "to", path_3p)
+                self.err_handler.raise_exception("Error: could not move", path_3i+"/"+file_3o, "to", path_3o+"/"+filename_3o)
+        else:
+            self.err_handler.raise_exception("Error: multiple output files detected for one speciation calculation.")
+            
+        if len(files_3p) == 0:
+            if self.verbose > 0:
+                print('Error: EQ3 failed to produce output for ' + filename_3i)
+        elif len(files_3p) == 1:
+            file_3p = files_3p[0]
+            try:
+                # move output
+                shutil.move(cwdd + path_3i+"/"+file_3p, cwdd + path_3p+"/"+filename_3p)
+            except:
+                self.err_handler.raise_exception("Error: could not move", path_3i+"/"+file_3p, "to", path_3p+"/"+filename_3p)
+        else:
+            self.err_handler.raise_exception("Error: multiple pickup files detected for one speciation calculation.")
 
                     
     def runeq6(self,
                filename_6i,
                db,
                samplename=None,
-               path_6i=os.getcwd(),
-               path_6o=os.getcwd(),
-               path_6p=os.getcwd(),
-               data1_path=os.getcwd(),
+               path_6i="",
+               path_6o="",
+               path_6p="",
+               path_extra_out="",
+               data1_path="",
                dynamic_db_name=None):
         
         """
@@ -1597,13 +1595,24 @@ class AqEquil:
             Three letter code of database.
         
         path_6i : path str, default current working directory
-            Path of .6i input files.
+            Path of directory containing .6i input files.
             
         path_6o : path str, default current working directory
-            Path of .6o output files.
+            Path of directory where .6o output files will be produced.
         
         path_6p : path str, default current working directory
-            Path of .6p pickup files.
+            Path of directory where .6p pickup files will be produced.
+            
+        path_extra_out : path str, default current working directory
+            Path of directory where additional output files, such as tab files,
+            will be produced.
+            
+        data1_path : path str, default current working directory
+            Path of directory where the data1 thermodynamic database file is
+            stored. The data1 file will be called from this location to
+            perform the speciation. The data1 file must be named
+            data1.xyz, where xyz matches `db`, the three letter code of your
+            chosen database.
             
         dynamic_db_name : str
             Database name to be printed if dynamic databases are being used.
@@ -1612,9 +1621,7 @@ class AqEquil:
 
         # get current working dir
         cwd = os.getcwd()
-        
-        # set data0 path
-        os.environ['EQ36DA'] = data1_path
+        cwdd = cwd + "/"
         
         if samplename == None:
             samplename = filename_6i[:-3]
@@ -1623,49 +1630,68 @@ class AqEquil:
             print('Using ' + db + ' to react ' + samplename)
         elif self.verbose > 0 and isinstance(dynamic_db_name, str):
             print('Using ' + dynamic_db_name + ' to react ' + samplename)
-            
-        args = ['/bin/csh', self.eq36co+'/runeq6', db, path_6i + "/" + filename_6i]
 
+        args = ["cd", cwdd+path_6i, ";", # change directory to 6i folder
+                self.eq36co+'/eq6', # path of EQ6 executable
+                cwdd+data1_path+"/data1."+db, # path of data1 file
+                cwdd+path_6i + "/" + filename_6i] # path of 6i file
+        
+        args = " ".join(args)
+        
         self.__run_script_and_wait(args) # run EQ6
-
-
+        
         filename_6o = filename_6i[:-1] + 'o'
         filename_6p = filename_6i[:-1] + 'p'
+        filename_6ba = filename_6i[:-1] + 'ba'
+        filename_6bb = filename_6i[:-1] + 'bb'
+        filename_6t = filename_6i[:-2] + 'csv'
+        filename_6tx = filename_6i[:-1] + 'tx'
 
-        try:
-            # rename output
-            os.rename('output', filename_6o)
-        except:
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6o"]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6p"]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6ba"]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6bb"]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6t"]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6tx"]
+        
+        if len(files_6o) == 0:
             if self.verbose > 0:
                 print('Error: EQ6 failed to produce output for ' + filename_6i)
-
-        try:
-            # move output
-            shutil.move(filename_6o,
-                        path_6o + "/" + filename_6o)
-        except:
-            if self.verbose > 0:
-                print('Error: Could not move', filename_6o, "to", path_6o)
-
-        try:
-            # rename pickup
-            os.rename('pickup', filename_6p)
-            move_pickup = True
-        except:
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+"/"+file_6o, cwdd+path_6o+"/"+filename_6o)
+                shutil.move(cwdd+path_6i+"/"+file_6ba, cwdd+path_extra_out+"/"+filename_6ba)
+                shutil.move(cwdd+path_6i+"/"+file_6bb, cwdd+path_extra_out+"/"+filename_6bb)
+                shutil.move(cwdd+path_6i+"/"+file_6t, cwdd+path_extra_out+"/"+filename_6t)
+                shutil.move(cwdd+path_6i+"/"+file_6tx, cwdd+path_extra_out+"/"+filename_6tx)
+            except:
+                self.err_handler.raise_exception("Error: could not move", path_6i+"/"+file_6o, "to", path_6o+"/"+filename_6o)
+        
+        else:
+            self.err_handler.raise_exception("Error: multiple output files detected for one mass transfer calculation.")
+            
+        if len(files_6p) == 0:
             if self.verbose > 0:
                 print('Error: EQ6 failed to produce a pickup file for ' + filename_6i)
-            move_pickup = False
-        
-        if move_pickup:
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
             try:
-                # move pickup
-                shutil.move(filename_6p,
-                            path_6p + "/" + filename_6p)
+                # move output
+                shutil.move(cwdd+path_6i+"/"+file_6p, cwdd+path_6p+"/"+filename_6p)
             except:
-                if self.verbose > 0:
-                    print('Error: Could not move', filename_6p, "to", path_6p)
-                    
-                    
+                self.err_handler.raise_exception("Error: could not move", path_6i+"/"+file_6p, "to", path_6p+"/"+filename_6p)
+        else:
+            self.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
+        
+                
     def __mk_check_del_directory(self, path):
         
         """
@@ -1687,7 +1713,7 @@ class AqEquil:
         """
         
         # DEVNULL and STDOUT needed to suppress all warnings
-        subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT).wait()
+        subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, shell=True).wait()
 
             
     def _delete_rxn_folders(self):
@@ -2357,7 +2383,7 @@ class AqEquil:
                     if self.verbose > 0:
                         print('Error: Could not move', "data1."+data0_lettercode, "to eqpt_files")
             
-            os.environ['EQ36DA'] = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+            data1_path = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
             
             data0_path = "data0." + data0_lettercode
             
@@ -2494,7 +2520,7 @@ class AqEquil:
                     ao += ["0"]
                 alter_options_dict[key] = _convert_to_RVector(list(ao[1:]))
         alter_options = ro.ListVector(alter_options_dict)
-            
+        
         input_dir = "rxn_3i"
         output_dir = "rxn_3o"
         pickup_dir = "rxn_3p"
@@ -2574,7 +2600,7 @@ class AqEquil:
                         if self.verbose > 0:
                             print('Error: Could not move', "data1."+data0_lettercode, "to eqpt_files")
 
-                os.environ['EQ36DA'] = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                data1_path = "eqpt_files" # creating a folder name without spaces to store the data1 overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
 
                 data0_path = "data0." + data0_lettercode
                 
@@ -2629,9 +2655,10 @@ class AqEquil:
             self.runeq3(filename_3i=filename_3i,
                         db=data0_lettercode,
                         samplename=samplename,
-                        path_3i=input_dir, path_3o=output_dir,
+                        path_3i=input_dir,
+                        path_3o=output_dir,
                         path_3p=pickup_dir,
-                        data1_path=os.environ['EQ36DA'],
+                        data1_path=data1_path,
                         dynamic_db_name=dynamic_db_name)
             
             # store input, output, and pickup as dicts in AqEquil object
@@ -2658,7 +2685,6 @@ class AqEquil:
                 shutil.move("data0.dyn", "rxn_data0/"+filename_3i[0:-3]+"_data0.dat")
 
         if self.thermo.custom_data0:
-            os.environ['EQ36DA'] = self.eq36da
             # delete straggling data1 files generated after running eq3
             if os.path.exists("data1") and os.path.isfile("data1"):
                 os.remove("data1")

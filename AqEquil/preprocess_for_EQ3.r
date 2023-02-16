@@ -930,8 +930,7 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
                       redox_block, eq3.header6, aqueous_block,
                       eq3.ender1, alter_block, eq3.ender2, eq3.ender3,
                       collapse = "")
-
-
+    
   write(this_file, paste0(input_dir, "/", eq3.filename), append=FALSE)
 
   return(warned_about_redox_column)
