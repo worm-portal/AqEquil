@@ -173,13 +173,14 @@ class Mass_Transfer:
         the point.
     
     """
-    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True):
+    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1):
         
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
+        self.verbose = verbose
         
         self.inactive_species = self.__get_inactive_species()
         
@@ -543,7 +544,8 @@ class Mass_Transfer:
         self.P = float(self.tab["Table B1 Miscellaneous parameters I"]["Press(bars)"][0])
         self.path_margin = path_margin
         
-        minerals_formed = list(self.tab["Table P Moles of product minerals"].columns[2:])
+        #minerals_formed = list(self.tab["Table P Moles of product minerals"].columns[2:])
+        minerals_formed = [m for m in self.moles_minerals.columns if m != "Xi"]
 
         all_elements_of_interest = []
         for mineral in minerals_formed:
@@ -559,6 +561,8 @@ class Mass_Transfer:
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
+        
+        fig_list = []
         
         # if there are only 2 elements of interest, these become the axes, and there is no
         # need to fuss with real vs projected points.
@@ -720,6 +724,9 @@ class Mass_Transfer:
                                                     first_pass=False)
 
                 fig_list.append(fig)
+        
+        if not fig_list and self.verbose > 0:
+            print("Warning: a reaction path plot could not be generated for this system.")
         
         return fig_list
         
