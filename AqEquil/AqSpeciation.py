@@ -3752,7 +3752,7 @@ class AqEquil:
             self.err_handler.raise_exception("Grid temperatures must be below 10k °C.")
         
         if isinstance(grid_press, list):
-            if sum([P >= 10000 for P in grid_press]):
+            if sum([P >= 10000 for P in grid_press]) and water_model != "DEW":
                 self.err_handler.raise_exception("Grid pressures must be below 10 kilobars.")
 
         if water_model == "SUPCRT92":
