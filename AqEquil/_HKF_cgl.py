@@ -166,11 +166,11 @@ def hkf(property=None, parameters=None, T=298.15, P=1,
     
     elif water_model == "IAPWS95":
       # using IAPWS-95: NBorn, UBorn - for compressibility, expansibility
-      H2O_props += ["NBorn", "UBorn"]
+      H2O_props += ["alpha", "daldT", "beta", "NBorn", "UBorn"]
     
     elif water_model == "DEW":
       # using DEW model: get beta to calculate dgdP
-      H2O_props += ["beta"]
+      H2O_props += ["alpha", "daldT", "beta"]
     
     H2O_PrTr = ro.conversion.rpy2py(water(H2O_props, water_model, T=Tr, P=Pr)) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps
     H2O_PT = ro.conversion.rpy2py(water(H2O_props, water_model, T=T, P=P)) # pyCHNOSZ's water function does not handle lists yet, hence splitting this into two steps

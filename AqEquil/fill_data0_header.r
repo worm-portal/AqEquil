@@ -56,10 +56,21 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
     Aphi_DH_grid <- (A_DH_grid*2.303)/3
     Aphi_DH_grid_f <- as.character(format(round(Aphi_DH_grid, 4), nsmall = 4, scientific=F))
   }
+
+  # Ensure that the number of characters expressing pressure allows for spaces between values in the header
+  # e.g., avoid a line like: 50000.000050000.000050000.000050000.0000
+  # This is important for DEW calculations
+  if(nchar(as.character(format(round(grid_press[1], 4), nsmall=4, scientific=F))) == 10){
+    pdig <- 3
+  }else if (nchar(as.character(format(round(grid_press[1], 4), nsmall=4, scientific=F))) < 10){
+    pdig <- 4
+  }else{
+    # 
+  }
       
   # format grid values
   grid_temps_f <- as.character(format(round(grid_temps, 4), nsmall = 4, scientific=F))
-  grid_press_f <- as.character(format(round(grid_press, 4), nsmall = 4, scientific=F))
+  grid_press_f <- as.character(format(round(grid_press, pdig), nsmall = pdig, scientific=F))
   A_DH_grid_f <- as.character(format(round(A_DH_grid, 4), nsmall = 4, scientific=F))
   B_DH_grid_f <- as.character(format(round(B_DH_grid, 4), nsmall = 4, scientific=F))
 

@@ -954,7 +954,7 @@ class Thermodata:
             if header not in thermo_df.columns:
                 missing_headers.append(header)
         if len(missing_headers) > 0:
-            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+            msg = ("The thermodynamic database file "
                    "is missing one or more required columns: "
                    "{}".format(", ".join(missing_headers))+". "
                    "Are these headers spelled correctly in the file?")
@@ -967,7 +967,7 @@ class Thermodata:
             if species not in list(thermo_df["name"]):
                 missing_species.append(species)
         if len(missing_species) > 0:
-            msg = ("The thermodynamic database file '{}'".format(filename)+" "
+            msg = ("The thermodynamic database file "
                    "is missing required species:"
                    "{}".format(missing_species)+". Default thermodynamic values"
                    " will be used.")
