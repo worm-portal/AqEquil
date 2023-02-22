@@ -620,6 +620,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                               suppress_redox,
                               infer_formula_ox,
                               exclude_category,
+                              element_df,
                               fixed_species=c("H2O", "H+", "O2(g)", "water", "Cl-", "e-"),
                               verbose=1){
     
@@ -685,11 +686,9 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     redox_elem_states[[elem]] <- redox_entry
 
   }
-    
-  # Assign Americium a mass of 223 in the CHNOSZ element database.
-  e <- thermo()$element
-  e[e[,"element"] == "Am", "mass"] <- 223
-  thermo(element = e)
+
+  # use element dataframe
+  thermo(element = element_df)
     
   # Add oxidation-separated elements to CHNOSZ's database of elements
   # element, state, source, mass, s, n

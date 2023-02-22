@@ -476,6 +476,12 @@ class Thermodata:
         - The URL of a CSV file containing thermodynamic data, e.g.,
         "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
     
+    elements : str
+        Filepath of a CSV file containing parameters for elements, e.g.,
+        "my_elements.csv". If `db` is set to "WORM" and `elements` is not
+        defined, then parameters for elements will be retrieved from
+        "elements.csv" at https://github.com/worm-portal/WORM-db
+    
     solid_solutions : str
         Filepath of a CSV file containing parameters for solid solutions, e.g.,
         "my_solid_solutions.csv". If `db` is set to "WORM" and `solid_solutions`
@@ -531,8 +537,10 @@ class Thermodata:
     
     def __init__(self,
                  db = "WORM",
+                 elements=None,
                  solid_solutions=None,
                  logK=None,
+                 logK_S=None,
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_category={},
@@ -578,6 +586,12 @@ class Thermodata:
         self.csv_db_source = None
         self.csv_db_filename = None
         
+        # element attributes
+        self.element_db = None
+        self.element_db_source = None
+        self.element_db_filename = None
+        self.element_active = None
+        
         # solid solution attributes
         self.solid_solutions_active = False
         self.solid_solution_db = None
@@ -591,6 +605,12 @@ class Thermodata:
         self.logK_db_source = None
         self.logK_db_filename = None
         
+        # logK attributes
+        self.logK_S_active = False
+        self.logK_S_db = None
+        self.logK_S_db_source = None
+        self.logK_S_db_filename = None
+        
         self.verbose=verbose
         
         if db == "WORM":
@@ -598,18 +618,33 @@ class Thermodata:
                 print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
             self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
             self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+            if elements == None:
+                self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
             if solid_solutions == None:
                 self._load_solid_solutions("https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv", source="URL", download_csv_files=download_csv_files)
             if logK == None:
                 self._load_logK("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv", source="URL", download_csv_files=download_csv_files)
-            
+            if logK_S == None:
+                self._load_logK_S("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv", source="URL", download_csv_files=download_csv_files)
         else:
             self._set_active_db(db=self.db, download_csv_files=download_csv_files)
 
+        # elements must be loaded if thermo_db_type is a CSV
+        if elements != None:
+            self._load_elements(elements, source="file")
+        if not self.element_active and self.thermo_db_type=="CSV":
+            self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
+            
         if solid_solutions != None:
             self._load_solid_solutions(solid_solutions, source="file")
+            
         if logK != None:
             self._load_logK(logK, source="file")
+            
+        # must be loaded after the logK database
+        if logK_S != None:
+            self._load_logK_S(logK_S, source="file")
+        
         
     def _set_active_db(self, db=None, download_csv_files=False):
         """
@@ -793,6 +828,37 @@ class Thermodata:
         return filename, txt_content
         
         
+    def _load_elements(self, db, source="url", download_csv_files=False):
+        """
+        Load an element database CSV file from a file or URL.
+        """
+        
+        if source == "file":
+            # e.g., "elements.csv"
+            if os.path.exists(db) and os.path.isfile(db):
+                self.element_db = pd.read_csv(db)
+                self.element_db_source = "file"
+                self.element_db_filename = db
+            else:
+                self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
+                
+        elif source == "URL":
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv"
+            self.element_db_filename, self.element_db = self.__df_from_url(db, download_csv_files=download_csv_files)
+            self.element_db_source = "URL"
+        else:
+            if self.verbose > 0:
+                print("No element database loaded.")
+
+        if self.thermo_db_type == "CSV":
+            if self.verbose > 0:
+                print("Element database", self.element_db_filename, "is active.")
+            self.element_active = True
+        else:
+            if self.verbose > 0:
+                print("Element database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
+        
+        
     def _load_solid_solutions(self, db, source="url", download_csv_files=False):
         """
         Load a solid solution database CSV file from a file or URL.
@@ -856,6 +922,151 @@ class Thermodata:
                 print("LogK database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
         
         self.logK_db = self._exclude_category(df=self.logK_db, df_name=self.logK_db_filename)
+        
+        
+    def _load_logK_S(self, db, source="URL", download_csv_files=False):
+        """
+        Load a logK_S database CSV file from a file or URL.
+        """
+        
+        if source == "file":
+            # e.g., "logK_S.csv"
+            if os.path.exists(db) and os.path.isfile(db):
+                self.logK_S_db = pd.read_csv(db)
+                self.logK_S_db_source = "file"
+                self.logK_S_db_filename = db
+            else:
+                self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
+                
+        elif source == "URL":
+            # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv"
+            self.logK_S_db_filename, self.logK_S_db = self.__df_from_url(db, download_csv_files=download_csv_files)
+            self.logK_S_db_source = "URL"
+            
+        else:
+            if self.verbose > 0:
+                print("No logK_S database loaded.")
+                
+        if self.logK_active and self.element_active:
+            if self.verbose > 0:
+                print("LogK_S database", self.logK_S_db_filename, "is active.")
+            self.logK_S_active = True
+        else:
+            if self.verbose > 0:
+                print("LogK_S database is not active because there is no active logK database.")
+        
+        self.logK_S_db = self._exclude_category(df=self.logK_S_db, df_name=self.logK_S_db_filename)
+        
+        if self.logK_S_active:
+            for i,sp in enumerate(self.logK_S_db["name"]):
+                
+                T_list = self.logK_S_db["T_vals"][i].split(" ")
+                T_list = [float(T) for T in T_list]
+                
+                logK_25C = float(self.logK_S_db["logK_25"][i])
+                Delta_S = float(self.logK_S_db["DeltaS"][i])
+                
+                logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
+                
+                if len(self.logK_S_db["ligand_element"][i]) > 0:
+                    # modify element database with pseudoelements
+                    pseudoelement = self.logK_S_db["ligand_element"][i]
+                    if pseudoelement not in self.element_db["element"]:
+                        e_df = pd.DataFrame(
+                            {'element':[self.logK_S_db["ligand_element"][i]],
+                             'state':[self.logK_S_db["state"][i]],
+                             'source':[self.logK_S_db["ligand_name"][i]],
+                             'mass':[self.logK_S_db["ligand_mass"][i]],
+                             's':[self.logK_S_db["ligand_entropy"][i]],
+                             'n':[self.logK_S_db["ligand_n"][i]],
+                            })
+
+                        self.element_db = pd.concat([self.element_db, e_df], ignore_index=True)
+                        
+                if len(self.logK_S_db["ligand_basis"][i]) > 0:
+                    # add a basis species representing the pseudoelement
+                    basis = self.logK_S_db["ligand_basis"][i]
+                    if basis not in self.thermo_db["name"]:
+                        b_df = pd.DataFrame(
+                            {'name':[self.logK_S_db["ligand_basis"][i]],
+                             'abbrv':[""],
+                             'formula':[self.logK_S_db["ligand_formula"][i]],
+                             'state':[self.logK_S_db["state"][i]],
+                             'ref1':[self.logK_S_db["ref1"][i]],
+                             'ref2':[self.logK_S_db["ref2"][i]],
+                             'date':[self.logK_S_db["date"][i]],
+                             'E_units':["cal"],
+                             'G':[0], 'H':[0], 'S':[0],
+                             'Cp':[0], 'V':[0], 'a1.a':[0],
+                             'a2.b':[0], 'a3.c':[0], 'a4.d':[0],
+                             'c1.e':[0], 'c2.f':[0],
+                             'omega.lambda':[0],
+                             'z.T':[self.logK_S_db["ligand_charge"][i]],
+                             'azero':[self.logK_S_db["ligand_azero"][i]],
+                             'neutral_ion_type':[0],
+                             'dissrxn':[''],
+                             'tag':['basis'],
+                             'formula_ox':[self.logK_S_db["ligand_formula"][i]],
+                             'category_1':[self.logK_S_db["category_1"][i]],
+                            })
+                        
+                        self.thermo_db = pd.concat([self.thermo_db, b_df], ignore_index=True)
+                        
+                if self.logK_S_db["name"][i] not in self.thermo_db["name"] and self.logK_S_db["name"][i] not in self.logK_db["name"]:
+                    s_df = pd.DataFrame(
+                            {'name':[self.logK_S_db["name"][i]],
+                             'abbrv':[""],
+                             'formula':[self.logK_S_db["formula"][i]],
+                             'state':[self.logK_S_db["state"][i]],
+                             'ref1':[self.logK_S_db["ref1"][i]],
+                             'ref2':[self.logK_S_db["ref2"][i]],
+                             'date':[self.logK_S_db["date"][i]],
+                             'logK1':[np.nan],'logK2':[np.nan],'logK3':[np.nan],'logK4':[np.nan],'logK5':[np.nan],'logK6':[np.nan],'logK7':[np.nan],'logK8':[np.nan],
+                             'T1':[np.nan],'T2':[np.nan],'T3':[np.nan],'T4':[np.nan],'T5':[np.nan],'T6':[np.nan],'T7':[np.nan],'T8':[np.nan],
+                             'P1':[np.nan],'P2':[np.nan],'P3':[np.nan],'P4':[np.nan],'P5':[np.nan],'P6':[np.nan],'P7':[np.nan],'P8':[np.nan],
+                             'azero':[self.logK_S_db["azero"][i]],
+                             'dissrxn':[self.logK_S_db["dissrxn"][i]],
+                             'tag':[''],
+                             'formula_ox':[self.logK_S_db["formula_ox"][i]],
+                             'category_1':[self.logK_S_db["category_1"][i]],
+                            })
+                    self.logK_db = pd.concat([self.logK_db, s_df], ignore_index=True)
+                    
+                    for ti in range(0, len(T_list)):
+                        if ti+1 > 8:
+                            self.err_handler.raise_exception("Species ", sp, "in",
+                                self.logK_S_db_filename, "may only have up to",
+                                "eight temperature values in column T_vals")
+                            
+                        self.logK_db.loc[self.logK_db.index[-1], "logK"+str(ti+1)] = logK_list[ti]
+                        self.logK_db.loc[self.logK_db.index[-1], "T"+str(ti+1)] = T_list[ti]
+                        self.logK_db.loc[self.logK_db.index[-1], "P"+str(ti+1)] = 'psat'
+    
+    def _est_logK_S(self, T_list, logK_25C, Delta_S):
+
+        R = 8.31446261815324/4.184 # cal/(mol K)
+
+        # solve for G of reaction:
+        # ∆_r G°= -2.303RT logK
+        G_25 = -2.303*R*298.15*logK_25C # in cal/mol
+
+        # solve for H of reaction:
+        # ∆_r G°= ∆_r H°-T∆_r S°
+        H = G_25 + 298.15*Delta_S # in cal/mol
+
+        logK_list = []
+        for T_C in T_list:
+
+            T_K = T_C+273.15 # convert C to Kelvin
+
+            # estimate G at temperature
+            G_T = H - T_K*Delta_S
+
+            # convert G to logK
+            logK_T = G_T/(-2.303*R*T_K)
+            logK_list.append(logK_T)
+
+        return logK_list
         
         
     def _load_data0(self, db, source="URL"):
@@ -1101,8 +1312,10 @@ class AqEquil:
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  db="WORM",
+                 elements=None,
                  solid_solutions=None,
                  logK=None,
+                 logK_S=None,
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_category={},
@@ -1139,8 +1352,10 @@ class AqEquil:
         if load_thermo:
             self.thermo = Thermodata(
                      db=db,
+                     elements=elements,
                      solid_solutions=solid_solutions,
                      logK=logK,
+                     logK_S=logK_S,
                      logK_extrapolate=logK_extrapolate,
                      download_csv_files=download_csv_files,
                      exclude_category=exclude_category,
@@ -1163,7 +1378,7 @@ class AqEquil:
         
         # If DEBUGGING_R==False, uses python to print R lines after executing an R block 
         # If DEBUGGING_R==True, will ugly print from R directly. Allows printing from R to troubleshoot errors.
-        if not DEBUGGING_R:
+        if DEBUGGING_R:
         
             # Dummy functions #
             def add_to_stdout(line): self.stdout.append(line)
@@ -3917,6 +4132,7 @@ class AqEquil:
                                suppress_redox=suppress_redox,
                                infer_formula_ox=infer_formula_ox,
                                exclude_category=exclude_category_R,
+                               element_df=ro.conversion.py2rpy(self.thermo.element_db),
                                fixed_species=_convert_to_RVector(FIXED_SPECIES),
                                verbose=self.verbose)
         

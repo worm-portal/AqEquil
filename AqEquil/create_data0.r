@@ -44,6 +44,7 @@ s_d <- function(x, k) trimws(format(round(x, k), nsmall=k, scientific=F))
 
 # main function
 create_data0 <- function(thermo_df,
+                         element_df,
                          solid_solution_df=NULL,
                          db,
                          water_model,
@@ -377,7 +378,7 @@ create_data0 <- function(thermo_df,
 
   # REQUIRED BY EQ3: ensure that elements appear in the same order as the basis species representing those elements.
   elem_addme <- elem_addme[order(match(elem_addme,names(dissrxns[["basis_list"]])))]
-
+    
   # loop through elements that need to be added to the data0 template
   for(elem in elem_addme){
       
