@@ -1666,7 +1666,7 @@ class AqEquil:
 
         self.__move_eqpt_extra_output()
         
-        args = ["cd", os.getcwd(), ";", self.eq36co+'/eqpt', os.getcwd()+"/data0."+db]
+        args = ["cd", os.getcwd(), ";", self.eq36co+'/eqpt', "'"+os.getcwd()+"/data0."+db+"'"]
         args = " ".join(args)
 
         try:
@@ -1752,10 +1752,10 @@ class AqEquil:
         elif self.verbose > 0 and isinstance(dynamic_db_name, str):
             print('Using ' + dynamic_db_name + ' to speciate ' + samplename)
             
-        args = ["cd", cwdd+path_3i, ";", # change directory to where 3i files are stored
+        args = ["cd", "'" + cwdd+path_3i+"'", ";", # change directory to where 3i files are stored
                 self.eq36co + '/eq3nr', # path to EQ3NR executable
-                cwdd + data1_path + "/data1." + db, # path to data1 file
-                cwdd + path_3i + "/" + filename_3i] # path to 3i file
+                "'"+cwdd + data1_path + "/data1." + db+"'", # path to data1 file
+                "'"+cwdd + path_3i +"/"+ filename_3i+"'"] # path to 3i file
         
         args = " ".join(args)
         
@@ -1855,10 +1855,10 @@ class AqEquil:
         elif self.verbose > 0 and isinstance(dynamic_db_name, str):
             print('Using ' + dynamic_db_name + ' to react ' + samplename)
 
-        args = ["cd", cwdd+path_6i, ";", # change directory to 6i folder
+        args = ["cd", "'" + cwdd+path_6i+"'", ";", # change directory to 6i folder
                 self.eq36co+'/eq6', # path of EQ6 executable
-                cwdd+data1_path+"/data1."+db, # path of data1 file
-                cwdd+path_6i + "/" + filename_6i] # path of 6i file
+                "'"+cwdd+data1_path+"/data1."+db+"'", # path of data1 file
+                "'"+cwdd+path_6i + "/" + filename_6i+"'"] # path of 6i file
         
         args = " ".join(args)
         
