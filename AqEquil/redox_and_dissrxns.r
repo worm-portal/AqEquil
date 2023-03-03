@@ -612,13 +612,9 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 
                             
 suppress_redox_and_generate_dissrxns <- function(thermo_df,
-                              db,
                               water_model,
-                              template,
                               exceed_Ttr,
-                              data0_formula_ox_name,
                               suppress_redox,
-                              infer_formula_ox,
                               exclude_category,
                               element_df,
                               fixed_species=c("H2O", "H+", "O2(g)", "water", "Cl-", "e-"),
@@ -708,37 +704,6 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   }
     
   known_species <- to_vec(for(i in 1:length(known_oxstates)) paste0(names(known_oxstates)[i], known_oxstates[i]))
-
-  if(infer_formula_ox){
-      
-    makeup_list <- makeup(thermo_df$formula)
-    names(makeup_list) <- thermo_df$name
-
-    result <- lapply(makeup_list, FUN=get_oxstate)
-
-    inferred_formula_ox <- c()
-
-    for(entry in names(result)){
-      if(!is.na(result[[entry]])){
-        ox <- result[[entry]]
-        elem <- names(ox)
-        n_elem <- makeup_list[[entry]][elem]
-        if(n_elem == 1){
-          n_elem <- ""
-        }
-        out_elem <- paste0(n_elem, elem, format_charge(as.numeric(ox)))
-      
-        elem_other <- names(makeup_list[[entry]])[!(names(makeup_list[[entry]]) %in% c("Z", elem))]
-        out <- to_vec(for(x in elem_other) if(makeup_list[[entry]][x] != 1) paste0(makeup_list[[entry]][x], x, known_oxstates[x]) else(paste0(x, known_oxstates[x])))
-        inferred_formula_ox[[entry]] <- paste(out_elem, paste(out, collapse=" "))
-
-        thermo_df[thermo_df[, "name"] == entry, "formula_ox"] <- inferred_formula_ox[[entry]]
-      } else if (entry %in% known_species){
-        thermo_df[thermo_df[, "name"] == entry, "formula_ox"] <- entry
-      }
-    }
-    write.csv(thermo_df, data0_formula_ox_name, row.names=F, na="")
-  }
                       
   thermo_df["formula_modded"] <- thermo_df["formula"]
   thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]

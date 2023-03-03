@@ -130,7 +130,7 @@ def react(speciation,
                   path_6o="rxn_6o",
                   path_6p="rxn_6p",
                   path_extra_out="eq6_extra_out",
-                  data1_path="eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                  data1_path=os.getcwd()+"/eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
         
         if speciation.thermo.thermo_db_type == "CSV":
