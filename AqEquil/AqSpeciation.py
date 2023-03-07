@@ -1846,7 +1846,7 @@ class AqEquil(object):
             if self.verbose > 0:
                 print("Getting", self.thermo.thermo_db_filename, "ready. This will take a moment...")
     
-            OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+            thermo_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
         if self.thermo.custom_data0 and not dynamic_db:
             self.__mk_check_del_directory('eqpt_files')
@@ -2058,18 +2058,18 @@ class AqEquil(object):
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                                data0_file_lines=copy.deepcopy(data0_file_lines),
-                                grid_temps=[temp_degC],
-                                grid_press=[pressure_bar],
-                                db=data0_lettercode,
-                                water_model=water_model,
-                                activity_model=activity_model,
-                                P1=P1,
-                                plot_poly_fit=plot_poly_fit,
-                                logK_extrapolate=logK_extrapolate,
-                                dynamic_db=dynamic_db,
-                                verbose=verbose)
+                self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                                  data0_file_lines=copy.deepcopy(data0_file_lines),
+                                  grid_temps=[temp_degC],
+                                  grid_press=[pressure_bar],
+                                  db=data0_lettercode,
+                                  water_model=water_model,
+                                  activity_model=activity_model,
+                                  P1=P1,
+                                  plot_poly_fit=plot_poly_fit,
+                                  logK_extrapolate=logK_extrapolate,
+                                  dynamic_db=dynamic_db,
+                                  verbose=verbose)
                 
                 if self.thermo.thermo_db_type != "data1":
                     self.runeqpt(data0_lettercode, dynamic_db=True)
@@ -2096,7 +2096,7 @@ class AqEquil(object):
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = ["all"]
             if dynamic_db:
-                allowed_aq_block_species = list(OBIGT_df["name"]) + FIXED_SPECIES
+                allowed_aq_block_species = list(thermo_df["name"]) + FIXED_SPECIES
             
             # write 3i files
             self._capture_r_output()
@@ -2568,7 +2568,7 @@ class AqEquil(object):
         return kstr.format(round(x, k)).strip()
     
     
-    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+    def __fill_data0(self, thermo_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, logK_extrapolate,
                    dynamic_db, verbose):
         
@@ -2604,7 +2604,7 @@ class AqEquil(object):
         # calculate logK at each T and P for every species
         out_dfs = []
         for i,Tc in enumerate(grid_temps):
-            out_dfs.append(calc_logK(OBIGT_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
+            out_dfs.append(calc_logK(thermo_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
         
         dissrxn_logK_dict = {'name': out_dfs[0]["name"],
                              'logK_0': out_dfs[0]["dissrxn_logK_0"]}
@@ -2629,9 +2629,9 @@ class AqEquil(object):
         
         # handle free logK values
         free_logK_names = []
-        if "logK1" in OBIGT_df.columns:
+        if "logK1" in thermo_df.columns:
             
-            free_logK_df = OBIGT_df.dropna(subset=['logK1'])
+            free_logK_df = thermo_df.dropna(subset=['logK1'])
             free_logK_names = list(free_logK_df["name"])
     
             sp_dupes = []
@@ -3241,7 +3241,6 @@ class AqEquil(object):
             __name__, 'data0.min').decode("utf-8")
         
         out_list = self.thermo.out_list
-        OBIGT_df = thermo_df # TODO: this var name change is unecessary. Fix.
     
         self._capture_r_output()
     
@@ -3250,10 +3249,8 @@ class AqEquil(object):
         
         ro.r(r_create_data0)
         
-        ro.conversion.py2rpy(thermo_df)
-        
         # assemble data0 file
-        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
+        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
                           solid_solution_df=solid_solution_df,
                           db=db,
                           water_model=water_model,
@@ -3267,30 +3264,25 @@ class AqEquil(object):
         self._print_captured_r_output()
         
         data0_file_lines = data0_file_lines[0].split("\n")
-#         print("lines:")
-#         print(str(data0_file_lines))
-#         with open('test.txt', 'w') as f:
-#             for line in data0_file_lines:
-#                 f.write(f"{line}\n")
         
         if fill_data0:
             
             # begin TP-dependent processes
-            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                            data0_file_lines=copy.deepcopy(data0_file_lines),
-                            grid_temps=grid_temps,
-                            grid_press=grid_press,
-                            db=db,
-                            water_model=water_model,
-                            activity_model=activity_model,
-                            P1=P1,
-                            plot_poly_fit=plot_poly_fit,
-                            logK_extrapolate=logK_extrapolate,
-                            dynamic_db=dynamic_db,
-                            verbose=self.verbose)
+            self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                              data0_file_lines=copy.deepcopy(data0_file_lines),
+                              grid_temps=grid_temps,
+                              grid_press=grid_press,
+                              db=db,
+                              water_model=water_model,
+                              activity_model=activity_model,
+                              P1=P1,
+                              plot_poly_fit=plot_poly_fit,
+                              logK_extrapolate=logK_extrapolate,
+                              dynamic_db=dynamic_db,
+                              verbose=self.verbose)
     
         else:
-            return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
+            return thermo_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
@@ -4996,23 +4988,21 @@ class AqEquil(object):
             
             self.AqEquil_instance._print_captured_r_output()
 
-            OBIGT_df = self.out_list.rx2("OBIGT_df")
-            OBIGT_df=ro.conversion.rpy2py(OBIGT_df)
+            thermo_df = self.out_list.rx2("thermo_df")
+            thermo_df=ro.conversion.rpy2py(thermo_df)
 
     #         regenerated_dissrxns = out_list.rx2("dissrxns")
-
     #         regenerated_dissrxn_dict = {}
     #         for name in regenerated_dissrxns.names:
     #             if name != "basis_list":
     #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
 
 
-            OBIGT_df = _clean_rpy2_pandas_conversion(OBIGT_df)
+            thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             # convert E units and calculate missing GHS values
-            OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
+            self.thermo_db = OBIGT2eos(thermo_df, fixGHS=True, tocal=True)
 
-            self.thermo_db = OBIGT_df
 
 def compare(*args):
     

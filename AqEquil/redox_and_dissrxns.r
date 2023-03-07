@@ -1130,7 +1130,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                   
   thermo_df[is.na(thermo_df)]=''
   
-  out_list = list("OBIGT_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
+  out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
                                   
   return(out_list)
 }
