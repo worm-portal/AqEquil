@@ -23,7 +23,6 @@ from chemparse import parse_formula
 from IPython.core.display import display, HTML
 import periodictable
 
-from ._ErrorHandler import Error_Handler
 from ._HKF_cgl import OBIGT2eos, calc_logK
 
 # matplotlib for static plots
@@ -96,23 +95,6 @@ def load(filename, messages=True, hide_traceback=True):
         err_handler.raise_exception(msg)
 
 
-def _isnotebook():
-    
-    """
-    Check if this code is running in a Jupyter notebook
-    """
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
-
 def _float_to_fraction (x, error=0.000001):
     
     """
@@ -166,7 +148,8 @@ def _float_to_formatted_fraction(x, error=0.000001):
     else:
         if whole_number_float == 0:
             whole_number_float = ""
-        return "{0}<sup>{1}</sup>&frasl;<sub>{2}</sub>".format(whole_number_float, remainder_tuple[0], remainder_tuple[1])
+        return "{0}<sup>{1}</sup>&frasl;<sub>{2}</sub>".format(
+                whole_number_float, remainder_tuple[0], remainder_tuple[1])
 
 
 def _format_coeff(coeff):
@@ -230,22 +213,23 @@ def _convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector([str(v) for v in value])
 
     
-def _clean_rpy2_pandas_conversion(df,
-                                   float_cols=["G", "H", "S", "Cp",
-                                                "V", "a1.a", "a2.b",
-                                                "a3.c", "a4.d", "c1.e",
-                                                "c2.f", "omega.lambda", "z.T",
-                                                "azero", "neutral_ion_type",
-                                                "logK1", "logK2", "logK3", "logK4",
-                                                "logK5", "logK6", "logK7", "logK8",
-                                                "T1", "T2", "T3", "T4", "T5", "T6",
-                                                "T7", "T8"],
-                                    str_cols=["name", "abbrv", "state", "formula",
-                                              "ref1", "ref2", "date",
-                                              "E_units", "tag", "dissrxn", "formula_ox",
-                                              "P1", "P2", "P3", "P4", "P5", "P6",
-                                              "P7", "P8"],
-                                    NA_string=""):
+def _clean_rpy2_pandas_conversion(
+        df,
+        float_cols=["G", "H", "S", "Cp",
+                    "V", "a1.a", "a2.b",
+                    "a3.c", "a4.d", "c1.e",
+                    "c2.f", "omega.lambda", "z.T",
+                    "azero", "neutral_ion_type",
+                    "logK1", "logK2", "logK3", "logK4",
+                    "logK5", "logK6", "logK7", "logK8",
+                    "T1", "T2", "T3", "T4", "T5", "T6",
+                    "T7", "T8"],
+        str_cols=["name", "abbrv", "state", "formula",
+                  "ref1", "ref2", "date",
+                  "E_units", "tag", "dissrxn", "formula_ox",
+                  "P1", "P2", "P3", "P4", "P5", "P6",
+                  "P7", "P8"],
+        NA_string=""):
 
     df.replace(NA_string, np.nan, inplace=True)
     for col in float_cols:
@@ -337,7 +321,7 @@ def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
         except:
             valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
             err_handler.raise_exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
-                            "Try one of these: {}".format(valid_colormaps))
+                    "Try one of these: {}".format(valid_colormaps))
         m = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [m.to_rgba(i) for i in range(ncol)]
         colors = [(c[0], c[1], c[2], alpha) for c in colors]
@@ -400,10 +384,12 @@ def _html_chemname_format(name, charge_sign_at_end=False):
     charge = re.search(r'<.*$', name)
 
     name_no_charge = re.match(r'(?:(?!<|$).)*', name).group(0)
-    mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>", "3": "<sub>3</sub>", "4": "<sub>4</sub>", 
-           "5": "<sub>5</sub>", "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>", "9": "<sub>9</sub>",
-           ".":"<sub>.</sub>"}
-    name_no_charge_formatted = "".join([mapping.get(x) or x for x in list(name_no_charge)])
+    mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>",
+               "3": "<sub>3</sub>", "4": "<sub>4</sub>", "5": "<sub>5</sub>",
+               "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>",
+               "9": "<sub>9</sub>", ".":"<sub>.</sub>"}
+    name_no_charge_formatted = "".join([mapping.get(x) or x
+                                        for x in list(name_no_charge)])
 
     if charge != None:
         name = name_no_charge_formatted + charge.group(0)
@@ -420,6 +406,77 @@ def _html_chemname_format(name, charge_sign_at_end=False):
 
     return(name)
     
+
+def _isnotebook():
+    
+    """
+    Check if this code is running in a Jupyter notebook
+    """
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
+
+class Error_Handler:
+    
+    """
+    Handles how errors are printed in Jupyter notebooks. By default, errors that
+    are handled by AqEquil are printed with an error message, but no traceback.
+    Errors that are not handled by AqEquil, such as those thrown if the user
+    encounters a bug, will display a full traceback.
+    
+    If the error handler prints an error message without traceback, all future
+    errors regardless of origin will be shown without traceback until the
+    notebook kernel is restarted.
+    
+    Parameters
+    ----------
+    clean : bool
+        Report exceptions without traceback? If True, only the error message is
+        shown. If False, the entire error message, including traceback, is
+        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
+    
+    """
+    def __init__(self, clean=True):
+        self.clean = clean # bool: hide traceback?
+        pass
+    
+    
+    @staticmethod
+    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                       exception_only=False, running_compiled_code=False):
+        
+        """
+        Return a modified ipython showtraceback function that does not display
+        traceback when encountering an error.
+        """
+        
+        ipython = get_ipython()
+        etype, value, tb = sys.exc_info()
+        value.__cause__ = None  # suppress chained exceptions
+        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
+        
+
+    def raise_exception(self, msg):
+        
+        """
+        Raise an exception that displays the error message without traceback. This
+        happens only when the exception is predicted by the AqEquil package
+        (e.g., for common user errors).
+        """
+        if self.clean and _isnotebook():
+            ipython = get_ipython()
+            ipython.showtraceback = self.hide_traceback
+            
+        raise Exception(msg)
+        
     
 class AqEquil(object):
 
@@ -605,7 +662,9 @@ class AqEquil(object):
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
+        self.df_rejected_species = pd.DataFrame({'database index':[],
+                                                 "name":[],
+                                                 "reason for rejection":[]})
         
         if load_thermo:
             self.thermo = AqEquil.Thermodata(
@@ -688,7 +747,8 @@ class AqEquil(object):
 
     
     def _check_sample_input_file(self, input_filename, exclude, db,
-                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       dynamic_db, charge_balance_on,
+                                       suppress_missing,
                                        redox_suppression):
         """
         Check for problems in sample input file.
@@ -741,8 +801,10 @@ class AqEquil(object):
             try:
                 df_in_headercheck = df_in_headercheck.drop(exc, axis=1) # drop excluded columns
             except:
-                err_bad_exclude = ("Could not exclude the header '{}'".format(exc)+". "
-                                   "This header could not be found in {}".format(input_filename)+"")
+                err_bad_exclude = (
+                        "Could not exclude the header '{}'".format(exc)+". "
+                        "This header could not be found in "
+                        "{}".format(input_filename)+"")
                 err_list.append(err_bad_exclude)
         
         # get row list
@@ -766,7 +828,8 @@ class AqEquil(object):
             err_list.append(err_dupe_rows)
         
         # are there any leading or trailing spaces in sample names?
-        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0]) if str(n[0])==" " or str(n[-1])==" "]
+        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0])
+                                if str(n[0])==" " or str(n[-1])==" "]
         if len(invalid_sample_names) > 0:
             err_sample_leading_trailing_spaces = ("The following sample names "
                 "have leading or trailing spaces. Remove spaces and try again: "
@@ -819,6 +882,7 @@ class AqEquil(object):
             err_list.append(err_charge_balance_invalid_sp)
 
         if self.thermo.thermo_db_type in ["data0", "CSV"]:
+            
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
                     err_species_not_in_db = ("The species '{}'".format(species) + " "
