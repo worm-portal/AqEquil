@@ -2348,7 +2348,7 @@ class AqEquil(object):
             df_aq_distribution.columns = multicolumns
             
             # ensure final pH column is included in report_divs aq_distribution section
-            aq_dist_indx = report_divs.names.index("aq_distribution")
+            aq_dist_indx = list(report_divs.names).index("aq_distribution")
             report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
@@ -2555,14 +2555,14 @@ class AqEquil(object):
                 dict_sample_data.update({"basis_totals": sc_dist})
 
             if get_solid_solutions:
-                sample_solid_solutions = batch_3o.rx2["sample_data"].rx2[sample.rx2('name')[0]].rx2["solid_solutions"]
+                sample_solid_solutions = batch_3o.rx2["sample_data"].rx2[str(sample.rx2('name')[0])].rx2["solid_solutions"]
 
                 if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
 
                     ss_df_list = []
                     for ss in list(sample_solid_solutions.names):
-                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2["ideal solution"])
-                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2["mineral"])
+                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2["ideal solution"])
+                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2["mineral"])
                         df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on='mineral', right_on='component', how='left')
                         df_merged.insert(0, 'solid solution', ss)
                         del df_merged['component']
