@@ -506,6 +506,11 @@ class Thermodata:
         equilibrium constant (logK) CSV database. This parameter has no effect
         if the thermodynamic database is a data0 or data1 file.
     
+    water_model : str, default "SUPCRT92"
+        This is an experimental feature that is not yet fully supported.
+        Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
+        These models are described here: http://chnosz.net/manual/water.html
+    
     eq36da : str, defaults to path given by the environment variable EQ36DA
         Path to directory where data1 files are stored. 
         
@@ -531,6 +536,7 @@ class Thermodata:
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_category={},
+                 water_model="SUPCRT92",
                  eq36da=os.environ.get('EQ36DA'),
                  eq36co=os.environ.get('EQ36CO'),
                  verbose=1,
@@ -538,6 +544,7 @@ class Thermodata:
     
         self.db = db
         self.exclude_category = exclude_category
+        self.water_model = water_model
     
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
@@ -1099,6 +1106,7 @@ class AqEquil:
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_category={},
+                 water_model="SUPCRT92",
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
@@ -1136,6 +1144,7 @@ class AqEquil:
                      logK_extrapolate=logK_extrapolate,
                      download_csv_files=download_csv_files,
                      exclude_category=exclude_category,
+                     water_model=water_model,
                      eq36da=self.eq36da,
                      eq36co=self.eq36co,
                      verbose=self.verbose,
@@ -3624,7 +3633,6 @@ class AqEquil:
                      filename_ss=None,
                      data0_formula_ox_name=None,
                      suppress_redox=[],
-                     water_model="SUPCRT92",
                      activity_model="b-dot",
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
@@ -3662,11 +3670,6 @@ class AqEquil:
         suppress_redox : list of str, default []
             Suppress equilibrium between oxidation states of listed elements
             (Cl, H, and O cannot be included).
-
-        water_model : str, default "SUPCRT92"
-            This is an experimental feature that is not yet fully supported.
-            Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
-            These models are described here: http://chnosz.net/manual/water.html
 
         exceed_Ttr : bool, default True
             Calculate Gibbs energies of mineral phases and other species
@@ -3732,6 +3735,7 @@ class AqEquil:
         
         thermo_df = self.thermo.thermo_db
         db_logK = self.thermo.logK_db
+        water_model = self.thermo.water_model
         
         self.verbose = verbose
         
@@ -3754,7 +3758,7 @@ class AqEquil:
         if isinstance(grid_press, list):
             if sum([P >= 10000 for P in grid_press]) and water_model != "DEW":
                 self.err_handler.raise_exception("Grid pressures must be below 10 kilobars.")
-
+                
         if water_model == "SUPCRT92":
             min_T = 0
             max_T = 2250
