@@ -4419,11 +4419,14 @@ class AqEquil(object):
             # must be loaded after the logK database
             if logK_S != None:
                 self._load_logK_S(logK_S, source="file")
-
+                
             # process dissociation reactions
-            self._suppress_redox_and_generate_dissrxns(
-                suppress_redox=suppress_redox,
-                exceed_Ttr=exceed_Ttr)
+            if self.thermo_db_type == "CSV":
+                self._suppress_redox_and_generate_dissrxns(
+                    suppress_redox=suppress_redox,
+                    exceed_Ttr=exceed_Ttr)
+            elif len(suppress_redox) > 0 and self.verbose > 0:
+                print("Warning: redox suppression option is not recognized if a data0 or data1 database is used.")
 
             # generate input file template
             # (after species have been excluded)
@@ -5034,7 +5037,7 @@ class AqEquil(object):
                 __name__, 'redox_and_dissrxns.r').decode("utf-8")
 
             ro.r(r_redox_dissrxns)
-
+            
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             ro.conversion.py2rpy(thermo_df)
