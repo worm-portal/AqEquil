@@ -81,7 +81,13 @@ def __move_file(file, destination_dir, silent=False):
             print(&#34;Could not move&#34;, file, &#34;to&#34;, destination_dir)
 
         
-def react(speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True):
+def react(speciation,
+          reaction_setup,
+          delete_generated_folders=False,
+          hide_traceback=True,
+          eq36da=os.environ.get(&#39;EQ36DA&#39;),
+          eq36co=os.environ.get(&#39;EQ36CO&#39;),
+         ):
     
     &#34;&#34;&#34;
     Calculate how speciated water reacts with minerals and/or gases.
@@ -118,7 +124,7 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file(&#34;data1.dyn&#34;)
@@ -145,33 +151,23 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-
-        ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                
+        ae.runeq6(filename_6i,
+                  db=&#34;dyn&#34;,
+                  path_6i=&#34;rxn_6i&#34;,
+                  path_6o=&#34;rxn_6o&#34;,
+                  path_6p=&#34;rxn_6p&#34;,
+                  path_extra_out=&#34;eq6_extra_out&#34;,
+                  data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
-        os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
-        
-        __move_file(filename_6o, &#34;rxn_6o&#34;)
-        __move_file(filename_6p, &#34;rxn_6p&#34;)
-
-        __delete_file(&#34;data1.dyn&#34;)
-        __delete_file(&#34;data1&#34;)
         
         if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
             m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
-                              tab_name=&#39;tab.csv&#39;,
+                              tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
-    
-    __move_file(&#34;bakupa&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;bakupb&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;tabx&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#39;tab.csv&#39;, &#34;eq6_extra_out&#34;, silent=True)
-    __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
-    __delete_file(&#34;data1&#34;)
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -205,13 +201,14 @@ class Mass_Transfer:
         the point.
     
     &#34;&#34;&#34;
-    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True):
+    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1):
         
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
+        self.verbose = verbose
         
         self.inactive_species = self.__get_inactive_species()
         
@@ -575,7 +572,8 @@ class Mass_Transfer:
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
         self.path_margin = path_margin
         
-        minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
 
         all_elements_of_interest = []
         for mineral in minerals_formed:
@@ -591,6 +589,8 @@ class Mass_Transfer:
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
+        
+        fig_list = []
         
         # if there are only 2 elements of interest, these become the axes, and there is no
         # need to fuss with real vs projected points.
@@ -752,6 +752,9 @@ class Mass_Transfer:
                                                     first_pass=False)
 
                 fig_list.append(fig)
+        
+        if not fig_list and self.verbose &gt; 0:
+            print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
         
         return fig_list
         
@@ -3124,7 +3127,7 @@ class Prepare_Reaction:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="AqEquil.MassTransfer.react"><code class="name flex">
-<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True)</span>
+<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True, eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/home/shock/EQ3_6v8.0a/bin')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate how speciated water reacts with minerals and/or gases.</p>
@@ -3160,7 +3163,13 @@ the point.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def react(speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True):
+<pre><code class="python">def react(speciation,
+          reaction_setup,
+          delete_generated_folders=False,
+          hide_traceback=True,
+          eq36da=os.environ.get(&#39;EQ36DA&#39;),
+          eq36co=os.environ.get(&#39;EQ36CO&#39;),
+         ):
     
     &#34;&#34;&#34;
     Calculate how speciated water reacts with minerals and/or gases.
@@ -3197,7 +3206,7 @@ the point.</dd>
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
     speciation.join_6i_3p(reaction_setup)
     __delete_file(&#34;data1.dyn&#34;)
@@ -3224,33 +3233,23 @@ the point.</dd>
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-
-        ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+                
+        ae.runeq6(filename_6i,
+                  db=&#34;dyn&#34;,
+                  path_6i=&#34;rxn_6i&#34;,
+                  path_6o=&#34;rxn_6o&#34;,
+                  path_6p=&#34;rxn_6p&#34;,
+                  path_extra_out=&#34;eq6_extra_out&#34;,
+                  data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
-        os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
-        
-        __move_file(filename_6o, &#34;rxn_6o&#34;)
-        __move_file(filename_6p, &#34;rxn_6p&#34;)
-
-        __delete_file(&#34;data1.dyn&#34;)
-        __delete_file(&#34;data1&#34;)
         
         if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
             m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
-                              tab_name=&#39;tab.csv&#39;,
+                              tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
-    
-    __move_file(&#34;bakupa&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;bakupb&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;tabx&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#39;tab.csv&#39;, &#34;eq6_extra_out&#34;, silent=True)
-    __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
-    __delete_file(&#34;data1&#34;)
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -3328,7 +3327,7 @@ the point.</dd>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer"><code class="flex name class">
 <span>class <span class="ident">Mass_Transfer</span></span>
-<span>(</span><span>six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True)</span>
+<span>(</span><span>six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to facilitate mass transfer and reaction path
@@ -3374,13 +3373,14 @@ the point.</dd>
         the point.
     
     &#34;&#34;&#34;
-    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True):
+    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1):
         
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
+        self.verbose = verbose
         
         self.inactive_species = self.__get_inactive_species()
         
@@ -3744,7 +3744,8 @@ the point.</dd>
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
         self.path_margin = path_margin
         
-        minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
 
         all_elements_of_interest = []
         for mineral in minerals_formed:
@@ -3760,6 +3761,8 @@ the point.</dd>
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
+        
+        fig_list = []
         
         # if there are only 2 elements of interest, these become the axes, and there is no
         # need to fuss with real vs projected points.
@@ -3921,6 +3924,9 @@ the point.</dd>
                                                     first_pass=False)
 
                 fig_list.append(fig)
+        
+        if not fig_list and self.verbose &gt; 0:
+            print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
         
         return fig_list
         
@@ -5947,7 +5953,8 @@ specified, fig_list will only contain the single figure of interest.</dd>
     self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
     self.path_margin = path_margin
     
-    minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+    #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+    minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
 
     all_elements_of_interest = []
     for mineral in minerals_formed:
@@ -5963,6 +5970,8 @@ specified, fig_list will only contain the single figure of interest.</dd>
     all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
     
     self.all_elements_of_interest = all_elements_of_interest
+    
+    fig_list = []
     
     # if there are only 2 elements of interest, these become the axes, and there is no
     # need to fuss with real vs projected points.
@@ -6124,6 +6133,9 @@ specified, fig_list will only contain the single figure of interest.</dd>
                                                 first_pass=False)
 
             fig_list.append(fig)
+    
+    if not fig_list and self.verbose &gt; 0:
+        print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
     
     return fig_list</code></pre>
 </details>

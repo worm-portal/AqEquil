@@ -44,7 +44,7 @@ mine_3o <- function(this_file,
 
   # get sample name
   this_name <- trimspace(isolate_block(extractme, begin_str="^.*\\|Sample:\\s+", end_str="\\|\\n\\|.*$"))
-
+    
   if(verbose > 1){
     writeLines(paste0("Processing EQ3 output for ", this_name))
   }
@@ -437,15 +437,16 @@ mine_3o <- function(this_file,
     df <- data.frame(gas=unlist(lapply(split_str, `[[`, 1)),
                      log_fugacity=as.numeric(unlist(lapply(split_str, `[[`, 2))),
                      stringsAsFactors=F, row.names=1)
-
+      
     # fix an annoying behavior with R dataframes ignoring rownames when there is
     # only one row
     if(nrow(df) == 1){
       rownames(df) <- unlist(lapply(split_str, `[[`, 1))[1]
-      df <- df[ , !(names(df)=="gas")]
+      df <- df[ , !(names(df)=="gas"), drop=FALSE]
     }
-
+      
     sample_3o[["fugacity"]] <- df
+      
   }
 
                              
@@ -467,7 +468,7 @@ mine_3o <- function(this_file,
     # only one row
     if(nrow(df) == 1){
       rownames(df) <- sc_names[1]
-      df <- df[ , !(names(df)=="species")]
+      df <- df[ , !(names(df)=="species"), drop=FALSE]
     }
       
     sample_3o[["basis_totals"]] <- df
@@ -740,7 +741,7 @@ mine_3o <- function(this_file,
   } # end calculation of affinity and energy supply
                              
   setwd("../")
-
+                             
   return(sample_3o)
 
 }
@@ -798,17 +799,18 @@ melt_mass_contribution <- function(batch_3o, other=F, verbose=1){
 
 # function to create report versions of data categories (aq distributions, etc.)
 create_report_df <- function(data, category, out_type){
-
+    
   df_cat <- lapply(data, `[[`, category)
     
   all_species <- unique(unlist(lapply(lapply(df_cat, FUN=t), FUN=colnames)))
     
   df <- read.csv(text=paste(all_species, collapse="\t"), check.names=FALSE, sep="\t", stringsAsFactors=FALSE)
-
+    
   for(i in 1:length(df_cat)){
     row <- as.data.frame(t(df_cat[[i]])[out_type, , drop=FALSE], stringsAsFactors=FALSE)
     df <- bind_rows(mutate_all(df, as.character), mutate_all(row, as.character))
   }
+    
   df <- df[, order(colnames(df))]
   df_cat <- cbind.data.frame(sample=names(df_cat), df,  stringsAsFactors = FALSE)
     
@@ -838,25 +840,25 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report_list[["divs"]][["aq_distribution"]] <- names(aq_distribution)[2:length(aq_distribution)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(aq_distribution, by=c("Sample"="sample"))
   }
-  
+    
   if(get_mineral_sat){
     mineral_sat <- create_report_df(data=data, category='mineral_sat', out_type=mineral_sat_type)
     report_list[["divs"]][["mineral_sat"]] <- names(mineral_sat)[2:length(mineral_sat)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(mineral_sat, by=c("Sample"="sample"))
   }
-  
+    
   if(get_redox){
     redox <- create_report_df(data=data, category='redox', out_type=redox_type)
     report_list[["divs"]][["redox"]] <- names(redox)[2:length(redox)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(redox, by=c("Sample"="sample"))
   }
-  
+    
   if(get_charge_balance){
     charge_balance <- create_report_df(data=data, category='charge_balance', out_type=1)
     report_list[["divs"]][["charge_balance"]] <- names(charge_balance)[2:length(charge_balance)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(charge_balance, by=c("Sample"="sample"))
   }
-
+    
   if(get_ion_activity_ratios){
     if('ion_activity_ratios' %in% names(data)){
     ion_activity_ratios <- create_report_df(data=data, category='ion_activity_ratios', out_type=1)
@@ -864,19 +866,19 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report <- report %>% inner_join(ion_activity_ratios, by=c("Sample"="sample"))
     }
   }
-
+    
   if(get_fugacity){
     fugacities <- create_report_df(data=data, category='fugacity', out_type=1)
     report_list[["divs"]][["fugacity"]] <- names(fugacities)[2:length(fugacities)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(fugacities, by=c("Sample"="sample"))
   }
-
+    
   if(get_basis_totals){
     sc <- create_report_df(data=data, category='basis_totals', out_type=4) # 4 is the molality column
     report_list[["divs"]][["basis_totals"]] <- names(sc)[2:length(sc)] # start at 2 to exclude "sample" column
     report <- report %>% inner_join(sc, by=c("Sample"="sample"))
   }
-
+    
   if(get_affinity_energy){
     affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
     names(affinity)[2:length(names(affinity))] <- paste0(names(affinity)[2:length(names(affinity))], "_affinity")
@@ -889,7 +891,7 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
       inner_join(energy, by=c("Sample"="sample"))
   
   }
-
+    
   rownames(report) <- report$Sample
   report$Sample <- NULL
 
@@ -1000,7 +1002,7 @@ main_3o_mine <- function(files_3o,
   if(verbose > 1){
     writeLines("Finished processing EQ3 output files...")
   }
-  
+    
   # compile aqueous contribution data into a single melted dataframe and
   # append it to the batch_3o object.
   if(get_mass_contribution && length(batch_3o)>0){
@@ -1041,10 +1043,10 @@ main_3o_mine <- function(files_3o,
   }else{
     return(list())
   }
-
+    
   # store user input file data
   batch_3o[["input"]] <- read.csv(input_filename, check.names=FALSE, stringsAsFactors=FALSE)
-
+    
   # save the batch_3o object as an rds file
   if(!is.null(batch_3o_filename)){
     saveRDS(batch_3o, file=batch_3o_filename)
