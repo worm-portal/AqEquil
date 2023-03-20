@@ -527,6 +527,12 @@ class AqEquil(object):
         is not defined, then equilibrium constants will be retrieved from
         "wrm_data_logK.csv" at https://github.com/worm-portal/WORM-db
     
+    logK_S : str
+        Filepath of a CSV file containing equilibrium constants for chemical
+        species, e.g., "my_logK_S_entries.csv". If `db` is set to "WORM" and `logK_S`
+        is not defined, then equilibrium constants will be retrieved from
+        "wrm_data_logK_S.csv" at https://github.com/worm-portal/WORM-db
+    
     logK_extrapolate : str, default "none"
         What method should be used to extrapolate equilibrium constants in the
         logK database (defined by parameter `logK`) as a function of
@@ -642,6 +648,7 @@ class AqEquil(object):
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
+        self.water_model = water_model
         
         half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
@@ -666,25 +673,24 @@ class AqEquil(object):
                                                  "name":[],
                                                  "reason for rejection":[]})
         
+        
         if load_thermo:
-            self.thermo = AqEquil.Thermodata(
-                     AqEquil_instance=self, # outer instance passed to inner instance
-                     db=db,
-                     elements=elements,
-                     solid_solutions=solid_solutions,
-                     logK=logK,
-                     logK_S=logK_S,
-                     logK_extrapolate=logK_extrapolate,
-                     download_csv_files=download_csv_files,
-                     exclude_category=exclude_category,
-                     suppress_redox=suppress_redox,
-                     input_template=input_template,
-                     water_model=water_model,
-                     exceed_Ttr=exceed_Ttr,
-                     eq36da=self.eq36da,
-                     eq36co=self.eq36co,
-                     verbose=self.verbose,
-                     hide_traceback=hide_traceback)
+            
+            # attributes to add to AqEquil class
+            self.db = db
+            self.elements = elements
+            self.solid_solutions = solid_solutions
+            self.exclude_category = exclude_category
+            self.logK = logK
+            self.logK_S = logK_S
+            self.logK_extrapolate = logK_extrapolate
+            self.download_csv_files = download_csv_files
+            self.exclude_category = exclude_category
+            self.suppress_redox = suppress_redox
+            self.exceed_Ttr = exceed_Ttr
+            self.input_template = input_template
+            
+            self.thermo = AqEquil.Thermodata(AqEquil_instance=self) # outer instance passed to inner instance
         
             self.data1 = self.thermo.data1
 
@@ -4192,148 +4198,34 @@ class AqEquil(object):
     class Thermodata(object):
         """
         Metaclass to store and load thermodynamic databases.
-        The outer class is AqEquil.
-
-        Parameters
-        ----------
-        AqEquil_instance : object of AqEquil class
-            Instance of AqEquil passed to this inner metaclass.
+        Inherits attributes from its outer class, AqEquil.
         
-        db : str, default "WORM"
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - "WORM" will load the default WORM thermodynamic database,
-            solid solution database, and logK database. These files are retrieved
-            from https://github.com/worm-portal/WORM-db to ensure they are
-            up-to-date.
-            - Three letter file extension for the desired data1 database, e.g.,
-            "wrm". This will use a data1 file with this file extension, e.g.,
-            "data1.wrm" located in the path stored in the 'EQ36DA' environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., "data0.wrm". This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., "wrm_data.csv". The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-
-        elements : str
-            Filepath of a CSV file containing parameters for elements, e.g.,
-            "my_elements.csv". If `db` is set to "WORM" and `elements` is not
-            defined, then parameters for elements will be retrieved from
-            "elements.csv" at https://github.com/worm-portal/WORM-db
-
-        solid_solutions : str
-            Filepath of a CSV file containing parameters for solid solutions, e.g.,
-            "my_solid_solutions.csv". If `db` is set to "WORM" and `solid_solutions`
-            is not defined, then parameters for solid solutions will be retrieved
-            from "Solid_solutions.csv" at https://github.com/worm-portal/WORM-db
-
-        logK : str
-            Filepath of a CSV file containing equilibrium constants for chemical
-            species, e.g., "my_logK_entries.csv". If `db` is set to "WORM" and `logK`
-            is not defined, then equilibrium constants will be retrieved from
-            "wrm_data_logK.csv" at https://github.com/worm-portal/WORM-db
-
-        logK_extrapolate : str, default "none"
-            What method should be used to extrapolate equilibrium constants in the
-            logK database (defined by parameter `logK`) as a function of
-            temperature? Can be either "none", "flat", "poly", or "linear".
-
-        download_csv_files : bool, default False
-            Download copies of database CSV files to your current working directory?
-
-        exclude_category : dict
-            Exclude species from thermodynamic databases based on column values.
-            For instance,
-            `exclude_category={'category_1':["organic_aq", "organic_cr"]}`
-            will exclude all species that have "organic_aq" or "organic_cr" in
-            the column "category_1".
-            Species are excluded from the main thermodynamic database CSV and the
-            equilibrium constant (logK) CSV database. This parameter has no effect
-            if the thermodynamic database is a data0 or data1 file.
-
-        suppress_redox : list of str, default []
-            Suppress equilibrium between oxidation states of listed elements
-            (Cl, H, and O cannot be included).
-
-        exceed_Ttr : bool, default True
-            Calculate Gibbs energies of mineral phases and other species
-            beyond their transition temperatures?
-
-        input_template : str, default "none"
-            Can be either "strict", "basis", "all", or "none" (default). If any
-            option other than "none" is chosen, a sample input file template CSV
-            file customized to this thermodynamic dataset called
-            "sample_input_template.csv" will be generated in the current directory.
-            This template can be populated with water sample data to be speciated by
-            the `speciate` function. The "strict" option is highly recommended for
-            most users. This is because strict basis species speciate into auxiliary
-            and non-basis species, but not the other way around.
-            Columns in the template include 'Sample', 'Temperature', 'logfO2', and
-            others, depending on the chosen option. If "strict", columns for strict
-            basis species will be included. If "basis", columns for both strict and
-            auxiliary basis species will be included. If "all", then columns for all
-            aqueous species will be included.
-
-        water_model : str, default "SUPCRT92"
-            This is an experimental feature that is not yet fully supported.
-            Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
-            These models are described here: http://chnosz.net/manual/water.html
-
-        eq36da : str, defaults to path given by the environment variable EQ36DA
-            Path to directory where data1 files are stored. 
-
-        eq36co : str, defaults to path given by the environment variable EQ36CO
-            Path to directory where EQ3 executables are stored.
-
-        verbose : int, 0, 1, or 2, default 1
-            Level determining how many messages are returned during a
-            calculation. 2 for all messages, 1 for errors or warnings only,
-            0 for silent.
-
-        hide_traceback : bool, default True
-            Hide traceback message when encountering errors handled by this class?
-            When True, error messages handled by this class will be short and to
-            the point.
-
         """
 
-        def __init__(self,
-                     AqEquil_instance,
-                     db = "WORM",
-                     elements=None,
-                     solid_solutions=None,
-                     logK=None,
-                     logK_S=None,
-                     logK_extrapolate="none",
-                     download_csv_files=False,
-                     exclude_category={},
-                     suppress_redox=[],
-                     exceed_Ttr=True,
-                     input_template="none",
-                     water_model="SUPCRT92",
-                     eq36da=os.environ.get('EQ36DA'),
-                     eq36co=os.environ.get('EQ36CO'),
-                     verbose=1,
-                     hide_traceback=True):
+        def __init__(self, AqEquil_instance):
 
             self.AqEquil_instance = AqEquil_instance
             
-            self.db = db
-            self.exclude_category = exclude_category
-            self.water_model = water_model
-
-            self.hide_traceback = hide_traceback
+            # attributes to add to AqEquil class
+            self.db = self.AqEquil_instance.db
+            self.elements = self.AqEquil_instance.elements
+            solid_solutions = self.AqEquil_instance.solid_solutions
+            self.exclude_category = self.AqEquil_instance.exclude_category
+            self.water_model = self.AqEquil_instance.water_model
+            logK = self.AqEquil_instance.logK
+            logK_S = self.AqEquil_instance.logK_S
+            download_csv_files = self.AqEquil_instance.download_csv_files
+            exclude_category = self.AqEquil_instance.exclude_category
+            suppress_redox = self.AqEquil_instance.suppress_redox
+            exceed_Ttr = self.AqEquil_instance.exceed_Ttr
+            input_template = self.AqEquil_instance.input_template
+            verbose = self.AqEquil_instance.verbose
+            
+            self.hide_traceback = self.AqEquil_instance.hide_traceback
             self.err_handler = Error_Handler(clean=self.hide_traceback)
 
-            self.eq36da = eq36da
-            self.eq36co = eq36co
+            self.eq36da = self.AqEquil_instance.eq36da
+            self.eq36co = self.AqEquil_instance.eq36co
 
             # active thermo db attributes
             self.thermo_db = None
@@ -4375,7 +4267,7 @@ class AqEquil(object):
 
             # logK attributes
             self.logK_active = False
-            self.logK_extrapolate = logK_extrapolate
+            self.logK_extrapolate = self.AqEquil_instance.logK_extrapolate
             self.logK_db = None
             self.logK_db_source = None
             self.logK_db_filename = None
@@ -4388,12 +4280,12 @@ class AqEquil(object):
 
             self.verbose=verbose
 
-            if db == "WORM":
+            if self.db == "WORM":
                 if self.verbose > 0:
                     print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
                 self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-                if elements == None:
+                if self.elements == None:
                     self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
                 if solid_solutions == None:
                     self._load_solid_solutions("https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv", source="URL", download_csv_files=download_csv_files)
@@ -4405,7 +4297,7 @@ class AqEquil(object):
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
 
             # elements must be loaded if thermo_db_type is a CSV
-            if elements != None:
+            if self.elements != None:
                 self._load_elements(elements, source="file")
             if not self.element_active and self.thermo_db_type=="CSV":
                 self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
