@@ -565,8 +565,14 @@ class Mass_Transfer:
         if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
             error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
         
+        if isinstance(xyb, list):
+            if len(xyb) != 3:
+                error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                        &#34;The xyb parameter must either be None or a list of &#34;
+                        &#34;three basis species to serve as x, y, and balance variables.&#34;))
+        
         if len(error_messages)&gt;0:
-            self.err_handler.raise_exception(error_messages)
+            self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
         
         self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
@@ -658,14 +664,21 @@ class Mass_Transfer:
             elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
                 
                 if isinstance(xyb, list):
-                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                    try:
+                        xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                    except:
+                        err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                               &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                        self.err_handler.raise_exception(err)
                     xyb_i = None
                     # get index of triad that matches xyb:
                     for i,triad in enumerate(element_plot_triad):
                         if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
                             xyb_i = i
                     if xyb_i == None:
-                        print(&#34;ERROR!&#34;)
+                        err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                               &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                        self.err_handler.raise_exception(err)
                 
                 for triad in element_plot_triad:
 
@@ -693,7 +706,10 @@ class Mass_Transfer:
                     for irow in range(0, self.moles_product_minerals.shape[0]):
 
                         # get names of minerals formed at this xi
-                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                        xirow = list(self.moles_product_minerals.iloc[irow])
+                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                           ii,mineral in enumerate(xirow[1:]) if
+                                           mineral&gt;0]
 
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -2245,9 +2261,9 @@ class Reactant:
         b_eq1, b_eq2, b_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the backward rate law defined for `b_rate_law`.
             If `b_rate_law` is &#34;Relative rate equation&#34;, then:
-            - b_eq1 is dXi(n)/dXi (mol/mol)
-            - b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-            - b_eq3 is d3Xi(n)/dXi3 (mol/mol3)
+            - the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+            - the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+            - the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)
         
         hide_traceback : bool, default True
             Hide traceback message when encountering errors handled by this class?
@@ -2257,6 +2273,13 @@ class Reactant:
         &#34;&#34;&#34;
     
         self.err_handler = Error_Handler(clean=hide_traceback)
+        
+        if f_rate_law not in [&#34;Use backward rate law&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;f_rate_law must be either &#34;
+                    &#34;&#39;Use backward rate law&#39; or &#39;Relative rate equation&#39;.&#34;))
+        if b_rate_law not in [&#34;Use forward rate law&#34;, &#34;Partial equilibrium&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;b_rate_law must be either &#34;
+                    &#34;&#39;Use forward rate law&#39;, &#39;Partial equilibrium&#39;, or &#39;Relative rate equation&#39;.&#34;))
         
         self.reactant_name=reactant_name
         self.reactant_type=reactant_type
@@ -3737,8 +3760,14 @@ the point.</dd>
         if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
             error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
         
+        if isinstance(xyb, list):
+            if len(xyb) != 3:
+                error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                        &#34;The xyb parameter must either be None or a list of &#34;
+                        &#34;three basis species to serve as x, y, and balance variables.&#34;))
+        
         if len(error_messages)&gt;0:
-            self.err_handler.raise_exception(error_messages)
+            self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
         
         self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
@@ -3830,14 +3859,21 @@ the point.</dd>
             elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
                 
                 if isinstance(xyb, list):
-                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                    try:
+                        xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                    except:
+                        err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                               &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                        self.err_handler.raise_exception(err)
                     xyb_i = None
                     # get index of triad that matches xyb:
                     for i,triad in enumerate(element_plot_triad):
                         if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
                             xyb_i = i
                     if xyb_i == None:
-                        print(&#34;ERROR!&#34;)
+                        err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                               &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                        self.err_handler.raise_exception(err)
                 
                 for triad in element_plot_triad:
 
@@ -3865,7 +3901,10 @@ the point.</dd>
                     for irow in range(0, self.moles_product_minerals.shape[0]):
 
                         # get names of minerals formed at this xi
-                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                        xirow = list(self.moles_product_minerals.iloc[irow])
+                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                           ii,mineral in enumerate(xirow[1:]) if
+                                           mineral&gt;0]
 
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -5946,8 +5985,14 @@ specified, fig_list will only contain the single figure of interest.</dd>
     if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
         error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
     
+    if isinstance(xyb, list):
+        if len(xyb) != 3:
+            error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                    &#34;The xyb parameter must either be None or a list of &#34;
+                    &#34;three basis species to serve as x, y, and balance variables.&#34;))
+    
     if len(error_messages)&gt;0:
-        self.err_handler.raise_exception(error_messages)
+        self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
     
     self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
     self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
@@ -6039,14 +6084,21 @@ specified, fig_list will only contain the single figure of interest.</dd>
         elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
             
             if isinstance(xyb, list):
-                xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                try:
+                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                except:
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
                 xyb_i = None
                 # get index of triad that matches xyb:
                 for i,triad in enumerate(element_plot_triad):
                     if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
                         xyb_i = i
                 if xyb_i == None:
-                    print(&#34;ERROR!&#34;)
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
             
             for triad in element_plot_triad:
 
@@ -6074,7 +6126,10 @@ specified, fig_list will only contain the single figure of interest.</dd>
                 for irow in range(0, self.moles_product_minerals.shape[0]):
 
                     # get names of minerals formed at this xi
-                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                    xirow = list(self.moles_product_minerals.iloc[irow])
+                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                       ii,mineral in enumerate(xirow[1:]) if
+                                       mineral&gt;0]
 
                     available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -7102,9 +7157,9 @@ The TST rate equation is not yet supported.</dd>
 <dt><strong><code>b_eq1</code></strong>, <strong><code>b_eq2</code></strong>, <strong><code>b_eq3</code></strong> :&ensp;<code>float</code>, default <code>1, 0, 0, respectively</code></dt>
 <dd>Coefficients of the backward rate law defined for <code>b_rate_law</code>.
 If <code>b_rate_law</code> is "Relative rate equation", then:
-- b_eq1 is dXi(n)/dXi (mol/mol)
-- b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-- b_eq3 is d3Xi(n)/dXi3 (mol/mol3)</dd>
+- the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+- the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+- the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)</dd>
 <dt><strong><code>hide_traceback</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Hide traceback message when encountering errors handled by this class?
 When True, error messages handled by this class will be short and to
@@ -7204,9 +7259,9 @@ the point.</dd>
         b_eq1, b_eq2, b_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the backward rate law defined for `b_rate_law`.
             If `b_rate_law` is &#34;Relative rate equation&#34;, then:
-            - b_eq1 is dXi(n)/dXi (mol/mol)
-            - b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-            - b_eq3 is d3Xi(n)/dXi3 (mol/mol3)
+            - the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+            - the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+            - the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)
         
         hide_traceback : bool, default True
             Hide traceback message when encountering errors handled by this class?
@@ -7216,6 +7271,13 @@ the point.</dd>
         &#34;&#34;&#34;
     
         self.err_handler = Error_Handler(clean=hide_traceback)
+        
+        if f_rate_law not in [&#34;Use backward rate law&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;f_rate_law must be either &#34;
+                    &#34;&#39;Use backward rate law&#39; or &#39;Relative rate equation&#39;.&#34;))
+        if b_rate_law not in [&#34;Use forward rate law&#34;, &#34;Partial equilibrium&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;b_rate_law must be either &#34;
+                    &#34;&#39;Use forward rate law&#39;, &#39;Partial equilibrium&#39;, or &#39;Relative rate equation&#39;.&#34;))
         
         self.reactant_name=reactant_name
         self.reactant_type=reactant_type

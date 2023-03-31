@@ -267,7 +267,7 @@ create_data0 <- function(thermo_df,
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = solid            %sactive", formatted_tag)
       formatted_V0PrTr = fillspace(entry$V, 9, spaces_after=FALSE)
-      volume = sprintf("       V0PrTr = %s cm**3/mol", formatted_V0PrTr)
+      volume = sprintf("     V0PrTr = %s cm**3/mol", formatted_V0PrTr)
       insertline_regex <- "\\+-+\nliquids"
       insertline <- "+--------------------------------------------------------------------\nliquids"
     } else if (entry$state == "gas"){
@@ -275,7 +275,7 @@ create_data0 <- function(thermo_df,
       tag = tag_vec[entry$name] # for gases, this is a tag like "refsate"
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = gas              %sactive", formatted_tag)
-      volume = "       V0PrTr = 24465.000 cm**3/mol  (source = ideal gas law)"
+      volume = "     V0PrTr = 24465.000 cm**3/mol  (source = ideal gas law)"
       insertline_regex <- "\\+-+\nsolid solutions"
       insertline <- "+--------------------------------------------------------------------\nsolid solutions"
     } else if (entry$state == "liq"){
@@ -284,7 +284,7 @@ create_data0 <- function(thermo_df,
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = liquid           %sactive", formatted_tag)
       formatted_V0PrTr = fillspace(entry$V, 9, spaces_after=FALSE)
-      volume = sprintf("       V0PrTr = %s cm**3/mol", formatted_V0PrTr)
+      volume = sprintf("     V0PrTr = %s cm**3/mol", formatted_V0PrTr)
       insertline_regex <- "\\+-+\ngases"
       insertline <- "+--------------------------------------------------------------------\ngases"
     } else {

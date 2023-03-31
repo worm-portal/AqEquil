@@ -51,7 +51,6 @@ from chemparse import parse_formula
 from IPython.core.display import display, HTML
 import periodictable
 
-from ._ErrorHandler import Error_Handler
 from ._HKF_cgl import OBIGT2eos, calc_logK
 
 # matplotlib for static plots
@@ -124,23 +123,6 @@ def load(filename, messages=True, hide_traceback=True):
         err_handler.raise_exception(msg)
 
 
-def _isnotebook():
-    
-    &#34;&#34;&#34;
-    Check if this code is running in a Jupyter notebook
-    &#34;&#34;&#34;
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == &#39;ZMQInteractiveShell&#39;:
-            return True   # Jupyter notebook or qtconsole
-        elif shell == &#39;TerminalInteractiveShell&#39;:
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
-
 def _float_to_fraction (x, error=0.000001):
     
     &#34;&#34;&#34;
@@ -194,7 +176,8 @@ def _float_to_formatted_fraction(x, error=0.000001):
     else:
         if whole_number_float == 0:
             whole_number_float = &#34;&#34;
-        return &#34;{0}&lt;sup&gt;{1}&lt;/sup&gt;&amp;frasl;&lt;sub&gt;{2}&lt;/sub&gt;&#34;.format(whole_number_float, remainder_tuple[0], remainder_tuple[1])
+        return &#34;{0}&lt;sup&gt;{1}&lt;/sup&gt;&amp;frasl;&lt;sub&gt;{2}&lt;/sub&gt;&#34;.format(
+                whole_number_float, remainder_tuple[0], remainder_tuple[1])
 
 
 def _format_coeff(coeff):
@@ -258,22 +241,23 @@ def _convert_to_RVector(value, force_Rvec=True):
         return ro.StrVector([str(v) for v in value])
 
     
-def _clean_rpy2_pandas_conversion(df,
-                                   float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
-                                                &#34;V&#34;, &#34;a1.a&#34;, &#34;a2.b&#34;,
-                                                &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;,
-                                                &#34;c2.f&#34;, &#34;omega.lambda&#34;, &#34;z.T&#34;,
-                                                &#34;azero&#34;, &#34;neutral_ion_type&#34;,
-                                                &#34;logK1&#34;, &#34;logK2&#34;, &#34;logK3&#34;, &#34;logK4&#34;,
-                                                &#34;logK5&#34;, &#34;logK6&#34;, &#34;logK7&#34;, &#34;logK8&#34;,
-                                                &#34;T1&#34;, &#34;T2&#34;, &#34;T3&#34;, &#34;T4&#34;, &#34;T5&#34;, &#34;T6&#34;,
-                                                &#34;T7&#34;, &#34;T8&#34;],
-                                    str_cols=[&#34;name&#34;, &#34;abbrv&#34;, &#34;state&#34;, &#34;formula&#34;,
-                                              &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;,
-                                              &#34;E_units&#34;, &#34;tag&#34;, &#34;dissrxn&#34;, &#34;formula_ox&#34;,
-                                              &#34;P1&#34;, &#34;P2&#34;, &#34;P3&#34;, &#34;P4&#34;, &#34;P5&#34;, &#34;P6&#34;,
-                                              &#34;P7&#34;, &#34;P8&#34;],
-                                    NA_string=&#34;&#34;):
+def _clean_rpy2_pandas_conversion(
+        df,
+        float_cols=[&#34;G&#34;, &#34;H&#34;, &#34;S&#34;, &#34;Cp&#34;,
+                    &#34;V&#34;, &#34;a1.a&#34;, &#34;a2.b&#34;,
+                    &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;,
+                    &#34;c2.f&#34;, &#34;omega.lambda&#34;, &#34;z.T&#34;,
+                    &#34;azero&#34;, &#34;neutral_ion_type&#34;,
+                    &#34;logK1&#34;, &#34;logK2&#34;, &#34;logK3&#34;, &#34;logK4&#34;,
+                    &#34;logK5&#34;, &#34;logK6&#34;, &#34;logK7&#34;, &#34;logK8&#34;,
+                    &#34;T1&#34;, &#34;T2&#34;, &#34;T3&#34;, &#34;T4&#34;, &#34;T5&#34;, &#34;T6&#34;,
+                    &#34;T7&#34;, &#34;T8&#34;],
+        str_cols=[&#34;name&#34;, &#34;abbrv&#34;, &#34;state&#34;, &#34;formula&#34;,
+                  &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;,
+                  &#34;E_units&#34;, &#34;tag&#34;, &#34;dissrxn&#34;, &#34;formula_ox&#34;,
+                  &#34;P1&#34;, &#34;P2&#34;, &#34;P3&#34;, &#34;P4&#34;, &#34;P5&#34;, &#34;P6&#34;,
+                  &#34;P7&#34;, &#34;P8&#34;],
+        NA_string=&#34;&#34;):
 
     df.replace(NA_string, np.nan, inplace=True)
     for col in float_cols:
@@ -365,7 +349,7 @@ def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
         except:
             valid_colormaps = [cmap for cmap in dir(cm) if &#34;_&#34; not in cmap and cmap not in [&#34;LUTSIZE&#34;, &#34;MutableMapping&#34;, &#34;ScalarMappable&#34;, &#34;functools&#34;, &#34;datad&#34;, &#34;revcmap&#34;]]
             err_handler.raise_exception(&#34;&#39;{}&#39;&#34;.format(colormap)+&#34; is not a recognized matplotlib colormap. &#34;
-                            &#34;Try one of these: {}&#34;.format(valid_colormaps))
+                    &#34;Try one of these: {}&#34;.format(valid_colormaps))
         m = cm.ScalarMappable(norm=norm, cmap=cmap)
         colors = [m.to_rgba(i) for i in range(ncol)]
         colors = [(c[0], c[1], c[2], alpha) for c in colors]
@@ -428,10 +412,12 @@ def _html_chemname_format(name, charge_sign_at_end=False):
     charge = re.search(r&#39;&lt;.*$&#39;, name)
 
     name_no_charge = re.match(r&#39;(?:(?!&lt;|$).)*&#39;, name).group(0)
-    mapping = {&#34;0&#34;: &#34;&lt;sub&gt;0&lt;/sub&gt;&#34;, &#34;1&#34;: &#34;&lt;sub&gt;1&lt;/sub&gt;&#34;, &#34;2&#34;: &#34;&lt;sub&gt;2&lt;/sub&gt;&#34;, &#34;3&#34;: &#34;&lt;sub&gt;3&lt;/sub&gt;&#34;, &#34;4&#34;: &#34;&lt;sub&gt;4&lt;/sub&gt;&#34;, 
-           &#34;5&#34;: &#34;&lt;sub&gt;5&lt;/sub&gt;&#34;, &#34;6&#34;: &#34;&lt;sub&gt;6&lt;/sub&gt;&#34;, &#34;7&#34;: &#34;&lt;sub&gt;7&lt;/sub&gt;&#34;, &#34;8&#34;: &#34;&lt;sub&gt;8&lt;/sub&gt;&#34;, &#34;9&#34;: &#34;&lt;sub&gt;9&lt;/sub&gt;&#34;,
-           &#34;.&#34;:&#34;&lt;sub&gt;.&lt;/sub&gt;&#34;}
-    name_no_charge_formatted = &#34;&#34;.join([mapping.get(x) or x for x in list(name_no_charge)])
+    mapping = {&#34;0&#34;: &#34;&lt;sub&gt;0&lt;/sub&gt;&#34;, &#34;1&#34;: &#34;&lt;sub&gt;1&lt;/sub&gt;&#34;, &#34;2&#34;: &#34;&lt;sub&gt;2&lt;/sub&gt;&#34;,
+               &#34;3&#34;: &#34;&lt;sub&gt;3&lt;/sub&gt;&#34;, &#34;4&#34;: &#34;&lt;sub&gt;4&lt;/sub&gt;&#34;, &#34;5&#34;: &#34;&lt;sub&gt;5&lt;/sub&gt;&#34;,
+               &#34;6&#34;: &#34;&lt;sub&gt;6&lt;/sub&gt;&#34;, &#34;7&#34;: &#34;&lt;sub&gt;7&lt;/sub&gt;&#34;, &#34;8&#34;: &#34;&lt;sub&gt;8&lt;/sub&gt;&#34;,
+               &#34;9&#34;: &#34;&lt;sub&gt;9&lt;/sub&gt;&#34;, &#34;.&#34;:&#34;&lt;sub&gt;.&lt;/sub&gt;&#34;}
+    name_no_charge_formatted = &#34;&#34;.join([mapping.get(x) or x
+                                        for x in list(name_no_charge)])
 
     if charge != None:
         name = name_no_charge_formatted + charge.group(0)
@@ -448,6 +434,77 @@ def _html_chemname_format(name, charge_sign_at_end=False):
 
     return(name)
     
+
+def _isnotebook():
+    
+    &#34;&#34;&#34;
+    Check if this code is running in a Jupyter notebook
+    &#34;&#34;&#34;
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == &#39;ZMQInteractiveShell&#39;:
+            return True   # Jupyter notebook or qtconsole
+        elif shell == &#39;TerminalInteractiveShell&#39;:
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
+
+class Error_Handler:
+    
+    &#34;&#34;&#34;
+    Handles how errors are printed in Jupyter notebooks. By default, errors that
+    are handled by AqEquil are printed with an error message, but no traceback.
+    Errors that are not handled by AqEquil, such as those thrown if the user
+    encounters a bug, will display a full traceback.
+    
+    If the error handler prints an error message without traceback, all future
+    errors regardless of origin will be shown without traceback until the
+    notebook kernel is restarted.
+    
+    Parameters
+    ----------
+    clean : bool
+        Report exceptions without traceback? If True, only the error message is
+        shown. If False, the entire error message, including traceback, is
+        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
+    
+    &#34;&#34;&#34;
+    def __init__(self, clean=True):
+        self.clean = clean # bool: hide traceback?
+        pass
+    
+    
+    @staticmethod
+    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                       exception_only=False, running_compiled_code=False):
+        
+        &#34;&#34;&#34;
+        Return a modified ipython showtraceback function that does not display
+        traceback when encountering an error.
+        &#34;&#34;&#34;
+        
+        ipython = get_ipython()
+        etype, value, tb = sys.exc_info()
+        value.__cause__ = None  # suppress chained exceptions
+        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
+        
+
+    def raise_exception(self, msg):
+        
+        &#34;&#34;&#34;
+        Raise an exception that displays the error message without traceback. This
+        happens only when the exception is predicted by the AqEquil package
+        (e.g., for common user errors).
+        &#34;&#34;&#34;
+        if self.clean and _isnotebook():
+            ipython = get_ipython()
+            ipython.showtraceback = self.hide_traceback
+            
+        raise Exception(msg)
+        
     
 class AqEquil(object):
 
@@ -497,6 +554,12 @@ class AqEquil(object):
         species, e.g., &#34;my_logK_entries.csv&#34;. If `db` is set to &#34;WORM&#34; and `logK`
         is not defined, then equilibrium constants will be retrieved from
         &#34;wrm_data_logK.csv&#34; at https://github.com/worm-portal/WORM-db
+    
+    logK_S : str
+        Filepath of a CSV file containing equilibrium constants for chemical
+        species, e.g., &#34;my_logK_S_entries.csv&#34;. If `db` is set to &#34;WORM&#34; and `logK_S`
+        is not defined, then equilibrium constants will be retrieved from
+        &#34;wrm_data_logK_S.csv&#34; at https://github.com/worm-portal/WORM-db
     
     logK_extrapolate : str, default &#34;none&#34;
         What method should be used to extrapolate equilibrium constants in the
@@ -613,6 +676,7 @@ class AqEquil(object):
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
+        self.water_model = water_model
         
         half_rxn_data = pkg_resources.resource_stream(__name__, &#34;half_cell_reactions.csv&#34;)
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
@@ -633,27 +697,28 @@ class AqEquil(object):
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
+        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
+                                                 &#34;name&#34;:[],
+                                                 &#34;reason for rejection&#34;:[]})
+        
         
         if load_thermo:
-            self.thermo = AqEquil.Thermodata(
-                     AqEquil_instance=self, # outer instance passed to inner instance
-                     db=db,
-                     elements=elements,
-                     solid_solutions=solid_solutions,
-                     logK=logK,
-                     logK_S=logK_S,
-                     logK_extrapolate=logK_extrapolate,
-                     download_csv_files=download_csv_files,
-                     exclude_category=exclude_category,
-                     suppress_redox=suppress_redox,
-                     input_template=input_template,
-                     water_model=water_model,
-                     exceed_Ttr=exceed_Ttr,
-                     eq36da=self.eq36da,
-                     eq36co=self.eq36co,
-                     verbose=self.verbose,
-                     hide_traceback=hide_traceback)
+            
+            # attributes to add to AqEquil class
+            self.db = db
+            self.elements = elements
+            self.solid_solutions = solid_solutions
+            self.exclude_category = exclude_category
+            self.logK = logK
+            self.logK_S = logK_S
+            self.logK_extrapolate = logK_extrapolate
+            self.download_csv_files = download_csv_files
+            self.exclude_category = exclude_category
+            self.suppress_redox = suppress_redox
+            self.exceed_Ttr = exceed_Ttr
+            self.input_template = input_template
+            
+            self.thermo = AqEquil.Thermodata(AqEquil_instance=self) # outer instance passed to inner instance
         
             self.data1 = self.thermo.data1
 
@@ -716,7 +781,8 @@ class AqEquil(object):
 
     
     def _check_sample_input_file(self, input_filename, exclude, db,
-                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       dynamic_db, charge_balance_on,
+                                       suppress_missing,
                                        redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
@@ -769,8 +835,10 @@ class AqEquil(object):
             try:
                 df_in_headercheck = df_in_headercheck.drop(exc, axis=1) # drop excluded columns
             except:
-                err_bad_exclude = (&#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
-                                   &#34;This header could not be found in {}&#34;.format(input_filename)+&#34;&#34;)
+                err_bad_exclude = (
+                        &#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
+                        &#34;This header could not be found in &#34;
+                        &#34;{}&#34;.format(input_filename)+&#34;&#34;)
                 err_list.append(err_bad_exclude)
         
         # get row list
@@ -794,7 +862,8 @@ class AqEquil(object):
             err_list.append(err_dupe_rows)
         
         # are there any leading or trailing spaces in sample names?
-        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0]) if str(n[0])==&#34; &#34; or str(n[-1])==&#34; &#34;]
+        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0])
+                                if str(n[0])==&#34; &#34; or str(n[-1])==&#34; &#34;]
         if len(invalid_sample_names) &gt; 0:
             err_sample_leading_trailing_spaces = (&#34;The following sample names &#34;
                 &#34;have leading or trailing spaces. Remove spaces and try again: &#34;
@@ -847,6 +916,7 @@ class AqEquil(object):
             err_list.append(err_charge_balance_invalid_sp)
 
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
+            
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                     err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
@@ -893,7 +963,7 @@ class AqEquil(object):
                 &#34;&#39;degC&#39; in the second row, and a temperature value for each &#34;
                 &#34;sample in degrees Celsius.&#34;)
             err_list.append(err_temp)
-        
+
         # raise an exception that summarizes all errors found
         if len(err_list) &gt; 0:
             errs = &#34;\n\n*&#34;.join(err_list)
@@ -918,9 +988,8 @@ class AqEquil(object):
         
         return sample_temps, sample_press
         
-        
+
     def __move_eqpt_extra_output(self):
-        
         &#34;&#34;&#34;
         Moves all EQPT output and data0 into the eqpt_files folder
         &#34;&#34;&#34;
@@ -1874,7 +1943,7 @@ class AqEquil(object):
             if self.verbose &gt; 0:
                 print(&#34;Getting&#34;, self.thermo.thermo_db_filename, &#34;ready. This will take a moment...&#34;)
     
-            OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+            thermo_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
         if self.thermo.custom_data0 and not dynamic_db:
             self.__mk_check_del_directory(&#39;eqpt_files&#39;)
@@ -2086,18 +2155,18 @@ class AqEquil(object):
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                                data0_file_lines=copy.deepcopy(data0_file_lines),
-                                grid_temps=[temp_degC],
-                                grid_press=[pressure_bar],
-                                db=data0_lettercode,
-                                water_model=water_model,
-                                activity_model=activity_model,
-                                P1=P1,
-                                plot_poly_fit=plot_poly_fit,
-                                logK_extrapolate=logK_extrapolate,
-                                dynamic_db=dynamic_db,
-                                verbose=verbose)
+                self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                                  data0_file_lines=copy.deepcopy(data0_file_lines),
+                                  grid_temps=[temp_degC],
+                                  grid_press=[pressure_bar],
+                                  db=data0_lettercode,
+                                  water_model=water_model,
+                                  activity_model=activity_model,
+                                  P1=P1,
+                                  plot_poly_fit=plot_poly_fit,
+                                  logK_extrapolate=logK_extrapolate,
+                                  dynamic_db=dynamic_db,
+                                  verbose=verbose)
                 
                 if self.thermo.thermo_db_type != &#34;data1&#34;:
                     self.runeqpt(data0_lettercode, dynamic_db=True)
@@ -2124,7 +2193,7 @@ class AqEquil(object):
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = [&#34;all&#34;]
             if dynamic_db:
-                allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
+                allowed_aq_block_species = list(thermo_df[&#34;name&#34;]) + FIXED_SPECIES
             
             # write 3i files
             self._capture_r_output()
@@ -2313,7 +2382,7 @@ class AqEquil(object):
             df_aq_distribution.columns = multicolumns
             
             # ensure final pH column is included in report_divs aq_distribution section
-            aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
+            aq_dist_indx = list(report_divs.names).index(&#34;aq_distribution&#34;)
             report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
@@ -2520,14 +2589,14 @@ class AqEquil(object):
                 dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
 
             if get_solid_solutions:
-                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[str(sample.rx2(&#39;name&#39;)[0])].rx2[&#34;solid_solutions&#34;]
 
                 if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
 
                     ss_df_list = []
                     for ss in list(sample_solid_solutions.names):
-                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;])
-                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;])
+                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;ideal solution&#34;])
+                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;mineral&#34;])
                         df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
                         df_merged.insert(0, &#39;solid solution&#39;, ss)
                         del df_merged[&#39;component&#39;]
@@ -2596,7 +2665,7 @@ class AqEquil(object):
         return kstr.format(round(x, k)).strip()
     
     
-    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+    def __fill_data0(self, thermo_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, logK_extrapolate,
                    dynamic_db, verbose):
         
@@ -2632,7 +2701,7 @@ class AqEquil(object):
         # calculate logK at each T and P for every species
         out_dfs = []
         for i,Tc in enumerate(grid_temps):
-            out_dfs.append(calc_logK(OBIGT_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
+            out_dfs.append(calc_logK(thermo_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
         
         dissrxn_logK_dict = {&#39;name&#39;: out_dfs[0][&#34;name&#34;],
                              &#39;logK_0&#39;: out_dfs[0][&#34;dissrxn_logK_0&#34;]}
@@ -2657,9 +2726,9 @@ class AqEquil(object):
         
         # handle free logK values
         free_logK_names = []
-        if &#34;logK1&#34; in OBIGT_df.columns:
+        if &#34;logK1&#34; in thermo_df.columns:
             
-            free_logK_df = OBIGT_df.dropna(subset=[&#39;logK1&#39;])
+            free_logK_df = thermo_df.dropna(subset=[&#39;logK1&#39;])
             free_logK_names = list(free_logK_df[&#34;name&#34;])
     
             sp_dupes = []
@@ -3269,7 +3338,6 @@ class AqEquil(object):
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
         
         out_list = self.thermo.out_list
-        OBIGT_df = thermo_df # TODO: this var name change is unecessary. Fix.
     
         self._capture_r_output()
     
@@ -3278,10 +3346,8 @@ class AqEquil(object):
         
         ro.r(r_create_data0)
         
-        ro.conversion.py2rpy(thermo_df)
-        
         # assemble data0 file
-        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
+        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
                           solid_solution_df=solid_solution_df,
                           db=db,
                           water_model=water_model,
@@ -3295,30 +3361,25 @@ class AqEquil(object):
         self._print_captured_r_output()
         
         data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
-#         print(&#34;lines:&#34;)
-#         print(str(data0_file_lines))
-#         with open(&#39;test.txt&#39;, &#39;w&#39;) as f:
-#             for line in data0_file_lines:
-#                 f.write(f&#34;{line}\n&#34;)
         
         if fill_data0:
             
             # begin TP-dependent processes
-            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                            data0_file_lines=copy.deepcopy(data0_file_lines),
-                            grid_temps=grid_temps,
-                            grid_press=grid_press,
-                            db=db,
-                            water_model=water_model,
-                            activity_model=activity_model,
-                            P1=P1,
-                            plot_poly_fit=plot_poly_fit,
-                            logK_extrapolate=logK_extrapolate,
-                            dynamic_db=dynamic_db,
-                            verbose=self.verbose)
+            self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                              data0_file_lines=copy.deepcopy(data0_file_lines),
+                              grid_temps=grid_temps,
+                              grid_press=grid_press,
+                              db=db,
+                              water_model=water_model,
+                              activity_model=activity_model,
+                              P1=P1,
+                              plot_poly_fit=plot_poly_fit,
+                              logK_extrapolate=logK_extrapolate,
+                              dynamic_db=dynamic_db,
+                              verbose=self.verbose)
     
         else:
-            return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
+            return thermo_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))
@@ -4165,148 +4226,34 @@ class AqEquil(object):
     class Thermodata(object):
         &#34;&#34;&#34;
         Metaclass to store and load thermodynamic databases.
-        The outer class is AqEquil.
-
-        Parameters
-        ----------
-        AqEquil_instance : object of AqEquil class
-            Instance of AqEquil passed to this inner metaclass.
+        Inherits attributes from its outer class, AqEquil.
         
-        db : str, default &#34;WORM&#34;
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - &#34;WORM&#34; will load the default WORM thermodynamic database,
-            solid solution database, and logK database. These files are retrieved
-            from https://github.com/worm-portal/WORM-db to ensure they are
-            up-to-date.
-            - Three letter file extension for the desired data1 database, e.g.,
-            &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-            &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-
-        elements : str
-            Filepath of a CSV file containing parameters for elements, e.g.,
-            &#34;my_elements.csv&#34;. If `db` is set to &#34;WORM&#34; and `elements` is not
-            defined, then parameters for elements will be retrieved from
-            &#34;elements.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        solid_solutions : str
-            Filepath of a CSV file containing parameters for solid solutions, e.g.,
-            &#34;my_solid_solutions.csv&#34;. If `db` is set to &#34;WORM&#34; and `solid_solutions`
-            is not defined, then parameters for solid solutions will be retrieved
-            from &#34;Solid_solutions.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        logK : str
-            Filepath of a CSV file containing equilibrium constants for chemical
-            species, e.g., &#34;my_logK_entries.csv&#34;. If `db` is set to &#34;WORM&#34; and `logK`
-            is not defined, then equilibrium constants will be retrieved from
-            &#34;wrm_data_logK.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        logK_extrapolate : str, default &#34;none&#34;
-            What method should be used to extrapolate equilibrium constants in the
-            logK database (defined by parameter `logK`) as a function of
-            temperature? Can be either &#34;none&#34;, &#34;flat&#34;, &#34;poly&#34;, or &#34;linear&#34;.
-
-        download_csv_files : bool, default False
-            Download copies of database CSV files to your current working directory?
-
-        exclude_category : dict
-            Exclude species from thermodynamic databases based on column values.
-            For instance,
-            `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
-            will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
-            the column &#34;category_1&#34;.
-            Species are excluded from the main thermodynamic database CSV and the
-            equilibrium constant (logK) CSV database. This parameter has no effect
-            if the thermodynamic database is a data0 or data1 file.
-
-        suppress_redox : list of str, default []
-            Suppress equilibrium between oxidation states of listed elements
-            (Cl, H, and O cannot be included).
-
-        exceed_Ttr : bool, default True
-            Calculate Gibbs energies of mineral phases and other species
-            beyond their transition temperatures?
-
-        input_template : str, default &#34;none&#34;
-            Can be either &#34;strict&#34;, &#34;basis&#34;, &#34;all&#34;, or &#34;none&#34; (default). If any
-            option other than &#34;none&#34; is chosen, a sample input file template CSV
-            file customized to this thermodynamic dataset called
-            &#34;sample_input_template.csv&#34; will be generated in the current directory.
-            This template can be populated with water sample data to be speciated by
-            the `speciate` function. The &#34;strict&#34; option is highly recommended for
-            most users. This is because strict basis species speciate into auxiliary
-            and non-basis species, but not the other way around.
-            Columns in the template include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and
-            others, depending on the chosen option. If &#34;strict&#34;, columns for strict
-            basis species will be included. If &#34;basis&#34;, columns for both strict and
-            auxiliary basis species will be included. If &#34;all&#34;, then columns for all
-            aqueous species will be included.
-
-        water_model : str, default &#34;SUPCRT92&#34;
-            This is an experimental feature that is not yet fully supported.
-            Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
-            These models are described here: http://chnosz.net/manual/water.html
-
-        eq36da : str, defaults to path given by the environment variable EQ36DA
-            Path to directory where data1 files are stored. 
-
-        eq36co : str, defaults to path given by the environment variable EQ36CO
-            Path to directory where EQ3 executables are stored.
-
-        verbose : int, 0, 1, or 2, default 1
-            Level determining how many messages are returned during a
-            calculation. 2 for all messages, 1 for errors or warnings only,
-            0 for silent.
-
-        hide_traceback : bool, default True
-            Hide traceback message when encountering errors handled by this class?
-            When True, error messages handled by this class will be short and to
-            the point.
-
         &#34;&#34;&#34;
 
-        def __init__(self,
-                     AqEquil_instance,
-                     db = &#34;WORM&#34;,
-                     elements=None,
-                     solid_solutions=None,
-                     logK=None,
-                     logK_S=None,
-                     logK_extrapolate=&#34;none&#34;,
-                     download_csv_files=False,
-                     exclude_category={},
-                     suppress_redox=[],
-                     exceed_Ttr=True,
-                     input_template=&#34;none&#34;,
-                     water_model=&#34;SUPCRT92&#34;,
-                     eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                     eq36co=os.environ.get(&#39;EQ36CO&#39;),
-                     verbose=1,
-                     hide_traceback=True):
+        def __init__(self, AqEquil_instance):
 
             self.AqEquil_instance = AqEquil_instance
             
-            self.db = db
-            self.exclude_category = exclude_category
-            self.water_model = water_model
-
-            self.hide_traceback = hide_traceback
+            # attributes to add to AqEquil class
+            self.db = self.AqEquil_instance.db
+            self.elements = self.AqEquil_instance.elements
+            solid_solutions = self.AqEquil_instance.solid_solutions
+            self.exclude_category = self.AqEquil_instance.exclude_category
+            self.water_model = self.AqEquil_instance.water_model
+            logK = self.AqEquil_instance.logK
+            logK_S = self.AqEquil_instance.logK_S
+            download_csv_files = self.AqEquil_instance.download_csv_files
+            exclude_category = self.AqEquil_instance.exclude_category
+            suppress_redox = self.AqEquil_instance.suppress_redox
+            exceed_Ttr = self.AqEquil_instance.exceed_Ttr
+            input_template = self.AqEquil_instance.input_template
+            verbose = self.AqEquil_instance.verbose
+            
+            self.hide_traceback = self.AqEquil_instance.hide_traceback
             self.err_handler = Error_Handler(clean=self.hide_traceback)
 
-            self.eq36da = eq36da
-            self.eq36co = eq36co
+            self.eq36da = self.AqEquil_instance.eq36da
+            self.eq36co = self.AqEquil_instance.eq36co
 
             # active thermo db attributes
             self.thermo_db = None
@@ -4348,7 +4295,7 @@ class AqEquil(object):
 
             # logK attributes
             self.logK_active = False
-            self.logK_extrapolate = logK_extrapolate
+            self.logK_extrapolate = self.AqEquil_instance.logK_extrapolate
             self.logK_db = None
             self.logK_db_source = None
             self.logK_db_filename = None
@@ -4361,12 +4308,12 @@ class AqEquil(object):
 
             self.verbose=verbose
 
-            if db == &#34;WORM&#34;:
+            if self.db == &#34;WORM&#34;:
                 if self.verbose &gt; 0:
                     print(&#34;Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...&#34;)
                 self.db = &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-                if elements == None:
+                if self.elements == None:
                     self._load_elements(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
                 if solid_solutions == None:
                     self._load_solid_solutions(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
@@ -4378,7 +4325,7 @@ class AqEquil(object):
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
 
             # elements must be loaded if thermo_db_type is a CSV
-            if elements != None:
+            if self.elements != None:
                 self._load_elements(elements, source=&#34;file&#34;)
             if not self.element_active and self.thermo_db_type==&#34;CSV&#34;:
                 self._load_elements(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
@@ -4392,11 +4339,14 @@ class AqEquil(object):
             # must be loaded after the logK database
             if logK_S != None:
                 self._load_logK_S(logK_S, source=&#34;file&#34;)
-
+                
             # process dissociation reactions
-            self._suppress_redox_and_generate_dissrxns(
-                suppress_redox=suppress_redox,
-                exceed_Ttr=exceed_Ttr)
+            if self.thermo_db_type == &#34;CSV&#34;:
+                self._suppress_redox_and_generate_dissrxns(
+                    suppress_redox=suppress_redox,
+                    exceed_Ttr=exceed_Ttr)
+            elif len(suppress_redox) &gt; 0 and self.verbose &gt; 0:
+                print(&#34;Warning: redox suppression option is not recognized if a data0 or data1 database is used.&#34;)
 
             # generate input file template
             # (after species have been excluded)
@@ -5007,7 +4957,7 @@ class AqEquil(object):
                 __name__, &#39;redox_and_dissrxns.r&#39;).decode(&#34;utf-8&#34;)
 
             ro.r(r_redox_dissrxns)
-
+            
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             ro.conversion.py2rpy(thermo_df)
@@ -5024,23 +4974,21 @@ class AqEquil(object):
             
             self.AqEquil_instance._print_captured_r_output()
 
-            OBIGT_df = self.out_list.rx2(&#34;OBIGT_df&#34;)
-            OBIGT_df=ro.conversion.rpy2py(OBIGT_df)
+            thermo_df = self.out_list.rx2(&#34;thermo_df&#34;)
+            thermo_df=ro.conversion.rpy2py(thermo_df)
 
     #         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
-
     #         regenerated_dissrxn_dict = {}
     #         for name in regenerated_dissrxns.names:
     #             if name != &#34;basis_list&#34;:
     #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
 
 
-            OBIGT_df = _clean_rpy2_pandas_conversion(OBIGT_df)
+            thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             # convert E units and calculate missing GHS values
-            OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
+            self.thermo_db = OBIGT2eos(thermo_df, fixGHS=True, tocal=True)
 
-            self.thermo_db = OBIGT_df
 
 def compare(*args):
     
@@ -6761,6 +6709,11 @@ from "Solid_solutions.csv" at <a href="https://github.com/worm-portal/WORM-db">h
 species, e.g., "my_logK_entries.csv". If <code>db</code> is set to "WORM" and <code>logK</code>
 is not defined, then equilibrium constants will be retrieved from
 "wrm_data_logK.csv" at <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a></dd>
+<dt><strong><code>logK_S</code></strong> :&ensp;<code>str</code></dt>
+<dd>Filepath of a CSV file containing equilibrium constants for chemical
+species, e.g., "my_logK_S_entries.csv". If <code>db</code> is set to "WORM" and <code>logK_S</code>
+is not defined, then equilibrium constants will be retrieved from
+"wrm_data_logK_S.csv" at <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a></dd>
 <dt><strong><code>logK_extrapolate</code></strong> :&ensp;<code>str</code>, default <code>"none"</code></dt>
 <dd>What method should be used to extrapolate equilibrium constants in the
 logK database (defined by parameter <code>logK</code>) as a function of
@@ -6889,6 +6842,12 @@ energy supplies during speciation.</dd>
         is not defined, then equilibrium constants will be retrieved from
         &#34;wrm_data_logK.csv&#34; at https://github.com/worm-portal/WORM-db
     
+    logK_S : str
+        Filepath of a CSV file containing equilibrium constants for chemical
+        species, e.g., &#34;my_logK_S_entries.csv&#34;. If `db` is set to &#34;WORM&#34; and `logK_S`
+        is not defined, then equilibrium constants will be retrieved from
+        &#34;wrm_data_logK_S.csv&#34; at https://github.com/worm-portal/WORM-db
+    
     logK_extrapolate : str, default &#34;none&#34;
         What method should be used to extrapolate equilibrium constants in the
         logK database (defined by parameter `logK`) as a function of
@@ -7004,6 +6963,7 @@ energy supplies during speciation.</dd>
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
+        self.water_model = water_model
         
         half_rxn_data = pkg_resources.resource_stream(__name__, &#34;half_cell_reactions.csv&#34;)
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
@@ -7024,27 +6984,28 @@ energy supplies during speciation.</dd>
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
+        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
+                                                 &#34;name&#34;:[],
+                                                 &#34;reason for rejection&#34;:[]})
+        
         
         if load_thermo:
-            self.thermo = AqEquil.Thermodata(
-                     AqEquil_instance=self, # outer instance passed to inner instance
-                     db=db,
-                     elements=elements,
-                     solid_solutions=solid_solutions,
-                     logK=logK,
-                     logK_S=logK_S,
-                     logK_extrapolate=logK_extrapolate,
-                     download_csv_files=download_csv_files,
-                     exclude_category=exclude_category,
-                     suppress_redox=suppress_redox,
-                     input_template=input_template,
-                     water_model=water_model,
-                     exceed_Ttr=exceed_Ttr,
-                     eq36da=self.eq36da,
-                     eq36co=self.eq36co,
-                     verbose=self.verbose,
-                     hide_traceback=hide_traceback)
+            
+            # attributes to add to AqEquil class
+            self.db = db
+            self.elements = elements
+            self.solid_solutions = solid_solutions
+            self.exclude_category = exclude_category
+            self.logK = logK
+            self.logK_S = logK_S
+            self.logK_extrapolate = logK_extrapolate
+            self.download_csv_files = download_csv_files
+            self.exclude_category = exclude_category
+            self.suppress_redox = suppress_redox
+            self.exceed_Ttr = exceed_Ttr
+            self.input_template = input_template
+            
+            self.thermo = AqEquil.Thermodata(AqEquil_instance=self) # outer instance passed to inner instance
         
             self.data1 = self.thermo.data1
 
@@ -7107,7 +7068,8 @@ energy supplies during speciation.</dd>
 
     
     def _check_sample_input_file(self, input_filename, exclude, db,
-                                       dynamic_db, charge_balance_on, suppress_missing,
+                                       dynamic_db, charge_balance_on,
+                                       suppress_missing,
                                        redox_suppression):
         &#34;&#34;&#34;
         Check for problems in sample input file.
@@ -7160,8 +7122,10 @@ energy supplies during speciation.</dd>
             try:
                 df_in_headercheck = df_in_headercheck.drop(exc, axis=1) # drop excluded columns
             except:
-                err_bad_exclude = (&#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
-                                   &#34;This header could not be found in {}&#34;.format(input_filename)+&#34;&#34;)
+                err_bad_exclude = (
+                        &#34;Could not exclude the header &#39;{}&#39;&#34;.format(exc)+&#34;. &#34;
+                        &#34;This header could not be found in &#34;
+                        &#34;{}&#34;.format(input_filename)+&#34;&#34;)
                 err_list.append(err_bad_exclude)
         
         # get row list
@@ -7185,7 +7149,8 @@ energy supplies during speciation.</dd>
             err_list.append(err_dupe_rows)
         
         # are there any leading or trailing spaces in sample names?
-        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0]) if str(n[0])==&#34; &#34; or str(n[-1])==&#34; &#34;]
+        invalid_sample_names = [n for n in list(df_in.iloc[1:, 0])
+                                if str(n[0])==&#34; &#34; or str(n[-1])==&#34; &#34;]
         if len(invalid_sample_names) &gt; 0:
             err_sample_leading_trailing_spaces = (&#34;The following sample names &#34;
                 &#34;have leading or trailing spaces. Remove spaces and try again: &#34;
@@ -7238,6 +7203,7 @@ energy supplies during speciation.</dd>
             err_list.append(err_charge_balance_invalid_sp)
 
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
+            
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
                     err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
@@ -7284,7 +7250,7 @@ energy supplies during speciation.</dd>
                 &#34;&#39;degC&#39; in the second row, and a temperature value for each &#34;
                 &#34;sample in degrees Celsius.&#34;)
             err_list.append(err_temp)
-        
+
         # raise an exception that summarizes all errors found
         if len(err_list) &gt; 0:
             errs = &#34;\n\n*&#34;.join(err_list)
@@ -7309,9 +7275,8 @@ energy supplies during speciation.</dd>
         
         return sample_temps, sample_press
         
-        
+
     def __move_eqpt_extra_output(self):
-        
         &#34;&#34;&#34;
         Moves all EQPT output and data0 into the eqpt_files folder
         &#34;&#34;&#34;
@@ -8265,7 +8230,7 @@ energy supplies during speciation.</dd>
             if self.verbose &gt; 0:
                 print(&#34;Getting&#34;, self.thermo.thermo_db_filename, &#34;ready. This will take a moment...&#34;)
     
-            OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+            thermo_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
             
         if self.thermo.custom_data0 and not dynamic_db:
             self.__mk_check_del_directory(&#39;eqpt_files&#39;)
@@ -8477,18 +8442,18 @@ energy supplies during speciation.</dd>
             # handle dynamic data0 creation
             if dynamic_db:
                 
-                self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                                data0_file_lines=copy.deepcopy(data0_file_lines),
-                                grid_temps=[temp_degC],
-                                grid_press=[pressure_bar],
-                                db=data0_lettercode,
-                                water_model=water_model,
-                                activity_model=activity_model,
-                                P1=P1,
-                                plot_poly_fit=plot_poly_fit,
-                                logK_extrapolate=logK_extrapolate,
-                                dynamic_db=dynamic_db,
-                                verbose=verbose)
+                self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                                  data0_file_lines=copy.deepcopy(data0_file_lines),
+                                  grid_temps=[temp_degC],
+                                  grid_press=[pressure_bar],
+                                  db=data0_lettercode,
+                                  water_model=water_model,
+                                  activity_model=activity_model,
+                                  P1=P1,
+                                  plot_poly_fit=plot_poly_fit,
+                                  logK_extrapolate=logK_extrapolate,
+                                  dynamic_db=dynamic_db,
+                                  verbose=verbose)
                 
                 if self.thermo.thermo_db_type != &#34;data1&#34;:
                     self.runeqpt(data0_lettercode, dynamic_db=True)
@@ -8515,7 +8480,7 @@ energy supplies during speciation.</dd>
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = [&#34;all&#34;]
             if dynamic_db:
-                allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
+                allowed_aq_block_species = list(thermo_df[&#34;name&#34;]) + FIXED_SPECIES
             
             # write 3i files
             self._capture_r_output()
@@ -8704,7 +8669,7 @@ energy supplies during speciation.</dd>
             df_aq_distribution.columns = multicolumns
             
             # ensure final pH column is included in report_divs aq_distribution section
-            aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
+            aq_dist_indx = list(report_divs.names).index(&#34;aq_distribution&#34;)
             report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
             
             df_join = df_join.join(df_aq_distribution)
@@ -8911,14 +8876,14 @@ energy supplies during speciation.</dd>
                 dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
 
             if get_solid_solutions:
-                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+                sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[str(sample.rx2(&#39;name&#39;)[0])].rx2[&#34;solid_solutions&#34;]
 
                 if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
 
                     ss_df_list = []
                     for ss in list(sample_solid_solutions.names):
-                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;])
-                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;])
+                        df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;ideal solution&#34;])
+                        df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;mineral&#34;])
                         df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
                         df_merged.insert(0, &#39;solid solution&#39;, ss)
                         del df_merged[&#39;component&#39;]
@@ -8987,7 +8952,7 @@ energy supplies during speciation.</dd>
         return kstr.format(round(x, k)).strip()
     
     
-    def __fill_data0(self, OBIGT_df, data0_file_lines, grid_temps, grid_press, db,
+    def __fill_data0(self, thermo_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, logK_extrapolate,
                    dynamic_db, verbose):
         
@@ -9023,7 +8988,7 @@ energy supplies during speciation.</dd>
         # calculate logK at each T and P for every species
         out_dfs = []
         for i,Tc in enumerate(grid_temps):
-            out_dfs.append(calc_logK(OBIGT_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
+            out_dfs.append(calc_logK(thermo_df, Tc=Tc, P=grid_press[i], TP_i=i, water_model=water_model))
         
         dissrxn_logK_dict = {&#39;name&#39;: out_dfs[0][&#34;name&#34;],
                              &#39;logK_0&#39;: out_dfs[0][&#34;dissrxn_logK_0&#34;]}
@@ -9048,9 +9013,9 @@ energy supplies during speciation.</dd>
         
         # handle free logK values
         free_logK_names = []
-        if &#34;logK1&#34; in OBIGT_df.columns:
+        if &#34;logK1&#34; in thermo_df.columns:
             
-            free_logK_df = OBIGT_df.dropna(subset=[&#39;logK1&#39;])
+            free_logK_df = thermo_df.dropna(subset=[&#39;logK1&#39;])
             free_logK_names = list(free_logK_df[&#34;name&#34;])
     
             sp_dupes = []
@@ -9660,7 +9625,6 @@ energy supplies during speciation.</dd>
             __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
         
         out_list = self.thermo.out_list
-        OBIGT_df = thermo_df # TODO: this var name change is unecessary. Fix.
     
         self._capture_r_output()
     
@@ -9669,10 +9633,8 @@ energy supplies during speciation.</dd>
         
         ro.r(r_create_data0)
         
-        ro.conversion.py2rpy(thermo_df)
-        
         # assemble data0 file
-        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
+        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
                           solid_solution_df=solid_solution_df,
                           db=db,
                           water_model=water_model,
@@ -9686,30 +9648,25 @@ energy supplies during speciation.</dd>
         self._print_captured_r_output()
         
         data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
-#         print(&#34;lines:&#34;)
-#         print(str(data0_file_lines))
-#         with open(&#39;test.txt&#39;, &#39;w&#39;) as f:
-#             for line in data0_file_lines:
-#                 f.write(f&#34;{line}\n&#34;)
         
         if fill_data0:
             
             # begin TP-dependent processes
-            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                            data0_file_lines=copy.deepcopy(data0_file_lines),
-                            grid_temps=grid_temps,
-                            grid_press=grid_press,
-                            db=db,
-                            water_model=water_model,
-                            activity_model=activity_model,
-                            P1=P1,
-                            plot_poly_fit=plot_poly_fit,
-                            logK_extrapolate=logK_extrapolate,
-                            dynamic_db=dynamic_db,
-                            verbose=self.verbose)
+            self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                              data0_file_lines=copy.deepcopy(data0_file_lines),
+                              grid_temps=grid_temps,
+                              grid_press=grid_press,
+                              db=db,
+                              water_model=water_model,
+                              activity_model=activity_model,
+                              P1=P1,
+                              plot_poly_fit=plot_poly_fit,
+                              logK_extrapolate=logK_extrapolate,
+                              dynamic_db=dynamic_db,
+                              verbose=self.verbose)
     
         else:
-            return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
+            return thermo_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))
@@ -10556,148 +10513,34 @@ energy supplies during speciation.</dd>
     class Thermodata(object):
         &#34;&#34;&#34;
         Metaclass to store and load thermodynamic databases.
-        The outer class is AqEquil.
-
-        Parameters
-        ----------
-        AqEquil_instance : object of AqEquil class
-            Instance of AqEquil passed to this inner metaclass.
+        Inherits attributes from its outer class, AqEquil.
         
-        db : str, default &#34;WORM&#34;
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - &#34;WORM&#34; will load the default WORM thermodynamic database,
-            solid solution database, and logK database. These files are retrieved
-            from https://github.com/worm-portal/WORM-db to ensure they are
-            up-to-date.
-            - Three letter file extension for the desired data1 database, e.g.,
-            &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-            &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-
-        elements : str
-            Filepath of a CSV file containing parameters for elements, e.g.,
-            &#34;my_elements.csv&#34;. If `db` is set to &#34;WORM&#34; and `elements` is not
-            defined, then parameters for elements will be retrieved from
-            &#34;elements.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        solid_solutions : str
-            Filepath of a CSV file containing parameters for solid solutions, e.g.,
-            &#34;my_solid_solutions.csv&#34;. If `db` is set to &#34;WORM&#34; and `solid_solutions`
-            is not defined, then parameters for solid solutions will be retrieved
-            from &#34;Solid_solutions.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        logK : str
-            Filepath of a CSV file containing equilibrium constants for chemical
-            species, e.g., &#34;my_logK_entries.csv&#34;. If `db` is set to &#34;WORM&#34; and `logK`
-            is not defined, then equilibrium constants will be retrieved from
-            &#34;wrm_data_logK.csv&#34; at https://github.com/worm-portal/WORM-db
-
-        logK_extrapolate : str, default &#34;none&#34;
-            What method should be used to extrapolate equilibrium constants in the
-            logK database (defined by parameter `logK`) as a function of
-            temperature? Can be either &#34;none&#34;, &#34;flat&#34;, &#34;poly&#34;, or &#34;linear&#34;.
-
-        download_csv_files : bool, default False
-            Download copies of database CSV files to your current working directory?
-
-        exclude_category : dict
-            Exclude species from thermodynamic databases based on column values.
-            For instance,
-            `exclude_category={&#39;category_1&#39;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}`
-            will exclude all species that have &#34;organic_aq&#34; or &#34;organic_cr&#34; in
-            the column &#34;category_1&#34;.
-            Species are excluded from the main thermodynamic database CSV and the
-            equilibrium constant (logK) CSV database. This parameter has no effect
-            if the thermodynamic database is a data0 or data1 file.
-
-        suppress_redox : list of str, default []
-            Suppress equilibrium between oxidation states of listed elements
-            (Cl, H, and O cannot be included).
-
-        exceed_Ttr : bool, default True
-            Calculate Gibbs energies of mineral phases and other species
-            beyond their transition temperatures?
-
-        input_template : str, default &#34;none&#34;
-            Can be either &#34;strict&#34;, &#34;basis&#34;, &#34;all&#34;, or &#34;none&#34; (default). If any
-            option other than &#34;none&#34; is chosen, a sample input file template CSV
-            file customized to this thermodynamic dataset called
-            &#34;sample_input_template.csv&#34; will be generated in the current directory.
-            This template can be populated with water sample data to be speciated by
-            the `speciate` function. The &#34;strict&#34; option is highly recommended for
-            most users. This is because strict basis species speciate into auxiliary
-            and non-basis species, but not the other way around.
-            Columns in the template include &#39;Sample&#39;, &#39;Temperature&#39;, &#39;logfO2&#39;, and
-            others, depending on the chosen option. If &#34;strict&#34;, columns for strict
-            basis species will be included. If &#34;basis&#34;, columns for both strict and
-            auxiliary basis species will be included. If &#34;all&#34;, then columns for all
-            aqueous species will be included.
-
-        water_model : str, default &#34;SUPCRT92&#34;
-            This is an experimental feature that is not yet fully supported.
-            Desired water model. Can be either &#34;SUPCRT92&#34;, &#34;IAPWS95&#34;, or &#34;DEW&#34;.
-            These models are described here: http://chnosz.net/manual/water.html
-
-        eq36da : str, defaults to path given by the environment variable EQ36DA
-            Path to directory where data1 files are stored. 
-
-        eq36co : str, defaults to path given by the environment variable EQ36CO
-            Path to directory where EQ3 executables are stored.
-
-        verbose : int, 0, 1, or 2, default 1
-            Level determining how many messages are returned during a
-            calculation. 2 for all messages, 1 for errors or warnings only,
-            0 for silent.
-
-        hide_traceback : bool, default True
-            Hide traceback message when encountering errors handled by this class?
-            When True, error messages handled by this class will be short and to
-            the point.
-
         &#34;&#34;&#34;
 
-        def __init__(self,
-                     AqEquil_instance,
-                     db = &#34;WORM&#34;,
-                     elements=None,
-                     solid_solutions=None,
-                     logK=None,
-                     logK_S=None,
-                     logK_extrapolate=&#34;none&#34;,
-                     download_csv_files=False,
-                     exclude_category={},
-                     suppress_redox=[],
-                     exceed_Ttr=True,
-                     input_template=&#34;none&#34;,
-                     water_model=&#34;SUPCRT92&#34;,
-                     eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                     eq36co=os.environ.get(&#39;EQ36CO&#39;),
-                     verbose=1,
-                     hide_traceback=True):
+        def __init__(self, AqEquil_instance):
 
             self.AqEquil_instance = AqEquil_instance
             
-            self.db = db
-            self.exclude_category = exclude_category
-            self.water_model = water_model
-
-            self.hide_traceback = hide_traceback
+            # attributes to add to AqEquil class
+            self.db = self.AqEquil_instance.db
+            self.elements = self.AqEquil_instance.elements
+            solid_solutions = self.AqEquil_instance.solid_solutions
+            self.exclude_category = self.AqEquil_instance.exclude_category
+            self.water_model = self.AqEquil_instance.water_model
+            logK = self.AqEquil_instance.logK
+            logK_S = self.AqEquil_instance.logK_S
+            download_csv_files = self.AqEquil_instance.download_csv_files
+            exclude_category = self.AqEquil_instance.exclude_category
+            suppress_redox = self.AqEquil_instance.suppress_redox
+            exceed_Ttr = self.AqEquil_instance.exceed_Ttr
+            input_template = self.AqEquil_instance.input_template
+            verbose = self.AqEquil_instance.verbose
+            
+            self.hide_traceback = self.AqEquil_instance.hide_traceback
             self.err_handler = Error_Handler(clean=self.hide_traceback)
 
-            self.eq36da = eq36da
-            self.eq36co = eq36co
+            self.eq36da = self.AqEquil_instance.eq36da
+            self.eq36co = self.AqEquil_instance.eq36co
 
             # active thermo db attributes
             self.thermo_db = None
@@ -10739,7 +10582,7 @@ energy supplies during speciation.</dd>
 
             # logK attributes
             self.logK_active = False
-            self.logK_extrapolate = logK_extrapolate
+            self.logK_extrapolate = self.AqEquil_instance.logK_extrapolate
             self.logK_db = None
             self.logK_db_source = None
             self.logK_db_filename = None
@@ -10752,12 +10595,12 @@ energy supplies during speciation.</dd>
 
             self.verbose=verbose
 
-            if db == &#34;WORM&#34;:
+            if self.db == &#34;WORM&#34;:
                 if self.verbose &gt; 0:
                     print(&#34;Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...&#34;)
                 self.db = &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-                if elements == None:
+                if self.elements == None:
                     self._load_elements(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
                 if solid_solutions == None:
                     self._load_solid_solutions(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
@@ -10769,7 +10612,7 @@ energy supplies during speciation.</dd>
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
 
             # elements must be loaded if thermo_db_type is a CSV
-            if elements != None:
+            if self.elements != None:
                 self._load_elements(elements, source=&#34;file&#34;)
             if not self.element_active and self.thermo_db_type==&#34;CSV&#34;:
                 self._load_elements(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
@@ -10783,11 +10626,14 @@ energy supplies during speciation.</dd>
             # must be loaded after the logK database
             if logK_S != None:
                 self._load_logK_S(logK_S, source=&#34;file&#34;)
-
+                
             # process dissociation reactions
-            self._suppress_redox_and_generate_dissrxns(
-                suppress_redox=suppress_redox,
-                exceed_Ttr=exceed_Ttr)
+            if self.thermo_db_type == &#34;CSV&#34;:
+                self._suppress_redox_and_generate_dissrxns(
+                    suppress_redox=suppress_redox,
+                    exceed_Ttr=exceed_Ttr)
+            elif len(suppress_redox) &gt; 0 and self.verbose &gt; 0:
+                print(&#34;Warning: redox suppression option is not recognized if a data0 or data1 database is used.&#34;)
 
             # generate input file template
             # (after species have been excluded)
@@ -11398,7 +11244,7 @@ energy supplies during speciation.</dd>
                 __name__, &#39;redox_and_dissrxns.r&#39;).decode(&#34;utf-8&#34;)
 
             ro.r(r_redox_dissrxns)
-
+            
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             ro.conversion.py2rpy(thermo_df)
@@ -11415,123 +11261,27 @@ energy supplies during speciation.</dd>
             
             self.AqEquil_instance._print_captured_r_output()
 
-            OBIGT_df = self.out_list.rx2(&#34;OBIGT_df&#34;)
-            OBIGT_df=ro.conversion.rpy2py(OBIGT_df)
+            thermo_df = self.out_list.rx2(&#34;thermo_df&#34;)
+            thermo_df=ro.conversion.rpy2py(thermo_df)
 
     #         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
-
     #         regenerated_dissrxn_dict = {}
     #         for name in regenerated_dissrxns.names:
     #             if name != &#34;basis_list&#34;:
     #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
 
 
-            OBIGT_df = _clean_rpy2_pandas_conversion(OBIGT_df)
+            thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             # convert E units and calculate missing GHS values
-            OBIGT_df = OBIGT2eos(OBIGT_df, fixGHS=True, tocal=True)
-
-            self.thermo_db = OBIGT_df</code></pre>
+            self.thermo_db = OBIGT2eos(thermo_df, fixGHS=True, tocal=True)</code></pre>
 </details>
 <h3>Class variables</h3>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil.Thermodata"><code class="name">var <span class="ident">Thermodata</span></code></dt>
 <dd>
 <div class="desc"><p>Metaclass to store and load thermodynamic databases.
-The outer class is AqEquil.</p>
-<h2 id="parameters">Parameters</h2>
-<dl>
-<dt><strong><code>AqEquil_instance</code></strong> :&ensp;<code>object</code> of <code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a> class</code></dt>
-<dd>Instance of AqEquil passed to this inner metaclass.</dd>
-<dt><strong><code>db</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
-<dd>Determines which thermodynamic database is used in the speciation
-calculation. There are several options available:
-- "WORM" will load the default WORM thermodynamic database,
-solid solution database, and logK database. These files are retrieved
-from <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a> to ensure they are
-up-to-date.
-- Three letter file extension for the desired data1 database, e.g.,
-"wrm". This will use a data1 file with this file extension, e.g.,
-"data1.wrm" located in the path stored in the 'EQ36DA' environment
-variable used by EQ3NR.
-- The name of a data0 file located in the current working directory,
-e.g., "data0.wrm". This data0 file will be compiled by EQPT
-automatically during the speciation calculation.
-- The name of a CSV file containing thermodynamic data located in
-the current working directory, e.g., "wrm_data.csv". The CSV file
-will be used to generate a data0 file for each sample (using
-additional arguments from <code>db_args</code> if desired).
-- The URL of a data0 file, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-- The URL of a CSV file containing thermodynamic data, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</dd>
-<dt><strong><code>elements</code></strong> :&ensp;<code>str</code></dt>
-<dd>Filepath of a CSV file containing parameters for elements, e.g.,
-"my_elements.csv". If <code>db</code> is set to "WORM" and <code>elements</code> is not
-defined, then parameters for elements will be retrieved from
-"elements.csv" at <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a></dd>
-<dt><strong><code>solid_solutions</code></strong> :&ensp;<code>str</code></dt>
-<dd>Filepath of a CSV file containing parameters for solid solutions, e.g.,
-"my_solid_solutions.csv". If <code>db</code> is set to "WORM" and <code>solid_solutions</code>
-is not defined, then parameters for solid solutions will be retrieved
-from "Solid_solutions.csv" at <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a></dd>
-<dt><strong><code>logK</code></strong> :&ensp;<code>str</code></dt>
-<dd>Filepath of a CSV file containing equilibrium constants for chemical
-species, e.g., "my_logK_entries.csv". If <code>db</code> is set to "WORM" and <code>logK</code>
-is not defined, then equilibrium constants will be retrieved from
-"wrm_data_logK.csv" at <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a></dd>
-<dt><strong><code>logK_extrapolate</code></strong> :&ensp;<code>str</code>, default <code>"none"</code></dt>
-<dd>What method should be used to extrapolate equilibrium constants in the
-logK database (defined by parameter <code>logK</code>) as a function of
-temperature? Can be either "none", "flat", "poly", or "linear".</dd>
-<dt><strong><code>download_csv_files</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Download copies of database CSV files to your current working directory?</dd>
-<dt><strong><code>exclude_category</code></strong> :&ensp;<code>dict</code></dt>
-<dd>Exclude species from thermodynamic databases based on column values.
-For instance,
-<code>exclude_category={'category_1':["organic_aq", "organic_cr"]}</code>
-will exclude all species that have "organic_aq" or "organic_cr" in
-the column "category_1".
-Species are excluded from the main thermodynamic database CSV and the
-equilibrium constant (logK) CSV database. This parameter has no effect
-if the thermodynamic database is a data0 or data1 file.</dd>
-<dt><strong><code>suppress_redox</code></strong> :&ensp;<code>list</code> of <code>str</code>, default <code>[]</code></dt>
-<dd>Suppress equilibrium between oxidation states of listed elements
-(Cl, H, and O cannot be included).</dd>
-<dt><strong><code>exceed_Ttr</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Calculate Gibbs energies of mineral phases and other species
-beyond their transition temperatures?</dd>
-<dt><strong><code>input_template</code></strong> :&ensp;<code>str</code>, default <code>"none"</code></dt>
-<dd>Can be either "strict", "basis", "all", or "none" (default). If any
-option other than "none" is chosen, a sample input file template CSV
-file customized to this thermodynamic dataset called
-"sample_input_template.csv" will be generated in the current directory.
-This template can be populated with water sample data to be speciated by
-the <code>speciate</code> function. The "strict" option is highly recommended for
-most users. This is because strict basis species speciate into auxiliary
-and non-basis species, but not the other way around.
-Columns in the template include 'Sample', 'Temperature', 'logfO2', and
-others, depending on the chosen option. If "strict", columns for strict
-basis species will be included. If "basis", columns for both strict and
-auxiliary basis species will be included. If "all", then columns for all
-aqueous species will be included.</dd>
-<dt><strong><code>water_model</code></strong> :&ensp;<code>str</code>, default <code>"SUPCRT92"</code></dt>
-<dd>This is an experimental feature that is not yet fully supported.
-Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
-These models are described here: <a href="http://chnosz.net/manual/water.html">http://chnosz.net/manual/water.html</a></dd>
-<dt><strong><code>eq36da</code></strong> :&ensp;<code>str, defaults to path given by the environment variable EQ36DA</code></dt>
-<dd>Path to directory where data1 files are stored.</dd>
-<dt><strong><code>eq36co</code></strong> :&ensp;<code>str, defaults to path given by the environment variable EQ36CO</code></dt>
-<dd>Path to directory where EQ3 executables are stored.</dd>
-<dt><strong><code>verbose</code></strong> :&ensp;<code>int, 0, 1,</code> or <code>2</code>, default <code>1</code></dt>
-<dd>Level determining how many messages are returned during a
-calculation. 2 for all messages, 1 for errors or warnings only,
-0 for silent.</dd>
-<dt><strong><code>hide_traceback</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Hide traceback message when encountering errors handled by this class?
-When True, error messages handled by this class will be short and to
-the point.</dd>
-</dl></div>
+Inherits attributes from its outer class, AqEquil.</p></div>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -11569,221 +11319,213 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def create_data0(self,
-                     db,
-                     filename_ss=None,
-                     activity_model=&#34;b-dot&#34;,
-                     exceed_Ttr=True,
-                     grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
-                                 200.0000, 250.0000, 300.0000, 350.0000],
-                     grid_press=&#34;Psat&#34;,
-                     P1=True,
-                     plot_poly_fit=False,
-                     logK_extrapolate=&#34;none&#34;,
-                     fill_data0=True,
-                     dynamic_db=False,
-                     dynamic_db_sample_temps=[],
-                     dynamic_db_sample_press=[],
-                     verbose=1):
-        &#34;&#34;&#34;
-        Create a data0 file from a custom thermodynamic dataset.
-        
-        Parameters
-        ----------
-        db : str
-            Desired three letter code of data0 output.
-            
-        filename_ss : str, optional
-            Name of file containing solid solution parameters.
-
-        grid_temps : list of eight float, default [0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000]
-            Eight temperature values that make up the T-P grid.
-        
-        grid_press : list of float, default &#34;Psat&#34;
-            Eight pressure values that make up the T-P grid. &#34;Psat&#34; for
-            calculations along the liquid-vapor saturation curve.
-        
-        P1 : bool, default True,
-            Use pressure of 1 bar below 100 degrees C instead of calculated
-            values of Psat? Ignored if `grid_press` is not &#34;Psat&#34;.
-        
-        plot_poly_fit : bool, default False
-            Plot the polynomial fit of the temperature pressure grid?
-        
-        dynamic_db : bool, default False
-            Are data0 files being created dynamically? If unsure, use False.
-            Used by `speciate` to display valid messages.
-        
-        verbose : int, 0, 1, or 2, default 1
-            Level determining how many messages are returned during a
-            calculation. 2 for all messages, 1 for errors or warnings only,
-            0 for silent.
-        &#34;&#34;&#34;
-        
-        thermo_df = self.thermo.thermo_db
-        db_logK = self.thermo.logK_db
-        water_model = self.thermo.water_model
-        
-        self.verbose = verbose
-        
-        self.batch_T = grid_temps
-        self.batch_P = grid_press
-        
-        if not dynamic_db:
-            if self.verbose &gt;= 1:
-                print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
-        
-        if len(grid_temps) not in [1, 8]:
-            self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have either one or eight values.&#34;)
-        if isinstance(grid_press, list):
-            if len(grid_press) not in [1, 8]:
-                self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have either one or eight values.&#34;)
-        
-        if sum([T &gt;= 10000 for T in grid_temps]):
-            self.err_handler.raise_exception(&#34;Grid temperatures must be below 10k °C.&#34;)
-        
-        if isinstance(grid_press, list):
-            if sum([P &gt;= 10000 for P in grid_press]) and water_model != &#34;DEW&#34;:
-                self.err_handler.raise_exception(&#34;Grid pressures must be below 10 kilobars.&#34;)
-                
-        if water_model == &#34;SUPCRT92&#34;:
-            min_T = 0
-            max_T = 2250
-            min_P = 0
-            max_P = 30000
-        elif water_model == &#34;IAPWS95&#34;:
-            min_T = 0
-            max_T = 1000
-            min_P = 0
-            max_P = 10000
-        elif water_model == &#34;DEW&#34;:
-            min_T = 0
-            max_T = 1000
-            min_P = 1000
-            max_P = 60000
-        else:
-            self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
-                &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
-        
-        # check that T and P are above minimum values
-        if sum([T &lt;= min_T for T in grid_temps]):
-            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
-                  &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
-                  &#34;temperature range for the {} water model.&#34;.format(water_model))
-        if isinstance(grid_press, list):
-            if sum([P &lt; min_P for P in grid_press]):
-                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
-                      &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
-                      &#34;pressure for the {} water model.&#34;.format(water_model))
-        
-        # check that T and P are below maximum values
-        if sum([T &gt; max_T for T in grid_temps]):
-            print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
-                  &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
-                  &#34;temperature for the {} water model.&#34;.format(water_model))
-        if isinstance(grid_press, list):
-            if sum([P &gt; max_P for P in grid_press]):
-                print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
-                      &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
-                      &#34;pressure for the {} water model.&#34;.format(water_model))
-            
-        if water_model != &#34;SUPCRT92&#34;:
-            print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
-        
-        # reset logK_models whenever create_data0() is called
-        # (prevents errors when create_data0() functions are run back-to-back)
-        self.logK_models = {}
-        
-        # interpolate logK values from &#34;free logK&#34; datasheet at T and P
-        if isinstance(db_logK, pd.DataFrame):
-            
-            if len(dynamic_db_sample_temps) &gt; 0:
-                grid_or_sample_temps = dynamic_db_sample_temps
-            else:
-                grid_or_sample_temps = grid_temps
-                
-            if len(dynamic_db_sample_press) &gt; 0:
-                grid_or_sample_press = dynamic_db_sample_press
-            else:
-                grid_or_sample_press = grid_press
-            
-            free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
-
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
-                free_logK_df,
-                grid_or_sample_temps,
-                grid_or_sample_press,
-                dynamic_db,
-                logK_extrapolate,
-                db_sp_names=thermo_df[&#34;name&#34;],
-                )
-            free_logK_df_valid = copy.deepcopy(free_logK_df.iloc[valid_i])
-            thermo_df = pd.concat([thermo_df, free_logK_df_valid], ignore_index=True)
-            
-            thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
-        
-        if self.thermo.solid_solutions_active:
-            solid_solution_df = ro.conversion.py2rpy(self.thermo.solid_solution_db)
-        else:
-            solid_solution_df = ro.r(&#34;NULL&#34;)
-        
-        template = pkg_resources.resource_string(
-            __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
-        
-        out_list = self.thermo.out_list
-        OBIGT_df = thermo_df # TODO: this var name change is unecessary. Fix.
+<pre><code class="python">def create_data0(self,
+                 db,
+                 filename_ss=None,
+                 activity_model=&#34;b-dot&#34;,
+                 exceed_Ttr=True,
+                 grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
+                             200.0000, 250.0000, 300.0000, 350.0000],
+                 grid_press=&#34;Psat&#34;,
+                 P1=True,
+                 plot_poly_fit=False,
+                 logK_extrapolate=&#34;none&#34;,
+                 fill_data0=True,
+                 dynamic_db=False,
+                 dynamic_db_sample_temps=[],
+                 dynamic_db_sample_press=[],
+                 verbose=1):
+    &#34;&#34;&#34;
+    Create a data0 file from a custom thermodynamic dataset.
     
-        self._capture_r_output()
+    Parameters
+    ----------
+    db : str
+        Desired three letter code of data0 output.
+        
+    filename_ss : str, optional
+        Name of file containing solid solution parameters.
+
+    grid_temps : list of eight float, default [0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000]
+        Eight temperature values that make up the T-P grid.
     
-        r_create_data0 = pkg_resources.resource_string(
-            __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+    grid_press : list of float, default &#34;Psat&#34;
+        Eight pressure values that make up the T-P grid. &#34;Psat&#34; for
+        calculations along the liquid-vapor saturation curve.
+    
+    P1 : bool, default True,
+        Use pressure of 1 bar below 100 degrees C instead of calculated
+        values of Psat? Ignored if `grid_press` is not &#34;Psat&#34;.
+    
+    plot_poly_fit : bool, default False
+        Plot the polynomial fit of the temperature pressure grid?
+    
+    dynamic_db : bool, default False
+        Are data0 files being created dynamically? If unsure, use False.
+        Used by `speciate` to display valid messages.
+    
+    verbose : int, 0, 1, or 2, default 1
+        Level determining how many messages are returned during a
+        calculation. 2 for all messages, 1 for errors or warnings only,
+        0 for silent.
+    &#34;&#34;&#34;
+    
+    thermo_df = self.thermo.thermo_db
+    db_logK = self.thermo.logK_db
+    water_model = self.thermo.water_model
+    
+    self.verbose = verbose
+    
+    self.batch_T = grid_temps
+    self.batch_P = grid_press
+    
+    if not dynamic_db:
+        if self.verbose &gt;= 1:
+            print(&#34;Creating data0.{}...&#34;.format(db), flush=True)
+    
+    if len(grid_temps) not in [1, 8]:
+        self.err_handler.raise_exception(&#34;&#39;grid_temps&#39; must have either one or eight values.&#34;)
+    if isinstance(grid_press, list):
+        if len(grid_press) not in [1, 8]:
+            self.err_handler.raise_exception(&#34;&#39;grid_press&#39; must have either one or eight values.&#34;)
+    
+    if sum([T &gt;= 10000 for T in grid_temps]):
+        self.err_handler.raise_exception(&#34;Grid temperatures must be below 10k °C.&#34;)
+    
+    if isinstance(grid_press, list):
+        if sum([P &gt;= 10000 for P in grid_press]) and water_model != &#34;DEW&#34;:
+            self.err_handler.raise_exception(&#34;Grid pressures must be below 10 kilobars.&#34;)
+            
+    if water_model == &#34;SUPCRT92&#34;:
+        min_T = 0
+        max_T = 2250
+        min_P = 0
+        max_P = 30000
+    elif water_model == &#34;IAPWS95&#34;:
+        min_T = 0
+        max_T = 1000
+        min_P = 0
+        max_P = 10000
+    elif water_model == &#34;DEW&#34;:
+        min_T = 0
+        max_T = 1000
+        min_P = 1000
+        max_P = 60000
+    else:
+        self.err_handler.raise_exception(&#34;The water model &#39;{}&#39; &#34;.format(water_model)+&#34;is not &#34;
+            &#34;recognized. Try &#39;SUPCRT92&#39;, &#39;IAPWS95&#39;, or &#39;DEW&#39;.&#34;)
+    
+    # check that T and P are above minimum values
+    if sum([T &lt;= min_T for T in grid_temps]):
+        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is below &#34;
+              &#34;or equal to {} °C&#34;.format(min_T)+&#34; and is outside the valid &#34;
+              &#34;temperature range for the {} water model.&#34;.format(water_model))
+    if isinstance(grid_press, list):
+        if sum([P &lt; min_P for P in grid_press]):
+            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is below &#34;
+                  &#34;{} bar&#34;.format(min_P)+&#34;, the minimum valid &#34;
+                  &#34;pressure for the {} water model.&#34;.format(water_model))
+    
+    # check that T and P are below maximum values
+    if sum([T &gt; max_T for T in grid_temps]):
+        print(&#34;WARNING: one or more temperatures in &#39;grid_temps&#39; is above &#34;
+              &#34;{} °C&#34;.format(max_T)+&#34;, the maximum valid &#34;
+              &#34;temperature for the {} water model.&#34;.format(water_model))
+    if isinstance(grid_press, list):
+        if sum([P &gt; max_P for P in grid_press]):
+            print(&#34;WARNING: one or more pressures in &#39;grid_press&#39; is above &#34;
+                  &#34;{} bar&#34;.format(max_P)+&#34;, the maximum valid &#34;
+                  &#34;pressure for the {} water model.&#34;.format(water_model))
         
-        ro.r(r_create_data0)
+    if water_model != &#34;SUPCRT92&#34;:
+        print(&#34;WARNING: water models other than SUPCRT92 are not yet fully supported.&#34;)
+    
+    # reset logK_models whenever create_data0() is called
+    # (prevents errors when create_data0() functions are run back-to-back)
+    self.logK_models = {}
+    
+    # interpolate logK values from &#34;free logK&#34; datasheet at T and P
+    if isinstance(db_logK, pd.DataFrame):
         
-        ro.conversion.py2rpy(thermo_df)
+        if len(dynamic_db_sample_temps) &gt; 0:
+            grid_or_sample_temps = dynamic_db_sample_temps
+        else:
+            grid_or_sample_temps = grid_temps
+            
+        if len(dynamic_db_sample_press) &gt; 0:
+            grid_or_sample_press = dynamic_db_sample_press
+        else:
+            grid_or_sample_press = grid_press
         
-        # assemble data0 file
-        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(OBIGT_df),
-                          solid_solution_df=solid_solution_df,
+        free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
+
+        valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            free_logK_df,
+            grid_or_sample_temps,
+            grid_or_sample_press,
+            dynamic_db,
+            logK_extrapolate,
+            db_sp_names=thermo_df[&#34;name&#34;],
+            )
+        free_logK_df_valid = copy.deepcopy(free_logK_df.iloc[valid_i])
+        thermo_df = pd.concat([thermo_df, free_logK_df_valid], ignore_index=True)
+        
+        thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
+    
+    if self.thermo.solid_solutions_active:
+        solid_solution_df = ro.conversion.py2rpy(self.thermo.solid_solution_db)
+    else:
+        solid_solution_df = ro.r(&#34;NULL&#34;)
+    
+    template = pkg_resources.resource_string(
+        __name__, &#39;data0.min&#39;).decode(&#34;utf-8&#34;)
+    
+    out_list = self.thermo.out_list
+
+    self._capture_r_output()
+
+    r_create_data0 = pkg_resources.resource_string(
+        __name__, &#39;create_data0.r&#39;).decode(&#34;utf-8&#34;)
+    
+    ro.r(r_create_data0)
+    
+    # assemble data0 file
+    data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
+                      solid_solution_df=solid_solution_df,
+                      db=db,
+                      water_model=water_model,
+                      template=template,
+                      dissrxns=out_list.rx2(&#34;dissrxns&#34;),
+                      basis_pref=out_list.rx2(&#34;basis_pref&#34;),
+                      exceed_Ttr=exceed_Ttr,
+                      fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                      verbose=self.verbose)
+    
+    self._print_captured_r_output()
+    
+    data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
+    
+    if fill_data0:
+        
+        # begin TP-dependent processes
+        self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                          data0_file_lines=copy.deepcopy(data0_file_lines),
+                          grid_temps=grid_temps,
+                          grid_press=grid_press,
                           db=db,
                           water_model=water_model,
-                          template=template,
-                          dissrxns=out_list.rx2(&#34;dissrxns&#34;),
-                          basis_pref=out_list.rx2(&#34;basis_pref&#34;),
-                          exceed_Ttr=exceed_Ttr,
-                          fixed_species=_convert_to_RVector(FIXED_SPECIES),
+                          activity_model=activity_model,
+                          P1=P1,
+                          plot_poly_fit=plot_poly_fit,
+                          logK_extrapolate=logK_extrapolate,
+                          dynamic_db=dynamic_db,
                           verbose=self.verbose)
-        
-        self._print_captured_r_output()
-        
-        data0_file_lines = data0_file_lines[0].split(&#34;\n&#34;)
-#         print(&#34;lines:&#34;)
-#         print(str(data0_file_lines))
-#         with open(&#39;test.txt&#39;, &#39;w&#39;) as f:
-#             for line in data0_file_lines:
-#                 f.write(f&#34;{line}\n&#34;)
-        
-        if fill_data0:
-            
-            # begin TP-dependent processes
-            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                            data0_file_lines=copy.deepcopy(data0_file_lines),
-                            grid_temps=grid_temps,
-                            grid_press=grid_press,
-                            db=db,
-                            water_model=water_model,
-                            activity_model=activity_model,
-                            P1=P1,
-                            plot_poly_fit=plot_poly_fit,
-                            logK_extrapolate=logK_extrapolate,
-                            dynamic_db=dynamic_db,
-                            verbose=self.verbose)
-    
-        else:
-            return OBIGT_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
 
-        if self.verbose &gt; 0:
-            print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
+    else:
+        return thermo_df, data0_file_lines, grid_temps, grid_press, db, water_model, P1, plot_poly_fit
+
+    if self.verbose &gt; 0:
+        print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
@@ -13975,7 +13717,7 @@ db_args = {
         if self.verbose &gt; 0:
             print(&#34;Getting&#34;, self.thermo.thermo_db_filename, &#34;ready. This will take a moment...&#34;)
 
-        OBIGT_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
+        thermo_df, data0_file_lines, grid_temps, grid_press, data0_lettercode, water_model, P1, plot_poly_fit = self.create_data0(**db_args)
         
     if self.thermo.custom_data0 and not dynamic_db:
         self.__mk_check_del_directory(&#39;eqpt_files&#39;)
@@ -14187,18 +13929,18 @@ db_args = {
         # handle dynamic data0 creation
         if dynamic_db:
             
-            self.__fill_data0(OBIGT_df=ro.conversion.rpy2py(OBIGT_df),
-                            data0_file_lines=copy.deepcopy(data0_file_lines),
-                            grid_temps=[temp_degC],
-                            grid_press=[pressure_bar],
-                            db=data0_lettercode,
-                            water_model=water_model,
-                            activity_model=activity_model,
-                            P1=P1,
-                            plot_poly_fit=plot_poly_fit,
-                            logK_extrapolate=logK_extrapolate,
-                            dynamic_db=dynamic_db,
-                            verbose=verbose)
+            self.__fill_data0(thermo_df=ro.conversion.rpy2py(thermo_df),
+                              data0_file_lines=copy.deepcopy(data0_file_lines),
+                              grid_temps=[temp_degC],
+                              grid_press=[pressure_bar],
+                              db=data0_lettercode,
+                              water_model=water_model,
+                              activity_model=activity_model,
+                              P1=P1,
+                              plot_poly_fit=plot_poly_fit,
+                              logK_extrapolate=logK_extrapolate,
+                              dynamic_db=dynamic_db,
+                              verbose=verbose)
             
             if self.thermo.thermo_db_type != &#34;data1&#34;:
                 self.runeqpt(data0_lettercode, dynamic_db=True)
@@ -14225,7 +13967,7 @@ db_args = {
         # allowed aq block species are left after any category exclusion in db_args
         allowed_aq_block_species = [&#34;all&#34;]
         if dynamic_db:
-            allowed_aq_block_species = list(OBIGT_df[&#34;name&#34;]) + FIXED_SPECIES
+            allowed_aq_block_species = list(thermo_df[&#34;name&#34;]) + FIXED_SPECIES
         
         # write 3i files
         self._capture_r_output()
@@ -14414,7 +14156,7 @@ db_args = {
         df_aq_distribution.columns = multicolumns
         
         # ensure final pH column is included in report_divs aq_distribution section
-        aq_dist_indx = report_divs.names.index(&#34;aq_distribution&#34;)
+        aq_dist_indx = list(report_divs.names).index(&#34;aq_distribution&#34;)
         report_divs[aq_dist_indx] = _convert_to_RVector(list(headers))
         
         df_join = df_join.join(df_aq_distribution)
@@ -14621,14 +14363,14 @@ db_args = {
             dict_sample_data.update({&#34;basis_totals&#34;: sc_dist})
 
         if get_solid_solutions:
-            sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[sample.rx2(&#39;name&#39;)[0]].rx2[&#34;solid_solutions&#34;]
+            sample_solid_solutions = batch_3o.rx2[&#34;sample_data&#34;].rx2[str(sample.rx2(&#39;name&#39;)[0])].rx2[&#34;solid_solutions&#34;]
 
             if not type(sample_solid_solutions.names) == rpy2.rinterface_lib.sexp.NULLType:
 
                 ss_df_list = []
                 for ss in list(sample_solid_solutions.names):
-                    df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;ideal solution&#34;])
-                    df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[ss].rx2[&#34;mineral&#34;])
+                    df_ss_ideal = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;ideal solution&#34;])
+                    df_ss_mineral = ro.conversion.rpy2py(sample_solid_solutions.rx2[str(ss)].rx2[&#34;mineral&#34;])
                     df_merged = pd.merge(df_ss_mineral, df_ss_ideal, left_on=&#39;mineral&#39;, right_on=&#39;component&#39;, how=&#39;left&#39;)
                     df_merged.insert(0, &#39;solid solution&#39;, ss)
                     del df_merged[&#39;component&#39;]
@@ -14687,6 +14429,139 @@ db_args = {
     speciation.batch_P = self.batch_P
     
     return speciation</code></pre>
+</details>
+</dd>
+</dl>
+</dd>
+<dt id="AqEquil.AqSpeciation.Error_Handler"><code class="flex name class">
+<span>class <span class="ident">Error_Handler</span></span>
+<span>(</span><span>clean=True)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Handles how errors are printed in Jupyter notebooks. By default, errors that
+are handled by AqEquil are printed with an error message, but no traceback.
+Errors that are not handled by AqEquil, such as those thrown if the user
+encounters a bug, will display a full traceback.</p>
+<p>If the error handler prints an error message without traceback, all future
+errors regardless of origin will be shown without traceback until the
+notebook kernel is restarted.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>clean</code></strong> :&ensp;<code>bool</code></dt>
+<dd>Report exceptions without traceback? If True, only the error message is
+shown. If False, the entire error message, including traceback, is
+shown. Ignored if AqEquil is not being run in a Jupyter notebook.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class Error_Handler:
+    
+    &#34;&#34;&#34;
+    Handles how errors are printed in Jupyter notebooks. By default, errors that
+    are handled by AqEquil are printed with an error message, but no traceback.
+    Errors that are not handled by AqEquil, such as those thrown if the user
+    encounters a bug, will display a full traceback.
+    
+    If the error handler prints an error message without traceback, all future
+    errors regardless of origin will be shown without traceback until the
+    notebook kernel is restarted.
+    
+    Parameters
+    ----------
+    clean : bool
+        Report exceptions without traceback? If True, only the error message is
+        shown. If False, the entire error message, including traceback, is
+        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
+    
+    &#34;&#34;&#34;
+    def __init__(self, clean=True):
+        self.clean = clean # bool: hide traceback?
+        pass
+    
+    
+    @staticmethod
+    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                       exception_only=False, running_compiled_code=False):
+        
+        &#34;&#34;&#34;
+        Return a modified ipython showtraceback function that does not display
+        traceback when encountering an error.
+        &#34;&#34;&#34;
+        
+        ipython = get_ipython()
+        etype, value, tb = sys.exc_info()
+        value.__cause__ = None  # suppress chained exceptions
+        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
+        
+
+    def raise_exception(self, msg):
+        
+        &#34;&#34;&#34;
+        Raise an exception that displays the error message without traceback. This
+        happens only when the exception is predicted by the AqEquil package
+        (e.g., for common user errors).
+        &#34;&#34;&#34;
+        if self.clean and _isnotebook():
+            ipython = get_ipython()
+            ipython.showtraceback = self.hide_traceback
+            
+        raise Exception(msg)</code></pre>
+</details>
+<h3>Static methods</h3>
+<dl>
+<dt id="AqEquil.AqSpeciation.Error_Handler.hide_traceback"><code class="name flex">
+<span>def <span class="ident">hide_traceback</span></span>(<span>exc_tuple=None, filename=None, tb_offset=None, exception_only=False, running_compiled_code=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Return a modified ipython showtraceback function that does not display
+traceback when encountering an error.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
+                   exception_only=False, running_compiled_code=False):
+    
+    &#34;&#34;&#34;
+    Return a modified ipython showtraceback function that does not display
+    traceback when encountering an error.
+    &#34;&#34;&#34;
+    
+    ipython = get_ipython()
+    etype, value, tb = sys.exc_info()
+    value.__cause__ = None  # suppress chained exceptions
+    return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="AqEquil.AqSpeciation.Error_Handler.raise_exception"><code class="name flex">
+<span>def <span class="ident">raise_exception</span></span>(<span>self, msg)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Raise an exception that displays the error message without traceback. This
+happens only when the exception is predicted by the AqEquil package
+(e.g., for common user errors).</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def raise_exception(self, msg):
+    
+    &#34;&#34;&#34;
+    Raise an exception that displays the error message without traceback. This
+    happens only when the exception is predicted by the AqEquil package
+    (e.g., for common user errors).
+    &#34;&#34;&#34;
+    if self.clean and _isnotebook():
+        ipython = get_ipython()
+        ipython.showtraceback = self.hide_traceback
+        
+    raise Exception(msg)</code></pre>
 </details>
 </dd>
 </dl>
@@ -17944,6 +17819,13 @@ figure is simply displayed.</dd>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeqpt" href="#AqEquil.AqSpeciation.AqEquil.runeqpt">runeqpt</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.show_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.show_redox_reactions">show_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.speciate" href="#AqEquil.AqSpeciation.AqEquil.speciate">speciate</a></code></li>
+</ul>
+</li>
+<li>
+<h4><code><a title="AqEquil.AqSpeciation.Error_Handler" href="#AqEquil.AqSpeciation.Error_Handler">Error_Handler</a></code></h4>
+<ul class="">
+<li><code><a title="AqEquil.AqSpeciation.Error_Handler.hide_traceback" href="#AqEquil.AqSpeciation.Error_Handler.hide_traceback">hide_traceback</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Error_Handler.raise_exception" href="#AqEquil.AqSpeciation.Error_Handler.raise_exception">raise_exception</a></code></li>
 </ul>
 </li>
 <li>

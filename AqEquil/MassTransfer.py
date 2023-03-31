@@ -1499,6 +1499,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
+                              y_type="mole", log_y=True, df_out=False,
                               plot_width=4, plot_height=3, ppi=122):
         
         """
@@ -1509,6 +1510,19 @@ class Mass_Transfer:
         ----------
         show_reactant_minerals : bool, default False
             Include log moles of reactant minerals?
+            
+        y_type : str, default 'mole'
+            The variable to plot on the y-axis. Can be either 'mole' (for moles
+            of minerals), 'mass' (for masses of minerals), or 'volume' (for
+            volumes of minerals).
+        
+        log_y : bool, default True
+            Should the y-axis be logarithmic?
+            
+        df_out : bool, default False
+            Should a dataframe of values also be returned? For example, if
+            `y_type` is set to 'volume', should a table of mineral volumes be
+            returned?
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -1522,33 +1536,87 @@ class Mass_Transfer:
         -------
         fig : Plotly figure object
             A line plot.
+            
+        df : a Pandas dataframe
+            A dataframe is only returned if `df_out` is set to True (it is
+            set to False by default).
+        
         """
         
-        if show_reactant_minerals:
-            df = self.moles_minerals
-            title = "Moles of reactant and product minerals"
+        xlab = "log Xi"
+        xvar = "log Xi"
+        
+        if log_y:
+            log_text = "log "
         else:
-            df = self.moles_product_minerals
-            title = "Moles of product minerals"
-
-        df = pd.melt(df, id_vars="Xi", value_vars=df.columns[1:])
+            log_text = ""
+        
+        if show_reactant_minerals:
+            df = copy.deepcopy(self.moles_minerals)
+            title = "{} of reactant and product minerals"
+        else:
+            df = copy.deepcopy(self.moles_product_minerals)
+            title = "{} of product minerals"
+            
+        if y_type == "mole":
+            ylab = "{}moles".format(log_text)
+            title = title.format(log_text, "Moles")
+        elif y_type == "mass": # not yet supported
+            y_lab = "{}grams".format(log_text)
+            title = title.format(log_text, "Masses")
+            self.err_handler.raise_exception("Plotting mineral masses is not yet "
+                    "supported.")
+        elif y_type == "volume":
+            ylab = "{}cm<sup>3</sup>".format(log_text)
+            title = title.format("Volumes")
+            temps = self.tab["Table B1 Miscellaneous parameters I"]["Temp(C)"]
+            
+            # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
+            # in order to continue.
+            if df.shape[0] == len(temps):
+                df["Temp(C)"] = temps
+                minerals = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
+                    
+                for i,T in enumerate(temps):
+                    for ii,mineral in enumerate(minerals):
+                        mineral_df = copy.deepcopy(self.df[self.df["name"]==mineral])
+                        polymorph_idxs = []
+                        for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
+                            
+                            if float(T) < float(list(mineral_df["z.T"])[0]):
+                                polymorph_idxs.append(iii)
+                        if len(polymorph_idxs)==0:
+                            polymorph_idx = iii
+                        else:
+                            polymorph_idx = polymorph_idxs[0]
+                            
+                        partial_molal_volume = mineral_df["V"][polymorph_idx]
+                        
+                        df.at[i, mineral] = df[mineral][i]*partial_molal_volume
+            else:
+                self.err_handler.raise_exception("There is a mismatch between the "
+                        "number of Xi values in the TAB-style table and the number "
+                        "of Xi values in the table of moles of minerals.")
+        else:
+            self.err_handler.raise_exception("y_type must be either 'mole', "
+                        "'mass', or 'volume'.")
+            
+            
+        df = pd.melt(df, id_vars="Xi", value_vars=[col for col in df.columns if col not in ["Xi", "Temp(C)"]])
         df.columns = ["Xi", "variable", "value"]
         df = df[df["variable"] != "None"]
-
 
         df["Xi"] = pd.to_numeric(df["Xi"])
 
         df["value"] = pd.to_numeric(df["value"])
         df["value"] = df["value"].fillna(0)
         df["value"] = df["value"].replace(0, np.nan)
-
+        
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
-            df['value'] = np.log10(df['value'])
+            if log_y:
+                df['value'] = np.log10(df['value'])
             
-        xlab = "log Xi"
-        ylab = "log moles"
-        xvar = "log Xi"
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -1561,8 +1629,13 @@ class Mass_Transfer:
 
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
-
-        return fig
+        
+        if df_out:
+            df = pd.pivot_table(df, index='log Xi', columns='variable', values='value').reset_index()
+            df.columns = [col for col in df.columns[:]] # make index column name blank
+            return df, fig
+        else:
+            return fig
 
     
     def plot_aqueous_species(self, plot_basis=False,
