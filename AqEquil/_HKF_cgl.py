@@ -56,7 +56,7 @@ def calc_G_TP(OBIGT, Tc, P, water_model):
     
     # add a row for water
     if "H2O" not in list(OBIGT["name"]):
-        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H2O", "tag": "nan", "G_TP": float(ro.conversion.rpy2py(water("G", water_model, T=Tc+273.15, P=P))["G"])/4.184}, index=[OBIGT.shape[0]])], ignore_index=True)
+        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H2O", "tag": "nan", "G_TP": float(ro.conversion.rpy2py(water("G", water_model, T=Tc+273.15, P=P))["G"])}, index=[OBIGT.shape[0]])], ignore_index=True)
         rows_added += 1
 
     # add a row for protons

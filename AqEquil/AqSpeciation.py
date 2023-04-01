@@ -2160,7 +2160,7 @@ class AqEquil(object):
                 
             else:
                 pressure_bar = list(input_processed_list.rx2("pressure_bar"))[sample_row_index]
-                data1_path = self.eq36da
+                data1_path = self.thermo.eq36da
             
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = ["all"]
@@ -4377,8 +4377,10 @@ class AqEquil(object):
                     self.custom_data0 = True
                     self.data0_lettercode = db[-3:].lower()
                     self.custom_obigt = None
+                    self.eq36da = os.getcwd()+"/eqpt_files"
 
                 elif os.path.exists("data1." + db) and os.path.isfile("data1." + db):
+                    
                     if self.verbose > 0:
                         print("data1." + db + " was not found in the EQ36DA directory "
                               "but a data1."+db+" was found in the current working "
@@ -4386,6 +4388,7 @@ class AqEquil(object):
 
                     self.custom_data0 = True
                     self.thermo_db = None
+                    self.eq36da = os.getcwd()+"/eqpt_files"
 
                     # search for a data1 locally
 
