@@ -169,7 +169,7 @@ create_data0 <- function(thermo_df,
       # get element value and name from makeup
       elem_val <- s_d(elem[i], 4)
       elem_name <- names(elem)[i]
-
+        
       # conditional formatting based on position
       if(i == 1 | i %% 4 == 0){ # first entry of a line
         max_length <- 8

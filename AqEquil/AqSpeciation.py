@@ -3317,6 +3317,7 @@ class AqEquil(object):
             __name__, 'create_data0.r').decode("utf-8")
         
         ro.r(r_create_data0)
+
         
         # assemble data0 file
         data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
@@ -4312,6 +4313,9 @@ class AqEquil(object):
             if logK_S != None:
                 self._load_logK_S(logK_S, source="file")
                 
+            if self.logK_active:
+                self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
+                
             # process dissociation reactions
             if self.thermo_db_type == "CSV":
                 self._suppress_redox_and_generate_dissrxns(
@@ -4319,7 +4323,11 @@ class AqEquil(object):
                     exceed_Ttr=exceed_Ttr)
             elif len(suppress_redox) > 0 and self.verbose > 0:
                 print("Warning: redox suppression option is not recognized if a data0 or data1 database is used.")
-
+                
+            if self.logK_active:
+                self.logK_db = self.thermo_db[~self.thermo_db["logK1"].isnull()]
+                self.thermo_db = self.thermo_db[self.thermo_db["logK1"].isnull()]
+                
             # generate input file template
             # (after species have been excluded)
             if input_template != "none":
@@ -4894,7 +4902,7 @@ class AqEquil(object):
                                                   exceed_Ttr=True):
 
             thermo_df = self.thermo_db
-
+            
             suppress_redox = _convert_to_RVector(suppress_redox)
 
             # if elements are being redox-suppressed, exclude all species with a
