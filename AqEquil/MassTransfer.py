@@ -528,7 +528,7 @@ class Mass_Transfer:
             combinations of geochemical variables. Optionally, if xyb is
             specified, fig_list will only contain the single figure of interest.
         """
-        
+
         error_messages = []
         
         # check that there is only one temperature and pressure
@@ -552,7 +552,7 @@ class Mass_Transfer:
         
         #minerals_formed = list(self.tab["Table P Moles of product minerals"].columns[2:])
         minerals_formed = [m for m in self.moles_minerals.columns if m != "Xi"]
-
+        
         all_elements_of_interest = []
         for mineral in minerals_formed:
             all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
@@ -562,8 +562,11 @@ class Mass_Transfer:
         # for which to create an axis.
         bad_elem = []
         for elem in all_elements_of_interest_pre:
-            if list(self.thermodata_csv.loc[self.thermodata_csv['name'] == self.__get_basis_from_elem(elem), 'state'])[0] != 'aq':
+            if len(list(self.thermodata_csv.loc[self.thermodata_csv['name'] == self.__get_basis_from_elem(elem), 'state'])) == 0:
                 bad_elem.append(elem)
+            elif list(self.thermodata_csv.loc[self.thermodata_csv['name'] == self.__get_basis_from_elem(elem), 'state'])[0] != 'aq':
+                bad_elem.append(elem)
+                
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
@@ -629,28 +632,39 @@ class Mass_Transfer:
             pred_minerals_from_fields_list = []
             pred_minerals_from_lines_list = []
             
+
+            if isinstance(xyb, list):
+                try:
+                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                except:
+                    err = ("Plot axes cannot accomodate desired variables. "
+                           "Available variables include {}".format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+                xyb_i = None
+                # get index of triad that matches xyb:
+                for i,triad in enumerate(element_plot_triad):
+                    if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
+                        xyb_i = i
+                if xyb_i == None:
+                    err = ("Plot axes cannot accomodate desired variables. "
+                           "Available variables include {}".format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+            
             if path_line_type == "lines":
                 projected_points = ["real"]*self.moles_product_minerals.shape[0]
                 fig_list_projected_points = [projected_points]*len(element_plot_triad)
                 
             elif path_line_type in ["markers+lines", "markers"]:
                 
-                if isinstance(xyb, list):
-                    try:
-                        xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-                    except:
-                        err = ("Plot axes cannot accomodate desired variables. "
-                               "Available variables include {}".format([self.__get_basis_from_elem(elem) for elem in alist]))
-                        self.err_handler.raise_exception(err)
-                    xyb_i = None
-                    # get index of triad that matches xyb:
-                    for i,triad in enumerate(element_plot_triad):
-                        if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
-                            xyb_i = i
-                    if xyb_i == None:
-                        err = ("Plot axes cannot accomodate desired variables. "
-                               "Available variables include {}".format([self.__get_basis_from_elem(elem) for elem in alist]))
-                        self.err_handler.raise_exception(err)
+                if len(element_plot_triad) > 20:
+                    if self.verbose > 0:
+                        print("Warning! There are {}".format(len(element_plot_triad)),
+                              "different combinations of variables that must be considered",
+                              "in order to plot markers.")
+                        print("This might take a very long time or may not finish calculating at all.")
+                        print("We recommend setting path_line_type='lines' in",
+                              "plot_reaction_paths() and then restarting the",
+                              "calculation to avoid lengthy calculation times.")
                 
                 for triad in element_plot_triad:
 
@@ -714,30 +728,30 @@ class Mass_Transfer:
             for i,triad in enumerate(element_plot_triad):
                 # re-run figure generation, passing in a list of which points are projected.
                 fig, _ , _ = self.__plot_reaction_path_main(
-                                                    triad, T=self.T, P=self.P,
-                                                    path_margin=self.path_margin,
-                                                    flip_xy=flip_xy,
-                                                    show_annotation=show_annotation,
-                                                    annotation_coords=annotation_coords,
-                                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
-                                                    minerals_to_show=minerals_to_show,
-                                                    path_line_type=path_line_type,
-                                                    path_line_color=path_line_color,
-                                                    path_point_fill_color=path_point_fill_color,
-                                                    path_point_line_color=path_point_line_color,
-                                                    projected_point_fill_color=projected_point_fill_color,
-                                                    projected_point_line_color=projected_point_line_color,
-                                                    h_line_color=h_line_color,
-                                                    v_line_color=v_line_color,
-                                                    d_line_color=d_line_color,
-                                                    res=res,
-                                                    plot_width=plot_width,
-                                                    plot_height=plot_height,
-                                                    ppi=ppi,
-                                                    colormap=colormap,
-                                                    borders=borders,
-                                                    projected_points=fig_list_projected_points[i],
-                                                    first_pass=False)
+                                    triad, T=self.T, P=self.P,
+                                    path_margin=self.path_margin,
+                                    flip_xy=flip_xy,
+                                    show_annotation=show_annotation,
+                                    annotation_coords=annotation_coords,
+                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                    minerals_to_show=minerals_to_show,
+                                    path_line_type=path_line_type,
+                                    path_line_color=path_line_color,
+                                    path_point_fill_color=path_point_fill_color,
+                                    path_point_line_color=path_point_line_color,
+                                    projected_point_fill_color=projected_point_fill_color,
+                                    projected_point_line_color=projected_point_line_color,
+                                    h_line_color=h_line_color,
+                                    v_line_color=v_line_color,
+                                    d_line_color=d_line_color,
+                                    res=res,
+                                    plot_width=plot_width,
+                                    plot_height=plot_height,
+                                    ppi=ppi,
+                                    colormap=colormap,
+                                    borders=borders,
+                                    projected_points=fig_list_projected_points[i],
+                                    first_pass=False)
 
                 fig_list.append(fig)
         
@@ -920,8 +934,17 @@ class Mass_Transfer:
         path_x_range = max_x_val - min_x_val
         path_y_range = max_y_val - min_y_val
 
-        plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
-        plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
+        if len(list(set(x_vals))) == 1:
+            # x values form a vertical line
+            plot_x_range = [min_x_val-self.path_margin*(path_x_range+1), max_x_val+self.path_margin*(path_x_range+1)]
+        else:
+            plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
+        
+        if len(list(set(y_vals))) == 1:
+            # y values form a horizontal line
+            plot_y_range = [min_y_val-self.path_margin*(path_y_range+1), max_y_val+self.path_margin*(path_y_range+1)]
+        else:
+            plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
 
         return plot_x_range, plot_y_range
 
@@ -974,7 +997,10 @@ class Mass_Transfer:
             
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
-
+            
+            # TODO: remove this b.c it's only here for debugging
+            self.e = e
+            
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
@@ -1162,27 +1188,42 @@ class Mass_Transfer:
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
         
-        basis_sp_list = list(self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"].columns)[2:-1]
-        basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
-        basis_sp_list = list(set(basis_sp_list))
+#         basis_sp_list = list(self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"].columns)[2:-1]
+#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
+#         basis_sp_list = list(set(basis_sp_list))
         
-        if basis_species_x not in basis_sp_list:
-            basis_sp_list += [basis_species_x]
-        if basis_species_y not in basis_sp_list:
-            basis_sp_list += [basis_species_y]
-            
+#         if basis_species_x not in basis_sp_list:
+#             basis_sp_list += [basis_species_x]
+#         if basis_species_y not in basis_sp_list:
+#             basis_sp_list += [basis_species_y]
+
+        basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + ["H+","H2O"]))
+    
         try:
             basis(basis_sp_list)
         except:
             basis(basis_sp_list + ["H2"])
-
-
-        mineral_names = list(self.df_cr["name"])
+        
+        elems = []
+        for elem in triad:
+            elems.append(elem.split("+")[0].split("-")[0])
+        
+        mineral_names = []
+        for elem in triad:
+            elem = elem.split("+")[0].split("-")[0]
+            m_idx = retrieve((elem), list(set(["O", "H"]+elems)), state=["cr"], messages=False)
+            if len(m_idx) > 0:
+                mineral_names += list(info(m_idx, messages=False)["name"])
+        
+        # exclude inactive minerals
+        mineral_names_active = [m for m in mineral_names if m in list(self.df["name"])]
+        mineral_names = list(set(mineral_names_active))
+        
         mineral_formula_ox = [self.__get_elem_ox_of_interest_in_minerals(m) for m in mineral_names]
         mineral_formula_ox_singles = [e if len(e)==1 else [] for e in mineral_formula_ox]
         mineral_formula_ox_doubles = [e if len(e)==2 else [] for e in mineral_formula_ox]
         mineral_formula_ox_triples = [e if len(e)==3 else [] for e in mineral_formula_ox]
-
+        
         retrieved_minerals = []
         for i,s in enumerate(mineral_formula_ox_singles):
             if [e_pair[0]] == s:
@@ -1207,6 +1248,11 @@ class Mass_Transfer:
         if len(xy_minerals_to_plot) > 1:
             species(xy_minerals_to_plot, add=True)
 
+#         print("x, y, xy")
+#         print(x_minerals_to_plot)
+#         print(y_minerals_to_plot)
+#         print(xy_minerals_to_plot)
+            
         field_minerals_to_plot = []
         for i,s in enumerate(mineral_formula_ox_triples):
             if e_pair[0] in s and e_pair[1] in s and div_var_name in s:
@@ -1227,8 +1273,12 @@ class Mass_Transfer:
         except:
             field_minerals_exist = False
         
+#         print("field minerals")
+#         print(field_minerals_to_plot)
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
-
+            
+        
         if self.P <= 1:
             bar_bars = "bar"
         else:

@@ -31,6 +31,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import plotly.express as px
 import plotly.io as pio
+
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
@@ -890,7 +891,7 @@ class AqEquil(object):
         if self.thermo.thermo_db_type in ["data0", "CSV"]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure']+FIXED_SPECIES:
+                if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure', 'Eh', 'pe']+FIXED_SPECIES:
                     err_species_not_in_db = ("The species '{}'".format(species) + " "
                         "was not found in {}".format(data_path) + ". "
                         "If the column contains data that should not be "
@@ -915,7 +916,7 @@ class AqEquil(object):
                             "Alk., mg/L HCO3-", "Log activity", "Log act combo",
                             "Log mean act", "pX", "pH", "pHCl", "pmH", "pmX",
                             "Hetero. equil.", "Homo. equil.", "Make non-basis",
-                            "logfO2", "Mineral", "bar"]
+                            "logfO2", "Mineral", "bar", "volts"]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = ("The subheader '{}'".format(subheader) + " "
@@ -1810,7 +1811,7 @@ class AqEquil(object):
         
         if db != None:
             # load new thermodynamic database
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
         else:
             db = self.thermo.db
             
@@ -3275,7 +3276,7 @@ class AqEquil(object):
         
         # interpolate logK values from "free logK" datasheet at T and P
         if isinstance(db_logK, pd.DataFrame):
-            
+
             if len(dynamic_db_sample_temps) > 0:
                 grid_or_sample_temps = dynamic_db_sample_temps
             else:
@@ -3317,7 +3318,6 @@ class AqEquil(object):
             __name__, 'create_data0.r').decode("utf-8")
         
         ro.r(r_create_data0)
-
         
         # assemble data0 file
         data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
@@ -3403,7 +3403,7 @@ class AqEquil(object):
         """
         
         if db != None:
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
             
         if self.thermo.thermo_db_type != "CSV":
             if self.verbose > 0:
@@ -3415,8 +3415,7 @@ class AqEquil(object):
             if auto_load_db:
                 if self.verbose > 0:
                     print("Warning: switching thermodynamic database from", str(self.thermo.thermo_db_filename), "to wrm_data.csv...")
-                self.thermo._set_active_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv",
-                                    verbose=self.verbose)
+                self.thermo._set_active_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv")
             
         db = self.thermo.db
         
@@ -4670,8 +4669,8 @@ class AqEquil(object):
                     Delta_S = float(self.logK_S_db["DeltaS"][i])
 
                     logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
-
-                    if len(self.logK_S_db["ligand_element"][i]) > 0:
+                    
+                    if isinstance(self.logK_S_db["ligand_element"][i], str):
                         # modify element database with pseudoelements
                         pseudoelement = self.logK_S_db["ligand_element"][i]
                         if pseudoelement not in self.element_db["element"]:
@@ -4686,7 +4685,7 @@ class AqEquil(object):
 
                             self.element_db = pd.concat([self.element_db, e_df], ignore_index=True)
 
-                    if len(self.logK_S_db["ligand_basis"][i]) > 0:
+                    if isinstance(self.logK_S_db["ligand_basis"][i], str):
                         # add a basis species representing the pseudoelement
                         basis = self.logK_S_db["ligand_basis"][i]
                         if basis not in self.thermo_db["name"]:
@@ -5149,6 +5148,7 @@ class Speciation(object):
                 print("Saved figure as {}".format(save_as)+".html")
                 save_format = 'png'
             elif save_format in ['pdf', 'eps', 'json']:
+                pio.full_figure_for_development(fig, warn=False)
                 pio.write_image(fig, save_as+"."+save_format, format=save_format, scale=save_scale,
                                 width=plot_width*ppi, height=plot_height*ppi)
                 print("Saved figure as {}".format(save_as)+"."+save_format)
@@ -5652,6 +5652,7 @@ class Speciation(object):
     def scatterplot(self, x="pH", y="Temperature", title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
+                          ylab=None,
                           colormap="WORM", save_as=None, save_format=None,
                           save_scale=1, interactive=True, plot_out=False):
         
@@ -5865,6 +5866,9 @@ class Speciation(object):
         
         df['y_variable'] = df['y_variable'].apply(chemlabel)
         
+        if ylab != None:
+            ylabel=ylab
+        
         fig = px.scatter(df, x=x, y="y_value", color="y_variable",
                          hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
                          width=plot_width*ppi, height=plot_height*ppi,
@@ -5910,6 +5914,7 @@ class Speciation(object):
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
                                      colormap="WORM", sample_label = "sample",
+                                     colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -6083,12 +6088,15 @@ class Speciation(object):
             else:
                 self.err_handler.raise_exception("sort_y_by must be either None, 'alphabetical', "
                                 "or a list of species names.")
-
-        # get colormap
-        colors = _get_colors(colormap, len(unique_species))
         
-        # convert rgba to hex
-        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        if isinstance(colors, list):
+            pass
+        else:
+            # get colormap
+            colors = _get_colors(colormap, len(unique_species))
+
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
         df_sp["species"] = df_sp["species"].apply(chemlabel)
         unique_species = [chemlabel(sp) for sp in unique_species]
