@@ -5133,7 +5133,7 @@ class Speciation(object):
 
     
     @staticmethod
-    def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
+    def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in ['png', 'jpg', 'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', 'html']:
             self.err_handler.raise_exception("{}".format(save_format)+" is an unrecognized "
                             "save format. Supported formats include 'png', "
@@ -5362,7 +5362,7 @@ class Speciation(object):
                           xaxis={'fixedrange':True},
                           yaxis={'fixedrange':True, 'exponentformat':'power'})
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -5623,7 +5623,7 @@ class Speciation(object):
         if len(y) == 1:
             fig.update_layout(showlegend=False)
 
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -5887,7 +5887,7 @@ class Speciation(object):
         if len(y) == 1:
             fig.update_layout(showlegend=False)
             
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -6126,7 +6126,7 @@ class Speciation(object):
 
         fig.update_traces(width=width, marker_line_width=0)
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -6316,7 +6316,7 @@ class Speciation(object):
             fig.update_xaxes(showticklabels=True, row=2, col=1)
             
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             

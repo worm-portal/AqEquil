@@ -401,6 +401,7 @@ class Mass_Transfer:
                             annotation_coords=[0,0],
                             show_nonparticipating_mineral_lines=False,
                             minerals_to_show=[],
+                            calculate_projected_points=True,
                             path_line_type = "markers+lines",
                             path_line_color = "red",
                             path_point_fill_color = "red",
@@ -415,6 +416,9 @@ class Mass_Transfer:
                             plot_height=3,
                             ppi=122,
                             borders=0,
+                            save_as=None,
+                            save_format=None,
+                            save_scale=1,
                             colormap="bw"):
         
         """
@@ -511,6 +515,23 @@ class Mass_Transfer:
             Thickness of black lines forming boundaries between mineral
             stability regions. No lines appear if equal to 0.
         
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
         colormap : str, default "bw"
             Name of the colormap to color the scatterpoints. Accepts "bw"
             or names of matplotlib colormaps. If set to "bw", the plot will be
@@ -555,6 +576,16 @@ class Mass_Transfer:
         
         all_elements_of_interest = []
         for mineral in minerals_formed:
+            
+            if mineral not in list(self.df["name"]):
+                if self.verbose > 0:
+                    print("The mineral", mineral, "cannot be represented in a",
+                           "reaction path diagram, likely because it is missing",
+                           "a Gibbs free energy value in the thermodynamic",
+                           "database. Continuing anyway, but be aware that",
+                           "this mineral will not be represented in diagrams.")
+                continue
+            
             all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
         all_elements_of_interest_pre = list(set(all_elements_of_interest))
         
@@ -650,11 +681,11 @@ class Mass_Transfer:
                            "Available variables include {}".format([self.__get_basis_from_elem(elem) for elem in alist]))
                     self.err_handler.raise_exception(err)
             
-            if path_line_type == "lines":
+            if not calculate_projected_points or path_line_type=="lines":
                 projected_points = ["real"]*self.moles_product_minerals.shape[0]
                 fig_list_projected_points = [projected_points]*len(element_plot_triad)
                 
-            elif path_line_type in ["markers+lines", "markers"]:
+            else:
                 
                 if len(element_plot_triad) > 20:
                     if self.verbose > 0:
@@ -662,7 +693,7 @@ class Mass_Transfer:
                               "different combinations of variables that must be considered",
                               "in order to plot markers.")
                         print("This might take a very long time or may not finish calculating at all.")
-                        print("We recommend setting path_line_type='lines' in",
+                        print("We recommend setting calculate_projected_points=False in",
                               "plot_reaction_paths() and then restarting the",
                               "calculation to avoid lengthy calculation times.")
                 
@@ -712,11 +743,6 @@ class Mass_Transfer:
                                 projected_points[irow] = "real"
 
                     fig_list_projected_points.append(projected_points)
-                    
-            else:
-                msg = ("path_line_type can only be 'markers+lines', 'lines', "
-                       "or 'markers'")
-                self.err_handler.raise_exception(msg)
                 
             if isinstance(xyb, list):
                 # if xyb is defined, make element_plot_triad have a length of 1
@@ -758,8 +784,21 @@ class Mass_Transfer:
         if not fig_list and self.verbose > 0:
             print("Warning: a reaction path plot could not be generated for this system.")
         
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            for i,fig in enumerate(fig_list):
+                if isinstance(xyb, list):
+                    name_append = ""
+                else:
+                    name_append = "_{}".format(i+1)
+                save_as, save_format = dummy_sp._save_figure(fig,
+                        save_as+name_append, save_format, save_scale,
+                        plot_width, plot_height, ppi)
+        
         return fig_list
         
+
+    
     
     @staticmethod
     def process_tab(tab_name, thermodata_csv):
@@ -1478,7 +1517,8 @@ class Mass_Transfer:
         return fig
     
     
-    def plot_pH(self, x_type="log_xi", title=None, plot_width=4, plot_height=3, ppi=122):
+    def plot_pH(self, x_type="log_xi", title=None, plot_width=4, plot_height=3,
+                ppi=122, save_as=None, save_format=None, save_scale=1):
         
         """
         Generate a line plot of pH as a function of the log of the extent of
@@ -1545,12 +1585,19 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
-    def plot_product_minerals(self, show_reactant_minerals=False,
+    def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
                               y_type="mole", log_y=True, df_out=False,
-                              plot_width=4, plot_height=3, ppi=122):
+                              plot_width=4, plot_height=3, ppi=122, show_legend=True,
+                              save_as=None, save_format=None, save_scale=1):
         
         """
         Generate a line plot of the log moles of product minerals as a
@@ -1604,9 +1651,13 @@ class Mass_Transfer:
         if show_reactant_minerals:
             df = copy.deepcopy(self.moles_minerals)
             title = "{} of reactant and product minerals"
+            
         else:
             df = copy.deepcopy(self.moles_product_minerals)
             title = "{} of product minerals"
+        
+        # sort in order of appearance along Xi
+        sort_order = list(self.tab["Table P Moles of product minerals"].columns)
             
         if y_type == "mole":
             ylab = "{}moles".format(log_text)
@@ -1651,8 +1702,15 @@ class Mass_Transfer:
             self.err_handler.raise_exception("y_type must be either 'mole', "
                         "'mass', or 'volume'.")
             
+        
+        plot_columns = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
+        if isinstance(plot_minerals, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+            plot_columns = plot_columns_temp
             
-        df = pd.melt(df, id_vars="Xi", value_vars=[col for col in df.columns if col not in ["Xi", "Temp(C)"]])
+        plot_columns = sorted(plot_columns, key=sort_order.index)
+            
+        df = pd.melt(df, id_vars="Xi", value_vars=plot_columns)
         df.columns = ["Xi", "variable", "value"]
         df = df[df["variable"] != "None"]
 
@@ -1675,10 +1733,17 @@ class Mass_Transfer:
 
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
         
         if df_out:
             df = pd.pivot_table(df, index='log Xi', columns='variable', values='value').reset_index()
@@ -1688,8 +1753,10 @@ class Mass_Transfer:
             return fig
 
     
-    def plot_aqueous_species(self, plot_basis=False,
-                             plot_width=4, plot_height=3, ppi=122):
+    def plot_aqueous_species(self, plot_basis=False, plot_species=None,
+                             initially_visible=None, show_legend=True,
+                             plot_width=4, plot_height=3, ppi=122,
+                             save_as=None, save_format=None, save_scale=1,):
         
         """
         Generate a line plot of the log activities of aqueous species as a
@@ -1728,7 +1795,14 @@ class Mass_Transfer:
             title = "Solute species"
             startcol = 1
 
-        df = pd.melt(df, id_vars="Xi", value_vars=df.columns[startcol:])
+            
+            
+        plot_columns = [col for col in df.columns[startcol:]]
+        if isinstance(plot_species, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_species]
+            plot_columns = plot_columns_temp
+            
+        df = pd.melt(df, id_vars="Xi", value_vars=plot_columns)
         df.columns = ["Xi", "variable", "value"]
         df["variable"] = df["variable"].apply(chemlabel)
 
@@ -1750,13 +1824,27 @@ class Mass_Transfer:
                               labels=dict(value=ylab, x=xlab), render_mode='svg',
                              )
 
+        if isinstance(initially_visible, list):
+            initially_visible_html = [chemlabel(sp) for sp in initially_visible]
+            for trace in fig['data']: 
+                if (not trace['name'] in initially_visible_html):
+                    trace['showlegend'] = True
+                    trace['visible'] = 'legendonly'
+        
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
 
     
