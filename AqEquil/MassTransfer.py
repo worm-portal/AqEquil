@@ -1428,7 +1428,9 @@ class Mass_Transfer:
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
     
-    def plot_elements(self, units="molality", log=True, plot_width=4, plot_height=3, ppi=122):
+    def plot_elements(self, units="molality", log=True,
+                      plot_width=4, plot_height=3, ppi=122,
+                      save_as=None, save_format=None, save_scale=1):
         
         """
         Generate a line plot of the log activities of aqueous species as a
@@ -1450,6 +1452,23 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -1514,6 +1533,12 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
@@ -1766,7 +1791,19 @@ class Mass_Transfer:
         ----------
         plot_basis : bool, default False
             Plot basis species only?
-            
+        
+        plot_species : list of str, optional
+            A list of aqueous species to plot. If undefined, every species at
+            will be plotted at once.
+        
+        initially_visible : list of str, optional
+            A list of aqueous species that will be visible on the plot
+            initially. All other species will be hidden, but can still be
+            toggled back on in the legend.
+        
+        show_legend : bool, default True
+            Show the legend?
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -1774,6 +1811,23 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------

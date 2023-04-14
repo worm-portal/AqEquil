@@ -4838,7 +4838,7 @@ class AqEquil(object):
             Exclude entries from a df based on values in columns.
             e.g., {"category_1":["organic_aq", "organic_cr"]}
             """
-
+            
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) > 0:
                 for key in exclude_keys:
@@ -5652,7 +5652,7 @@ class Speciation(object):
     def scatterplot(self, x="pH", y="Temperature", title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
-                          ylab=None,
+                          ylab=None, lineplot=False,
                           colormap="WORM", save_as=None, save_format=None,
                           save_scale=1, interactive=True, plot_out=False):
         
@@ -5869,15 +5869,27 @@ class Speciation(object):
         if ylab != None:
             ylabel=ylab
         
-        fig = px.scatter(df, x=x, y="y_value", color="y_variable",
-                         hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
-                         width=plot_width*ppi, height=plot_height*ppi,
-                         labels={x: xlabel,  "y_value": ylabel},
-                         category_orders={"species": y},
-                         color_discrete_map=dict_species_color,
-                         opacity=fill_alpha,
-                         custom_data=['name', 'formatted_rxn'],
-                         template="simple_white")
+        if lineplot:
+            fig = px.line(df, x=x, y="y_value", color="y_variable",
+                             hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  "y_value": ylabel},
+                             category_orders={"species": y},
+                             color_discrete_map=dict_species_color,
+                             custom_data=['name', 'formatted_rxn'],
+                             template="simple_white")
+        else:
+            fig = px.scatter(df, x=x, y="y_value", color="y_variable",
+                             hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  "y_value": ylabel},
+                             category_orders={"species": y},
+                             color_discrete_map=dict_species_color,
+                             opacity=fill_alpha,
+                             custom_data=['name', 'formatted_rxn'],
+                             template="simple_white")
+        
+        
         fig.update_traces(marker=dict(size=point_size),
                           hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>%{customdata[1]}")
         fig.update_layout(legend_title=None,
