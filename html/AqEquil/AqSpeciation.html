@@ -59,6 +59,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import plotly.express as px
 import plotly.io as pio
+
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
@@ -918,7 +919,7 @@ class AqEquil(object):
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
+                if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;, &#39;Eh&#39;, &#39;pe&#39;]+FIXED_SPECIES:
                     err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                         &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
                         &#34;If the column contains data that should not be &#34;
@@ -943,7 +944,7 @@ class AqEquil(object):
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;, &#34;volts&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -1838,7 +1839,7 @@ class AqEquil(object):
         
         if db != None:
             # load new thermodynamic database
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
         else:
             db = self.thermo.db
             
@@ -2188,7 +2189,7 @@ class AqEquil(object):
                 
             else:
                 pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
-                data1_path = self.eq36da
+                data1_path = self.thermo.eq36da
             
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = [&#34;all&#34;]
@@ -3303,7 +3304,7 @@ class AqEquil(object):
         
         # interpolate logK values from &#34;free logK&#34; datasheet at T and P
         if isinstance(db_logK, pd.DataFrame):
-            
+
             if len(dynamic_db_sample_temps) &gt; 0:
                 grid_or_sample_temps = dynamic_db_sample_temps
             else:
@@ -3430,7 +3431,7 @@ class AqEquil(object):
         &#34;&#34;&#34;
         
         if db != None:
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
             
         if self.thermo.thermo_db_type != &#34;CSV&#34;:
             if self.verbose &gt; 0:
@@ -3442,8 +3443,7 @@ class AqEquil(object):
             if auto_load_db:
                 if self.verbose &gt; 0:
                     print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;,
-                                    verbose=self.verbose)
+                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
             
         db = self.thermo.db
         
@@ -4340,6 +4340,9 @@ class AqEquil(object):
             if logK_S != None:
                 self._load_logK_S(logK_S, source=&#34;file&#34;)
                 
+            if self.logK_active:
+                self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
+                
             # process dissociation reactions
             if self.thermo_db_type == &#34;CSV&#34;:
                 self._suppress_redox_and_generate_dissrxns(
@@ -4347,7 +4350,11 @@ class AqEquil(object):
                     exceed_Ttr=exceed_Ttr)
             elif len(suppress_redox) &gt; 0 and self.verbose &gt; 0:
                 print(&#34;Warning: redox suppression option is not recognized if a data0 or data1 database is used.&#34;)
-
+                
+            if self.logK_active:
+                self.logK_db = self.thermo_db[~self.thermo_db[&#34;logK1&#34;].isnull()]
+                self.thermo_db = self.thermo_db[self.thermo_db[&#34;logK1&#34;].isnull()]
+                
             # generate input file template
             # (after species have been excluded)
             if input_template != &#34;none&#34;:
@@ -4405,8 +4412,10 @@ class AqEquil(object):
                     self.custom_data0 = True
                     self.data0_lettercode = db[-3:].lower()
                     self.custom_obigt = None
+                    self.eq36da = os.getcwd()+&#34;/eqpt_files&#34;
 
                 elif os.path.exists(&#34;data1.&#34; + db) and os.path.isfile(&#34;data1.&#34; + db):
+                    
                     if self.verbose &gt; 0:
                         print(&#34;data1.&#34; + db + &#34; was not found in the EQ36DA directory &#34;
                               &#34;but a data1.&#34;+db+&#34; was found in the current working &#34;
@@ -4414,6 +4423,7 @@ class AqEquil(object):
 
                     self.custom_data0 = True
                     self.thermo_db = None
+                    self.eq36da = os.getcwd()+&#34;/eqpt_files&#34;
 
                     # search for a data1 locally
 
@@ -4687,8 +4697,8 @@ class AqEquil(object):
                     Delta_S = float(self.logK_S_db[&#34;DeltaS&#34;][i])
 
                     logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
-
-                    if len(self.logK_S_db[&#34;ligand_element&#34;][i]) &gt; 0:
+                    
+                    if isinstance(self.logK_S_db[&#34;ligand_element&#34;][i], str):
                         # modify element database with pseudoelements
                         pseudoelement = self.logK_S_db[&#34;ligand_element&#34;][i]
                         if pseudoelement not in self.element_db[&#34;element&#34;]:
@@ -4703,7 +4713,7 @@ class AqEquil(object):
 
                             self.element_db = pd.concat([self.element_db, e_df], ignore_index=True)
 
-                    if len(self.logK_S_db[&#34;ligand_basis&#34;][i]) &gt; 0:
+                    if isinstance(self.logK_S_db[&#34;ligand_basis&#34;][i], str):
                         # add a basis species representing the pseudoelement
                         basis = self.logK_S_db[&#34;ligand_basis&#34;][i]
                         if basis not in self.thermo_db[&#34;name&#34;]:
@@ -4856,7 +4866,7 @@ class AqEquil(object):
             Exclude entries from a df based on values in columns.
             e.g., {&#34;category_1&#34;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}
             &#34;&#34;&#34;
-
+            
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) &gt; 0:
                 for key in exclude_keys:
@@ -4919,7 +4929,7 @@ class AqEquil(object):
                                                   exceed_Ttr=True):
 
             thermo_df = self.thermo_db
-
+            
             suppress_redox = _convert_to_RVector(suppress_redox)
 
             # if elements are being redox-suppressed, exclude all species with a
@@ -5151,7 +5161,7 @@ class Speciation(object):
 
     
     @staticmethod
-    def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
+    def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
             self.err_handler.raise_exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
                             &#34;save format. Supported formats include &#39;png&#39;, &#34;
@@ -5166,6 +5176,7 @@ class Speciation(object):
                 print(&#34;Saved figure as {}&#34;.format(save_as)+&#34;.html&#34;)
                 save_format = &#39;png&#39;
             elif save_format in [&#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;]:
+                pio.full_figure_for_development(fig, warn=False)
                 pio.write_image(fig, save_as+&#34;.&#34;+save_format, format=save_format, scale=save_scale,
                                 width=plot_width*ppi, height=plot_height*ppi)
                 print(&#34;Saved figure as {}&#34;.format(save_as)+&#34;.&#34;+save_format)
@@ -5379,7 +5390,7 @@ class Speciation(object):
                           xaxis={&#39;fixedrange&#39;:True},
                           yaxis={&#39;fixedrange&#39;:True, &#39;exponentformat&#39;:&#39;power&#39;})
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -5640,7 +5651,7 @@ class Speciation(object):
         if len(y) == 1:
             fig.update_layout(showlegend=False)
 
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -5669,6 +5680,7 @@ class Speciation(object):
     def scatterplot(self, x=&#34;pH&#34;, y=&#34;Temperature&#34;, title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
+                          ylab=None, lineplot=False,
                           colormap=&#34;WORM&#34;, save_as=None, save_format=None,
                           save_scale=1, interactive=True, plot_out=False):
         
@@ -5882,15 +5894,30 @@ class Speciation(object):
         
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
-        fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
-                         width=plot_width*ppi, height=plot_height*ppi,
-                         labels={x: xlabel,  &#34;y_value&#34;: ylabel},
-                         category_orders={&#34;species&#34;: y},
-                         color_discrete_map=dict_species_color,
-                         opacity=fill_alpha,
-                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
-                         template=&#34;simple_white&#34;)
+        if ylab != None:
+            ylabel=ylab
+        
+        if lineplot:
+            fig = px.line(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                             hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                             category_orders={&#34;species&#34;: y},
+                             color_discrete_map=dict_species_color,
+                             custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                             template=&#34;simple_white&#34;)
+        else:
+            fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                             hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                             category_orders={&#34;species&#34;: y},
+                             color_discrete_map=dict_species_color,
+                             opacity=fill_alpha,
+                             custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                             template=&#34;simple_white&#34;)
+        
+        
         fig.update_traces(marker=dict(size=point_size),
                           hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
         fig.update_layout(legend_title=None,
@@ -5900,7 +5927,7 @@ class Speciation(object):
         if len(y) == 1:
             fig.update_layout(showlegend=False)
             
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -5927,6 +5954,7 @@ class Speciation(object):
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
                                      colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -6100,12 +6128,15 @@ class Speciation(object):
             else:
                 self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                                 &#34;or a list of species names.&#34;)
-
-        # get colormap
-        colors = _get_colors(colormap, len(unique_species))
         
-        # convert rgba to hex
-        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        if isinstance(colors, list):
+            pass
+        else:
+            # get colormap
+            colors = _get_colors(colormap, len(unique_species))
+
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
         df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
         unique_species = [chemlabel(sp) for sp in unique_species]
@@ -6135,7 +6166,7 @@ class Speciation(object):
 
         fig.update_traces(width=width, marker_line_width=0)
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -6325,7 +6356,7 @@ class Speciation(object):
             fig.update_xaxes(showticklabels=True, row=2, col=1)
             
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -6666,7 +6697,7 @@ the point.</dd>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/home/shock/EQ3_6v8.0a/bin', db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_category={}, suppress_redox=[], input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
+<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/usr/local/bin', db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_category={}, suppress_redox=[], input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -7205,7 +7236,7 @@ energy supplies during speciation.</dd>
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
-                if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;]+FIXED_SPECIES:
+                if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;, &#39;Eh&#39;, &#39;pe&#39;]+FIXED_SPECIES:
                     err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
                         &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
                         &#34;If the column contains data that should not be &#34;
@@ -7230,7 +7261,7 @@ energy supplies during speciation.</dd>
                             &#34;Alk., mg/L HCO3-&#34;, &#34;Log activity&#34;, &#34;Log act combo&#34;,
                             &#34;Log mean act&#34;, &#34;pX&#34;, &#34;pH&#34;, &#34;pHCl&#34;, &#34;pmH&#34;, &#34;pmX&#34;,
                             &#34;Hetero. equil.&#34;, &#34;Homo. equil.&#34;, &#34;Make non-basis&#34;,
-                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;]
+                            &#34;logfO2&#34;, &#34;Mineral&#34;, &#34;bar&#34;, &#34;volts&#34;]
         for i, subheader in enumerate(subheaders):
             if subheader not in valid_subheaders:
                 err_valid_sub = (&#34;The subheader &#39;{}&#39;&#34;.format(subheader) + &#34; &#34;
@@ -8125,7 +8156,7 @@ energy supplies during speciation.</dd>
         
         if db != None:
             # load new thermodynamic database
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
         else:
             db = self.thermo.db
             
@@ -8475,7 +8506,7 @@ energy supplies during speciation.</dd>
                 
             else:
                 pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
-                data1_path = self.eq36da
+                data1_path = self.thermo.eq36da
             
             # allowed aq block species are left after any category exclusion in db_args
             allowed_aq_block_species = [&#34;all&#34;]
@@ -9590,7 +9621,7 @@ energy supplies during speciation.</dd>
         
         # interpolate logK values from &#34;free logK&#34; datasheet at T and P
         if isinstance(db_logK, pd.DataFrame):
-            
+
             if len(dynamic_db_sample_temps) &gt; 0:
                 grid_or_sample_temps = dynamic_db_sample_temps
             else:
@@ -9717,7 +9748,7 @@ energy supplies during speciation.</dd>
         &#34;&#34;&#34;
         
         if db != None:
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
             
         if self.thermo.thermo_db_type != &#34;CSV&#34;:
             if self.verbose &gt; 0:
@@ -9729,8 +9760,7 @@ energy supplies during speciation.</dd>
             if auto_load_db:
                 if self.verbose &gt; 0:
                     print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;,
-                                    verbose=self.verbose)
+                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
             
         db = self.thermo.db
         
@@ -10627,6 +10657,9 @@ energy supplies during speciation.</dd>
             if logK_S != None:
                 self._load_logK_S(logK_S, source=&#34;file&#34;)
                 
+            if self.logK_active:
+                self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
+                
             # process dissociation reactions
             if self.thermo_db_type == &#34;CSV&#34;:
                 self._suppress_redox_and_generate_dissrxns(
@@ -10634,7 +10667,11 @@ energy supplies during speciation.</dd>
                     exceed_Ttr=exceed_Ttr)
             elif len(suppress_redox) &gt; 0 and self.verbose &gt; 0:
                 print(&#34;Warning: redox suppression option is not recognized if a data0 or data1 database is used.&#34;)
-
+                
+            if self.logK_active:
+                self.logK_db = self.thermo_db[~self.thermo_db[&#34;logK1&#34;].isnull()]
+                self.thermo_db = self.thermo_db[self.thermo_db[&#34;logK1&#34;].isnull()]
+                
             # generate input file template
             # (after species have been excluded)
             if input_template != &#34;none&#34;:
@@ -10692,8 +10729,10 @@ energy supplies during speciation.</dd>
                     self.custom_data0 = True
                     self.data0_lettercode = db[-3:].lower()
                     self.custom_obigt = None
+                    self.eq36da = os.getcwd()+&#34;/eqpt_files&#34;
 
                 elif os.path.exists(&#34;data1.&#34; + db) and os.path.isfile(&#34;data1.&#34; + db):
+                    
                     if self.verbose &gt; 0:
                         print(&#34;data1.&#34; + db + &#34; was not found in the EQ36DA directory &#34;
                               &#34;but a data1.&#34;+db+&#34; was found in the current working &#34;
@@ -10701,6 +10740,7 @@ energy supplies during speciation.</dd>
 
                     self.custom_data0 = True
                     self.thermo_db = None
+                    self.eq36da = os.getcwd()+&#34;/eqpt_files&#34;
 
                     # search for a data1 locally
 
@@ -10974,8 +11014,8 @@ energy supplies during speciation.</dd>
                     Delta_S = float(self.logK_S_db[&#34;DeltaS&#34;][i])
 
                     logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
-
-                    if len(self.logK_S_db[&#34;ligand_element&#34;][i]) &gt; 0:
+                    
+                    if isinstance(self.logK_S_db[&#34;ligand_element&#34;][i], str):
                         # modify element database with pseudoelements
                         pseudoelement = self.logK_S_db[&#34;ligand_element&#34;][i]
                         if pseudoelement not in self.element_db[&#34;element&#34;]:
@@ -10990,7 +11030,7 @@ energy supplies during speciation.</dd>
 
                             self.element_db = pd.concat([self.element_db, e_df], ignore_index=True)
 
-                    if len(self.logK_S_db[&#34;ligand_basis&#34;][i]) &gt; 0:
+                    if isinstance(self.logK_S_db[&#34;ligand_basis&#34;][i], str):
                         # add a basis species representing the pseudoelement
                         basis = self.logK_S_db[&#34;ligand_basis&#34;][i]
                         if basis not in self.thermo_db[&#34;name&#34;]:
@@ -11143,7 +11183,7 @@ energy supplies during speciation.</dd>
             Exclude entries from a df based on values in columns.
             e.g., {&#34;category_1&#34;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}
             &#34;&#34;&#34;
-
+            
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) &gt; 0:
                 for key in exclude_keys:
@@ -11206,7 +11246,7 @@ energy supplies during speciation.</dd>
                                                   exceed_Ttr=True):
 
             thermo_df = self.thermo_db
-
+            
             suppress_redox = _convert_to_RVector(suppress_redox)
 
             # if elements are being redox-suppressed, exclude all species with a
@@ -11446,7 +11486,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
     
     # interpolate logK values from &#34;free logK&#34; datasheet at T and P
     if isinstance(db_logK, pd.DataFrame):
-        
+
         if len(dynamic_db_sample_temps) &gt; 0:
             grid_or_sample_temps = dynamic_db_sample_temps
         else:
@@ -11616,7 +11656,7 @@ and set as the active thermodynamic database.</dd>
         &#34;&#34;&#34;
         
         if db != None:
-            self.thermo._set_active_db(db, self.verbose)
+            self.thermo._set_active_db(db)
             
         if self.thermo.thermo_db_type != &#34;CSV&#34;:
             if self.verbose &gt; 0:
@@ -11628,8 +11668,7 @@ and set as the active thermodynamic database.</dd>
             if auto_load_db:
                 if self.verbose &gt; 0:
                     print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;,
-                                    verbose=self.verbose)
+                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
             
         db = self.thermo.db
         
@@ -13612,7 +13651,7 @@ db_args = {
     
     if db != None:
         # load new thermodynamic database
-        self.thermo._set_active_db(db, self.verbose)
+        self.thermo._set_active_db(db)
     else:
         db = self.thermo.db
         
@@ -13962,7 +14001,7 @@ db_args = {
             
         else:
             pressure_bar = list(input_processed_list.rx2(&#34;pressure_bar&#34;))[sample_row_index]
-            data1_path = self.eq36da
+            data1_path = self.thermo.eq36da
         
         # allowed aq block species are left after any category exclusion in db_args
         allowed_aq_block_species = [&#34;all&#34;]
@@ -14694,7 +14733,7 @@ speciation report.</dd>
 
     
     @staticmethod
-    def __save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
+    def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
             self.err_handler.raise_exception(&#34;{}&#34;.format(save_format)+&#34; is an unrecognized &#34;
                             &#34;save format. Supported formats include &#39;png&#39;, &#34;
@@ -14709,6 +14748,7 @@ speciation report.</dd>
                 print(&#34;Saved figure as {}&#34;.format(save_as)+&#34;.html&#34;)
                 save_format = &#39;png&#39;
             elif save_format in [&#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;]:
+                pio.full_figure_for_development(fig, warn=False)
                 pio.write_image(fig, save_as+&#34;.&#34;+save_format, format=save_format, scale=save_scale,
                                 width=plot_width*ppi, height=plot_height*ppi)
                 print(&#34;Saved figure as {}&#34;.format(save_as)+&#34;.&#34;+save_format)
@@ -14922,7 +14962,7 @@ speciation report.</dd>
                           xaxis={&#39;fixedrange&#39;:True},
                           yaxis={&#39;fixedrange&#39;:True, &#39;exponentformat&#39;:&#39;power&#39;})
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -15183,7 +15223,7 @@ speciation report.</dd>
         if len(y) == 1:
             fig.update_layout(showlegend=False)
 
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -15212,6 +15252,7 @@ speciation report.</dd>
     def scatterplot(self, x=&#34;pH&#34;, y=&#34;Temperature&#34;, title=None,
                           plot_width=4, plot_height=3, ppi=122,
                           fill_alpha=0.7, point_size=10,
+                          ylab=None, lineplot=False,
                           colormap=&#34;WORM&#34;, save_as=None, save_format=None,
                           save_scale=1, interactive=True, plot_out=False):
         
@@ -15425,15 +15466,30 @@ speciation report.</dd>
         
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
-        fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
-                         width=plot_width*ppi, height=plot_height*ppi,
-                         labels={x: xlabel,  &#34;y_value&#34;: ylabel},
-                         category_orders={&#34;species&#34;: y},
-                         color_discrete_map=dict_species_color,
-                         opacity=fill_alpha,
-                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
-                         template=&#34;simple_white&#34;)
+        if ylab != None:
+            ylabel=ylab
+        
+        if lineplot:
+            fig = px.line(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                             hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                             category_orders={&#34;species&#34;: y},
+                             color_discrete_map=dict_species_color,
+                             custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                             template=&#34;simple_white&#34;)
+        else:
+            fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                             hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                             width=plot_width*ppi, height=plot_height*ppi,
+                             labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                             category_orders={&#34;species&#34;: y},
+                             color_discrete_map=dict_species_color,
+                             opacity=fill_alpha,
+                             custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                             template=&#34;simple_white&#34;)
+        
+        
         fig.update_traces(marker=dict(size=point_size),
                           hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
         fig.update_layout(legend_title=None,
@@ -15443,7 +15499,7 @@ speciation report.</dd>
         if len(y) == 1:
             fig.update_layout(showlegend=False)
             
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
 
@@ -15470,6 +15526,7 @@ speciation report.</dd>
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
                                      colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -15643,12 +15700,15 @@ speciation report.</dd>
             else:
                 self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                                 &#34;or a list of species names.&#34;)
-
-        # get colormap
-        colors = _get_colors(colormap, len(unique_species))
         
-        # convert rgba to hex
-        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        if isinstance(colors, list):
+            pass
+        else:
+            # get colormap
+            colors = _get_colors(colormap, len(unique_species))
+
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
         df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
         unique_species = [chemlabel(sp) for sp in unique_species]
@@ -15678,7 +15738,7 @@ speciation report.</dd>
 
         fig.update_traces(width=width, marker_line_width=0)
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -15868,7 +15928,7 @@ speciation report.</dd>
             fig.update_xaxes(showticklabels=True, row=2, col=1)
             
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -16266,7 +16326,7 @@ figure is simply displayed.</dd>
     if len(y) == 1:
         fig.update_layout(showlegend=False)
 
-    save_as, save_format = self.__save_figure(fig, save_as, save_format,
+    save_as, save_format = self._save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
                                               plot_height, ppi)
         
@@ -16704,7 +16764,7 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_mass_contribution"><code class="name flex">
-<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', sample_label='sample', plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
+<span>def <span class="ident">plot_mass_contribution</span></span>(<span>self, basis, title=None, sort_by=None, ascending=True, sort_y_by=None, width=0.9, colormap='WORM', sample_label='sample', colors=None, plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Plot basis species contributions to mass balance of aqueous species
@@ -16780,6 +16840,7 @@ figure is simply displayed.</dd>
 <pre><code class="python">    def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
                                      colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
                                      save_scale=1, interactive=True,
@@ -16953,12 +17014,15 @@ figure is simply displayed.</dd>
             else:
                 self.err_handler.raise_exception(&#34;sort_y_by must be either None, &#39;alphabetical&#39;, &#34;
                                 &#34;or a list of species names.&#34;)
-
-        # get colormap
-        colors = _get_colors(colormap, len(unique_species))
         
-        # convert rgba to hex
-        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+        if isinstance(colors, list):
+            pass
+        else:
+            # get colormap
+            colors = _get_colors(colormap, len(unique_species))
+
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
         df_sp[&#34;species&#34;] = df_sp[&#34;species&#34;].apply(chemlabel)
         unique_species = [chemlabel(sp) for sp in unique_species]
@@ -16988,7 +17052,7 @@ figure is simply displayed.</dd>
 
         fig.update_traces(width=width, marker_line_width=0)
         
-        save_as, save_format = self.__save_figure(fig, save_as, save_format,
+        save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
                                                   plot_height, ppi)
             
@@ -17147,7 +17211,7 @@ it is generated.</dd>
                       xaxis={&#39;fixedrange&#39;:True},
                       yaxis={&#39;fixedrange&#39;:True, &#39;exponentformat&#39;:&#39;power&#39;})
     
-    save_as, save_format = self.__save_figure(fig, save_as, save_format,
+    save_as, save_format = self._save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
                                               plot_height, ppi)
 
@@ -17397,7 +17461,7 @@ figure is simply displayed.</dd>
         fig.update_xaxes(showticklabels=True, row=2, col=1)
         
     
-    save_as, save_format = self.__save_figure(fig, save_as, save_format,
+    save_as, save_format = self._save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
                                               plot_height, ppi)
         
@@ -17465,7 +17529,7 @@ directory. This file can be loaded with <code>AqEquil.load(filename)</code>.</p>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.scatterplot"><code class="name flex">
-<span>def <span class="ident">scatterplot</span></span>(<span>self, x='pH', y='Temperature', title=None, plot_width=4, plot_height=3, ppi=122, fill_alpha=0.7, point_size=10, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
+<span>def <span class="ident">scatterplot</span></span>(<span>self, x='pH', y='Temperature', title=None, plot_width=4, plot_height=3, ppi=122, fill_alpha=0.7, point_size=10, ylab=None, lineplot=False, colormap='WORM', save_as=None, save_format=None, save_scale=1, interactive=True, plot_out=False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Vizualize two or more sample variables with a scatterplot.</p>
@@ -17527,6 +17591,7 @@ figure is simply displayed.</dd>
 <pre><code class="python">def scatterplot(self, x=&#34;pH&#34;, y=&#34;Temperature&#34;, title=None,
                       plot_width=4, plot_height=3, ppi=122,
                       fill_alpha=0.7, point_size=10,
+                      ylab=None, lineplot=False,
                       colormap=&#34;WORM&#34;, save_as=None, save_format=None,
                       save_scale=1, interactive=True, plot_out=False):
     
@@ -17740,15 +17805,30 @@ figure is simply displayed.</dd>
     
     df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
     
-    fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
-                     hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
-                     width=plot_width*ppi, height=plot_height*ppi,
-                     labels={x: xlabel,  &#34;y_value&#34;: ylabel},
-                     category_orders={&#34;species&#34;: y},
-                     color_discrete_map=dict_species_color,
-                     opacity=fill_alpha,
-                     custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
-                     template=&#34;simple_white&#34;)
+    if ylab != None:
+        ylabel=ylab
+    
+    if lineplot:
+        fig = px.line(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                         width=plot_width*ppi, height=plot_height*ppi,
+                         labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                         category_orders={&#34;species&#34;: y},
+                         color_discrete_map=dict_species_color,
+                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                         template=&#34;simple_white&#34;)
+    else:
+        fig = px.scatter(df, x=x, y=&#34;y_value&#34;, color=&#34;y_variable&#34;,
+                         hover_data=[x, &#34;y_value&#34;, &#34;y_variable&#34;, &#34;name&#34;, &#34;formatted_rxn&#34;],
+                         width=plot_width*ppi, height=plot_height*ppi,
+                         labels={x: xlabel,  &#34;y_value&#34;: ylabel},
+                         category_orders={&#34;species&#34;: y},
+                         color_discrete_map=dict_species_color,
+                         opacity=fill_alpha,
+                         custom_data=[&#39;name&#39;, &#39;formatted_rxn&#39;],
+                         template=&#34;simple_white&#34;)
+    
+    
     fig.update_traces(marker=dict(size=point_size),
                       hovertemplate = &#34;%{customdata[0]}&lt;br&gt;&#34;+xlabel+&#34;: %{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&lt;br&gt;%{customdata[1]}&#34;)
     fig.update_layout(legend_title=None,
@@ -17758,7 +17838,7 @@ figure is simply displayed.</dd>
     if len(y) == 1:
         fig.update_layout(showlegend=False)
         
-    save_as, save_format = self.__save_figure(fig, save_as, save_format,
+    save_as, save_format = self._save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
                                               plot_height, ppi)
 

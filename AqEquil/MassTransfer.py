@@ -123,15 +123,80 @@ def react(speciation,
             # all samples use the same data1.
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
                 f.write(speciation.data1["all_samples"])
-                
+        
+        path_6i="rxn_6i/"
+        path_6o="rxn_6o"
+        path_6p="rxn_6p"
+        path_extra_out="eq6_extra_out"
+        
         ae.runeq6(filename_6i,
                   db="dyn",
-                  path_6i="rxn_6i",
-                  path_6o="rxn_6o",
-                  path_6p="rxn_6p",
-                  path_extra_out="eq6_extra_out",
+                  path_6i=path_6i,
                   data1_path=os.getcwd()+"/eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
+        
+        # get current working dir
+        cwd = os.getcwd()
+        cwdd = cwd + "/"
+        
+        filename_6o = filename_6i[:-1] + 'o'
+        filename_6p = filename_6i[:-1] + 'p'
+        filename_6ba = filename_6i[:-1] + 'ba'
+        filename_6bb = filename_6i[:-1] + 'bb'
+        filename_6t = filename_6i[:-2] + 'csv'
+        filename_6tx = filename_6i[:-1] + 'tx'
+
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6o"]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6p"]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6ba"]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6bb"]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6t"]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6tx"]
+        
+        if len(files_6o) == 0:
+            if ae.verbose > 0:
+                print('Error: EQ6 failed to produce output for ' + filename_6i)
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+"/"+file_6o, cwdd+path_6o+"/"+filename_6o)
+                shutil.move(cwdd+path_6i+"/"+file_6ba, cwdd+path_extra_out+"/"+filename_6ba)
+                shutil.move(cwdd+path_6i+"/"+file_6bb, cwdd+path_extra_out+"/"+filename_6bb)
+                shutil.move(cwdd+path_6i+"/"+file_6t, cwdd+path_extra_out+"/"+filename_6t)
+                shutil.move(cwdd+path_6i+"/"+file_6tx, cwdd+path_extra_out+"/"+filename_6tx)
+            except:
+                ae.err_handler.raise_exception(("Error: could not move", path_6i+"/"+file_6o, "to", path_6o+"/"+filename_6o))
+        
+        else:
+            ae.err_handler.raise_exception("Error: multiple output files detected for one mass transfer calculation.")
+            
+        if len(files_6p) == 0:
+            if ae.verbose > 0:
+                print('Error: EQ6 failed to produce a pickup file for ' + filename_6i)
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+"/"+file_6p, cwdd+path_6p+"/"+filename_6p)
+            except:
+                ae.err_handler.raise_exception(("Error: could not move", path_6i+"/"+file_6p, "to", path_6p+"/"+filename_6p))
+        else:
+            ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
+        
+        
+        
+        
+        
+        
+        
+        
         
         if speciation.thermo.thermo_db_type == "CSV":
             m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,

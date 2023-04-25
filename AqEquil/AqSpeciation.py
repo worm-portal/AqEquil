@@ -1133,10 +1133,7 @@ class AqEquil(object):
                db,
                samplename=None,
                path_6i="",
-               path_6o="",
-               path_6p="",
-               path_extra_out="",
-               data1_path="",
+               data1_path=None,
                dynamic_db_name=None):
         
         """
@@ -1150,18 +1147,11 @@ class AqEquil(object):
         db : str
             Three letter code of database.
         
+        samplename : str
+            The name of the sample, used to announce which sample is being run.
+        
         path_6i : path str, default current working directory
             Path of directory containing .6i input files.
-            
-        path_6o : path str, default current working directory
-            Path of directory where .6o output files will be produced.
-        
-        path_6p : path str, default current working directory
-            Path of directory where .6p pickup files will be produced.
-            
-        path_extra_out : path str, default current working directory
-            Path of directory where additional output files, such as tab files,
-            will be produced.
             
         data1_path : path str, default current working directory
             Path of directory where the data1 thermodynamic database file is
@@ -1175,6 +1165,9 @@ class AqEquil(object):
             This parameter is for internal use.
         """
 
+        if data1_path == None:
+            data1_path = self.eq36da
+        
         # get current working dir
         cwd = os.getcwd()
         cwdd = cwd + "/"
@@ -1190,62 +1183,11 @@ class AqEquil(object):
         args = ["cd", "'" + cwdd+path_6i+"'", ";", # change directory to 6i folder
                 self.eq36co+'/eq6', # path of EQ6 executable
                 "'" + data1_path + "/data1." + db+"'", # path to data1 file
-                "'"+cwdd+path_6i + "/" + filename_6i+"'"] # path of 6i file
+                "'"+cwdd+path_6i + filename_6i+"'"] # path of 6i file
         
         args = " ".join(args)
         
         self.__run_script_and_wait(args) # run EQ6
-        
-        filename_6o = filename_6i[:-1] + 'o'
-        filename_6p = filename_6i[:-1] + 'p'
-        filename_6ba = filename_6i[:-1] + 'ba'
-        filename_6bb = filename_6i[:-1] + 'bb'
-        filename_6t = filename_6i[:-2] + 'csv'
-        filename_6tx = filename_6i[:-1] + 'tx'
-
-        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
-        # Correct for this here:
-        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6o"]
-        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6p"]
-        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6ba"]
-        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6bb"]
-        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == ".6t"]
-        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == ".6tx"]
-        
-        if len(files_6o) == 0:
-            if self.verbose > 0:
-                print('Error: EQ6 failed to produce output for ' + filename_6i)
-        elif len(files_6o) == 1:
-            file_6o = files_6o[0]
-            file_6ba = files_6ba[0]
-            file_6bb = files_6bb[0]
-            file_6t = files_6t[0]
-            file_6tx = files_6tx[0]
-            try:
-                # move output
-                shutil.move(cwdd+path_6i+"/"+file_6o, cwdd+path_6o+"/"+filename_6o)
-                shutil.move(cwdd+path_6i+"/"+file_6ba, cwdd+path_extra_out+"/"+filename_6ba)
-                shutil.move(cwdd+path_6i+"/"+file_6bb, cwdd+path_extra_out+"/"+filename_6bb)
-                shutil.move(cwdd+path_6i+"/"+file_6t, cwdd+path_extra_out+"/"+filename_6t)
-                shutil.move(cwdd+path_6i+"/"+file_6tx, cwdd+path_extra_out+"/"+filename_6tx)
-            except:
-                self.err_handler.raise_exception("Error: could not move", path_6i+"/"+file_6o, "to", path_6o+"/"+filename_6o)
-        
-        else:
-            self.err_handler.raise_exception("Error: multiple output files detected for one mass transfer calculation.")
-            
-        if len(files_6p) == 0:
-            if self.verbose > 0:
-                print('Error: EQ6 failed to produce a pickup file for ' + filename_6i)
-        elif len(files_6p) == 1:
-            file_6p = files_6p[0]
-            try:
-                # move output
-                shutil.move(cwdd+path_6i+"/"+file_6p, cwdd+path_6p+"/"+filename_6p)
-            except:
-                self.err_handler.raise_exception("Error: could not move", path_6i+"/"+file_6p, "to", path_6p+"/"+filename_6p)
-        else:
-            self.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
                 
     def __mk_check_del_directory(self, path):
@@ -4661,14 +4603,82 @@ class AqEquil(object):
 
             if self.logK_S_active:
                 for i,sp in enumerate(self.logK_S_db["name"]):
-
+                    
+                    logK_25C = float(self.logK_S_db["logK_25"][i])
+                    
+                    IS_ref = float(self.logK_S_db["logK_25_IS"][i])
+                    
                     T_list = self.logK_S_db["T_vals"][i].split(" ")
                     T_list = [float(T) for T in T_list]
 
-                    logK_25C = float(self.logK_S_db["logK_25"][i])
                     Delta_S = float(self.logK_S_db["DeltaS"][i])
-
+                    
+                    if IS_ref > 0:
+                        # extrapolate to ionic strength 0
+                        
+                        # collect azero values for metal, ligand, and complex
+                        metal_name = self.logK_S_db["metal_name"][i]
+                        
+                        if self.thermo_db["name"].isin([metal_name]).any():
+                            metal_azero = list(self.thermo_db[self.thermo_db["name"] == metal_name]["azero"])[0]
+                            metal_charge = float(list(self.thermo_db[self.thermo_db["name"] == metal_name]["z.T"])[0])
+#                         elif:
+#                             # todo: get metal azero and charge from other databases, e.g., logK db
+#                             pass
+                        else:
+                            # todo: throw error
+                            pass
+                        
+                        ligand_name = self.logK_S_db["ligand_name"][i]
+                        if isinstance(self.logK_S_db["ligand_azero"][i], float):
+                            ligand_azero = float(self.logK_S_db["ligand_azero"][i])
+                        elif self.thermo_db["name"].isin([ligand_name]).any():
+                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["azero"])[0])
+                        else:
+                            # todo: elif ligand_name in logK database names, get azero from there...
+                            # or maybe this is not necessary if logK is merged with thermo_db at this point
+                            pass
+                        
+                        if isinstance(self.logK_S_db["ligand_charge"][i], float):
+                            ligand_charge = float(self.logK_S_db["ligand_charge"][i])
+                        elif self.thermo_db["name"].isin([ligand_name]).any():
+                            ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["z.T"])[0])
+                        else:
+                            # todo: elif ligand_name in logK database names, get charge from there...
+                            # or maybe this is not necessary if logK is merged with thermo_db at this point
+                            pass
+                    
+                        dissrxn = self.logK_S_db["dissrxn"][i].split(" ")
+                        n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
+                        n_ligand = float(dissrxn[dissrxn.index(ligand_name)-1])
+                        n_complex = -float(dissrxn[dissrxn.index(sp)-1])
+                        
+                        complex_charge = n_metal*metal_charge + n_ligand*ligand_charge
+                        complex_azero = self.logK_S_db["azero"][i]
+                        
+                        A=0.5114
+                        B=0.3288
+                        Bdot=0.041
+                        If = 0 # what ionic strength to extrapolate to
+                        
+                        ari=[metal_azero, ligand_azero]
+                        api=[complex_azero]
+                        vri=[n_metal, n_ligand]
+                        vpi=[n_complex]
+                        zri=[metal_charge, ligand_charge]
+                        zpi=[complex_charge]
+                        
+                        def loggamma(vparam, zparam, aparam, I):
+                            x=[v*((-1*A*z**2*I**0.5)/(1+a*B*I**0.5)+Bdot*I) for v,z,a in zip(vparam, zparam, aparam)]
+                            return x
+                        
+                        def f(vparam, zparam, aparam, I):
+                            return sum(loggamma(vparam, zparam, aparam, I))
+                        
+                        logK_25C = logK_25C+(f(vpi,zpi,api,IS_ref)-f(vri,zri,ari,IS_ref))-(f(vpi,zpi,api,If)-f(vri,zri,ari,If))
+                        
                     logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
+                    
                     
                     if isinstance(self.logK_S_db["ligand_element"][i], str):
                         # modify element database with pseudoelements
