@@ -55,6 +55,7 @@ def __move_file(file, destination_dir, silent=False):
         
 def react(speciation,
           reaction_setup,
+          chain_mt=False,
           delete_generated_folders=False,
           hide_traceback=True,
           eq36da=os.environ.get('EQ36DA'),
@@ -98,7 +99,7 @@ def react(speciation,
     prev_wd = os.getcwd()
     ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
-    speciation.join_6i_3p(reaction_setup)
+    speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file("data1.dyn")
     
     paths=['rxn_6o', 'rxn_6p', 'eq6_extra_out']
@@ -190,14 +191,6 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        
-        
-        
-        
-        
-        
-        
-        
         if speciation.thermo.thermo_db_type == "CSV":
             m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
                               six_o_file='rxn_6o/'+filename_6o,
@@ -205,6 +198,36 @@ def react(speciation,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
+        
+        # store input, output, and pickup as dicts in speciation object
+        try:
+            with open(path_6i + "/" + filename_6i, "r") as f:
+                lines=f.readlines()
+            speciation.raw_6_input_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6o + "/" + filename_6o, "r") as f:
+                lines=f.readlines()
+            speciation.raw_6_output_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6p + "/" + filename_6p, "r") as f:
+                lines=f.readlines()
+            
+            # Unlike 3p files, 6p files include headers that need to be removed
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if "Start of the bottom half of the input file" in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+            speciation.raw_6_pickup_dict[sample_name] = bottom_half
+            
+        except:
+            pass
         
     if delete_generated_folders:
         __delete_dir("eq6_extra_out")

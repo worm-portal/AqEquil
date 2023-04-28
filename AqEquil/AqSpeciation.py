@@ -662,9 +662,9 @@ class AqEquil(object):
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
         
-        self.raw_input_dict = {}
-        self.raw_output_dict = {}
-        self.raw_pickup_dict = {}
+        self.raw_3_input_dict = {}
+        self.raw_3_output_dict = {}
+        self.raw_3_pickup_dict = {}
         
         self.batch_T = []
         self.batch_P = []
@@ -2163,19 +2163,19 @@ class AqEquil(object):
             try:
                 with open(input_dir + "/" + filename_3i, "r") as f:
                     lines=f.readlines()
-                self.raw_input_dict[samplename] = lines
+                self.raw_3_input_dict[samplename] = lines
             except:
                 pass
             try:
                 with open(output_dir + "/" + filename_3o, "r") as f:
                     lines=f.readlines()
-                self.raw_output_dict[samplename] = lines
+                self.raw_3_output_dict[samplename] = lines
             except:
                 pass
             try:
                 with open(pickup_dir + "/" + filename_3p, "r") as f:
                     lines=f.readlines()
-                self.raw_pickup_dict[samplename] = lines
+                self.raw_3_pickup_dict[samplename] = lines
             except:
                 pass
             
@@ -2558,9 +2558,12 @@ class AqEquil(object):
         if self.verbose > 0:
             print("Finished!")
         
-        speciation.raw_input_dict = self.raw_input_dict
-        speciation.raw_output_dict = self.raw_output_dict
-        speciation.raw_pickup_dict = self.raw_pickup_dict
+        speciation.raw_3_input_dict = self.raw_3_input_dict
+        speciation.raw_3_output_dict = self.raw_3_output_dict
+        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_6_input_dict = {}
+        speciation.raw_6_output_dict = {}
+        speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
@@ -4675,7 +4678,7 @@ class AqEquil(object):
                         def f(vparam, zparam, aparam, I):
                             return sum(loggamma(vparam, zparam, aparam, I))
                         
-                        logK_25C = logK_25C+(f(vpi,zpi,api,IS_ref)-f(vri,zri,ari,IS_ref))-(f(vpi,zpi,api,If)-f(vri,zri,ari,If))
+                        logK_25C = -(-logK_25C+(f(vpi,zpi,api,IS_ref)-f(vri,zri,ari,IS_ref))-(f(vpi,zpi,api,If)-f(vri,zri,ari,If)))
                         
                     logK_list = self._est_logK_S(T_list, logK_25C, Delta_S)
                     
@@ -6365,7 +6368,7 @@ class Speciation(object):
             fig.show(config=config)
             
             
-    def join_6i_3p(self, filepath_6i):
+    def join_6i_p(self, filepath_6i, chain_mt):
         path='rxn_6i'
         if not os.path.exists(path):
             os.makedirs(path)
@@ -6373,7 +6376,12 @@ class Speciation(object):
             shutil.rmtree(path)
             os.makedirs(path)
             
-        for sample_name in self.raw_pickup_dict.keys():
+        if chain_mt:
+            raw_p_dict = self.raw_6_pickup_dict
+        else:
+            raw_p_dict = self.raw_3_pickup_dict
+            
+        for sample_name in raw_p_dict.keys():
             sample_filename = self.sample_data[sample_name]['filename'][:-3]
             
             if isinstance(filepath_6i, str):
@@ -6392,7 +6400,8 @@ class Speciation(object):
             if lines_6i[-1][-1:] != "\n": # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+"\n"
                 
-            lines_3p = self.raw_pickup_dict[sample_name]
+            lines_3p = raw_p_dict[sample_name]
+            
             lines_to_keep = []
             for line in lines_6i:
                 if "Start of the bottom half of the input file" in line:
