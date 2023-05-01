@@ -120,6 +120,7 @@ def react(speciation,
             __delete_file("eq6_extra_out/data1.dyn")
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
                 f.write(speciation.data1[speciation.sample_data[sample_name]["filename"][:-3]])
+
         else:
             # all samples use the same data1.
             with open("eq6_extra_out/data1.dyn", 'wb') as f:
@@ -135,7 +136,7 @@ def react(speciation,
                   path_6i=path_6i,
                   data1_path=os.getcwd()+"/eq6_extra_out", # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
+
         # get current working dir
         cwd = os.getcwd()
         cwdd = cwd + "/"
@@ -191,8 +192,8 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        if speciation.thermo.thermo_db_type == "CSV":
-            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
