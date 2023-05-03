@@ -58,6 +58,7 @@ def react(speciation,
           chain_mt=False,
           delete_generated_folders=False,
           hide_traceback=True,
+          data1_override=None,
           eq36da=os.environ.get('EQ36DA'),
           eq36co=os.environ.get('EQ36CO'),
          ):
@@ -78,6 +79,11 @@ def react(speciation,
         EQ6 6i file (the part without the contents of the pickup file) and then
         pass the filename to `reaction_setup`.
     
+    chain_mt : bool, default False
+        Is the speciation the result of another mass transfer calculation?
+        Choosing True will allow mass transfer calculations to be chained
+        together.
+    
     delete_generated_folders : bool, default False
         Delete the 'rxn_6i', 'rxn_6o', 'rxn_6p', and 'eq6_extra_out' folders
         containing raw EQ6 input, output, and pickup files once the
@@ -87,6 +93,17 @@ def react(speciation,
         Hide traceback message when encountering errors handled by this class?
         When True, error messages handled by this class will be short and to
         the point.
+
+    data1_override : str, optional
+        The three letter code of a data1 file used to override the thermodynamic
+        database used to speciate the sample(s). This is useful for chaining
+        the results of one mass transfer calculation into another while
+        simultaneously changing the temperature and pressure regime of the
+        new system. See the description for the `chain_mt` parameter for more
+        about chaining.
+    
+    eq36da=os.environ.get('EQ36DA'),
+    eq36co=os.environ.get('EQ36CO'),
 
     Returns
     ----------
@@ -115,6 +132,11 @@ def react(speciation,
         filename_6o = filename_6i[:-3]+".6o"
         filename_6p = filename_6i[:-3]+".6p"
         
+        if data1_override != None:
+            with open("data1."+data1_override, mode='rb') as data1:
+                speciation.data1["all_samples"] = data1.read()
+            speciation.thermo.thermo_db_filename = "data1."+data1_override
+            
         if "all_samples" not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file("eq6_extra_out/data1.dyn")
@@ -1771,7 +1793,7 @@ class Mass_Transfer:
             title = "{} of product minerals"
         
         # sort in order of appearance along Xi
-        sort_order = list(self.tab["Table P Moles of product minerals"].columns)
+        sort_order = list(self.moles_minerals.columns)
             
         if y_type == "mole":
             ylab = "{}moles".format(log_text)
