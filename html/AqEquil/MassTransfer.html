@@ -83,8 +83,10 @@ def __move_file(file, destination_dir, silent=False):
         
 def react(speciation,
           reaction_setup,
+          chain_mt=False,
           delete_generated_folders=False,
           hide_traceback=True,
+          data1_override=None,
           eq36da=os.environ.get(&#39;EQ36DA&#39;),
           eq36co=os.environ.get(&#39;EQ36CO&#39;),
          ):
@@ -105,6 +107,11 @@ def react(speciation,
         EQ6 6i file (the part without the contents of the pickup file) and then
         pass the filename to `reaction_setup`.
     
+    chain_mt : bool, default False
+        Is the speciation the result of another mass transfer calculation?
+        Choosing True will allow mass transfer calculations to be chained
+        together.
+    
     delete_generated_folders : bool, default False
         Delete the &#39;rxn_6i&#39;, &#39;rxn_6o&#39;, &#39;rxn_6p&#39;, and &#39;eq6_extra_out&#39; folders
         containing raw EQ6 input, output, and pickup files once the
@@ -114,6 +121,17 @@ def react(speciation,
         Hide traceback message when encountering errors handled by this class?
         When True, error messages handled by this class will be short and to
         the point.
+
+    data1_override : str, optional
+        The three letter code of a data1 file used to override the thermodynamic
+        database used to speciate the sample(s). This is useful for chaining
+        the results of one mass transfer calculation into another while
+        simultaneously changing the temperature and pressure regime of the
+        new system. See the description for the `chain_mt` parameter for more
+        about chaining.
+    
+    eq36da=os.environ.get(&#39;EQ36DA&#39;),
+    eq36co=os.environ.get(&#39;EQ36CO&#39;),
 
     Returns
     ----------
@@ -126,7 +144,7 @@ def react(speciation,
     prev_wd = os.getcwd()
     ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
-    speciation.join_6i_3p(reaction_setup)
+    speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file(&#34;data1.dyn&#34;)
     
     paths=[&#39;rxn_6o&#39;, &#39;rxn_6p&#39;, &#39;eq6_extra_out&#39;]
@@ -142,32 +160,125 @@ def react(speciation,
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
         
+        if data1_override != None:
+            with open(&#34;data1.&#34;+data1_override, mode=&#39;rb&#39;) as data1:
+                speciation.data1[&#34;all_samples&#34;] = data1.read()
+            speciation.thermo.thermo_db_filename = &#34;data1.&#34;+data1_override
+            
         if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[speciation.sample_data[sample_name][&#34;filename&#34;][:-3]])
+
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-                
+        
+        path_6i=&#34;rxn_6i/&#34;
+        path_6o=&#34;rxn_6o&#34;
+        path_6p=&#34;rxn_6p&#34;
+        path_extra_out=&#34;eq6_extra_out&#34;
+        
         ae.runeq6(filename_6i,
                   db=&#34;dyn&#34;,
-                  path_6i=&#34;rxn_6i&#34;,
-                  path_6o=&#34;rxn_6o&#34;,
-                  path_6p=&#34;rxn_6p&#34;,
-                  path_extra_out=&#34;eq6_extra_out&#34;,
+                  path_6i=path_6i,
                   data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
+
+        # get current working dir
+        cwd = os.getcwd()
+        cwdd = cwd + &#34;/&#34;
         
-        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+        filename_6ba = filename_6i[:-1] + &#39;ba&#39;
+        filename_6bb = filename_6i[:-1] + &#39;bb&#39;
+        filename_6t = filename_6i[:-2] + &#39;csv&#39;
+        filename_6tx = filename_6i[:-1] + &#39;tx&#39;
+
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6o&#34;]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6p&#34;]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6ba&#34;]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6bb&#34;]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6t&#34;]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6tx&#34;]
+        
+        if len(files_6o) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6o, cwdd+path_6o+&#34;/&#34;+filename_6o)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6ba, cwdd+path_extra_out+&#34;/&#34;+filename_6ba)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6bb, cwdd+path_extra_out+&#34;/&#34;+filename_6bb)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6t, cwdd+path_extra_out+&#34;/&#34;+filename_6t)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6tx, cwdd+path_extra_out+&#34;/&#34;+filename_6tx)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6o, &#34;to&#34;, path_6o+&#34;/&#34;+filename_6o))
+        
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple output files detected for one mass transfer calculation.&#34;)
+            
+        if len(files_6p) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6p, cwdd+path_6p+&#34;/&#34;+filename_6p)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6p, &#34;to&#34;, path_6p+&#34;/&#34;+filename_6p))
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one mass transfer calculation.&#34;)
+        
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
                               tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
+        
+        # store input, output, and pickup as dicts in speciation object
+        try:
+            with open(path_6i + &#34;/&#34; + filename_6i, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_input_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6o + &#34;/&#34; + filename_6o, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_output_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6p + &#34;/&#34; + filename_6p, &#34;r&#34;) as f:
+                lines=f.readlines()
+            
+            # Unlike 3p files, 6p files include headers that need to be removed
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+            speciation.raw_6_pickup_dict[sample_name] = bottom_half
+            
+        except:
+            pass
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -1710,7 +1821,7 @@ class Mass_Transfer:
             title = &#34;{} of product minerals&#34;
         
         # sort in order of appearance along Xi
-        sort_order = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns)
+        sort_order = list(self.moles_minerals.columns)
             
         if y_type == &#34;mole&#34;:
             ylab = &#34;{}moles&#34;.format(log_text)
@@ -3415,7 +3526,7 @@ class Prepare_Reaction:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="AqEquil.MassTransfer.react"><code class="name flex">
-<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True, eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/usr/local/bin')</span>
+<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, chain_mt=False, delete_generated_folders=False, hide_traceback=True, data1_override=None, eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/usr/local/bin')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate how speciated water reacts with minerals and/or gases.</p>
@@ -3430,6 +3541,10 @@ a reaction. The first way is to prepare the reaction with
 <code><a title="AqEquil.MassTransfer.Prepare_Reaction" href="#AqEquil.MassTransfer.Prepare_Reaction">Prepare_Reaction</a></code>. The second way is to prepare the first half of an
 EQ6 6i file (the part without the contents of the pickup file) and then
 pass the filename to <code>reaction_setup</code>.</dd>
+<dt><strong><code>chain_mt</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Is the speciation the result of another mass transfer calculation?
+Choosing True will allow mass transfer calculations to be chained
+together.</dd>
 <dt><strong><code>delete_generated_folders</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Delete the 'rxn_6i', 'rxn_6o', 'rxn_6p', and 'eq6_extra_out' folders
 containing raw EQ6 input, output, and pickup files once the
@@ -3438,7 +3553,16 @@ reaction calculation is complete?</dd>
 <dd>Hide traceback message when encountering errors handled by this class?
 When True, error messages handled by this class will be short and to
 the point.</dd>
+<dt><strong><code>data1_override</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The three letter code of a data1 file used to override the thermodynamic
+database used to speciate the sample(s). This is useful for chaining
+the results of one mass transfer calculation into another while
+simultaneously changing the temperature and pressure regime of the
+new system. See the description for the <code>chain_mt</code> parameter for more
+about chaining.</dd>
 </dl>
+<p>eq36da=os.environ.get('EQ36DA'),
+eq36co=os.environ.get('EQ36CO'),</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt>An object of class <code>Speciation</code> modified with the results of the reaction</dt>
@@ -3453,8 +3577,10 @@ the point.</dd>
 </summary>
 <pre><code class="python">def react(speciation,
           reaction_setup,
+          chain_mt=False,
           delete_generated_folders=False,
           hide_traceback=True,
+          data1_override=None,
           eq36da=os.environ.get(&#39;EQ36DA&#39;),
           eq36co=os.environ.get(&#39;EQ36CO&#39;),
          ):
@@ -3475,6 +3601,11 @@ the point.</dd>
         EQ6 6i file (the part without the contents of the pickup file) and then
         pass the filename to `reaction_setup`.
     
+    chain_mt : bool, default False
+        Is the speciation the result of another mass transfer calculation?
+        Choosing True will allow mass transfer calculations to be chained
+        together.
+    
     delete_generated_folders : bool, default False
         Delete the &#39;rxn_6i&#39;, &#39;rxn_6o&#39;, &#39;rxn_6p&#39;, and &#39;eq6_extra_out&#39; folders
         containing raw EQ6 input, output, and pickup files once the
@@ -3484,6 +3615,17 @@ the point.</dd>
         Hide traceback message when encountering errors handled by this class?
         When True, error messages handled by this class will be short and to
         the point.
+
+    data1_override : str, optional
+        The three letter code of a data1 file used to override the thermodynamic
+        database used to speciate the sample(s). This is useful for chaining
+        the results of one mass transfer calculation into another while
+        simultaneously changing the temperature and pressure regime of the
+        new system. See the description for the `chain_mt` parameter for more
+        about chaining.
+    
+    eq36da=os.environ.get(&#39;EQ36DA&#39;),
+    eq36co=os.environ.get(&#39;EQ36CO&#39;),
 
     Returns
     ----------
@@ -3496,7 +3638,7 @@ the point.</dd>
     prev_wd = os.getcwd()
     ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
-    speciation.join_6i_3p(reaction_setup)
+    speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file(&#34;data1.dyn&#34;)
     
     paths=[&#39;rxn_6o&#39;, &#39;rxn_6p&#39;, &#39;eq6_extra_out&#39;]
@@ -3512,32 +3654,125 @@ the point.</dd>
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
         
+        if data1_override != None:
+            with open(&#34;data1.&#34;+data1_override, mode=&#39;rb&#39;) as data1:
+                speciation.data1[&#34;all_samples&#34;] = data1.read()
+            speciation.thermo.thermo_db_filename = &#34;data1.&#34;+data1_override
+            
         if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[speciation.sample_data[sample_name][&#34;filename&#34;][:-3]])
+
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-                
+        
+        path_6i=&#34;rxn_6i/&#34;
+        path_6o=&#34;rxn_6o&#34;
+        path_6p=&#34;rxn_6p&#34;
+        path_extra_out=&#34;eq6_extra_out&#34;
+        
         ae.runeq6(filename_6i,
                   db=&#34;dyn&#34;,
-                  path_6i=&#34;rxn_6i&#34;,
-                  path_6o=&#34;rxn_6o&#34;,
-                  path_6p=&#34;rxn_6p&#34;,
-                  path_extra_out=&#34;eq6_extra_out&#34;,
+                  path_6i=path_6i,
                   data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
+
+        # get current working dir
+        cwd = os.getcwd()
+        cwdd = cwd + &#34;/&#34;
         
-        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+        filename_6ba = filename_6i[:-1] + &#39;ba&#39;
+        filename_6bb = filename_6i[:-1] + &#39;bb&#39;
+        filename_6t = filename_6i[:-2] + &#39;csv&#39;
+        filename_6tx = filename_6i[:-1] + &#39;tx&#39;
+
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6o&#34;]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6p&#34;]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6ba&#34;]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6bb&#34;]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6t&#34;]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6tx&#34;]
+        
+        if len(files_6o) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6o, cwdd+path_6o+&#34;/&#34;+filename_6o)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6ba, cwdd+path_extra_out+&#34;/&#34;+filename_6ba)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6bb, cwdd+path_extra_out+&#34;/&#34;+filename_6bb)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6t, cwdd+path_extra_out+&#34;/&#34;+filename_6t)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6tx, cwdd+path_extra_out+&#34;/&#34;+filename_6tx)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6o, &#34;to&#34;, path_6o+&#34;/&#34;+filename_6o))
+        
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple output files detected for one mass transfer calculation.&#34;)
+            
+        if len(files_6p) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6p, cwdd+path_6p+&#34;/&#34;+filename_6p)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6p, &#34;to&#34;, path_6p+&#34;/&#34;+filename_6p))
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one mass transfer calculation.&#34;)
+        
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
                               tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
+        
+        # store input, output, and pickup as dicts in speciation object
+        try:
+            with open(path_6i + &#34;/&#34; + filename_6i, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_input_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6o + &#34;/&#34; + filename_6o, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_output_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6p + &#34;/&#34; + filename_6p, &#34;r&#34;) as f:
+                lines=f.readlines()
+            
+            # Unlike 3p files, 6p files include headers that need to be removed
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+            speciation.raw_6_pickup_dict[sample_name] = bottom_half
+            
+        except:
+            pass
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -5170,7 +5405,7 @@ the point.</dd>
             title = &#34;{} of product minerals&#34;
         
         # sort in order of appearance along Xi
-        sort_order = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns)
+        sort_order = list(self.moles_minerals.columns)
             
         if y_type == &#34;mole&#34;:
             ylab = &#34;{}moles&#34;.format(log_text)
@@ -6400,7 +6635,7 @@ set to False by default).</dd>
         title = &#34;{} of product minerals&#34;
     
     # sort in order of appearance along Xi
-    sort_order = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns)
+    sort_order = list(self.moles_minerals.columns)
         
     if y_type == &#34;mole&#34;:
         ylab = &#34;{}moles&#34;.format(log_text)

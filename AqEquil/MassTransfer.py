@@ -966,15 +966,22 @@ class Mass_Transfer:
                 header = split_line[1:-1]
 
                 # handle instances where the tab file creates extra columns for things like "albite,low"
-                if table_name == "Table P Moles of product minerals" or table_name == "Table Q Saturation indices of potential product phases":
-                    if table_name == "Table P Moles of product minerals":
-                        new_header = ["Xi", "t(days)"] # table P
-                    else:
+                if table_name in ["Table P Moles of product minerals",
+                                  "Table Q Saturation indices of potential product phases",
+                                  "Table J Moles of reactants destroyed/created",
+                                  "Table K Affinities of reactants (kcal)"]:
+                    
+                    if table_name in ["Table P Moles of product minerals",
+                                      "Table J Moles of reactants destroyed/created"]:
+                        new_header = ["Xi", "t(days)"] # table P and J
+                    elif table_name == "Table Q Saturation indices of potential product phases":
                         new_header = ["Xi", "t(days)", "H2O", "Gas"] # table Q
+                    elif table_name == "Table K Affinities of reactants (kcal)":
+                        new_header = ["Xi", "t(days)", "Total"]
 
                     for i,h in enumerate(header):
 
-                        if h != "Xi" and h != "t(days)" and h != "H2O" and h != "Gas":
+                        if h != "Xi" and h != "t(days)" and h != "H2O" and h != "Gas" and h != "Total":
                             if h not in thermo_db_names:
                                 if header[i-1]+","+h in thermo_db_names:
                                     new_header = new_header[:-1]
