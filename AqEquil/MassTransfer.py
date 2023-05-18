@@ -289,6 +289,11 @@ class Mass_Transfer:
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
+        
+        f=open(self.six_o_file, mode='r')
+        self.six_o_file_lines=f.readlines()
+        f.close()
+        
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
         self.verbose = verbose
@@ -338,6 +343,12 @@ class Mass_Transfer:
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
         
+        if self.moles_minerals.shape[0] == 0 and self.moles_product_minerals.shape[0] > 0:
+            # in the case of special reactants, there is no grand summary table in the 6o file
+            # that combine reactant and product minerals (because there is no reactant mineral).
+            # In this case, just assume these tables are equal.
+            self.moles_minerals = self.moles_product_minerals
+        
         
     def mine_6o_table(self,
                       table_start="--- Distribution of Aqueous Solute Species ---",
@@ -375,10 +386,8 @@ class Mass_Transfer:
             containing the values of chemical species mined from the file.
         """
         
-        f=open(self.six_o_file, mode='r')
-        lines=f.readlines()
-        f.close()
-
+        lines = self.six_o_file_lines
+        
         species = []
         xi_vals=[]
         collect_values = False
@@ -434,9 +443,7 @@ class Mass_Transfer:
     
     def __get_inactive_species(self):
         
-        f=open(self.six_o_file, mode='r')
-        lines=f.readlines()
-        f.close()
+        lines=self.six_o_file_lines
 
         table_start = "--- Inactive Species ---"
         table_stop = "The activity coefficients of aqueous species"
@@ -483,9 +490,14 @@ class Mass_Transfer:
     
     def __get_moles_product_minerals(self):
         
+        if "Grand Summary of Solid Phases" in "\n".join(self.six_o_file_lines):
+            table_stop = "Grand Summary of Solid Phases"
+        else:
+            table_stop = "Mass, grams       Volume, cm3"
+        
         return self.mine_6o_table(
                       table_start="--- Summary of Solid Phases (ES) ---",
-                      table_stop="Grand Summary of Solid Phases",
+                      table_stop=table_stop,
                       ignore = ["", "Phase/End-member", '---'],
                       col_index=2)
         
@@ -1135,6 +1147,7 @@ class Mass_Transfer:
         args = {plot_basis_x:plot_x_range+[res],
                 plot_basis_y:plot_y_range+[res],
                 "T":self.T, "P":self.P, "messages":messages}
+
         
         if field_minerals_exist:
             
@@ -1154,9 +1167,6 @@ class Mass_Transfer:
             
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
-            
-            # TODO: remove this b.c it's only here for debugging
-            self.e = e
             
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
@@ -1432,7 +1442,7 @@ class Mass_Transfer:
         
 #         print("field minerals")
 #         print(field_minerals_to_plot)
-        
+    
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
             
         
@@ -2470,7 +2480,7 @@ rb_template = """
 |->|Amount remaining (moles) |{amount_remaining}| (morr(n))                          |
 |------------------------------------------------------------------------------|
 |->|Amount destroyed (moles) |{amount_destroyed}| (modr(n))                          |
-|------------------------------------------------------------------------------|
+|------------------------------------------------------------------------------|{sr_block}
 |->|Surface area option (nsk(n)):                                              |
 |->|  [{sa_checkbox_1}] ( 0) Constant surface area:                                          |
 |->|             Value (cm2)       |{sa_val_1}| (sfcar(n))                   |
@@ -2526,6 +2536,24 @@ gl_template = """
 |{gas_name}|{gas_moles}|{gas_log_fugacity}| --                      |"""
 
 
+srb_template = """
+|->|Molar volume (cm3/mol)   |{amount_volume}| (vreac(n))                         |
+|------------------------------------------------------------------------------|
+|->|Composition                                                                |
+|------------------------------------------------------------------------------|
+|--->|Element |Stoich. Number        | (this is a table header)                |
+|------------------------------------------------------------------------------|{srb_stoich}
+|------------------------------------------------------------------------------|
+|->|Reaction                                                                   |
+|------------------------------------------------------------------------------|
+|--->|Species                 |Reaction Coefficient  | (this is a table header)|
+|------------------------------------------------------------------------------|
+|------------------------------------------------------------------------------|"""
+
+srb_stoich_template = """
+|--->|{elem}|{elem_val}| (uesri(i,n), cesri(i,n))                |"""
+
+
 class Reactant:
     def __init__(self,
                  reactant_name,
@@ -2533,6 +2561,7 @@ class Reactant:
                  reactant_status="Reacting",
                  amount_remaining=1,
                  amount_destroyed=0,
+                 amount_volume=0,
                  surface_area_option=0,
                  surface_area_value=0,
                  surface_area_factor=0,
@@ -2544,6 +2573,7 @@ class Reactant:
                  b_eq1=1,
                  b_eq2=0,
                  b_eq3=0,
+                 special_reactant_dict={},
                  hide_traceback=True,
                  ):
         
@@ -2641,12 +2671,15 @@ class Reactant:
         self.reactant_status=reactant_status
         self.amount_remaining=amount_remaining
         self.amount_destroyed=amount_destroyed
+        self.amount_volume=amount_volume
         self.sa_val_1=0
         self.sa_val_2=0
         self.sa_val_3=0
         self.sa_checkbox_1= " "
         self.sa_checkbox_2= " "
         self.sa_checkbox_3= " "
+        
+        self.special_reactant_dict=special_reactant_dict
         
         if surface_area_option == 0:
             self.sa_checkbox_1 = "x"
@@ -2670,34 +2703,55 @@ class Reactant:
         
         self.__format_rate_block("forward")
         self.__format_rate_block("backward")
-        
+
         self.__format_block()
 
 
     def __format_block(self):
         
         rb_dict_formatted = dict(
-            reactant_name = f"{self.reactant_name:<24}",
-            reactant_type = f"{self.reactant_type:<24}",
-            reactant_status = f"{self.reactant_status:<24}",
-            amount_remaining = f"{'{:.5E}'.format(self.amount_remaining):>12}",
-            amount_destroyed = f"{'{:.5E}'.format(self.amount_destroyed):>12}",
-            sa_checkbox_1 = self.sa_checkbox_1,
-            sa_checkbox_2 = self.sa_checkbox_2,
-            sa_checkbox_3 = self.sa_checkbox_3,
-            sa_val_1 = f"{'{:.5E}'.format(self.sa_val_1):>12}",
-            sa_val_2 = f"{'{:.5E}'.format(self.sa_val_2):>12}",
-            sa_val_3 = f"{'{:.5E}'.format(self.sa_val_3):>12}",
-            sa_factor = f"{'{:.5E}'.format(self.sa_factor):>12}",
-            f_rate_law = f"{self.f_rate_law:<24}",
-            b_rate_law = f"{self.b_rate_law:<24}",
-            f_rate_block = self.formatted_f_rate_block,
-            b_rate_block = self.formatted_b_rate_block,
-        )
-    
+                reactant_name = f"{self.reactant_name:<24}",
+                reactant_type = f"{self.reactant_type:<24}",
+                reactant_status = f"{self.reactant_status:<24}",
+                amount_remaining = f"{'{:.5E}'.format(self.amount_remaining):>12}",
+                amount_destroyed = f"{'{:.5E}'.format(self.amount_destroyed):>12}",
+                sa_checkbox_1 = self.sa_checkbox_1,
+                sa_checkbox_2 = self.sa_checkbox_2,
+                sa_checkbox_3 = self.sa_checkbox_3,
+                sa_val_1 = f"{'{:.5E}'.format(self.sa_val_1):>12}",
+                sa_val_2 = f"{'{:.5E}'.format(self.sa_val_2):>12}",
+                sa_val_3 = f"{'{:.5E}'.format(self.sa_val_3):>12}",
+                sa_factor = f"{'{:.5E}'.format(self.sa_factor):>12}",
+                f_rate_law = f"{self.f_rate_law:<24}",
+                b_rate_law = f"{self.b_rate_law:<24}",
+                f_rate_block = self.formatted_f_rate_block,
+                b_rate_block = self.formatted_b_rate_block,
+                )
+
+        if self.reactant_type.lower() == "special reactant":
+            elem_lines = []
+            for key in list(self.special_reactant_dict.keys()):
+                sp_elem_line = copy.copy(srb_stoich_template)
+                elem_name = f"{str(key):<8}"
+                elem_value = f"{'{:.15E}'.format(float(self.special_reactant_dict[key])):>22}"
+                sp_elem_line = sp_elem_line.format(**{"elem":elem_name, "elem_val":elem_value})
+                elem_lines.append(sp_elem_line)
+            elem_lines = "".join(elem_lines)
+            
+            srb_dict_formatted = dict(
+                    amount_volume = f"{'{:.5E}'.format(self.amount_volume):>12}",
+                    srb_stoich = elem_lines,
+                    )
+            
+            sp_reactant_block_template = copy.copy(srb_template)
+            sp_reactant_block_formatted = sp_reactant_block_template.format(**srb_dict_formatted)
+            rb_dict_formatted["sr_block"] = sp_reactant_block_formatted
+        else:
+            rb_dict_formatted["sr_block"] = ""
+   
         reactant_block_template = copy.copy(rb_template)
         self.formatted_block = reactant_block_template.format(**rb_dict_formatted)
-        
+    
     def __format_rate_block(self, direction):
         if direction == "forward":
             d="f"

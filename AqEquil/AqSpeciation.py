@@ -670,9 +670,7 @@ class AqEquil(object):
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({'database index':[],
-                                                 "name":[],
-                                                 "reason for rejection":[]})
+
         
         
         if load_thermo:
@@ -2567,7 +2565,6 @@ class AqEquil(object):
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
-        speciation.df_rejected_species = self.df_rejected_species
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
         speciation.batch_P = self.batch_P
@@ -2817,11 +2814,11 @@ class AqEquil(object):
         if internal and len(self.logK_models.keys()) > 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                if name not in list(self.df_rejected_species["name"]):
+                if name not in list(self.thermo.df_rejected_species["name"]):
                     msg = "The chemical species " + str(name) + " is not recognized."
                     self.err_handler.raise_exception(msg)
                 else:
-                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species['name'] == name, 'reason for rejection'])[0]
+                    reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species['name'] == name, 'reason for rejection'])[0]
                     
                     msg = ("The chemical species " + str(name) + " cannot be "
                            "plotted because it was rejected from the "
@@ -3069,9 +3066,9 @@ class AqEquil(object):
             reject_names = list(free_logK_df.iloc[reject_indices]["name"])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            df_rejected_species = pd.DataFrame({'database index':reject_indices, "name":reject_names, "reason for rejection":reject_reasons})
+            self.thermo.df_rejected_species = pd.concat([self.thermo.df_rejected_species, pd.DataFrame({'database name':[self.thermo.logK_db_filename]*len(reject_indices), 'database index':reject_indices, "name":reject_names, "reason for rejection":reject_reasons})], ignore_index=True)
                         
-            return valid_sp_i, df_rejected_species
+            return valid_sp_i
             
             
     def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
@@ -3234,7 +3231,7 @@ class AqEquil(object):
             
             free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            valid_i = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
                 grid_or_sample_press,
@@ -4160,7 +4157,7 @@ class AqEquil(object):
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            exclude_category = self.AqEquil_instance.exclude_category
+            #exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
@@ -4172,6 +4169,11 @@ class AqEquil(object):
             self.eq36da = self.AqEquil_instance.eq36da
             self.eq36co = self.AqEquil_instance.eq36co
 
+            self.df_rejected_species = pd.DataFrame({'database name':[],
+                                                     'database index':[],
+                                                     "name":[],
+                                                     "reason for rejection":[]})
+            
             # active thermo db attributes
             self.thermo_db = None
             self.thermo_db_type = None
@@ -4240,6 +4242,7 @@ class AqEquil(object):
                     self._load_logK_S("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv", source="URL", download_csv_files=download_csv_files)
             else:
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+                
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
@@ -4290,6 +4293,23 @@ class AqEquil(object):
                 input_template.to_csv("sample_input_template.csv", index=False)
 
 
+        def _remove_missing_G_species(self):
+            # remove species that are missing a gibbs free energy value.
+            # handle minerals first. Reject any that have missing G in any polymorph.
+            mineral_name_reject = list(set(self.csv_db[(self.csv_db["G"].isnull()) & (self.csv_db['state'].str.contains('cr'))]["name"]))
+            
+            idx = list(self.csv_db[self.csv_db["name"].isin(mineral_name_reject)].index)
+
+            names = self.csv_db["name"].loc[idx]
+
+            self.csv_db = self.csv_db[~self.csv_db["name"].isin(mineral_name_reject)]
+
+            for i,name in enumerate(names):
+                d = pd.DataFrame({'database name': [self.csv_db_filename], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["missing Gibbs free energy in at least one polymorph"]})
+                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+            
+            # TODO: other states besides minerals
+                
         def _set_active_db(self, db=None, download_csv_files=False):
             """
             Set the main active thermodynamic database to a CSV file, a data0 file,
@@ -4842,6 +4862,7 @@ class AqEquil(object):
 
             # Check that thermodynamic database input files exist and are formatted correctly.
             self._check_csv_db()
+            self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
 
@@ -4857,10 +4878,29 @@ class AqEquil(object):
                 for key in exclude_keys:
                     if self.verbose > 0:
                         print("Excluding", str(self.exclude_category[key]), "from column", str(key), "in", df_name)
+                        
                     if isinstance(self.exclude_category[key], list):
+                        
+                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+                        
+                        names = df["name"].loc[idx]
+                        
                         df = df[~df[key].isin(self.exclude_category[key])]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({'database name': [df_name], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["excluded by user"]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        
                     elif isinstance(self.exclude_category[key], str):
+                        
+                        idx = list(df[df[key] != self.exclude_category[key]].index)
+                        names = df["name"].loc[idx]
+                        
                         df = df[~df[key] != self.exclude_category[key]]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({'database name': [df_name], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["excluded by user"]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
                     else:
                         self.err_handler.raise_exception("The parameter exclude_category must either be a string or a list.")
             return df
@@ -5104,7 +5144,6 @@ class Speciation(object):
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
-        self.df_rejected_species = pd.DataFrame({'database index':[], "name":[], "reason for rejection":[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
