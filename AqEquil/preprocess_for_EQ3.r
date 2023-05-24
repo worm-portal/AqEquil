@@ -92,6 +92,7 @@ preprocess <- function(input_filename,
   df_numeric <- df[!(names(df) %in% exclude)]
     
   df_numeric <- df_numeric[, df_numeric[1, ] != "Hetero. equil."]
+    
   num_cols <- names(df_numeric)
   num_cols <- match(num_cols, colnames(df))
   num_cols <- num_cols[num_cols != 1]
@@ -788,10 +789,10 @@ write_3i_file <- function(df,
   "|  [x] ( 0) Write a PICKUP file                                                |",
   "|------------------------------------------------------------------------------|",
   "|iopt(19) - Advanced EQ3NR PICKUP File Options:                                |",
-  "|  [x] ( 0) Write a normal EQ3NR PICKUP file                                   |",
+  "|  [ ] ( 0) Write a normal EQ3NR PICKUP file                                   |",
   "|  [ ] ( 1) Write an EQ6 INPUT file with Quartz dissolving, relative rate law  |",
   "|  [ ] ( 2) Write an EQ6 INPUT file with Albite dissolving, TST rate law       |",
-  "|  [ ] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
+  "|  [x] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
   "|------------------------------------------------------------------------------|",
   "|Iopg Activity Coefficient Option Switches (\"( 0)\" marks default choices)      |",
   "|------------------------------------------------------------------------------|", sep="\n")

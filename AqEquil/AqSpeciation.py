@@ -664,7 +664,8 @@ class AqEquil(object):
         
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
-        self.raw_3_pickup_dict = {}
+        self.raw_3_pickup_dict_bottom = {}
+        self.raw_3_pickup_dict_top = {}
         
         self.batch_T = []
         self.batch_P = []
@@ -1435,6 +1436,7 @@ class AqEquil(object):
                  alter_options=[],
                  charge_balance_on="none",
                  suppress_missing=True,
+                 blanks_are_0=False,
                  strict_minimum_pressure=True,
                  aq_scale=1,
                  verbose=1,
@@ -1623,6 +1625,9 @@ class AqEquil(object):
         suppress_missing : bool, default True
             Suppress the formation of an aqueous species if it is missing a
             value in the user-supplied sample spreadsheet?
+
+        blanks_are_0 : bool, default False
+            Assume all blank values in the water chemistry input file are 0?
             
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
@@ -2038,9 +2043,14 @@ class AqEquil(object):
                                                water_model=water_model,
                                                verbose=self.verbose)
         
+        
         self._print_captured_r_output()
         
         self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2("df"))
+        
+        
+        if blanks_are_0:
+            self.df_input_processed = self.df_input_processed.fillna(0)
         
         self.__mk_check_del_directory('rxn_3i')
         self.__mk_check_del_directory('rxn_3o')
@@ -2173,7 +2183,22 @@ class AqEquil(object):
             try:
                 with open(pickup_dir + "/" + filename_3p, "r") as f:
                     lines=f.readlines()
-                self.raw_3_pickup_dict[samplename] = lines
+                    
+                # capture everything after "start of the bottom half"
+                top_half = []
+                bottom_half = []
+                capture = False
+                for line in lines:
+                    if "Start of the bottom half of the input file" in line:
+                        capture = True
+                    if capture:
+                        bottom_half.append(line)
+                    else:
+                        top_half.append(line)
+                        
+                self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+                self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+                
             except:
                 pass
             
@@ -2558,7 +2583,8 @@ class AqEquil(object):
         
         speciation.raw_3_input_dict = self.raw_3_input_dict
         speciation.raw_3_output_dict = self.raw_3_output_dict
-        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+        speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
         speciation.raw_6_input_dict = {}
         speciation.raw_6_output_dict = {}
         speciation.raw_6_pickup_dict = {}
@@ -6418,9 +6444,10 @@ class Speciation(object):
         if chain_mt:
             raw_p_dict = self.raw_6_pickup_dict
         else:
-            raw_p_dict = self.raw_3_pickup_dict
+            raw_p_dict_top = self.raw_3_pickup_dict_top
+            raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
-        for sample_name in raw_p_dict.keys():
+        for sample_name in raw_p_dict_bottom.keys():
             sample_filename = self.sample_data[sample_name]['filename'][:-3]
             
             if isinstance(filepath_6i, str):
@@ -6439,7 +6466,7 @@ class Speciation(object):
             if lines_6i[-1][-1:] != "\n": # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+"\n"
                 
-            lines_3p = raw_p_dict[sample_name]
+            lines_3p = raw_p_dict_bottom[sample_name]
             
             lines_to_keep = []
             for line in lines_6i:
@@ -6466,6 +6493,38 @@ class Speciation(object):
                 for i,line in enumerate(lines_to_keep):
                     if "{pval}" in line:
                         lines_to_keep[i] = line.format(tval=o_p)
+            
+            if "|  [x] ( 3) Fluid mixing tracking" in "".join(lines_to_keep):
+                # handle fluid mixing reaction block
+                
+                # grab this fluid's reaction block
+                reaction_block_lines = []
+                capture = False
+                for line in raw_p_dict_top[sample_name]:
+                    if "|->|Reaction" in line:
+                        capture = True
+                    if "|->|Surface area" in line:
+                        capture = False
+                    if capture:
+                        reaction_block_lines.append(line)
+                
+                # insert this fluid's reaction block
+                before_lines = []
+                after_lines = []
+                is_before = True
+                for i,line in enumerate(lines_to_keep):
+                    if "|->|Reaction" in line:
+                        is_before=False
+                    if is_before:
+                        before_lines.append(line)
+                    else:
+                        after_lines.append(line)
+                
+                # trim redundant lines
+                after_lines = after_lines[5:]
+                        
+                lines_to_keep = before_lines + reaction_block_lines + after_lines
+
             
             with open(path + "/" + sample_filename+".6i", "w") as f:
                 f.writelines(lines_to_keep)

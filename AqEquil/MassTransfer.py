@@ -2554,6 +2554,66 @@ srb_stoich_template = """
 |--->|{elem}|{elem_val}| (uesri(i,n), cesri(i,n))                |"""
 
 
+class Mixing_Fluid:
+    def __init__(self,
+                 speciation,
+                 sample_name,
+                 amount_remaining=1,
+                 amount_destroyed=0,
+                 amount_volume=0,
+                 hide_traceback=True,
+                ):
+
+        self.err_handler = Error_Handler(clean=hide_traceback)
+    
+        # Prepare a special reactant to be used in a mixing calculation.
+        if isinstance(speciation, Speciation):
+            
+            self.sample_name = sample_name
+            self.speciation_sample_data = speciation.sample_data[sample_name]
+            self.T = self.speciation_sample_data["temperature"]
+            
+            elemental_composition_lines = []
+            capture = False
+            for i,line in enumerate(speciation.raw_3_pickup_dict_top[sample_name]):
+                if "|->|Composition" in line:
+                    capture = True
+                    i_start = i
+                if "|->|Reaction" in line:
+                    capture = False
+                if capture and i > i_start + 3:
+                    elemental_composition_lines.append(line)
+            
+            # ignore last line, which is a divider "|----------..."
+            elemental_composition_lines = elemental_composition_lines[:-1]
+
+            fluid_2_dict = {}
+            for line in elemental_composition_lines:
+                split_line = line.split("|")
+                element = split_line[2].strip()
+                value = float(split_line[3])
+                fluid_2_dict[element] = value
+                    
+            self.reactant = Reactant(reactant_name="Fluid 2",
+                                     reactant_type="Special reactant",
+                                     special_reactant_dict=fluid_2_dict,
+                                     amount_remaining=amount_remaining,
+                                     amount_destroyed=amount_destroyed,
+                                     amount_volume=amount_volume,
+                                     hide_traceback=hide_traceback)
+            
+            self.formatted_block = self.reactant.formatted_block
+            self.reactant_type = "Special reactant"
+            
+        else:
+            self.err_handler.raise_exception(("The speciation parameter was"
+                    " not given a Speciation object. A Speciation object is"
+                    " produced by the AqEquil.speciate() function."))
+            
+        # Note: the "Reaction" section of the formatted block is made
+        #       during the react() step.
+            
+
 class Reactant:
     def __init__(self,
                  reactant_name,
@@ -2842,10 +2902,10 @@ class Prepare_Reaction:
     def __init__(self,
                  reactants,
                  gases=[],
-                 t_option=0,
+                 t_option=None,
                  t_value_1=None, # temp
-                 t_value_2=0,  # temp or deriv
-                 t_value_3=0,  # mass ratio factor
+                 t_value_2=None,  # temp or deriv
+                 t_value_3=None,  # mass ratio factor
                  p_option=0,
                  p_value_1=None,  # pressure
                  p_value_2=0,  # deriv
@@ -3210,9 +3270,47 @@ class Prepare_Reaction:
         self.i20_checkbox_1 = " "
         self.i20_checkbox_2 = " "
         
-        
         tval_var_to_format = None
         pval_var_to_format = None
+        
+        # set t_option and t_value defaults when there is a mixing calculation
+        n_mixing_fluid_reactants=0
+        for reactant in reactants:
+            if isinstance(reactant, Mixing_Fluid):
+                n_mixing_fluid_reactants += 1
+                if t_option == None:
+                    t_option = 3
+                    self.t_option=t_option
+                if t_value_1 == None:
+                    t_value_1 = None # will be formatted with temp of fluid 1 later
+                    self.t_value_1=t_value_1
+                if t_value_2 == None:
+                    t_value_2 = float(reactant.T) # temp of fluid 2
+                    self.t_value_2=t_value_2
+                if t_value_3 == None:
+                    t_value_3 = 1 # mass ratio factor
+                    self.t_value_3=t_value_3
+                
+        if n_mixing_fluid_reactants == 0:
+            # set t_option and t_value defaults when there is no mixing calculation
+            if t_option == None:
+                t_option = 0
+                self.t_option = 0
+            if t_value_1 == None:
+                t_value_1 = 0
+                self.t_value_1 = 0
+            if t_value_2 == None:
+                t_value_2 = 0
+                self.t_value_2 = 0
+            if t_value_3 == None:
+                t_value_3 = 0
+                self.t_value_3 = 0
+        elif n_mixing_fluid_reactants == 1:
+            pass
+        else:
+            self.error_handler.raise_exception((""
+                    "There are {} mixing fluids ".format(n_mixing_fluid_reactants)+""
+                    "in the list of reactants. There may only be one."))
         
         if t_option == 0:
             self.t_checkbox_1="x"
@@ -3244,6 +3342,8 @@ class Prepare_Reaction:
                 self.tval7=t_value_2
                 self.tval8=t_value_3
             else:
+                self.tval7=t_value_2
+                self.tval8=t_value_3
                 tval_var_to_format = 6
         else:
             raise Exception("t_option must be 0, 1, 2, or 3.")
