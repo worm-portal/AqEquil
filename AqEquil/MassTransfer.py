@@ -33,8 +33,8 @@ def _get_ion_ratio_exponent(num, denom):
 
     if num_total_charge == 0 or denom_total_charge == 0:
         return 0
-
-    return abs(num_total_charge)/abs(denom_total_charge)
+    
+    return num_total_charge/denom_total_charge
 
 
 def __delete_file(file):
@@ -723,6 +723,8 @@ class Mass_Transfer:
                 
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
+        all_elements_of_interest = sorted(all_elements_of_interest)
+        
         self.all_elements_of_interest = all_elements_of_interest
         
         fig_list = []
@@ -821,7 +823,7 @@ class Mass_Transfer:
                               "calculation to avoid lengthy calculation times.")
                 
                 for triad in element_plot_triad:
-
+                    
                     # do a quick first pass at making figures to see which points are projections.
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
@@ -832,6 +834,9 @@ class Mass_Transfer:
                                                         first_pass=True, # flag for skipping certain calculations/plotting
                                                         res=1) # low res first pass
 
+                    if pred_minerals_from_fields == None:
+                        pred_minerals_from_fields=[None]*self.moles_product_minerals.shape[0]
+                    
                     fig_list.append(fig)
                     pred_minerals_from_fields_list.append(pred_minerals_from_fields)
                     pred_minerals_from_lines_list.append(pred_minerals_from_lines)
@@ -850,7 +855,7 @@ class Mass_Transfer:
                         formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
                                            ii,mineral in enumerate(xirow[1:]) if
                                            mineral>0]
-
+                        
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
                         for mineral in formed_minerals:
@@ -1090,7 +1095,7 @@ class Mass_Transfer:
 
         x_vals = [log10((10**float(x))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_x, "H+")) for x,d in zip(x_vals,proton_vals)]
         y_vals = [log10((10**float(y))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_y, "H+")) for y,d in zip(y_vals,proton_vals)]
-
+        
         return xi_vals, x_vals, y_vals
 
     
@@ -1147,7 +1152,6 @@ class Mass_Transfer:
         args = {plot_basis_x:plot_x_range+[res],
                 plot_basis_y:plot_y_range+[res],
                 "T":self.T, "P":self.P, "messages":messages}
-
         
         if field_minerals_exist:
             
@@ -1211,7 +1215,9 @@ class Mass_Transfer:
     @staticmethod
     def __calc_dissrxn_logK(mineral, T, P):
 
-        logK = subcrt([mineral], coeff=[1], property='logK', T=T, P=P, show=False, messages=False)["out"]["logK"].item()
+        logK = subcrt([mineral], coeff=[-1], property='logK', T=T, P=P,
+                      show=False, messages=False)["out"]["logK"].item()
+        
         return logK
 
     
@@ -1354,15 +1360,6 @@ class Mass_Transfer:
             
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
-        
-#         basis_sp_list = list(self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"].columns)[2:-1]
-#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
-#         basis_sp_list = list(set(basis_sp_list))
-        
-#         if basis_species_x not in basis_sp_list:
-#             basis_sp_list += [basis_species_x]
-#         if basis_species_y not in basis_sp_list:
-#             basis_sp_list += [basis_species_y]
 
         basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + ["H+","H2O"]))
     
@@ -1465,7 +1462,7 @@ class Mass_Transfer:
             annotation_coords=annotation_coords,
             field_minerals_exist=field_minerals_exist, path_margin=self.path_margin,
             annotation=annotation, messages=False)
-        
+
         # plot minerals with a single element of interest as a line
         plot_x_range, plot_y_range = self.__get_plot_range(x_vals, y_vals)
         
@@ -1505,28 +1502,30 @@ class Mass_Transfer:
 
                     if self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[0]:
                         # vertical line
-                        x0, x1 = (-1/mineral_formula_dict[e_pair[0]])*logK, (-1/mineral_formula_dict[e_pair[0]])*logK
+                        x0, x1 = (1/mineral_formula_dict[e_pair[0]])*logK, (1/mineral_formula_dict[e_pair[0]])*logK
                         y0 = min(plot_y_range)
                         y1 = max(plot_y_range)
                         color = v_line_color
                         hovertemplate=mineral+'<br>'+xlab+' = '+str(round(x0, 3))
                     elif self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[1]:
                         # horizontal line
-                        y0, y1 = (-1/mineral_formula_dict[e_pair[1]])*logK, (-1/mineral_formula_dict[e_pair[1]])*logK
+                        y0, y1 = (1/mineral_formula_dict[e_pair[1]])*logK, (1/mineral_formula_dict[e_pair[1]])*logK
                         x0 = min(plot_x_range)
                         x1 = max(plot_x_range)
                         color=h_line_color
                         hovertemplate=mineral+'<br>'+ylab+' = '+str(round(y0))
 
                 if len(eoi) == 2:
-
+                    
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
                     
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
-                    y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
-                    y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
-                    intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
+                    y0 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
+                    y1 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
+                    
+                    intercept = (1/mineral_formula_dict[e_pair[1]])*logK
+                    
                     color = d_line_color
                     
                     hovertemplate = mineral+'<br>slope = '+str(round(line_slope))+'<br>intercept = '+str(round(intercept))+'<extra></extra>'
@@ -1844,7 +1843,8 @@ class Mass_Transfer:
                         else:
                             polymorph_idx = polymorph_idxs[0]
                             
-                        partial_molal_volume = mineral_df["V"][polymorph_idx]
+
+                        partial_molal_volume = list(mineral_df["V"])[polymorph_idx]
                         
                         df.at[i, mineral] = df[mineral][i]*partial_molal_volume
             else:
@@ -2560,7 +2560,7 @@ class Mixing_Fluid:
                  sample_name,
                  amount_remaining=1,
                  amount_destroyed=0,
-                 amount_volume=0,
+                 amount_volume=1,
                  hide_traceback=True,
                 ):
 
@@ -2609,10 +2609,41 @@ class Mixing_Fluid:
             self.err_handler.raise_exception(("The speciation parameter was"
                     " not given a Speciation object. A Speciation object is"
                     " produced by the AqEquil.speciate() function."))
-            
-        # Note: the "Reaction" section of the formatted block is made
-        #       during the react() step.
-            
+
+        # handle fluid mixing reaction block
+
+        lines_to_keep = self.formatted_block.split("\n")
+        raw_p_dict_top = speciation.raw_3_pickup_dict_top
+
+        # grab this fluid's reaction block
+        reaction_block_lines = []
+        capture = False
+        for line in raw_p_dict_top[sample_name]:
+            if "|->|Reaction" in line:
+                capture = True
+            if "|->|Surface area" in line:
+                capture = False
+            if capture:
+                reaction_block_lines.append(line)
+
+        # insert this fluid's reaction block
+        before_lines = []
+        after_lines = []
+        is_before = True
+        for i,line in enumerate(lines_to_keep):
+            if "|->|Reaction" in line:
+                is_before=False
+            if is_before:
+                before_lines.append(line)
+            else:
+                after_lines.append(line)
+
+        # trim redundant lines
+        after_lines = after_lines[5:]
+
+        lines_to_keep = before_lines + reaction_block_lines + after_lines
+
+        self.formatted_block = "\n".join(lines_to_keep)
 
 class Reactant:
     def __init__(self,
@@ -3296,22 +3327,21 @@ class Prepare_Reaction:
             if t_option == None:
                 t_option = 0
                 self.t_option = 0
-            if t_value_1 == None:
-                t_value_1 = 0
-                self.t_value_1 = 0
-            if t_value_2 == None:
-                t_value_2 = 0
-                self.t_value_2 = 0
-            if t_value_3 == None:
-                t_value_3 = 0
-                self.t_value_3 = 0
+#             if t_value_1 == None:
+#                 t_value_1 = None
+#                 self.t_value_1 = 0
+#             if t_value_2 == None:
+#                 t_value_2 = 0
+#                 self.t_value_2 = 0
+#             if t_value_3 == None:
+#                 t_value_3 = 0
+#                 self.t_value_3 = 0
         elif n_mixing_fluid_reactants == 1:
             pass
         else:
             self.error_handler.raise_exception((""
                     "There are {} mixing fluids ".format(n_mixing_fluid_reactants)+""
                     "in the list of reactants. There may only be one."))
-        
         if t_option == 0:
             self.t_checkbox_1="x"
             if isinstance(t_value_1, numbers.Number):

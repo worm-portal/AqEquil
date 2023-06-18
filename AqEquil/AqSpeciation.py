@@ -2050,7 +2050,7 @@ class AqEquil(object):
         
         
         if blanks_are_0:
-            self.df_input_processed = self.df_input_processed.fillna(0)
+            self.df_input_processed = self.df_input_processed.fillna(1E-18)
         
         self.__mk_check_del_directory('rxn_3i')
         self.__mk_check_del_directory('rxn_3o')
@@ -6444,7 +6444,6 @@ class Speciation(object):
         if chain_mt:
             raw_p_dict = self.raw_6_pickup_dict
         else:
-            raw_p_dict_top = self.raw_3_pickup_dict_top
             raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
         for sample_name in raw_p_dict_bottom.keys():
@@ -6493,38 +6492,6 @@ class Speciation(object):
                 for i,line in enumerate(lines_to_keep):
                     if "{pval}" in line:
                         lines_to_keep[i] = line.format(tval=o_p)
-            
-            if "|  [x] ( 3) Fluid mixing tracking" in "".join(lines_to_keep):
-                # handle fluid mixing reaction block
-                
-                # grab this fluid's reaction block
-                reaction_block_lines = []
-                capture = False
-                for line in raw_p_dict_top[sample_name]:
-                    if "|->|Reaction" in line:
-                        capture = True
-                    if "|->|Surface area" in line:
-                        capture = False
-                    if capture:
-                        reaction_block_lines.append(line)
-                
-                # insert this fluid's reaction block
-                before_lines = []
-                after_lines = []
-                is_before = True
-                for i,line in enumerate(lines_to_keep):
-                    if "|->|Reaction" in line:
-                        is_before=False
-                    if is_before:
-                        before_lines.append(line)
-                    else:
-                        after_lines.append(line)
-                
-                # trim redundant lines
-                after_lines = after_lines[5:]
-                        
-                lines_to_keep = before_lines + reaction_block_lines + after_lines
-
             
             with open(path + "/" + sample_filename+".6i", "w") as f:
                 f.writelines(lines_to_keep)
