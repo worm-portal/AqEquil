@@ -56,7 +56,7 @@ def calc_G_TP(OBIGT, Tc, P, water_model):
     
     # add a row for water
     if "H2O" not in list(OBIGT["name"]):
-        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H2O", "tag": "nan", "G_TP": float(ro.conversion.rpy2py(water("G", water_model, T=Tc+273.15, P=P))["G"])}, index=[OBIGT.shape[0]])], ignore_index=True)
+        OBIGT = pd.concat([OBIGT, pd.DataFrame({"name": "H2O", "tag": "nan", "G_TP": float(ro.conversion.rpy2py(water("G", water_model, T=Tc+273.15, P=P))["G"].iloc[0])}, index=[OBIGT.shape[0]])], ignore_index=True)
         rows_added += 1
 
     # add a row for protons
@@ -92,7 +92,7 @@ def dissrxn2logK(OBIGT, i, Tc):
     coeff = [float(n) for n in split_dissrxn[::2]]
     species = split_dissrxn[1::2]
     try:
-        G = sum([float(c*OBIGT.loc[OBIGT["name"]==sp, "G_TP"]) for c,sp in zip(coeff, species)])
+        G = sum([float(c*OBIGT.loc[OBIGT["name"]==sp, "G_TP"].iloc[0]) for c,sp in zip(coeff, species)])
     except:
         G_list = []
         for ii, sp in enumerate(species):
