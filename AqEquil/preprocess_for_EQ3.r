@@ -92,6 +92,7 @@ preprocess <- function(input_filename,
   df_numeric <- df[!(names(df) %in% exclude)]
     
   df_numeric <- df_numeric[, df_numeric[1, ] != "Hetero. equil."]
+    
   num_cols <- names(df_numeric)
   num_cols <- match(num_cols, colnames(df))
   num_cols <- num_cols[num_cols != 1]
@@ -172,12 +173,15 @@ preprocess <- function(input_filename,
     }else{
       stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))
     }
-      
+    
     if(strict_minimum_pressure){
-      if(pressure_bar < minimum_pressure){
-        pressure_bar <- rep(minimum_pressure, length(temp_degC))
+      for(i in 1:length(pressure_bar)){
+        if(pressure_bar[i] < minimum_pressure){
+          pressure_bar[i] <- minimum_pressure
+        }
       }
     }
+      
   }else{
     if("Pressure_bar" %in% colnames(df)){
         
@@ -538,7 +542,7 @@ write_3i_file <- function(df,
   "|Temperature (C)         | ", sep="\n")
 
   eq3.temperature <- sprintf("%.5E", temp_degC[row])
-  
+    
   if (pressure_override){
     eq3.header3 <-              paste("| (tempc)                                |",
       "|------------------------------------------------------------------------------|",
@@ -785,10 +789,10 @@ write_3i_file <- function(df,
   "|  [x] ( 0) Write a PICKUP file                                                |",
   "|------------------------------------------------------------------------------|",
   "|iopt(19) - Advanced EQ3NR PICKUP File Options:                                |",
-  "|  [x] ( 0) Write a normal EQ3NR PICKUP file                                   |",
+  "|  [ ] ( 0) Write a normal EQ3NR PICKUP file                                   |",
   "|  [ ] ( 1) Write an EQ6 INPUT file with Quartz dissolving, relative rate law  |",
   "|  [ ] ( 2) Write an EQ6 INPUT file with Albite dissolving, TST rate law       |",
-  "|  [ ] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
+  "|  [x] ( 3) Write an EQ6 INPUT file with Fluid 1 set up for fluid mixing       |",
   "|------------------------------------------------------------------------------|",
   "|Iopg Activity Coefficient Option Switches (\"( 0)\" marks default choices)      |",
   "|------------------------------------------------------------------------------|", sep="\n")
@@ -927,8 +931,7 @@ eq3.ender3 <- paste("\n|iopg(1) - Aqueous Species Activity Coefficient Model:   
                       redox_block, eq3.header6, aqueous_block,
                       eq3.ender1, alter_block, eq3.ender2, eq3.ender3,
                       collapse = "")
-
-
+    
   write(this_file, paste0(input_dir, "/", eq3.filename), append=FALSE)
 
   return(warned_about_redox_column)

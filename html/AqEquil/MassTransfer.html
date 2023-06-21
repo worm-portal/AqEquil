@@ -81,7 +81,15 @@ def __move_file(file, destination_dir, silent=False):
             print(&#34;Could not move&#34;, file, &#34;to&#34;, destination_dir)
 
         
-def react(speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True):
+def react(speciation,
+          reaction_setup,
+          chain_mt=False,
+          delete_generated_folders=False,
+          hide_traceback=True,
+          data1_override=None,
+          eq36da=os.environ.get(&#39;EQ36DA&#39;),
+          eq36co=os.environ.get(&#39;EQ36CO&#39;),
+         ):
     
     &#34;&#34;&#34;
     Calculate how speciated water reacts with minerals and/or gases.
@@ -99,6 +107,11 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         EQ6 6i file (the part without the contents of the pickup file) and then
         pass the filename to `reaction_setup`.
     
+    chain_mt : bool, default False
+        Is the speciation the result of another mass transfer calculation?
+        Choosing True will allow mass transfer calculations to be chained
+        together.
+    
     delete_generated_folders : bool, default False
         Delete the &#39;rxn_6i&#39;, &#39;rxn_6o&#39;, &#39;rxn_6p&#39;, and &#39;eq6_extra_out&#39; folders
         containing raw EQ6 input, output, and pickup files once the
@@ -109,6 +122,17 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         When True, error messages handled by this class will be short and to
         the point.
 
+    data1_override : str, optional
+        The three letter code of a data1 file used to override the thermodynamic
+        database used to speciate the sample(s). This is useful for chaining
+        the results of one mass transfer calculation into another while
+        simultaneously changing the temperature and pressure regime of the
+        new system. See the description for the `chain_mt` parameter for more
+        about chaining.
+    
+    eq36da=os.environ.get(&#39;EQ36DA&#39;),
+    eq36co=os.environ.get(&#39;EQ36CO&#39;),
+
     Returns
     ----------
     An object of class `Speciation` modified with the results of the reaction
@@ -118,9 +142,9 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
-    speciation.join_6i_3p(reaction_setup)
+    speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file(&#34;data1.dyn&#34;)
     
     paths=[&#39;rxn_6o&#39;, &#39;rxn_6p&#39;, &#39;eq6_extra_out&#39;]
@@ -136,42 +160,125 @@ def react(speciation, reaction_setup, delete_generated_folders=False, hide_trace
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
         
+        if data1_override != None:
+            with open(&#34;data1.&#34;+data1_override, mode=&#39;rb&#39;) as data1:
+                speciation.data1[&#34;all_samples&#34;] = data1.read()
+            speciation.thermo.thermo_db_filename = &#34;data1.&#34;+data1_override
+            
         if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[speciation.sample_data[sample_name][&#34;filename&#34;][:-3]])
+
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-
-        ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+        
+        path_6i=&#34;rxn_6i/&#34;
+        path_6o=&#34;rxn_6o&#34;
+        path_6p=&#34;rxn_6p&#34;
+        path_extra_out=&#34;eq6_extra_out&#34;
+        
+        ae.runeq6(filename_6i,
+                  db=&#34;dyn&#34;,
+                  path_6i=path_6i,
+                  data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
-        os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
-        
-        __move_file(filename_6o, &#34;rxn_6o&#34;)
-        __move_file(filename_6p, &#34;rxn_6p&#34;)
 
-        __delete_file(&#34;data1.dyn&#34;)
-        __delete_file(&#34;data1&#34;)
+        # get current working dir
+        cwd = os.getcwd()
+        cwdd = cwd + &#34;/&#34;
         
-        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+        filename_6ba = filename_6i[:-1] + &#39;ba&#39;
+        filename_6bb = filename_6i[:-1] + &#39;bb&#39;
+        filename_6t = filename_6i[:-2] + &#39;csv&#39;
+        filename_6tx = filename_6i[:-1] + &#39;tx&#39;
+
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6o&#34;]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6p&#34;]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6ba&#34;]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6bb&#34;]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6t&#34;]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6tx&#34;]
+        
+        if len(files_6o) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6o, cwdd+path_6o+&#34;/&#34;+filename_6o)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6ba, cwdd+path_extra_out+&#34;/&#34;+filename_6ba)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6bb, cwdd+path_extra_out+&#34;/&#34;+filename_6bb)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6t, cwdd+path_extra_out+&#34;/&#34;+filename_6t)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6tx, cwdd+path_extra_out+&#34;/&#34;+filename_6tx)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6o, &#34;to&#34;, path_6o+&#34;/&#34;+filename_6o))
+        
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple output files detected for one mass transfer calculation.&#34;)
+            
+        if len(files_6p) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6p, cwdd+path_6p+&#34;/&#34;+filename_6p)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6p, &#34;to&#34;, path_6p+&#34;/&#34;+filename_6p))
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one mass transfer calculation.&#34;)
+        
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
-                              tab_name=&#39;tab.csv&#39;,
+                              tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
-    
-    __move_file(&#34;bakupa&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;bakupb&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;tabx&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#39;tab.csv&#39;, &#34;eq6_extra_out&#34;, silent=True)
-    __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
-    __delete_file(&#34;data1&#34;)
+        
+        # store input, output, and pickup as dicts in speciation object
+        try:
+            with open(path_6i + &#34;/&#34; + filename_6i, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_input_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6o + &#34;/&#34; + filename_6o, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_output_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6p + &#34;/&#34; + filename_6p, &#34;r&#34;) as f:
+                lines=f.readlines()
+            
+            # Unlike 3p files, 6p files include headers that need to be removed
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+            speciation.raw_6_pickup_dict[sample_name] = bottom_half
+            
+        except:
+            pass
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -205,13 +312,14 @@ class Mass_Transfer:
         the point.
     
     &#34;&#34;&#34;
-    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True):
+    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1):
         
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
+        self.verbose = verbose
         
         self.inactive_species = self.__get_inactive_species()
         
@@ -432,6 +540,7 @@ class Mass_Transfer:
                             annotation_coords=[0,0],
                             show_nonparticipating_mineral_lines=False,
                             minerals_to_show=[],
+                            calculate_projected_points=True,
                             path_line_type = &#34;markers+lines&#34;,
                             path_line_color = &#34;red&#34;,
                             path_point_fill_color = &#34;red&#34;,
@@ -446,6 +555,9 @@ class Mass_Transfer:
                             plot_height=3,
                             ppi=122,
                             borders=0,
+                            save_as=None,
+                            save_format=None,
+                            save_scale=1,
                             colormap=&#34;bw&#34;):
         
         &#34;&#34;&#34;
@@ -542,6 +654,23 @@ class Mass_Transfer:
             Thickness of black lines forming boundaries between mineral
             stability regions. No lines appear if equal to 0.
         
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
         colormap : str, default &#34;bw&#34;
             Name of the colormap to color the scatterpoints. Accepts &#34;bw&#34;
             or names of matplotlib colormaps. If set to &#34;bw&#34;, the plot will be
@@ -559,7 +688,7 @@ class Mass_Transfer:
             combinations of geochemical variables. Optionally, if xyb is
             specified, fig_list will only contain the single figure of interest.
         &#34;&#34;&#34;
-        
+
         error_messages = []
         
         # check that there is only one temperature and pressure
@@ -568,17 +697,34 @@ class Mass_Transfer:
         if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
             error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
         
+        if isinstance(xyb, list):
+            if len(xyb) != 3:
+                error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                        &#34;The xyb parameter must either be None or a list of &#34;
+                        &#34;three basis species to serve as x, y, and balance variables.&#34;))
+        
         if len(error_messages)&gt;0:
-            self.err_handler.raise_exception(error_messages)
+            self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
         
         self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
         self.path_margin = path_margin
         
-        minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
-
+        #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
+        
         all_elements_of_interest = []
         for mineral in minerals_formed:
+            
+            if mineral not in list(self.df[&#34;name&#34;]):
+                if self.verbose &gt; 0:
+                    print(&#34;The mineral&#34;, mineral, &#34;cannot be represented in a&#34;,
+                           &#34;reaction path diagram, likely because it is missing&#34;,
+                           &#34;a Gibbs free energy value in the thermodynamic&#34;,
+                           &#34;database. Continuing anyway, but be aware that&#34;,
+                           &#34;this mineral will not be represented in diagrams.&#34;)
+                continue
+            
             all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
         all_elements_of_interest_pre = list(set(all_elements_of_interest))
         
@@ -586,11 +732,16 @@ class Mass_Transfer:
         # for which to create an axis.
         bad_elem = []
         for elem in all_elements_of_interest_pre:
-            if list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+            if len(list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])) == 0:
                 bad_elem.append(elem)
+            elif list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+                bad_elem.append(elem)
+                
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
+        
+        fig_list = []
         
         # if there are only 2 elements of interest, these become the axes, and there is no
         # need to fuss with real vs projected points.
@@ -651,21 +802,39 @@ class Mass_Transfer:
             pred_minerals_from_fields_list = []
             pred_minerals_from_lines_list = []
             
-            if path_line_type == &#34;lines&#34;:
+
+            if isinstance(xyb, list):
+                try:
+                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                except:
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+                xyb_i = None
+                # get index of triad that matches xyb:
+                for i,triad in enumerate(element_plot_triad):
+                    if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
+                        xyb_i = i
+                if xyb_i == None:
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+            
+            if not calculate_projected_points or path_line_type==&#34;lines&#34;:
                 projected_points = [&#34;real&#34;]*self.moles_product_minerals.shape[0]
                 fig_list_projected_points = [projected_points]*len(element_plot_triad)
                 
-            elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
+            else:
                 
-                if isinstance(xyb, list):
-                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-                    xyb_i = None
-                    # get index of triad that matches xyb:
-                    for i,triad in enumerate(element_plot_triad):
-                        if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
-                            xyb_i = i
-                    if xyb_i == None:
-                        print(&#34;ERROR!&#34;)
+                if len(element_plot_triad) &gt; 20:
+                    if self.verbose &gt; 0:
+                        print(&#34;Warning! There are {}&#34;.format(len(element_plot_triad)),
+                              &#34;different combinations of variables that must be considered&#34;,
+                              &#34;in order to plot markers.&#34;)
+                        print(&#34;This might take a very long time or may not finish calculating at all.&#34;)
+                        print(&#34;We recommend setting calculate_projected_points=False in&#34;,
+                              &#34;plot_reaction_paths() and then restarting the&#34;,
+                              &#34;calculation to avoid lengthy calculation times.&#34;)
                 
                 for triad in element_plot_triad:
 
@@ -693,7 +862,10 @@ class Mass_Transfer:
                     for irow in range(0, self.moles_product_minerals.shape[0]):
 
                         # get names of minerals formed at this xi
-                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                        xirow = list(self.moles_product_minerals.iloc[irow])
+                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                           ii,mineral in enumerate(xirow[1:]) if
+                                           mineral&gt;0]
 
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -710,11 +882,6 @@ class Mass_Transfer:
                                 projected_points[irow] = &#34;real&#34;
 
                     fig_list_projected_points.append(projected_points)
-                    
-            else:
-                msg = (&#34;path_line_type can only be &#39;markers+lines&#39;, &#39;lines&#39;, &#34;
-                       &#34;or &#39;markers&#39;&#34;)
-                self.err_handler.raise_exception(msg)
                 
             if isinstance(xyb, list):
                 # if xyb is defined, make element_plot_triad have a length of 1
@@ -726,35 +893,51 @@ class Mass_Transfer:
             for i,triad in enumerate(element_plot_triad):
                 # re-run figure generation, passing in a list of which points are projected.
                 fig, _ , _ = self.__plot_reaction_path_main(
-                                                    triad, T=self.T, P=self.P,
-                                                    path_margin=self.path_margin,
-                                                    flip_xy=flip_xy,
-                                                    show_annotation=show_annotation,
-                                                    annotation_coords=annotation_coords,
-                                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
-                                                    minerals_to_show=minerals_to_show,
-                                                    path_line_type=path_line_type,
-                                                    path_line_color=path_line_color,
-                                                    path_point_fill_color=path_point_fill_color,
-                                                    path_point_line_color=path_point_line_color,
-                                                    projected_point_fill_color=projected_point_fill_color,
-                                                    projected_point_line_color=projected_point_line_color,
-                                                    h_line_color=h_line_color,
-                                                    v_line_color=v_line_color,
-                                                    d_line_color=d_line_color,
-                                                    res=res,
-                                                    plot_width=plot_width,
-                                                    plot_height=plot_height,
-                                                    ppi=ppi,
-                                                    colormap=colormap,
-                                                    borders=borders,
-                                                    projected_points=fig_list_projected_points[i],
-                                                    first_pass=False)
+                                    triad, T=self.T, P=self.P,
+                                    path_margin=self.path_margin,
+                                    flip_xy=flip_xy,
+                                    show_annotation=show_annotation,
+                                    annotation_coords=annotation_coords,
+                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                    minerals_to_show=minerals_to_show,
+                                    path_line_type=path_line_type,
+                                    path_line_color=path_line_color,
+                                    path_point_fill_color=path_point_fill_color,
+                                    path_point_line_color=path_point_line_color,
+                                    projected_point_fill_color=projected_point_fill_color,
+                                    projected_point_line_color=projected_point_line_color,
+                                    h_line_color=h_line_color,
+                                    v_line_color=v_line_color,
+                                    d_line_color=d_line_color,
+                                    res=res,
+                                    plot_width=plot_width,
+                                    plot_height=plot_height,
+                                    ppi=ppi,
+                                    colormap=colormap,
+                                    borders=borders,
+                                    projected_points=fig_list_projected_points[i],
+                                    first_pass=False)
 
                 fig_list.append(fig)
         
+        if not fig_list and self.verbose &gt; 0:
+            print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            for i,fig in enumerate(fig_list):
+                if isinstance(xyb, list):
+                    name_append = &#34;&#34;
+                else:
+                    name_append = &#34;_{}&#34;.format(i+1)
+                save_as, save_format = dummy_sp._save_figure(fig,
+                        save_as+name_append, save_format, save_scale,
+                        plot_width, plot_height, ppi)
+        
         return fig_list
         
+
+    
     
     @staticmethod
     def process_tab(tab_name, thermodata_csv):
@@ -929,8 +1112,17 @@ class Mass_Transfer:
         path_x_range = max_x_val - min_x_val
         path_y_range = max_y_val - min_y_val
 
-        plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
-        plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
+        if len(list(set(x_vals))) == 1:
+            # x values form a vertical line
+            plot_x_range = [min_x_val-self.path_margin*(path_x_range+1), max_x_val+self.path_margin*(path_x_range+1)]
+        else:
+            plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
+        
+        if len(list(set(y_vals))) == 1:
+            # y values form a horizontal line
+            plot_y_range = [min_y_val-self.path_margin*(path_y_range+1), max_y_val+self.path_margin*(path_y_range+1)]
+        else:
+            plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
 
         return plot_x_range, plot_y_range
 
@@ -983,7 +1175,10 @@ class Mass_Transfer:
             
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
-
+            
+            # TODO: remove this b.c it&#39;s only here for debugging
+            self.e = e
+            
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
@@ -1171,27 +1366,42 @@ class Mass_Transfer:
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
         
-        basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
-        basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
-        basis_sp_list = list(set(basis_sp_list))
+#         basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
+#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
+#         basis_sp_list = list(set(basis_sp_list))
         
-        if basis_species_x not in basis_sp_list:
-            basis_sp_list += [basis_species_x]
-        if basis_species_y not in basis_sp_list:
-            basis_sp_list += [basis_species_y]
-            
+#         if basis_species_x not in basis_sp_list:
+#             basis_sp_list += [basis_species_x]
+#         if basis_species_y not in basis_sp_list:
+#             basis_sp_list += [basis_species_y]
+
+        basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + [&#34;H+&#34;,&#34;H2O&#34;]))
+    
         try:
             basis(basis_sp_list)
         except:
             basis(basis_sp_list + [&#34;H2&#34;])
-
-
-        mineral_names = list(self.df_cr[&#34;name&#34;])
+        
+        elems = []
+        for elem in triad:
+            elems.append(elem.split(&#34;+&#34;)[0].split(&#34;-&#34;)[0])
+        
+        mineral_names = []
+        for elem in triad:
+            elem = elem.split(&#34;+&#34;)[0].split(&#34;-&#34;)[0]
+            m_idx = retrieve((elem), list(set([&#34;O&#34;, &#34;H&#34;]+elems)), state=[&#34;cr&#34;], messages=False)
+            if len(m_idx) &gt; 0:
+                mineral_names += list(info(m_idx, messages=False)[&#34;name&#34;])
+        
+        # exclude inactive minerals
+        mineral_names_active = [m for m in mineral_names if m in list(self.df[&#34;name&#34;])]
+        mineral_names = list(set(mineral_names_active))
+        
         mineral_formula_ox = [self.__get_elem_ox_of_interest_in_minerals(m) for m in mineral_names]
         mineral_formula_ox_singles = [e if len(e)==1 else [] for e in mineral_formula_ox]
         mineral_formula_ox_doubles = [e if len(e)==2 else [] for e in mineral_formula_ox]
         mineral_formula_ox_triples = [e if len(e)==3 else [] for e in mineral_formula_ox]
-
+        
         retrieved_minerals = []
         for i,s in enumerate(mineral_formula_ox_singles):
             if [e_pair[0]] == s:
@@ -1216,6 +1426,11 @@ class Mass_Transfer:
         if len(xy_minerals_to_plot) &gt; 1:
             species(xy_minerals_to_plot, add=True)
 
+#         print(&#34;x, y, xy&#34;)
+#         print(x_minerals_to_plot)
+#         print(y_minerals_to_plot)
+#         print(xy_minerals_to_plot)
+            
         field_minerals_to_plot = []
         for i,s in enumerate(mineral_formula_ox_triples):
             if e_pair[0] in s and e_pair[1] in s and div_var_name in s:
@@ -1236,8 +1451,12 @@ class Mass_Transfer:
         except:
             field_minerals_exist = False
         
+#         print(&#34;field minerals&#34;)
+#         print(field_minerals_to_plot)
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
-
+            
+        
         if self.P &lt;= 1:
             bar_bars = &#34;bar&#34;
         else:
@@ -1348,7 +1567,9 @@ class Mass_Transfer:
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
     
-    def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+    def plot_elements(self, units=&#34;molality&#34;, log=True,
+                      plot_width=4, plot_height=3, ppi=122,
+                      save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of the log activities of aqueous species as a
@@ -1370,6 +1591,23 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -1434,10 +1672,17 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
-    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3,
+                ppi=122, save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of pH as a function of the log of the extent of
@@ -1504,11 +1749,19 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
-    def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_width=4, plot_height=3, ppi=122):
+    def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
+                              y_type=&#34;mole&#34;, log_y=True, df_out=False,
+                              plot_width=4, plot_height=3, ppi=122, show_legend=True,
+                              save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of the log moles of product minerals as a
@@ -1518,6 +1771,19 @@ class Mass_Transfer:
         ----------
         show_reactant_minerals : bool, default False
             Include log moles of reactant minerals?
+            
+        y_type : str, default &#39;mole&#39;
+            The variable to plot on the y-axis. Can be either &#39;mole&#39; (for moles
+            of minerals), &#39;mass&#39; (for masses of minerals), or &#39;volume&#39; (for
+            volumes of minerals).
+        
+        log_y : bool, default True
+            Should the y-axis be logarithmic?
+            
+        df_out : bool, default False
+            Should a dataframe of values also be returned? For example, if
+            `y_type` is set to &#39;volume&#39;, should a table of mineral volumes be
+            returned?
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -1531,33 +1797,98 @@ class Mass_Transfer:
         -------
         fig : Plotly figure object
             A line plot.
+            
+        df : a Pandas dataframe
+            A dataframe is only returned if `df_out` is set to True (it is
+            set to False by default).
+        
         &#34;&#34;&#34;
         
-        if show_reactant_minerals:
-            df = self.moles_minerals
-            title = &#34;Moles of reactant and product minerals&#34;
+        xlab = &#34;log Xi&#34;
+        xvar = &#34;log Xi&#34;
+        
+        if log_y:
+            log_text = &#34;log &#34;
         else:
-            df = self.moles_product_minerals
-            title = &#34;Moles of product minerals&#34;
-
-        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
+            log_text = &#34;&#34;
+        
+        if show_reactant_minerals:
+            df = copy.deepcopy(self.moles_minerals)
+            title = &#34;{} of reactant and product minerals&#34;
+            
+        else:
+            df = copy.deepcopy(self.moles_product_minerals)
+            title = &#34;{} of product minerals&#34;
+        
+        # sort in order of appearance along Xi
+        sort_order = list(self.moles_minerals.columns)
+            
+        if y_type == &#34;mole&#34;:
+            ylab = &#34;{}moles&#34;.format(log_text)
+            title = title.format(log_text, &#34;Moles&#34;)
+        elif y_type == &#34;mass&#34;: # not yet supported
+            y_lab = &#34;{}grams&#34;.format(log_text)
+            title = title.format(log_text, &#34;Masses&#34;)
+            self.err_handler.raise_exception(&#34;Plotting mineral masses is not yet &#34;
+                    &#34;supported.&#34;)
+        elif y_type == &#34;volume&#34;:
+            ylab = &#34;{}cm&lt;sup&gt;3&lt;/sup&gt;&#34;.format(log_text)
+            title = title.format(&#34;Volumes&#34;)
+            temps = self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;]
+            
+            # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
+            # in order to continue.
+            if df.shape[0] == len(temps):
+                df[&#34;Temp(C)&#34;] = temps
+                minerals = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+                    
+                for i,T in enumerate(temps):
+                    for ii,mineral in enumerate(minerals):
+                        mineral_df = copy.deepcopy(self.df[self.df[&#34;name&#34;]==mineral])
+                        polymorph_idxs = []
+                        for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
+                            
+                            if float(T) &lt; float(list(mineral_df[&#34;z.T&#34;])[0]):
+                                polymorph_idxs.append(iii)
+                        if len(polymorph_idxs)==0:
+                            polymorph_idx = iii
+                        else:
+                            polymorph_idx = polymorph_idxs[0]
+                            
+                        partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
+                        
+                        df.at[i, mineral] = df[mineral][i]*partial_molal_volume
+            else:
+                self.err_handler.raise_exception(&#34;There is a mismatch between the &#34;
+                        &#34;number of Xi values in the TAB-style table and the number &#34;
+                        &#34;of Xi values in the table of moles of minerals.&#34;)
+        else:
+            self.err_handler.raise_exception(&#34;y_type must be either &#39;mole&#39;, &#34;
+                        &#34;&#39;mass&#39;, or &#39;volume&#39;.&#34;)
+            
+        
+        plot_columns = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+        if isinstance(plot_minerals, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+            plot_columns = plot_columns_temp
+            
+        plot_columns = sorted(plot_columns, key=sort_order.index)
+            
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
         df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df = df[df[&#34;variable&#34;] != &#34;None&#34;]
-
 
         df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
-
+        
         with np.errstate(divide=&#39;ignore&#39;):
             df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
-            df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+            if log_y:
+                df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
             
-        xlab = &#34;log Xi&#34;
-        ylab = &#34;log moles&#34;
-        xvar = &#34;log Xi&#34;
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -1566,16 +1897,30 @@ class Mass_Transfer:
 
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
-
-        return fig
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+        
+        if df_out:
+            df = pd.pivot_table(df, index=&#39;log Xi&#39;, columns=&#39;variable&#39;, values=&#39;value&#39;).reset_index()
+            df.columns = [col for col in df.columns[:]] # make index column name blank
+            return df, fig
+        else:
+            return fig
 
     
-    def plot_aqueous_species(self, plot_basis=False,
-                             plot_width=4, plot_height=3, ppi=122):
+    def plot_aqueous_species(self, plot_basis=False, plot_species=None,
+                             initially_visible=None, show_legend=True,
+                             plot_width=4, plot_height=3, ppi=122,
+                             save_as=None, save_format=None, save_scale=1,):
         
         &#34;&#34;&#34;
         Generate a line plot of the log activities of aqueous species as a
@@ -1585,7 +1930,19 @@ class Mass_Transfer:
         ----------
         plot_basis : bool, default False
             Plot basis species only?
-            
+        
+        plot_species : list of str, optional
+            A list of aqueous species to plot. If undefined, every species at
+            will be plotted at once.
+        
+        initially_visible : list of str, optional
+            A list of aqueous species that will be visible on the plot
+            initially. All other species will be hidden, but can still be
+            toggled back on in the legend.
+        
+        show_legend : bool, default True
+            Show the legend?
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -1593,6 +1950,23 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -1614,7 +1988,14 @@ class Mass_Transfer:
             title = &#34;Solute species&#34;
             startcol = 1
 
-        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+            
+            
+        plot_columns = [col for col in df.columns[startcol:]]
+        if isinstance(plot_species, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_species]
+            plot_columns = plot_columns_temp
+            
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
         df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
@@ -1636,13 +2017,27 @@ class Mass_Transfer:
                               labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
                              )
 
+        if isinstance(initially_visible, list):
+            initially_visible_html = [chemlabel(sp) for sp in initially_visible]
+            for trace in fig[&#39;data&#39;]: 
+                if (not trace[&#39;name&#39;] in initially_visible_html):
+                    trace[&#39;showlegend&#39;] = True
+                    trace[&#39;visible&#39;] = &#39;legendonly&#39;
+        
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
 
     
@@ -2242,9 +2637,9 @@ class Reactant:
         b_eq1, b_eq2, b_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the backward rate law defined for `b_rate_law`.
             If `b_rate_law` is &#34;Relative rate equation&#34;, then:
-            - b_eq1 is dXi(n)/dXi (mol/mol)
-            - b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-            - b_eq3 is d3Xi(n)/dXi3 (mol/mol3)
+            - the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+            - the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+            - the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)
         
         hide_traceback : bool, default True
             Hide traceback message when encountering errors handled by this class?
@@ -2254,6 +2649,13 @@ class Reactant:
         &#34;&#34;&#34;
     
         self.err_handler = Error_Handler(clean=hide_traceback)
+        
+        if f_rate_law not in [&#34;Use backward rate law&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;f_rate_law must be either &#34;
+                    &#34;&#39;Use backward rate law&#39; or &#39;Relative rate equation&#39;.&#34;))
+        if b_rate_law not in [&#34;Use forward rate law&#34;, &#34;Partial equilibrium&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;b_rate_law must be either &#34;
+                    &#34;&#39;Use forward rate law&#39;, &#39;Partial equilibrium&#39;, or &#39;Relative rate equation&#39;.&#34;))
         
         self.reactant_name=reactant_name
         self.reactant_type=reactant_type
@@ -3124,7 +3526,7 @@ class Prepare_Reaction:
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="AqEquil.MassTransfer.react"><code class="name flex">
-<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True)</span>
+<span>def <span class="ident">react</span></span>(<span>speciation, reaction_setup, chain_mt=False, delete_generated_folders=False, hide_traceback=True, data1_override=None, eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/usr/local/bin')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate how speciated water reacts with minerals and/or gases.</p>
@@ -3139,6 +3541,10 @@ a reaction. The first way is to prepare the reaction with
 <code><a title="AqEquil.MassTransfer.Prepare_Reaction" href="#AqEquil.MassTransfer.Prepare_Reaction">Prepare_Reaction</a></code>. The second way is to prepare the first half of an
 EQ6 6i file (the part without the contents of the pickup file) and then
 pass the filename to <code>reaction_setup</code>.</dd>
+<dt><strong><code>chain_mt</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Is the speciation the result of another mass transfer calculation?
+Choosing True will allow mass transfer calculations to be chained
+together.</dd>
 <dt><strong><code>delete_generated_folders</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Delete the 'rxn_6i', 'rxn_6o', 'rxn_6p', and 'eq6_extra_out' folders
 containing raw EQ6 input, output, and pickup files once the
@@ -3147,7 +3553,16 @@ reaction calculation is complete?</dd>
 <dd>Hide traceback message when encountering errors handled by this class?
 When True, error messages handled by this class will be short and to
 the point.</dd>
+<dt><strong><code>data1_override</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>The three letter code of a data1 file used to override the thermodynamic
+database used to speciate the sample(s). This is useful for chaining
+the results of one mass transfer calculation into another while
+simultaneously changing the temperature and pressure regime of the
+new system. See the description for the <code>chain_mt</code> parameter for more
+about chaining.</dd>
 </dl>
+<p>eq36da=os.environ.get('EQ36DA'),
+eq36co=os.environ.get('EQ36CO'),</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt>An object of class <code>Speciation</code> modified with the results of the reaction</dt>
@@ -3160,7 +3575,15 @@ the point.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def react(speciation, reaction_setup, delete_generated_folders=False, hide_traceback=True):
+<pre><code class="python">def react(speciation,
+          reaction_setup,
+          chain_mt=False,
+          delete_generated_folders=False,
+          hide_traceback=True,
+          data1_override=None,
+          eq36da=os.environ.get(&#39;EQ36DA&#39;),
+          eq36co=os.environ.get(&#39;EQ36CO&#39;),
+         ):
     
     &#34;&#34;&#34;
     Calculate how speciated water reacts with minerals and/or gases.
@@ -3178,6 +3601,11 @@ the point.</dd>
         EQ6 6i file (the part without the contents of the pickup file) and then
         pass the filename to `reaction_setup`.
     
+    chain_mt : bool, default False
+        Is the speciation the result of another mass transfer calculation?
+        Choosing True will allow mass transfer calculations to be chained
+        together.
+    
     delete_generated_folders : bool, default False
         Delete the &#39;rxn_6i&#39;, &#39;rxn_6o&#39;, &#39;rxn_6p&#39;, and &#39;eq6_extra_out&#39; folders
         containing raw EQ6 input, output, and pickup files once the
@@ -3188,6 +3616,17 @@ the point.</dd>
         When True, error messages handled by this class will be short and to
         the point.
 
+    data1_override : str, optional
+        The three letter code of a data1 file used to override the thermodynamic
+        database used to speciate the sample(s). This is useful for chaining
+        the results of one mass transfer calculation into another while
+        simultaneously changing the temperature and pressure regime of the
+        new system. See the description for the `chain_mt` parameter for more
+        about chaining.
+    
+    eq36da=os.environ.get(&#39;EQ36DA&#39;),
+    eq36co=os.environ.get(&#39;EQ36CO&#39;),
+
     Returns
     ----------
     An object of class `Speciation` modified with the results of the reaction
@@ -3197,9 +3636,9 @@ the point.</dd>
     &#34;&#34;&#34;
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
     
-    speciation.join_6i_3p(reaction_setup)
+    speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file(&#34;data1.dyn&#34;)
     
     paths=[&#39;rxn_6o&#39;, &#39;rxn_6p&#39;, &#39;eq6_extra_out&#39;]
@@ -3215,42 +3654,125 @@ the point.</dd>
         filename_6o = filename_6i[:-3]+&#34;.6o&#34;
         filename_6p = filename_6i[:-3]+&#34;.6p&#34;
         
+        if data1_override != None:
+            with open(&#34;data1.&#34;+data1_override, mode=&#39;rb&#39;) as data1:
+                speciation.data1[&#34;all_samples&#34;] = data1.read()
+            speciation.thermo.thermo_db_filename = &#34;data1.&#34;+data1_override
+            
         if &#34;all_samples&#34; not in speciation.data1.keys():
             # each sample has a unique data1. e.g., with dynamic_db
             __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[speciation.sample_data[sample_name][&#34;filename&#34;][:-3]])
+
         else:
             # all samples use the same data1.
             with open(&#34;eq6_extra_out/data1.dyn&#34;, &#39;wb&#39;) as f:
                 f.write(speciation.data1[&#34;all_samples&#34;])
-
-        ae.runeq6(filename_6i, db=&#34;dyn&#34;, path_6i=&#34;rxn_6i&#34;,
-                  data1_path=&#34;eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
+        
+        path_6i=&#34;rxn_6i/&#34;
+        path_6o=&#34;rxn_6o&#34;
+        path_6p=&#34;rxn_6p&#34;
+        path_extra_out=&#34;eq6_extra_out&#34;
+        
+        ae.runeq6(filename_6i,
+                  db=&#34;dyn&#34;,
+                  path_6i=path_6i,
+                  data1_path=os.getcwd()+&#34;/eq6_extra_out&#34;, # ensuring data1 is read from a folder without spaces overcomes the problem where environment variables with spaces do not work properly when assigned to EQ36DA
                   dynamic_db_name=speciation.thermo.thermo_db_filename)
-        
-        os.rename(&#39;tab&#39;, &#39;tab.csv&#39;)
-        
-        __move_file(filename_6o, &#34;rxn_6o&#34;)
-        __move_file(filename_6p, &#34;rxn_6p&#34;)
 
-        __delete_file(&#34;data1.dyn&#34;)
-        __delete_file(&#34;data1&#34;)
+        # get current working dir
+        cwd = os.getcwd()
+        cwdd = cwd + &#34;/&#34;
         
-        if speciation.thermo.thermo_db_type == &#34;CSV&#34;:
-            m = Mass_Transfer(thermodata_csv=speciation.thermo.thermo_db,
+        filename_6o = filename_6i[:-1] + &#39;o&#39;
+        filename_6p = filename_6i[:-1] + &#39;p&#39;
+        filename_6ba = filename_6i[:-1] + &#39;ba&#39;
+        filename_6bb = filename_6i[:-1] + &#39;bb&#39;
+        filename_6t = filename_6i[:-2] + &#39;csv&#39;
+        filename_6tx = filename_6i[:-1] + &#39;tx&#39;
+
+        # The new eq36 build truncates names, e.g., MLS.Source.3i creates MLS.3o
+        # Correct for this here:
+        files_6o = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6o&#34;]
+        files_6p = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6p&#34;]
+        files_6ba = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6ba&#34;]
+        files_6bb = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6bb&#34;]
+        files_6t = [file for file in os.listdir(cwdd+path_6i) if file[-3:] == &#34;.6t&#34;]
+        files_6tx = [file for file in os.listdir(cwdd+path_6i) if file[-4:] == &#34;.6tx&#34;]
+        
+        if len(files_6o) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce output for &#39; + filename_6i)
+        elif len(files_6o) == 1:
+            file_6o = files_6o[0]
+            file_6ba = files_6ba[0]
+            file_6bb = files_6bb[0]
+            file_6t = files_6t[0]
+            file_6tx = files_6tx[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6o, cwdd+path_6o+&#34;/&#34;+filename_6o)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6ba, cwdd+path_extra_out+&#34;/&#34;+filename_6ba)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6bb, cwdd+path_extra_out+&#34;/&#34;+filename_6bb)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6t, cwdd+path_extra_out+&#34;/&#34;+filename_6t)
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6tx, cwdd+path_extra_out+&#34;/&#34;+filename_6tx)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6o, &#34;to&#34;, path_6o+&#34;/&#34;+filename_6o))
+        
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple output files detected for one mass transfer calculation.&#34;)
+            
+        if len(files_6p) == 0:
+            if ae.verbose &gt; 0:
+                print(&#39;Error: EQ6 failed to produce a pickup file for &#39; + filename_6i)
+        elif len(files_6p) == 1:
+            file_6p = files_6p[0]
+            try:
+                # move output
+                shutil.move(cwdd+path_6i+&#34;/&#34;+file_6p, cwdd+path_6p+&#34;/&#34;+filename_6p)
+            except:
+                ae.err_handler.raise_exception((&#34;Error: could not move&#34;, path_6i+&#34;/&#34;+file_6p, &#34;to&#34;, path_6p+&#34;/&#34;+filename_6p))
+        else:
+            ae.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one mass transfer calculation.&#34;)
+        
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file=&#39;rxn_6o/&#39;+filename_6o,
-                              tab_name=&#39;tab.csv&#39;,
+                              tab_name=&#34;eq6_extra_out/&#34;+filename_6i[:-2] + &#39;csv&#39;,
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name][&#34;mass_transfer&#34;] = m
-    
-    __move_file(&#34;bakupa&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;bakupb&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#34;tabx&#34;, &#34;eq6_extra_out&#34;, silent=True)
-    __move_file(&#39;tab.csv&#39;, &#34;eq6_extra_out&#34;, silent=True)
-    __delete_file(&#34;eq6_extra_out/data1.dyn&#34;)
-    __delete_file(&#34;data1&#34;)
+        
+        # store input, output, and pickup as dicts in speciation object
+        try:
+            with open(path_6i + &#34;/&#34; + filename_6i, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_input_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6o + &#34;/&#34; + filename_6o, &#34;r&#34;) as f:
+                lines=f.readlines()
+            speciation.raw_6_output_dict[sample_name] = lines
+        except:
+            pass
+        try:
+            with open(path_6p + &#34;/&#34; + filename_6p, &#34;r&#34;) as f:
+                lines=f.readlines()
+            
+            # Unlike 3p files, 6p files include headers that need to be removed
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+            speciation.raw_6_pickup_dict[sample_name] = bottom_half
+            
+        except:
+            pass
         
     if delete_generated_folders:
         __delete_dir(&#34;eq6_extra_out&#34;)
@@ -3328,7 +3850,7 @@ the point.</dd>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer"><code class="flex name class">
 <span>class <span class="ident">Mass_Transfer</span></span>
-<span>(</span><span>six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True)</span>
+<span>(</span><span>six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to facilitate mass transfer and reaction path
@@ -3374,13 +3896,14 @@ the point.</dd>
         the point.
     
     &#34;&#34;&#34;
-    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True):
+    def __init__(self, six_o_file, thermodata_csv=None, tab_name=None, hide_traceback=True, verbose=1):
         
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
+        self.verbose = verbose
         
         self.inactive_species = self.__get_inactive_species()
         
@@ -3601,6 +4124,7 @@ the point.</dd>
                             annotation_coords=[0,0],
                             show_nonparticipating_mineral_lines=False,
                             minerals_to_show=[],
+                            calculate_projected_points=True,
                             path_line_type = &#34;markers+lines&#34;,
                             path_line_color = &#34;red&#34;,
                             path_point_fill_color = &#34;red&#34;,
@@ -3615,6 +4139,9 @@ the point.</dd>
                             plot_height=3,
                             ppi=122,
                             borders=0,
+                            save_as=None,
+                            save_format=None,
+                            save_scale=1,
                             colormap=&#34;bw&#34;):
         
         &#34;&#34;&#34;
@@ -3711,6 +4238,23 @@ the point.</dd>
             Thickness of black lines forming boundaries between mineral
             stability regions. No lines appear if equal to 0.
         
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+        
         colormap : str, default &#34;bw&#34;
             Name of the colormap to color the scatterpoints. Accepts &#34;bw&#34;
             or names of matplotlib colormaps. If set to &#34;bw&#34;, the plot will be
@@ -3728,7 +4272,7 @@ the point.</dd>
             combinations of geochemical variables. Optionally, if xyb is
             specified, fig_list will only contain the single figure of interest.
         &#34;&#34;&#34;
-        
+
         error_messages = []
         
         # check that there is only one temperature and pressure
@@ -3737,17 +4281,34 @@ the point.</dd>
         if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
             error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
         
+        if isinstance(xyb, list):
+            if len(xyb) != 3:
+                error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                        &#34;The xyb parameter must either be None or a list of &#34;
+                        &#34;three basis species to serve as x, y, and balance variables.&#34;))
+        
         if len(error_messages)&gt;0:
-            self.err_handler.raise_exception(error_messages)
+            self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
         
         self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
         self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
         self.path_margin = path_margin
         
-        minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
-
+        #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+        minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
+        
         all_elements_of_interest = []
         for mineral in minerals_formed:
+            
+            if mineral not in list(self.df[&#34;name&#34;]):
+                if self.verbose &gt; 0:
+                    print(&#34;The mineral&#34;, mineral, &#34;cannot be represented in a&#34;,
+                           &#34;reaction path diagram, likely because it is missing&#34;,
+                           &#34;a Gibbs free energy value in the thermodynamic&#34;,
+                           &#34;database. Continuing anyway, but be aware that&#34;,
+                           &#34;this mineral will not be represented in diagrams.&#34;)
+                continue
+            
             all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
         all_elements_of_interest_pre = list(set(all_elements_of_interest))
         
@@ -3755,11 +4316,16 @@ the point.</dd>
         # for which to create an axis.
         bad_elem = []
         for elem in all_elements_of_interest_pre:
-            if list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+            if len(list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])) == 0:
                 bad_elem.append(elem)
+            elif list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+                bad_elem.append(elem)
+                
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
         self.all_elements_of_interest = all_elements_of_interest
+        
+        fig_list = []
         
         # if there are only 2 elements of interest, these become the axes, and there is no
         # need to fuss with real vs projected points.
@@ -3820,21 +4386,39 @@ the point.</dd>
             pred_minerals_from_fields_list = []
             pred_minerals_from_lines_list = []
             
-            if path_line_type == &#34;lines&#34;:
+
+            if isinstance(xyb, list):
+                try:
+                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+                except:
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+                xyb_i = None
+                # get index of triad that matches xyb:
+                for i,triad in enumerate(element_plot_triad):
+                    if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
+                        xyb_i = i
+                if xyb_i == None:
+                    err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                           &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                    self.err_handler.raise_exception(err)
+            
+            if not calculate_projected_points or path_line_type==&#34;lines&#34;:
                 projected_points = [&#34;real&#34;]*self.moles_product_minerals.shape[0]
                 fig_list_projected_points = [projected_points]*len(element_plot_triad)
                 
-            elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
+            else:
                 
-                if isinstance(xyb, list):
-                    xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-                    xyb_i = None
-                    # get index of triad that matches xyb:
-                    for i,triad in enumerate(element_plot_triad):
-                        if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
-                            xyb_i = i
-                    if xyb_i == None:
-                        print(&#34;ERROR!&#34;)
+                if len(element_plot_triad) &gt; 20:
+                    if self.verbose &gt; 0:
+                        print(&#34;Warning! There are {}&#34;.format(len(element_plot_triad)),
+                              &#34;different combinations of variables that must be considered&#34;,
+                              &#34;in order to plot markers.&#34;)
+                        print(&#34;This might take a very long time or may not finish calculating at all.&#34;)
+                        print(&#34;We recommend setting calculate_projected_points=False in&#34;,
+                              &#34;plot_reaction_paths() and then restarting the&#34;,
+                              &#34;calculation to avoid lengthy calculation times.&#34;)
                 
                 for triad in element_plot_triad:
 
@@ -3862,7 +4446,10 @@ the point.</dd>
                     for irow in range(0, self.moles_product_minerals.shape[0]):
 
                         # get names of minerals formed at this xi
-                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                        xirow = list(self.moles_product_minerals.iloc[irow])
+                        formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                           ii,mineral in enumerate(xirow[1:]) if
+                                           mineral&gt;0]
 
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -3879,11 +4466,6 @@ the point.</dd>
                                 projected_points[irow] = &#34;real&#34;
 
                     fig_list_projected_points.append(projected_points)
-                    
-            else:
-                msg = (&#34;path_line_type can only be &#39;markers+lines&#39;, &#39;lines&#39;, &#34;
-                       &#34;or &#39;markers&#39;&#34;)
-                self.err_handler.raise_exception(msg)
                 
             if isinstance(xyb, list):
                 # if xyb is defined, make element_plot_triad have a length of 1
@@ -3895,35 +4477,51 @@ the point.</dd>
             for i,triad in enumerate(element_plot_triad):
                 # re-run figure generation, passing in a list of which points are projected.
                 fig, _ , _ = self.__plot_reaction_path_main(
-                                                    triad, T=self.T, P=self.P,
-                                                    path_margin=self.path_margin,
-                                                    flip_xy=flip_xy,
-                                                    show_annotation=show_annotation,
-                                                    annotation_coords=annotation_coords,
-                                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
-                                                    minerals_to_show=minerals_to_show,
-                                                    path_line_type=path_line_type,
-                                                    path_line_color=path_line_color,
-                                                    path_point_fill_color=path_point_fill_color,
-                                                    path_point_line_color=path_point_line_color,
-                                                    projected_point_fill_color=projected_point_fill_color,
-                                                    projected_point_line_color=projected_point_line_color,
-                                                    h_line_color=h_line_color,
-                                                    v_line_color=v_line_color,
-                                                    d_line_color=d_line_color,
-                                                    res=res,
-                                                    plot_width=plot_width,
-                                                    plot_height=plot_height,
-                                                    ppi=ppi,
-                                                    colormap=colormap,
-                                                    borders=borders,
-                                                    projected_points=fig_list_projected_points[i],
-                                                    first_pass=False)
+                                    triad, T=self.T, P=self.P,
+                                    path_margin=self.path_margin,
+                                    flip_xy=flip_xy,
+                                    show_annotation=show_annotation,
+                                    annotation_coords=annotation_coords,
+                                    show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                    minerals_to_show=minerals_to_show,
+                                    path_line_type=path_line_type,
+                                    path_line_color=path_line_color,
+                                    path_point_fill_color=path_point_fill_color,
+                                    path_point_line_color=path_point_line_color,
+                                    projected_point_fill_color=projected_point_fill_color,
+                                    projected_point_line_color=projected_point_line_color,
+                                    h_line_color=h_line_color,
+                                    v_line_color=v_line_color,
+                                    d_line_color=d_line_color,
+                                    res=res,
+                                    plot_width=plot_width,
+                                    plot_height=plot_height,
+                                    ppi=ppi,
+                                    colormap=colormap,
+                                    borders=borders,
+                                    projected_points=fig_list_projected_points[i],
+                                    first_pass=False)
 
                 fig_list.append(fig)
         
+        if not fig_list and self.verbose &gt; 0:
+            print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            for i,fig in enumerate(fig_list):
+                if isinstance(xyb, list):
+                    name_append = &#34;&#34;
+                else:
+                    name_append = &#34;_{}&#34;.format(i+1)
+                save_as, save_format = dummy_sp._save_figure(fig,
+                        save_as+name_append, save_format, save_scale,
+                        plot_width, plot_height, ppi)
+        
         return fig_list
         
+
+    
     
     @staticmethod
     def process_tab(tab_name, thermodata_csv):
@@ -4098,8 +4696,17 @@ the point.</dd>
         path_x_range = max_x_val - min_x_val
         path_y_range = max_y_val - min_y_val
 
-        plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
-        plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
+        if len(list(set(x_vals))) == 1:
+            # x values form a vertical line
+            plot_x_range = [min_x_val-self.path_margin*(path_x_range+1), max_x_val+self.path_margin*(path_x_range+1)]
+        else:
+            plot_x_range = [min_x_val-self.path_margin*path_x_range, max_x_val+self.path_margin*path_x_range]
+        
+        if len(list(set(y_vals))) == 1:
+            # y values form a horizontal line
+            plot_y_range = [min_y_val-self.path_margin*(path_y_range+1), max_y_val+self.path_margin*(path_y_range+1)]
+        else:
+            plot_y_range = [min_y_val-self.path_margin*path_y_range, max_y_val+self.path_margin*path_y_range]
 
         return plot_x_range, plot_y_range
 
@@ -4152,7 +4759,10 @@ the point.</dd>
             
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
-
+            
+            # TODO: remove this b.c it&#39;s only here for debugging
+            self.e = e
+            
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
@@ -4340,27 +4950,42 @@ the point.</dd>
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
         
-        basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
-        basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
-        basis_sp_list = list(set(basis_sp_list))
+#         basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
+#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
+#         basis_sp_list = list(set(basis_sp_list))
         
-        if basis_species_x not in basis_sp_list:
-            basis_sp_list += [basis_species_x]
-        if basis_species_y not in basis_sp_list:
-            basis_sp_list += [basis_species_y]
-            
+#         if basis_species_x not in basis_sp_list:
+#             basis_sp_list += [basis_species_x]
+#         if basis_species_y not in basis_sp_list:
+#             basis_sp_list += [basis_species_y]
+
+        basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + [&#34;H+&#34;,&#34;H2O&#34;]))
+    
         try:
             basis(basis_sp_list)
         except:
             basis(basis_sp_list + [&#34;H2&#34;])
-
-
-        mineral_names = list(self.df_cr[&#34;name&#34;])
+        
+        elems = []
+        for elem in triad:
+            elems.append(elem.split(&#34;+&#34;)[0].split(&#34;-&#34;)[0])
+        
+        mineral_names = []
+        for elem in triad:
+            elem = elem.split(&#34;+&#34;)[0].split(&#34;-&#34;)[0]
+            m_idx = retrieve((elem), list(set([&#34;O&#34;, &#34;H&#34;]+elems)), state=[&#34;cr&#34;], messages=False)
+            if len(m_idx) &gt; 0:
+                mineral_names += list(info(m_idx, messages=False)[&#34;name&#34;])
+        
+        # exclude inactive minerals
+        mineral_names_active = [m for m in mineral_names if m in list(self.df[&#34;name&#34;])]
+        mineral_names = list(set(mineral_names_active))
+        
         mineral_formula_ox = [self.__get_elem_ox_of_interest_in_minerals(m) for m in mineral_names]
         mineral_formula_ox_singles = [e if len(e)==1 else [] for e in mineral_formula_ox]
         mineral_formula_ox_doubles = [e if len(e)==2 else [] for e in mineral_formula_ox]
         mineral_formula_ox_triples = [e if len(e)==3 else [] for e in mineral_formula_ox]
-
+        
         retrieved_minerals = []
         for i,s in enumerate(mineral_formula_ox_singles):
             if [e_pair[0]] == s:
@@ -4385,6 +5010,11 @@ the point.</dd>
         if len(xy_minerals_to_plot) &gt; 1:
             species(xy_minerals_to_plot, add=True)
 
+#         print(&#34;x, y, xy&#34;)
+#         print(x_minerals_to_plot)
+#         print(y_minerals_to_plot)
+#         print(xy_minerals_to_plot)
+            
         field_minerals_to_plot = []
         for i,s in enumerate(mineral_formula_ox_triples):
             if e_pair[0] in s and e_pair[1] in s and div_var_name in s:
@@ -4405,8 +5035,12 @@ the point.</dd>
         except:
             field_minerals_exist = False
         
+#         print(&#34;field minerals&#34;)
+#         print(field_minerals_to_plot)
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
-
+            
+        
         if self.P &lt;= 1:
             bar_bars = &#34;bar&#34;
         else:
@@ -4517,7 +5151,9 @@ the point.</dd>
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
     
-    def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+    def plot_elements(self, units=&#34;molality&#34;, log=True,
+                      plot_width=4, plot_height=3, ppi=122,
+                      save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of the log activities of aqueous species as a
@@ -4539,6 +5175,23 @@ the point.</dd>
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -4603,10 +5256,17 @@ the point.</dd>
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
-    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+    def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3,
+                ppi=122, save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of pH as a function of the log of the extent of
@@ -4673,11 +5333,19 @@ the point.</dd>
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
     
     
-    def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_width=4, plot_height=3, ppi=122):
+    def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
+                              y_type=&#34;mole&#34;, log_y=True, df_out=False,
+                              plot_width=4, plot_height=3, ppi=122, show_legend=True,
+                              save_as=None, save_format=None, save_scale=1):
         
         &#34;&#34;&#34;
         Generate a line plot of the log moles of product minerals as a
@@ -4687,6 +5355,19 @@ the point.</dd>
         ----------
         show_reactant_minerals : bool, default False
             Include log moles of reactant minerals?
+            
+        y_type : str, default &#39;mole&#39;
+            The variable to plot on the y-axis. Can be either &#39;mole&#39; (for moles
+            of minerals), &#39;mass&#39; (for masses of minerals), or &#39;volume&#39; (for
+            volumes of minerals).
+        
+        log_y : bool, default True
+            Should the y-axis be logarithmic?
+            
+        df_out : bool, default False
+            Should a dataframe of values also be returned? For example, if
+            `y_type` is set to &#39;volume&#39;, should a table of mineral volumes be
+            returned?
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -4700,33 +5381,98 @@ the point.</dd>
         -------
         fig : Plotly figure object
             A line plot.
+            
+        df : a Pandas dataframe
+            A dataframe is only returned if `df_out` is set to True (it is
+            set to False by default).
+        
         &#34;&#34;&#34;
         
-        if show_reactant_minerals:
-            df = self.moles_minerals
-            title = &#34;Moles of reactant and product minerals&#34;
+        xlab = &#34;log Xi&#34;
+        xvar = &#34;log Xi&#34;
+        
+        if log_y:
+            log_text = &#34;log &#34;
         else:
-            df = self.moles_product_minerals
-            title = &#34;Moles of product minerals&#34;
-
-        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
+            log_text = &#34;&#34;
+        
+        if show_reactant_minerals:
+            df = copy.deepcopy(self.moles_minerals)
+            title = &#34;{} of reactant and product minerals&#34;
+            
+        else:
+            df = copy.deepcopy(self.moles_product_minerals)
+            title = &#34;{} of product minerals&#34;
+        
+        # sort in order of appearance along Xi
+        sort_order = list(self.moles_minerals.columns)
+            
+        if y_type == &#34;mole&#34;:
+            ylab = &#34;{}moles&#34;.format(log_text)
+            title = title.format(log_text, &#34;Moles&#34;)
+        elif y_type == &#34;mass&#34;: # not yet supported
+            y_lab = &#34;{}grams&#34;.format(log_text)
+            title = title.format(log_text, &#34;Masses&#34;)
+            self.err_handler.raise_exception(&#34;Plotting mineral masses is not yet &#34;
+                    &#34;supported.&#34;)
+        elif y_type == &#34;volume&#34;:
+            ylab = &#34;{}cm&lt;sup&gt;3&lt;/sup&gt;&#34;.format(log_text)
+            title = title.format(&#34;Volumes&#34;)
+            temps = self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;]
+            
+            # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
+            # in order to continue.
+            if df.shape[0] == len(temps):
+                df[&#34;Temp(C)&#34;] = temps
+                minerals = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+                    
+                for i,T in enumerate(temps):
+                    for ii,mineral in enumerate(minerals):
+                        mineral_df = copy.deepcopy(self.df[self.df[&#34;name&#34;]==mineral])
+                        polymorph_idxs = []
+                        for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
+                            
+                            if float(T) &lt; float(list(mineral_df[&#34;z.T&#34;])[0]):
+                                polymorph_idxs.append(iii)
+                        if len(polymorph_idxs)==0:
+                            polymorph_idx = iii
+                        else:
+                            polymorph_idx = polymorph_idxs[0]
+                            
+                        partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
+                        
+                        df.at[i, mineral] = df[mineral][i]*partial_molal_volume
+            else:
+                self.err_handler.raise_exception(&#34;There is a mismatch between the &#34;
+                        &#34;number of Xi values in the TAB-style table and the number &#34;
+                        &#34;of Xi values in the table of moles of minerals.&#34;)
+        else:
+            self.err_handler.raise_exception(&#34;y_type must be either &#39;mole&#39;, &#34;
+                        &#34;&#39;mass&#39;, or &#39;volume&#39;.&#34;)
+            
+        
+        plot_columns = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+        if isinstance(plot_minerals, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+            plot_columns = plot_columns_temp
+            
+        plot_columns = sorted(plot_columns, key=sort_order.index)
+            
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
         df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df = df[df[&#34;variable&#34;] != &#34;None&#34;]
-
 
         df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
         df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
         df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
         df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
-
+        
         with np.errstate(divide=&#39;ignore&#39;):
             df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
-            df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+            if log_y:
+                df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
             
-        xlab = &#34;log Xi&#34;
-        ylab = &#34;log moles&#34;
-        xvar = &#34;log Xi&#34;
 
         fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -4735,16 +5481,30 @@ the point.</dd>
 
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
-
-        return fig
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+        
+        if df_out:
+            df = pd.pivot_table(df, index=&#39;log Xi&#39;, columns=&#39;variable&#39;, values=&#39;value&#39;).reset_index()
+            df.columns = [col for col in df.columns[:]] # make index column name blank
+            return df, fig
+        else:
+            return fig
 
     
-    def plot_aqueous_species(self, plot_basis=False,
-                             plot_width=4, plot_height=3, ppi=122):
+    def plot_aqueous_species(self, plot_basis=False, plot_species=None,
+                             initially_visible=None, show_legend=True,
+                             plot_width=4, plot_height=3, ppi=122,
+                             save_as=None, save_format=None, save_scale=1,):
         
         &#34;&#34;&#34;
         Generate a line plot of the log activities of aqueous species as a
@@ -4754,7 +5514,19 @@ the point.</dd>
         ----------
         plot_basis : bool, default False
             Plot basis species only?
-            
+        
+        plot_species : list of str, optional
+            A list of aqueous species to plot. If undefined, every species at
+            will be plotted at once.
+        
+        initially_visible : list of str, optional
+            A list of aqueous species that will be visible on the plot
+            initially. All other species will be hidden, but can still be
+            toggled back on in the legend.
+        
+        show_legend : bool, default True
+            Show the legend?
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -4762,6 +5534,23 @@ the point.</dd>
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+            button in the plot&#39;s toolbar.
+
+        save_format : str, default &#34;png&#34;
+            Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+            &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+            an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+            and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -4783,7 +5572,14 @@ the point.</dd>
             title = &#34;Solute species&#34;
             startcol = 1
 
-        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+            
+            
+        plot_columns = [col for col in df.columns[startcol:]]
+        if isinstance(plot_species, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_species]
+            plot_columns = plot_columns_temp
+            
+        df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
         df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
         df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
@@ -4805,13 +5601,27 @@ the point.</dd>
                               labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
                              )
 
+        if isinstance(initially_visible, list):
+            initially_visible_html = [chemlabel(sp) for sp in initially_visible]
+            for trace in fig[&#39;data&#39;]: 
+                if (not trace[&#39;name&#39;] in initially_visible_html):
+                    trace[&#39;showlegend&#39;] = True
+                    trace[&#39;visible&#39;] = &#39;legendonly&#39;
+        
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
-                          legend_title=None)
+                          legend_title=None,
+                          showlegend=show_legend)
 
         if isinstance(title, str):
             fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
         return fig
 
     
@@ -5163,7 +5973,7 @@ containing the values of chemical species mined from the file.</dd>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_aqueous_species"><code class="name flex">
-<span>def <span class="ident">plot_aqueous_species</span></span>(<span>self, plot_basis=False, plot_width=4, plot_height=3, ppi=122)</span>
+<span>def <span class="ident">plot_aqueous_species</span></span>(<span>self, plot_basis=False, plot_species=None, initially_visible=None, show_legend=True, plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a line plot of the log activities of aqueous species as a
@@ -5172,12 +5982,35 @@ function of the log of the extent of reaction (log Xi).</p>
 <dl>
 <dt><strong><code>plot_basis</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Plot basis species only?</dd>
+<dt><strong><code>plot_species</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>A list of aqueous species to plot. If undefined, every species at
+will be plotted at once.</dd>
+<dt><strong><code>initially_visible</code></strong> :&ensp;<code>list</code> of <code>str</code>, optional</dt>
+<dd>A list of aqueous species that will be visible on the plot
+initially. All other species will be hidden, but can still be
+toggled back on in the legend.</dd>
+<dt><strong><code>show_legend</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Show the legend?</dd>
 <dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
 <dd>Width and height of the plot, in inches. Size of interactive plots
 is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
 <dt><strong><code>ppi</code></strong> :&ensp;<code>numeric</code>, default <code>122</code></dt>
 <dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
 determines the size of interactive plots.</dd>
+<dt><strong><code>save_as</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Provide a filename to save this figure. Filetype of saved figure is
+determined by <code>save_format</code>.
+Note: interactive plots can be saved by clicking the 'Download plot'
+button in the plot's toolbar.</dd>
+<dt><strong><code>save_format</code></strong> :&ensp;<code>str</code>, default <code>"png"</code></dt>
+<dd>Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+and 'webp' can be downloaded with the 'download as' button in the
+toolbar of an interactive plot.</dd>
+<dt><strong><code>save_scale</code></strong> :&ensp;<code>numeric</code>, default <code>1</code></dt>
+<dd>Multiply title/legend/axis/canvas sizes by this factor when saving
+the figure.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -5188,8 +6021,10 @@ determines the size of interactive plots.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_aqueous_species(self, plot_basis=False,
-                         plot_width=4, plot_height=3, ppi=122):
+<pre><code class="python">def plot_aqueous_species(self, plot_basis=False, plot_species=None,
+                         initially_visible=None, show_legend=True,
+                         plot_width=4, plot_height=3, ppi=122,
+                         save_as=None, save_format=None, save_scale=1,):
     
     &#34;&#34;&#34;
     Generate a line plot of the log activities of aqueous species as a
@@ -5199,7 +6034,19 @@ determines the size of interactive plots.</dd>
     ----------
     plot_basis : bool, default False
         Plot basis species only?
-        
+    
+    plot_species : list of str, optional
+        A list of aqueous species to plot. If undefined, every species at
+        will be plotted at once.
+    
+    initially_visible : list of str, optional
+        A list of aqueous species that will be visible on the plot
+        initially. All other species will be hidden, but can still be
+        toggled back on in the legend.
+    
+    show_legend : bool, default True
+        Show the legend?
+    
     plot_width, plot_height : numeric, default 4 by 3
         Width and height of the plot, in inches. Size of interactive plots
         is also determined by pixels per inch, set by the parameter `ppi`.
@@ -5207,6 +6054,23 @@ determines the size of interactive plots.</dd>
     ppi : numeric, default 122
         Pixels per inch. Along with `plot_width` and `plot_height`,
         determines the size of interactive plots.
+        
+    save_as : str, optional
+        Provide a filename to save this figure. Filetype of saved figure is
+        determined by `save_format`.
+        Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+        button in the plot&#39;s toolbar.
+
+    save_format : str, default &#34;png&#34;
+        Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+        &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+        an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+        and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+        toolbar of an interactive plot.
+
+    save_scale : numeric, default 1
+        Multiply title/legend/axis/canvas sizes by this factor when saving
+        the figure.
         
     Returns
     -------
@@ -5228,7 +6092,14 @@ determines the size of interactive plots.</dd>
         title = &#34;Solute species&#34;
         startcol = 1
 
-    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[startcol:])
+        
+        
+    plot_columns = [col for col in df.columns[startcol:]]
+    if isinstance(plot_species, list):
+        plot_columns_temp = [col for col in plot_columns if col in plot_species]
+        plot_columns = plot_columns_temp
+        
+    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
     df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
     df[&#34;variable&#34;] = df[&#34;variable&#34;].apply(chemlabel)
 
@@ -5250,18 +6121,32 @@ determines the size of interactive plots.</dd>
                           labels=dict(value=ylab, x=xlab), render_mode=&#39;svg&#39;,
                          )
 
+    if isinstance(initially_visible, list):
+        initially_visible_html = [chemlabel(sp) for sp in initially_visible]
+        for trace in fig[&#39;data&#39;]: 
+            if (not trace[&#39;name&#39;] in initially_visible_html):
+                trace[&#39;showlegend&#39;] = True
+                trace[&#39;visible&#39;] = &#39;legendonly&#39;
+    
     fig.update_layout(xaxis_title=xlab,
                       yaxis_title=ylab,
-                      legend_title=None)
+                      legend_title=None,
+                      showlegend=show_legend)
 
     if isinstance(title, str):
         fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+    if isinstance(save_as, str):
+        dummy_sp = Speciation({})
+        save_as, save_format = dummy_sp._save_figure(fig,
+                save_as, save_format, save_scale,
+                plot_width, plot_height, ppi)
+        
     return fig</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_elements"><code class="name flex">
-<span>def <span class="ident">plot_elements</span></span>(<span>self, units='molality', log=True, plot_width=4, plot_height=3, ppi=122)</span>
+<span>def <span class="ident">plot_elements</span></span>(<span>self, units='molality', log=True, plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a line plot of the log activities of aqueous species as a
@@ -5279,6 +6164,20 @@ is also determined by pixels per inch, set by the parameter <code>ppi</code>.</d
 <dt><strong><code>ppi</code></strong> :&ensp;<code>numeric</code>, default <code>122</code></dt>
 <dd>Pixels per inch. Along with <code>plot_width</code> and <code>plot_height</code>,
 determines the size of interactive plots.</dd>
+<dt><strong><code>save_as</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Provide a filename to save this figure. Filetype of saved figure is
+determined by <code>save_format</code>.
+Note: interactive plots can be saved by clicking the 'Download plot'
+button in the plot's toolbar.</dd>
+<dt><strong><code>save_format</code></strong> :&ensp;<code>str</code>, default <code>"png"</code></dt>
+<dd>Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+and 'webp' can be downloaded with the 'download as' button in the
+toolbar of an interactive plot.</dd>
+<dt><strong><code>save_scale</code></strong> :&ensp;<code>numeric</code>, default <code>1</code></dt>
+<dd>Multiply title/legend/axis/canvas sizes by this factor when saving
+the figure.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <dl>
@@ -5289,7 +6188,9 @@ determines the size of interactive plots.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_elements(self, units=&#34;molality&#34;, log=True, plot_width=4, plot_height=3, ppi=122):
+<pre><code class="python">def plot_elements(self, units=&#34;molality&#34;, log=True,
+                  plot_width=4, plot_height=3, ppi=122,
+                  save_as=None, save_format=None, save_scale=1):
     
     &#34;&#34;&#34;
     Generate a line plot of the log activities of aqueous species as a
@@ -5311,6 +6212,23 @@ determines the size of interactive plots.</dd>
     ppi : numeric, default 122
         Pixels per inch. Along with `plot_width` and `plot_height`,
         determines the size of interactive plots.
+        
+    save_as : str, optional
+        Provide a filename to save this figure. Filetype of saved figure is
+        determined by `save_format`.
+        Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+        button in the plot&#39;s toolbar.
+
+    save_format : str, default &#34;png&#34;
+        Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+        &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+        an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+        and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+        toolbar of an interactive plot.
+
+    save_scale : numeric, default 1
+        Multiply title/legend/axis/canvas sizes by this factor when saving
+        the figure.
         
     Returns
     -------
@@ -5375,6 +6293,12 @@ determines the size of interactive plots.</dd>
     if isinstance(title, str):
         fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+    if isinstance(save_as, str):
+        dummy_sp = Speciation({})
+        save_as, save_format = dummy_sp._save_figure(fig,
+                save_as, save_format, save_scale,
+                plot_width, plot_height, ppi)
+        
     return fig</code></pre>
 </details>
 </dd>
@@ -5505,7 +6429,7 @@ extent of reaction, Xi.</dd>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_pH"><code class="name flex">
-<span>def <span class="ident">plot_pH</span></span>(<span>self, x_type='log_xi', title=None, plot_width=4, plot_height=3, ppi=122)</span>
+<span>def <span class="ident">plot_pH</span></span>(<span>self, x_type='log_xi', title=None, plot_width=4, plot_height=3, ppi=122, save_as=None, save_format=None, save_scale=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a line plot of pH as a function of the log of the extent of
@@ -5532,7 +6456,8 @@ determines the size of interactive plots.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3, ppi=122):
+<pre><code class="python">def plot_pH(self, x_type=&#34;log_xi&#34;, title=None, plot_width=4, plot_height=3,
+            ppi=122, save_as=None, save_format=None, save_scale=1):
     
     &#34;&#34;&#34;
     Generate a line plot of pH as a function of the log of the extent of
@@ -5599,11 +6524,17 @@ determines the size of interactive plots.</dd>
     if isinstance(title, str):
         fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
 
+    if isinstance(save_as, str):
+        dummy_sp = Speciation({})
+        save_as, save_format = dummy_sp._save_figure(fig,
+                save_as, save_format, save_scale,
+                plot_width, plot_height, ppi)
+        
     return fig</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_product_minerals"><code class="name flex">
-<span>def <span class="ident">plot_product_minerals</span></span>(<span>self, show_reactant_minerals=False, plot_width=4, plot_height=3, ppi=122)</span>
+<span>def <span class="ident">plot_product_minerals</span></span>(<span>self, show_reactant_minerals=False, plot_minerals=None, y_type='mole', log_y=True, df_out=False, plot_width=4, plot_height=3, ppi=122, show_legend=True, save_as=None, save_format=None, save_scale=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a line plot of the log moles of product minerals as a
@@ -5612,6 +6543,16 @@ function of the log of the extent of reaction (log Xi).</p>
 <dl>
 <dt><strong><code>show_reactant_minerals</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Include log moles of reactant minerals?</dd>
+<dt><strong><code>y_type</code></strong> :&ensp;<code>str</code>, default <code>'mole'</code></dt>
+<dd>The variable to plot on the y-axis. Can be either 'mole' (for moles
+of minerals), 'mass' (for masses of minerals), or 'volume' (for
+volumes of minerals).</dd>
+<dt><strong><code>log_y</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Should the y-axis be logarithmic?</dd>
+<dt><strong><code>df_out</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Should a dataframe of values also be returned? For example, if
+<code>y_type</code> is set to 'volume', should a table of mineral volumes be
+returned?</dd>
 <dt><strong><code>plot_width</code></strong>, <strong><code>plot_height</code></strong> :&ensp;<code>numeric</code>, default <code>4 by 3</code></dt>
 <dd>Width and height of the plot, in inches. Size of interactive plots
 is also determined by pixels per inch, set by the parameter <code>ppi</code>.</dd>
@@ -5623,13 +6564,18 @@ determines the size of interactive plots.</dd>
 <dl>
 <dt><strong><code>fig</code></strong> :&ensp;<code>Plotly figure object</code></dt>
 <dd>A line plot.</dd>
+<dt><strong><code>df</code></strong> :&ensp;<code>a Pandas dataframe</code></dt>
+<dd>A dataframe is only returned if <code>df_out</code> is set to True (it is
+set to False by default).</dd>
 </dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot_product_minerals(self, show_reactant_minerals=False,
-                          plot_width=4, plot_height=3, ppi=122):
+<pre><code class="python">def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
+                          y_type=&#34;mole&#34;, log_y=True, df_out=False,
+                          plot_width=4, plot_height=3, ppi=122, show_legend=True,
+                          save_as=None, save_format=None, save_scale=1):
     
     &#34;&#34;&#34;
     Generate a line plot of the log moles of product minerals as a
@@ -5639,6 +6585,19 @@ determines the size of interactive plots.</dd>
     ----------
     show_reactant_minerals : bool, default False
         Include log moles of reactant minerals?
+        
+    y_type : str, default &#39;mole&#39;
+        The variable to plot on the y-axis. Can be either &#39;mole&#39; (for moles
+        of minerals), &#39;mass&#39; (for masses of minerals), or &#39;volume&#39; (for
+        volumes of minerals).
+    
+    log_y : bool, default True
+        Should the y-axis be logarithmic?
+        
+    df_out : bool, default False
+        Should a dataframe of values also be returned? For example, if
+        `y_type` is set to &#39;volume&#39;, should a table of mineral volumes be
+        returned?
         
     plot_width, plot_height : numeric, default 4 by 3
         Width and height of the plot, in inches. Size of interactive plots
@@ -5652,33 +6611,98 @@ determines the size of interactive plots.</dd>
     -------
     fig : Plotly figure object
         A line plot.
+        
+    df : a Pandas dataframe
+        A dataframe is only returned if `df_out` is set to True (it is
+        set to False by default).
+    
     &#34;&#34;&#34;
     
-    if show_reactant_minerals:
-        df = self.moles_minerals
-        title = &#34;Moles of reactant and product minerals&#34;
+    xlab = &#34;log Xi&#34;
+    xvar = &#34;log Xi&#34;
+    
+    if log_y:
+        log_text = &#34;log &#34;
     else:
-        df = self.moles_product_minerals
-        title = &#34;Moles of product minerals&#34;
-
-    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=df.columns[1:])
+        log_text = &#34;&#34;
+    
+    if show_reactant_minerals:
+        df = copy.deepcopy(self.moles_minerals)
+        title = &#34;{} of reactant and product minerals&#34;
+        
+    else:
+        df = copy.deepcopy(self.moles_product_minerals)
+        title = &#34;{} of product minerals&#34;
+    
+    # sort in order of appearance along Xi
+    sort_order = list(self.moles_minerals.columns)
+        
+    if y_type == &#34;mole&#34;:
+        ylab = &#34;{}moles&#34;.format(log_text)
+        title = title.format(log_text, &#34;Moles&#34;)
+    elif y_type == &#34;mass&#34;: # not yet supported
+        y_lab = &#34;{}grams&#34;.format(log_text)
+        title = title.format(log_text, &#34;Masses&#34;)
+        self.err_handler.raise_exception(&#34;Plotting mineral masses is not yet &#34;
+                &#34;supported.&#34;)
+    elif y_type == &#34;volume&#34;:
+        ylab = &#34;{}cm&lt;sup&gt;3&lt;/sup&gt;&#34;.format(log_text)
+        title = title.format(&#34;Volumes&#34;)
+        temps = self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;]
+        
+        # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
+        # in order to continue.
+        if df.shape[0] == len(temps):
+            df[&#34;Temp(C)&#34;] = temps
+            minerals = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+                
+            for i,T in enumerate(temps):
+                for ii,mineral in enumerate(minerals):
+                    mineral_df = copy.deepcopy(self.df[self.df[&#34;name&#34;]==mineral])
+                    polymorph_idxs = []
+                    for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
+                        
+                        if float(T) &lt; float(list(mineral_df[&#34;z.T&#34;])[0]):
+                            polymorph_idxs.append(iii)
+                    if len(polymorph_idxs)==0:
+                        polymorph_idx = iii
+                    else:
+                        polymorph_idx = polymorph_idxs[0]
+                        
+                    partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
+                    
+                    df.at[i, mineral] = df[mineral][i]*partial_molal_volume
+        else:
+            self.err_handler.raise_exception(&#34;There is a mismatch between the &#34;
+                    &#34;number of Xi values in the TAB-style table and the number &#34;
+                    &#34;of Xi values in the table of moles of minerals.&#34;)
+    else:
+        self.err_handler.raise_exception(&#34;y_type must be either &#39;mole&#39;, &#34;
+                    &#34;&#39;mass&#39;, or &#39;volume&#39;.&#34;)
+        
+    
+    plot_columns = [col for col in df.columns if col not in [&#34;Xi&#34;, &#34;Temp(C)&#34;]]
+    if isinstance(plot_minerals, list):
+        plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+        plot_columns = plot_columns_temp
+        
+    plot_columns = sorted(plot_columns, key=sort_order.index)
+        
+    df = pd.melt(df, id_vars=&#34;Xi&#34;, value_vars=plot_columns)
     df.columns = [&#34;Xi&#34;, &#34;variable&#34;, &#34;value&#34;]
     df = df[df[&#34;variable&#34;] != &#34;None&#34;]
-
 
     df[&#34;Xi&#34;] = pd.to_numeric(df[&#34;Xi&#34;])
 
     df[&#34;value&#34;] = pd.to_numeric(df[&#34;value&#34;])
     df[&#34;value&#34;] = df[&#34;value&#34;].fillna(0)
     df[&#34;value&#34;] = df[&#34;value&#34;].replace(0, np.nan)
-
+    
     with np.errstate(divide=&#39;ignore&#39;):
         df[&#39;log Xi&#39;] = np.log10(df[&#39;Xi&#39;])
-        df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
+        if log_y:
+            df[&#39;value&#39;] = np.log10(df[&#39;value&#39;])
         
-    xlab = &#34;log Xi&#34;
-    ylab = &#34;log moles&#34;
-    xvar = &#34;log Xi&#34;
 
     fig = px.line(df, x=xvar, y=&#34;value&#34;, color=&#39;variable&#39;, template=&#34;simple_white&#34;,
                           width=plot_width*ppi,  height=plot_height*ppi,
@@ -5687,16 +6711,28 @@ determines the size of interactive plots.</dd>
 
     fig.update_layout(xaxis_title=xlab,
                       yaxis_title=ylab,
-                      legend_title=None)
+                      legend_title=None,
+                      showlegend=show_legend)
 
     if isinstance(title, str):
         fig.update_layout(title={&#39;text&#39;:title, &#39;x&#39;:0.5, &#39;xanchor&#39;:&#39;center&#39;})
-
-    return fig</code></pre>
+    
+    if isinstance(save_as, str):
+        dummy_sp = Speciation({})
+        save_as, save_format = dummy_sp._save_figure(fig,
+                save_as, save_format, save_scale,
+                plot_width, plot_height, ppi)
+    
+    if df_out:
+        df = pd.pivot_table(df, index=&#39;log Xi&#39;, columns=&#39;variable&#39;, values=&#39;value&#39;).reset_index()
+        df.columns = [col for col in df.columns[:]] # make index column name blank
+        return df, fig
+    else:
+        return fig</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_reaction_paths"><code class="name flex">
-<span>def <span class="ident">plot_reaction_paths</span></span>(<span>self, xyb=None, path_margin=0.25, flip_xy=False, show_annotation=True, annotation_coords=[0, 0], show_nonparticipating_mineral_lines=False, minerals_to_show=[], path_line_type='markers+lines', path_line_color='red', path_point_fill_color='red', path_point_line_color='red', projected_point_fill_color='white', projected_point_line_color='red', h_line_color='black', v_line_color='black', d_line_color='black', res=300, plot_width=4, plot_height=3, ppi=122, borders=0, colormap='bw')</span>
+<span>def <span class="ident">plot_reaction_paths</span></span>(<span>self, xyb=None, path_margin=0.25, flip_xy=False, show_annotation=True, annotation_coords=[0, 0], show_nonparticipating_mineral_lines=False, minerals_to_show=[], calculate_projected_points=True, path_line_type='markers+lines', path_line_color='red', path_point_fill_color='red', path_point_line_color='red', projected_point_fill_color='white', projected_point_line_color='red', h_line_color='black', v_line_color='black', d_line_color='black', res=300, plot_width=4, plot_height=3, ppi=122, borders=0, save_as=None, save_format=None, save_scale=1, colormap='bw')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create interactive plots of reaction paths in geochemical variable
@@ -5775,6 +6811,20 @@ determines the size of interactive plots.</dd>
 <dt><strong><code>borders</code></strong> :&ensp;<code>float</code>, default <code>0</code></dt>
 <dd>Thickness of black lines forming boundaries between mineral
 stability regions. No lines appear if equal to 0.</dd>
+<dt><strong><code>save_as</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Provide a filename to save this figure. Filetype of saved figure is
+determined by <code>save_format</code>.
+Note: interactive plots can be saved by clicking the 'Download plot'
+button in the plot's toolbar.</dd>
+<dt><strong><code>save_format</code></strong> :&ensp;<code>str</code>, default <code>"png"</code></dt>
+<dd>Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+and 'webp' can be downloaded with the 'download as' button in the
+toolbar of an interactive plot.</dd>
+<dt><strong><code>save_scale</code></strong> :&ensp;<code>numeric</code>, default <code>1</code></dt>
+<dd>Multiply title/legend/axis/canvas sizes by this factor when saving
+the figure.</dd>
 <dt><strong><code>colormap</code></strong> :&ensp;<code>str</code>, default <code>"bw"</code></dt>
 <dd>Name of the colormap to color the scatterpoints. Accepts "bw"
 or names of matplotlib colormaps. If set to "bw", the plot will be
@@ -5804,6 +6854,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                         annotation_coords=[0,0],
                         show_nonparticipating_mineral_lines=False,
                         minerals_to_show=[],
+                        calculate_projected_points=True,
                         path_line_type = &#34;markers+lines&#34;,
                         path_line_color = &#34;red&#34;,
                         path_point_fill_color = &#34;red&#34;,
@@ -5818,6 +6869,9 @@ specified, fig_list will only contain the single figure of interest.</dd>
                         plot_height=3,
                         ppi=122,
                         borders=0,
+                        save_as=None,
+                        save_format=None,
+                        save_scale=1,
                         colormap=&#34;bw&#34;):
     
     &#34;&#34;&#34;
@@ -5914,6 +6968,23 @@ specified, fig_list will only contain the single figure of interest.</dd>
         Thickness of black lines forming boundaries between mineral
         stability regions. No lines appear if equal to 0.
     
+    save_as : str, optional
+        Provide a filename to save this figure. Filetype of saved figure is
+        determined by `save_format`.
+        Note: interactive plots can be saved by clicking the &#39;Download plot&#39;
+        button in the plot&#39;s toolbar.
+
+    save_format : str, default &#34;png&#34;
+        Desired format of saved or downloaded figure. Can be &#39;png&#39;, &#39;jpg&#39;,
+        &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, or &#39;html&#39;. If &#39;html&#39;,
+        an interactive plot will be saved. Only &#39;png&#39;, &#39;svg&#39;, &#39;jpeg&#39;,
+        and &#39;webp&#39; can be downloaded with the &#39;download as&#39; button in the
+        toolbar of an interactive plot.
+
+    save_scale : numeric, default 1
+        Multiply title/legend/axis/canvas sizes by this factor when saving
+        the figure.
+    
     colormap : str, default &#34;bw&#34;
         Name of the colormap to color the scatterpoints. Accepts &#34;bw&#34;
         or names of matplotlib colormaps. If set to &#34;bw&#34;, the plot will be
@@ -5931,7 +7002,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
         combinations of geochemical variables. Optionally, if xyb is
         specified, fig_list will only contain the single figure of interest.
     &#34;&#34;&#34;
-    
+
     error_messages = []
     
     # check that there is only one temperature and pressure
@@ -5940,17 +7011,34 @@ specified, fig_list will only contain the single figure of interest.</dd>
     if not self.__is_all_same_value(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;]):
         error_messages.append(&#34;Reaction paths cannot be plotted when pressure changes with reaction progress.&#34;)
     
+    if isinstance(xyb, list):
+        if len(xyb) != 3:
+            error_messages.append((&#34;Error in xyb={}&#34;.format(xyb)+&#34;. &#34;
+                    &#34;The xyb parameter must either be None or a list of &#34;
+                    &#34;three basis species to serve as x, y, and balance variables.&#34;))
+    
     if len(error_messages)&gt;0:
-        self.err_handler.raise_exception(error_messages)
+        self.err_handler.raise_exception(&#34;\n&#34;.join(error_messages))
     
     self.T = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Temp(C)&#34;][0])
     self.P = float(self.tab[&#34;Table B1 Miscellaneous parameters I&#34;][&#34;Press(bars)&#34;][0])
     self.path_margin = path_margin
     
-    minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
-
+    #minerals_formed = list(self.tab[&#34;Table P Moles of product minerals&#34;].columns[2:])
+    minerals_formed = [m for m in self.moles_minerals.columns if m != &#34;Xi&#34;]
+    
     all_elements_of_interest = []
     for mineral in minerals_formed:
+        
+        if mineral not in list(self.df[&#34;name&#34;]):
+            if self.verbose &gt; 0:
+                print(&#34;The mineral&#34;, mineral, &#34;cannot be represented in a&#34;,
+                       &#34;reaction path diagram, likely because it is missing&#34;,
+                       &#34;a Gibbs free energy value in the thermodynamic&#34;,
+                       &#34;database. Continuing anyway, but be aware that&#34;,
+                       &#34;this mineral will not be represented in diagrams.&#34;)
+            continue
+        
         all_elements_of_interest += self.__get_elem_ox_of_interest_in_minerals(mineral)
     all_elements_of_interest_pre = list(set(all_elements_of_interest))
     
@@ -5958,11 +7046,16 @@ specified, fig_list will only contain the single figure of interest.</dd>
     # for which to create an axis.
     bad_elem = []
     for elem in all_elements_of_interest_pre:
-        if list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+        if len(list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])) == 0:
             bad_elem.append(elem)
+        elif list(self.thermodata_csv.loc[self.thermodata_csv[&#39;name&#39;] == self.__get_basis_from_elem(elem), &#39;state&#39;])[0] != &#39;aq&#39;:
+            bad_elem.append(elem)
+            
     all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
     
     self.all_elements_of_interest = all_elements_of_interest
+    
+    fig_list = []
     
     # if there are only 2 elements of interest, these become the axes, and there is no
     # need to fuss with real vs projected points.
@@ -6023,21 +7116,39 @@ specified, fig_list will only contain the single figure of interest.</dd>
         pred_minerals_from_fields_list = []
         pred_minerals_from_lines_list = []
         
-        if path_line_type == &#34;lines&#34;:
+
+        if isinstance(xyb, list):
+            try:
+                xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
+            except:
+                err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                       &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                self.err_handler.raise_exception(err)
+            xyb_i = None
+            # get index of triad that matches xyb:
+            for i,triad in enumerate(element_plot_triad):
+                if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
+                    xyb_i = i
+            if xyb_i == None:
+                err = (&#34;Plot axes cannot accomodate desired variables. &#34;
+                       &#34;Available variables include {}&#34;.format([self.__get_basis_from_elem(elem) for elem in alist]))
+                self.err_handler.raise_exception(err)
+        
+        if not calculate_projected_points or path_line_type==&#34;lines&#34;:
             projected_points = [&#34;real&#34;]*self.moles_product_minerals.shape[0]
             fig_list_projected_points = [projected_points]*len(element_plot_triad)
             
-        elif path_line_type in [&#34;markers+lines&#34;, &#34;markers&#34;]:
+        else:
             
-            if isinstance(xyb, list):
-                xyb_element_plot_triad = [[self.__get_elem_ox_of_interest_in_minerals(v)[0] for v in xyb]]
-                xyb_i = None
-                # get index of triad that matches xyb:
-                for i,triad in enumerate(element_plot_triad):
-                    if set(xyb_element_plot_triad[0][0:2]) == set(triad[0:2]) and xyb_element_plot_triad[0][2] == triad[2]:
-                        xyb_i = i
-                if xyb_i == None:
-                    print(&#34;ERROR!&#34;)
+            if len(element_plot_triad) &gt; 20:
+                if self.verbose &gt; 0:
+                    print(&#34;Warning! There are {}&#34;.format(len(element_plot_triad)),
+                          &#34;different combinations of variables that must be considered&#34;,
+                          &#34;in order to plot markers.&#34;)
+                    print(&#34;This might take a very long time or may not finish calculating at all.&#34;)
+                    print(&#34;We recommend setting calculate_projected_points=False in&#34;,
+                          &#34;plot_reaction_paths() and then restarting the&#34;,
+                          &#34;calculation to avoid lengthy calculation times.&#34;)
             
             for triad in element_plot_triad:
 
@@ -6065,7 +7176,10 @@ specified, fig_list will only contain the single figure of interest.</dd>
                 for irow in range(0, self.moles_product_minerals.shape[0]):
 
                     # get names of minerals formed at this xi
-                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for ii,mineral in enumerate(list(self.moles_product_minerals.iloc[irow])[1:]) if mineral&gt;0]
+                    xirow = list(self.moles_product_minerals.iloc[irow])
+                    formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
+                                       ii,mineral in enumerate(xirow[1:]) if
+                                       mineral&gt;0]
 
                     available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
@@ -6082,11 +7196,6 @@ specified, fig_list will only contain the single figure of interest.</dd>
                             projected_points[irow] = &#34;real&#34;
 
                 fig_list_projected_points.append(projected_points)
-                
-        else:
-            msg = (&#34;path_line_type can only be &#39;markers+lines&#39;, &#39;lines&#39;, &#34;
-                   &#34;or &#39;markers&#39;&#34;)
-            self.err_handler.raise_exception(msg)
             
         if isinstance(xyb, list):
             # if xyb is defined, make element_plot_triad have a length of 1
@@ -6098,32 +7207,46 @@ specified, fig_list will only contain the single figure of interest.</dd>
         for i,triad in enumerate(element_plot_triad):
             # re-run figure generation, passing in a list of which points are projected.
             fig, _ , _ = self.__plot_reaction_path_main(
-                                                triad, T=self.T, P=self.P,
-                                                path_margin=self.path_margin,
-                                                flip_xy=flip_xy,
-                                                show_annotation=show_annotation,
-                                                annotation_coords=annotation_coords,
-                                                show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
-                                                minerals_to_show=minerals_to_show,
-                                                path_line_type=path_line_type,
-                                                path_line_color=path_line_color,
-                                                path_point_fill_color=path_point_fill_color,
-                                                path_point_line_color=path_point_line_color,
-                                                projected_point_fill_color=projected_point_fill_color,
-                                                projected_point_line_color=projected_point_line_color,
-                                                h_line_color=h_line_color,
-                                                v_line_color=v_line_color,
-                                                d_line_color=d_line_color,
-                                                res=res,
-                                                plot_width=plot_width,
-                                                plot_height=plot_height,
-                                                ppi=ppi,
-                                                colormap=colormap,
-                                                borders=borders,
-                                                projected_points=fig_list_projected_points[i],
-                                                first_pass=False)
+                                triad, T=self.T, P=self.P,
+                                path_margin=self.path_margin,
+                                flip_xy=flip_xy,
+                                show_annotation=show_annotation,
+                                annotation_coords=annotation_coords,
+                                show_nonparticipating_mineral_lines=show_nonparticipating_mineral_lines,
+                                minerals_to_show=minerals_to_show,
+                                path_line_type=path_line_type,
+                                path_line_color=path_line_color,
+                                path_point_fill_color=path_point_fill_color,
+                                path_point_line_color=path_point_line_color,
+                                projected_point_fill_color=projected_point_fill_color,
+                                projected_point_line_color=projected_point_line_color,
+                                h_line_color=h_line_color,
+                                v_line_color=v_line_color,
+                                d_line_color=d_line_color,
+                                res=res,
+                                plot_width=plot_width,
+                                plot_height=plot_height,
+                                ppi=ppi,
+                                colormap=colormap,
+                                borders=borders,
+                                projected_points=fig_list_projected_points[i],
+                                first_pass=False)
 
             fig_list.append(fig)
+    
+    if not fig_list and self.verbose &gt; 0:
+        print(&#34;Warning: a reaction path plot could not be generated for this system.&#34;)
+    
+    if isinstance(save_as, str):
+        dummy_sp = Speciation({})
+        for i,fig in enumerate(fig_list):
+            if isinstance(xyb, list):
+                name_append = &#34;&#34;
+            else:
+                name_append = &#34;_{}&#34;.format(i+1)
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as+name_append, save_format, save_scale,
+                    plot_width, plot_height, ppi)
     
     return fig_list</code></pre>
 </details>
@@ -7090,9 +8213,9 @@ The TST rate equation is not yet supported.</dd>
 <dt><strong><code>b_eq1</code></strong>, <strong><code>b_eq2</code></strong>, <strong><code>b_eq3</code></strong> :&ensp;<code>float</code>, default <code>1, 0, 0, respectively</code></dt>
 <dd>Coefficients of the backward rate law defined for <code>b_rate_law</code>.
 If <code>b_rate_law</code> is "Relative rate equation", then:
-- b_eq1 is dXi(n)/dXi (mol/mol)
-- b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-- b_eq3 is d3Xi(n)/dXi3 (mol/mol3)</dd>
+- the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+- the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+- the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)</dd>
 <dt><strong><code>hide_traceback</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Hide traceback message when encountering errors handled by this class?
 When True, error messages handled by this class will be short and to
@@ -7192,9 +8315,9 @@ the point.</dd>
         b_eq1, b_eq2, b_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the backward rate law defined for `b_rate_law`.
             If `b_rate_law` is &#34;Relative rate equation&#34;, then:
-            - b_eq1 is dXi(n)/dXi (mol/mol)
-            - b_eq2 is d2Xi(n)/dXi2 (mol/mol2)
-            - b_eq3 is d3Xi(n)/dXi3 (mol/mol3)
+            - the value of b_eq1 represents dXi(n)/dXi (mol/mol)
+            - the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
+            - the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)
         
         hide_traceback : bool, default True
             Hide traceback message when encountering errors handled by this class?
@@ -7204,6 +8327,13 @@ the point.</dd>
         &#34;&#34;&#34;
     
         self.err_handler = Error_Handler(clean=hide_traceback)
+        
+        if f_rate_law not in [&#34;Use backward rate law&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;f_rate_law must be either &#34;
+                    &#34;&#39;Use backward rate law&#39; or &#39;Relative rate equation&#39;.&#34;))
+        if b_rate_law not in [&#34;Use forward rate law&#34;, &#34;Partial equilibrium&#34;, &#34;Relative rate equation&#34;]:
+            self.err_handler.raise_exception((&#34;b_rate_law must be either &#34;
+                    &#34;&#39;Use forward rate law&#39;, &#39;Partial equilibrium&#39;, or &#39;Relative rate equation&#39;.&#34;))
         
         self.reactant_name=reactant_name
         self.reactant_type=reactant_type

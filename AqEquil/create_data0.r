@@ -44,6 +44,7 @@ s_d <- function(x, k) trimws(format(round(x, k), nsmall=k, scientific=F))
 
 # main function
 create_data0 <- function(thermo_df,
+                         element_df,
                          solid_solution_df=NULL,
                          db,
                          water_model,
@@ -142,11 +143,11 @@ create_data0 <- function(thermo_df,
       # if this species is marked as a preferred basis species, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "basis"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"][1] == "basis"){
       # if this is marked as a basis in the data0 supplemental file, move to the next species
       vmessage(paste0("'", name, "' (basis species) processed successfully."), 2, verbose)
       next
-    }else if(thermo_df[thermo_df[, "name"]==name, "tag"] == "aux"){
+    }else if(thermo_df[thermo_df[, "name"]==name, "tag"][1] == "aux"){
       # if this species is an auxiliary basis species, flag and continue with aqueous formatting
       aux_basis <- TRUE
     }
@@ -168,7 +169,7 @@ create_data0 <- function(thermo_df,
       # get element value and name from makeup
       elem_val <- s_d(elem[i], 4)
       elem_name <- names(elem)[i]
-
+        
       # conditional formatting based on position
       if(i == 1 | i %% 4 == 0){ # first entry of a line
         max_length <- 8
@@ -266,7 +267,7 @@ create_data0 <- function(thermo_df,
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = solid            %sactive", formatted_tag)
       formatted_V0PrTr = fillspace(entry$V, 9, spaces_after=FALSE)
-      volume = sprintf("       V0PrTr = %s cm**3/mol", formatted_V0PrTr)
+      volume = sprintf("     V0PrTr = %s cm**3/mol", formatted_V0PrTr)
       insertline_regex <- "\\+-+\nliquids"
       insertline <- "+--------------------------------------------------------------------\nliquids"
     } else if (entry$state == "gas"){
@@ -274,7 +275,7 @@ create_data0 <- function(thermo_df,
       tag = tag_vec[entry$name] # for gases, this is a tag like "refsate"
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = gas              %sactive", formatted_tag)
-      volume = "       V0PrTr = 24465.000 cm**3/mol  (source = ideal gas law)"
+      volume = "     V0PrTr = 24465.000 cm**3/mol  (source = ideal gas law)"
       insertline_regex <- "\\+-+\nsolid solutions"
       insertline <- "+--------------------------------------------------------------------\nsolid solutions"
     } else if (entry$state == "liq"){
@@ -283,7 +284,7 @@ create_data0 <- function(thermo_df,
       formatted_tag = fillspace(tag, 17)
       keys = sprintf(" keys   = liquid           %sactive", formatted_tag)
       formatted_V0PrTr = fillspace(entry$V, 9, spaces_after=FALSE)
-      volume = sprintf("       V0PrTr = %s cm**3/mol", formatted_V0PrTr)
+      volume = sprintf("     V0PrTr = %s cm**3/mol", formatted_V0PrTr)
       insertline_regex <- "\\+-+\ngases"
       insertline <- "+--------------------------------------------------------------------\ngases"
     } else {
@@ -377,7 +378,7 @@ create_data0 <- function(thermo_df,
 
   # REQUIRED BY EQ3: ensure that elements appear in the same order as the basis species representing those elements.
   elem_addme <- elem_addme[order(match(elem_addme,names(dissrxns[["basis_list"]])))]
-
+    
   # loop through elements that need to be added to the data0 template
   for(elem in elem_addme){
       
