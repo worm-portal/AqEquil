@@ -692,15 +692,14 @@ class AqEquil(object):
         
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
-        self.raw_3_pickup_dict = {}
+        self.raw_3_pickup_dict_bottom = {}
+        self.raw_3_pickup_dict_top = {}
         
         self.batch_T = []
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
-                                                 &#34;name&#34;:[],
-                                                 &#34;reason for rejection&#34;:[]})
+
         
         
         if load_thermo:
@@ -1465,6 +1464,7 @@ class AqEquil(object):
                  alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
+                 blanks_are_0=False,
                  strict_minimum_pressure=True,
                  aq_scale=1,
                  verbose=1,
@@ -1653,6 +1653,9 @@ class AqEquil(object):
         suppress_missing : bool, default True
             Suppress the formation of an aqueous species if it is missing a
             value in the user-supplied sample spreadsheet?
+
+        blanks_are_0 : bool, default False
+            Assume all blank values in the water chemistry input file are 0?
             
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
@@ -2068,9 +2071,14 @@ class AqEquil(object):
                                                water_model=water_model,
                                                verbose=self.verbose)
         
+        
         self._print_captured_r_output()
         
         self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+        
+        
+        if blanks_are_0:
+            self.df_input_processed = self.df_input_processed.fillna(1E-18)
         
         self.__mk_check_del_directory(&#39;rxn_3i&#39;)
         self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -2203,7 +2211,22 @@ class AqEquil(object):
             try:
                 with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                     lines=f.readlines()
-                self.raw_3_pickup_dict[samplename] = lines
+                    
+                # capture everything after &#34;start of the bottom half&#34;
+                top_half = []
+                bottom_half = []
+                capture = False
+                for line in lines:
+                    if &#34;Start of the bottom half of the input file&#34; in line:
+                        capture = True
+                    if capture:
+                        bottom_half.append(line)
+                    else:
+                        top_half.append(line)
+                        
+                self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+                self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+                
             except:
                 pass
             
@@ -2588,14 +2611,14 @@ class AqEquil(object):
         
         speciation.raw_3_input_dict = self.raw_3_input_dict
         speciation.raw_3_output_dict = self.raw_3_output_dict
-        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+        speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
         speciation.raw_6_input_dict = {}
         speciation.raw_6_output_dict = {}
         speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
-        speciation.df_rejected_species = self.df_rejected_species
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
         speciation.batch_P = self.batch_P
@@ -2845,11 +2868,11 @@ class AqEquil(object):
         if internal and len(self.logK_models.keys()) &gt; 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                if name not in list(self.df_rejected_species[&#34;name&#34;]):
+                if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                     msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                     self.err_handler.raise_exception(msg)
                 else:
-                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                    reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                     
                     msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                            &#34;plotted because it was rejected from the &#34;
@@ -3097,9 +3120,9 @@ class AqEquil(object):
             reject_names = list(free_logK_df.iloc[reject_indices][&#34;name&#34;])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            df_rejected_species = pd.DataFrame({&#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})
+            self.thermo.df_rejected_species = pd.concat([self.thermo.df_rejected_species, pd.DataFrame({&#39;database name&#39;:[self.thermo.logK_db_filename]*len(reject_indices), &#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})], ignore_index=True)
                         
-            return valid_sp_i, df_rejected_species
+            return valid_sp_i
             
             
     def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
@@ -3262,7 +3285,7 @@ class AqEquil(object):
             
             free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            valid_i = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
                 grid_or_sample_press,
@@ -4188,7 +4211,7 @@ class AqEquil(object):
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            exclude_category = self.AqEquil_instance.exclude_category
+            #exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
@@ -4200,6 +4223,11 @@ class AqEquil(object):
             self.eq36da = self.AqEquil_instance.eq36da
             self.eq36co = self.AqEquil_instance.eq36co
 
+            self.df_rejected_species = pd.DataFrame({&#39;database name&#39;:[],
+                                                     &#39;database index&#39;:[],
+                                                     &#34;name&#34;:[],
+                                                     &#34;reason for rejection&#34;:[]})
+            
             # active thermo db attributes
             self.thermo_db = None
             self.thermo_db_type = None
@@ -4268,6 +4296,7 @@ class AqEquil(object):
                     self._load_logK_S(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
             else:
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+                
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
@@ -4318,6 +4347,23 @@ class AqEquil(object):
                 input_template.to_csv(&#34;sample_input_template.csv&#34;, index=False)
 
 
+        def _remove_missing_G_species(self):
+            # remove species that are missing a gibbs free energy value.
+            # handle minerals first. Reject any that have missing G in any polymorph.
+            mineral_name_reject = list(set(self.csv_db[(self.csv_db[&#34;G&#34;].isnull()) &amp; (self.csv_db[&#39;state&#39;].str.contains(&#39;cr&#39;))][&#34;name&#34;]))
+            
+            idx = list(self.csv_db[self.csv_db[&#34;name&#34;].isin(mineral_name_reject)].index)
+
+            names = self.csv_db[&#34;name&#34;].loc[idx]
+
+            self.csv_db = self.csv_db[~self.csv_db[&#34;name&#34;].isin(mineral_name_reject)]
+
+            for i,name in enumerate(names):
+                d = pd.DataFrame({&#39;database name&#39;: [self.csv_db_filename], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;missing Gibbs free energy in at least one polymorph&#34;]})
+                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+            
+            # TODO: other states besides minerals
+                
         def _set_active_db(self, db=None, download_csv_files=False):
             &#34;&#34;&#34;
             Set the main active thermodynamic database to a CSV file, a data0 file,
@@ -4870,6 +4916,7 @@ class AqEquil(object):
 
             # Check that thermodynamic database input files exist and are formatted correctly.
             self._check_csv_db()
+            self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
 
@@ -4885,10 +4932,29 @@ class AqEquil(object):
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
                         print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
+                        
                     if isinstance(self.exclude_category[key], list):
+                        
+                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+                        
+                        names = df[&#34;name&#34;].loc[idx]
+                        
                         df = df[~df[key].isin(self.exclude_category[key])]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({&#39;database name&#39;: [df_name], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;excluded by user&#34;]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        
                     elif isinstance(self.exclude_category[key], str):
+                        
+                        idx = list(df[df[key] != self.exclude_category[key]].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
                         df = df[~df[key] != self.exclude_category[key]]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({&#39;database name&#39;: [df_name], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;excluded by user&#34;]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
                     else:
                         self.err_handler.raise_exception(&#34;The parameter exclude_category must either be a string or a list.&#34;)
             return df
@@ -5132,7 +5198,6 @@ class Speciation(object):
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -6407,9 +6472,9 @@ class Speciation(object):
         if chain_mt:
             raw_p_dict = self.raw_6_pickup_dict
         else:
-            raw_p_dict = self.raw_3_pickup_dict
+            raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
-        for sample_name in raw_p_dict.keys():
+        for sample_name in raw_p_dict_bottom.keys():
             sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
             
             if isinstance(filepath_6i, str):
@@ -6428,7 +6493,7 @@ class Speciation(object):
             if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
                 
-            lines_3p = raw_p_dict[sample_name]
+            lines_3p = raw_p_dict_bottom[sample_name]
             
             lines_to_keep = []
             for line in lines_6i:
@@ -7028,15 +7093,14 @@ energy supplies during speciation.</dd>
         
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
-        self.raw_3_pickup_dict = {}
+        self.raw_3_pickup_dict_bottom = {}
+        self.raw_3_pickup_dict_top = {}
         
         self.batch_T = []
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
-                                                 &#34;name&#34;:[],
-                                                 &#34;reason for rejection&#34;:[]})
+
         
         
         if load_thermo:
@@ -7801,6 +7865,7 @@ energy supplies during speciation.</dd>
                  alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
+                 blanks_are_0=False,
                  strict_minimum_pressure=True,
                  aq_scale=1,
                  verbose=1,
@@ -7989,6 +8054,9 @@ energy supplies during speciation.</dd>
         suppress_missing : bool, default True
             Suppress the formation of an aqueous species if it is missing a
             value in the user-supplied sample spreadsheet?
+
+        blanks_are_0 : bool, default False
+            Assume all blank values in the water chemistry input file are 0?
             
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
@@ -8404,9 +8472,14 @@ energy supplies during speciation.</dd>
                                                water_model=water_model,
                                                verbose=self.verbose)
         
+        
         self._print_captured_r_output()
         
         self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+        
+        
+        if blanks_are_0:
+            self.df_input_processed = self.df_input_processed.fillna(1E-18)
         
         self.__mk_check_del_directory(&#39;rxn_3i&#39;)
         self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -8539,7 +8612,22 @@ energy supplies during speciation.</dd>
             try:
                 with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                     lines=f.readlines()
-                self.raw_3_pickup_dict[samplename] = lines
+                    
+                # capture everything after &#34;start of the bottom half&#34;
+                top_half = []
+                bottom_half = []
+                capture = False
+                for line in lines:
+                    if &#34;Start of the bottom half of the input file&#34; in line:
+                        capture = True
+                    if capture:
+                        bottom_half.append(line)
+                    else:
+                        top_half.append(line)
+                        
+                self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+                self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+                
             except:
                 pass
             
@@ -8924,14 +9012,14 @@ energy supplies during speciation.</dd>
         
         speciation.raw_3_input_dict = self.raw_3_input_dict
         speciation.raw_3_output_dict = self.raw_3_output_dict
-        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+        speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
         speciation.raw_6_input_dict = {}
         speciation.raw_6_output_dict = {}
         speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
-        speciation.df_rejected_species = self.df_rejected_species
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
         speciation.batch_P = self.batch_P
@@ -9181,11 +9269,11 @@ energy supplies during speciation.</dd>
         if internal and len(self.logK_models.keys()) &gt; 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                if name not in list(self.df_rejected_species[&#34;name&#34;]):
+                if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                     msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                     self.err_handler.raise_exception(msg)
                 else:
-                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                    reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                     
                     msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                            &#34;plotted because it was rejected from the &#34;
@@ -9433,9 +9521,9 @@ energy supplies during speciation.</dd>
             reject_names = list(free_logK_df.iloc[reject_indices][&#34;name&#34;])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            df_rejected_species = pd.DataFrame({&#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})
+            self.thermo.df_rejected_species = pd.concat([self.thermo.df_rejected_species, pd.DataFrame({&#39;database name&#39;:[self.thermo.logK_db_filename]*len(reject_indices), &#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})], ignore_index=True)
                         
-            return valid_sp_i, df_rejected_species
+            return valid_sp_i
             
             
     def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
@@ -9598,7 +9686,7 @@ energy supplies during speciation.</dd>
             
             free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            valid_i = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
                 grid_or_sample_press,
@@ -10524,7 +10612,7 @@ energy supplies during speciation.</dd>
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            exclude_category = self.AqEquil_instance.exclude_category
+            #exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
@@ -10536,6 +10624,11 @@ energy supplies during speciation.</dd>
             self.eq36da = self.AqEquil_instance.eq36da
             self.eq36co = self.AqEquil_instance.eq36co
 
+            self.df_rejected_species = pd.DataFrame({&#39;database name&#39;:[],
+                                                     &#39;database index&#39;:[],
+                                                     &#34;name&#34;:[],
+                                                     &#34;reason for rejection&#34;:[]})
+            
             # active thermo db attributes
             self.thermo_db = None
             self.thermo_db_type = None
@@ -10604,6 +10697,7 @@ energy supplies during speciation.</dd>
                     self._load_logK_S(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
             else:
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+                
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
@@ -10654,6 +10748,23 @@ energy supplies during speciation.</dd>
                 input_template.to_csv(&#34;sample_input_template.csv&#34;, index=False)
 
 
+        def _remove_missing_G_species(self):
+            # remove species that are missing a gibbs free energy value.
+            # handle minerals first. Reject any that have missing G in any polymorph.
+            mineral_name_reject = list(set(self.csv_db[(self.csv_db[&#34;G&#34;].isnull()) &amp; (self.csv_db[&#39;state&#39;].str.contains(&#39;cr&#39;))][&#34;name&#34;]))
+            
+            idx = list(self.csv_db[self.csv_db[&#34;name&#34;].isin(mineral_name_reject)].index)
+
+            names = self.csv_db[&#34;name&#34;].loc[idx]
+
+            self.csv_db = self.csv_db[~self.csv_db[&#34;name&#34;].isin(mineral_name_reject)]
+
+            for i,name in enumerate(names):
+                d = pd.DataFrame({&#39;database name&#39;: [self.csv_db_filename], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;missing Gibbs free energy in at least one polymorph&#34;]})
+                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+            
+            # TODO: other states besides minerals
+                
         def _set_active_db(self, db=None, download_csv_files=False):
             &#34;&#34;&#34;
             Set the main active thermodynamic database to a CSV file, a data0 file,
@@ -11206,6 +11317,7 @@ energy supplies during speciation.</dd>
 
             # Check that thermodynamic database input files exist and are formatted correctly.
             self._check_csv_db()
+            self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
 
@@ -11221,10 +11333,29 @@ energy supplies during speciation.</dd>
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
                         print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
+                        
                     if isinstance(self.exclude_category[key], list):
+                        
+                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+                        
+                        names = df[&#34;name&#34;].loc[idx]
+                        
                         df = df[~df[key].isin(self.exclude_category[key])]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({&#39;database name&#39;: [df_name], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;excluded by user&#34;]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        
                     elif isinstance(self.exclude_category[key], str):
+                        
+                        idx = list(df[df[key] != self.exclude_category[key]].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
                         df = df[~df[key] != self.exclude_category[key]]
+                        
+                        for i,name in enumerate(names):
+                            d = pd.DataFrame({&#39;database name&#39;: [df_name], &#39;database index&#39;: [idx[i]], &#39;name&#39;: [name], &#39;reason for rejection&#39;: [&#34;excluded by user&#34;]})
+                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
                     else:
                         self.err_handler.raise_exception(&#34;The parameter exclude_category must either be a string or a list.&#34;)
             return df
@@ -11531,7 +11662,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-        valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+        valid_i = self.__get_i_of_valid_free_logK_sp(
             free_logK_df,
             grid_or_sample_temps,
             grid_or_sample_press,
@@ -12430,11 +12561,11 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
     if internal and len(self.logK_models.keys()) &gt; 0:
         # use internally calculated logK models already stored...
         if name not in self.logK_models.keys():
-            if name not in list(self.df_rejected_species[&#34;name&#34;]):
+            if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                 msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                 self.err_handler.raise_exception(msg)
             else:
-                reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                 
                 msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                        &#34;plotted because it was rejected from the &#34;
@@ -13030,7 +13161,7 @@ notebook.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, blanks_are_0=False, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -13188,6 +13319,8 @@ to have zero net charge.</dd>
 <dt><strong><code>suppress_missing</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Suppress the formation of an aqueous species if it is missing a
 value in the user-supplied sample spreadsheet?</dd>
+<dt><strong><code>blanks_are_0</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Assume all blank values in the water chemistry input file are 0?</dd>
 <dt><strong><code>strict_minimum_pressure</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Ensure that the minimum pressure in the speciation calculation does
 not go below the minimum pressure in the TP grid of the data0 file?</dd>
@@ -13304,6 +13437,7 @@ db_args = {
              alter_options=[],
              charge_balance_on=&#34;none&#34;,
              suppress_missing=True,
+             blanks_are_0=False,
              strict_minimum_pressure=True,
              aq_scale=1,
              verbose=1,
@@ -13492,6 +13626,9 @@ db_args = {
     suppress_missing : bool, default True
         Suppress the formation of an aqueous species if it is missing a
         value in the user-supplied sample spreadsheet?
+
+    blanks_are_0 : bool, default False
+        Assume all blank values in the water chemistry input file are 0?
         
     strict_minimum_pressure : bool, default True
         Ensure that the minimum pressure in the speciation calculation does
@@ -13907,9 +14044,14 @@ db_args = {
                                            water_model=water_model,
                                            verbose=self.verbose)
     
+    
     self._print_captured_r_output()
     
     self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+    
+    
+    if blanks_are_0:
+        self.df_input_processed = self.df_input_processed.fillna(1E-18)
     
     self.__mk_check_del_directory(&#39;rxn_3i&#39;)
     self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -14042,7 +14184,22 @@ db_args = {
         try:
             with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                 lines=f.readlines()
-            self.raw_3_pickup_dict[samplename] = lines
+                
+            # capture everything after &#34;start of the bottom half&#34;
+            top_half = []
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+                else:
+                    top_half.append(line)
+                    
+            self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+            self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+            
         except:
             pass
         
@@ -14427,14 +14584,14 @@ db_args = {
     
     speciation.raw_3_input_dict = self.raw_3_input_dict
     speciation.raw_3_output_dict = self.raw_3_output_dict
-    speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+    speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+    speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
     speciation.raw_6_input_dict = {}
     speciation.raw_6_output_dict = {}
     speciation.raw_6_pickup_dict = {}
     speciation.thermo = self.thermo
     speciation.data1 = self.data1
     
-    speciation.df_rejected_species = self.df_rejected_species
     speciation.logK_models = self.logK_models
     speciation.batch_T = self.batch_T
     speciation.batch_P = self.batch_P
@@ -14663,7 +14820,6 @@ speciation report.</dd>
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -15938,9 +16094,9 @@ speciation report.</dd>
         if chain_mt:
             raw_p_dict = self.raw_6_pickup_dict
         else:
-            raw_p_dict = self.raw_3_pickup_dict
+            raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
-        for sample_name in raw_p_dict.keys():
+        for sample_name in raw_p_dict_bottom.keys():
             sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
             
             if isinstance(filepath_6i, str):
@@ -15959,7 +16115,7 @@ speciation report.</dd>
             if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
                 
-            lines_3p = raw_p_dict[sample_name]
+            lines_3p = raw_p_dict_bottom[sample_name]
             
             lines_to_keep = []
             for line in lines_6i:
@@ -16350,9 +16506,9 @@ figure is simply displayed.</dd>
     if chain_mt:
         raw_p_dict = self.raw_6_pickup_dict
     else:
-        raw_p_dict = self.raw_3_pickup_dict
+        raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
         
-    for sample_name in raw_p_dict.keys():
+    for sample_name in raw_p_dict_bottom.keys():
         sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
         
         if isinstance(filepath_6i, str):
@@ -16371,7 +16527,7 @@ figure is simply displayed.</dd>
         if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
             lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
             
-        lines_3p = raw_p_dict[sample_name]
+        lines_3p = raw_p_dict_bottom[sample_name]
         
         lines_to_keep = []
         for line in lines_6i:
@@ -16588,11 +16744,11 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
     if internal and len(self.logK_models.keys()) &gt; 0:
         # use internally calculated logK models already stored...
         if name not in self.logK_models.keys():
-            if name not in list(self.df_rejected_species[&#34;name&#34;]):
+            if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                 msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                 self.err_handler.raise_exception(msg)
             else:
-                reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                 
                 msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                        &#34;plotted because it was rejected from the &#34;

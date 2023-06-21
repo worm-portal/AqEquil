@@ -26,17 +26,19 @@ Additionally, the CHNOSZ package must be installed in R (see instructions below)
 
 ### Installing EQ3/6 for Linux
 
-Installation instructions are packaged along with the Linux distribution of [EQ3/6 v8.0a](https://www-gs.llnl.gov/energy-homeland-security/geochemistry).
+I recommend using [this github version of EQ3/6 v.8.0a adapted by the 39Alpha team](https://github.com/39alpha/eq3_6/tree/main). Installation instructions are found there.
 
-Set the environment variable EQ36DA to the EQ3/6 database directory containing data1 files (the 'db' folder by default). Likewise, set EQ36CO to the directory with the eq3 executable (the 'bin' folder by default).
+Create an environment variable called `EQ36DO` and set it to wherever you installed EQ3/6. (`/usr/local/bin` by default). Set another environment variable called `EQ36DA` to the directory containing your data1 thermodynamic database files (if you have one).
 
-### Installing CHNOSZ
+### Installing CHNOSZ version 1.4.3
 
-Open an R session. Install the CHNOSZ package with:
+Open an R session. Install CHNOSZ version 1.4.3 package with:
 
-```install.packages("CHNOSZ")```
+```install.packages('http://cran.r-project.org/src/contrib/Archive/CHNOSZ/CHNOSZ_1.4.3.tar.gz', repos=NULL, type='source')```
 
 Once CHNOSZ is installed you can quit the R session.
+
+Compatibility with CHNOSZ v.2.0.0 is forthcoming.
 
 ### Installing AqEquil
 
