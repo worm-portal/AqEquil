@@ -1111,7 +1111,9 @@ class AqEquil(object):
             except:
                 self.err_handler.raise_exception("Error: could not move", path_3i+"/"+file_3o, "to", path_3o+"/"+filename_3o)
         else:
-            self.err_handler.raise_exception("Error: multiple output files detected for one speciation calculation.")
+            # multiple 3o output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3o files
+            pass
             
         if len(files_3p) == 0:
             if self.verbose > 0:
@@ -1124,8 +1126,9 @@ class AqEquil(object):
             except:
                 self.err_handler.raise_exception("Error: could not move", path_3i+"/"+file_3p, "to", path_3p+"/"+filename_3p)
         else:
-            self.err_handler.raise_exception("Error: multiple pickup files detected for one speciation calculation.")
-
+            # multiple 3p output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3p files
+            pass
                     
     def runeq6(self,
                filename_6i,

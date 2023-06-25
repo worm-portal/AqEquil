@@ -915,11 +915,12 @@ class Mass_Transfer:
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
             for i,fig in enumerate(fig_list):
+                
                 if isinstance(xyb, list):
                     name_append = ""
                 else:
                     name_append = "_{}".format(i+1)
-                save_as, save_format = dummy_sp._save_figure(fig,
+                _, _ = dummy_sp._save_figure(fig,
                         save_as+name_append, save_format, save_scale,
                         plot_width, plot_height, ppi)
         
@@ -1241,6 +1242,11 @@ class Mass_Transfer:
 
         xlab,ylab = self.__get_xy_labs(basis_species_x, basis_species_y)
         
+        np.seterr(divide='ignore') # todo: reset np warnings
+        log_xi_vals = [round(np.log10(val), 4) for val in xi_vals]
+        log_xi_vals = ["N/A" if np.isinf(val) else val for val in log_xi_vals]
+        
+        
         if path_line_type in ["markers+lines", "lines"]:
             fig.add_trace(
                 go.Scatter(
@@ -1250,8 +1256,8 @@ class Mass_Transfer:
                     mode='lines',
                     showlegend=True,
                     name='reaction path',
-                    text = xi_vals,
-                    hovertemplate = 'Xi = %{text}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
+                    customdata = np.stack((xi_vals, log_xi_vals), axis=-1),
+                    hovertemplate = 'Xi: %{customdata[0]}<br>log Xi: %{customdata[1]}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
                     legendgroup='reaction path',
                 )
             )
@@ -1274,6 +1280,13 @@ class Mass_Transfer:
                     x_vals_projected.append(x_vals[i])
                     y_vals_projected.append(y_vals[i])
                     xi_vals_projected.append(xi_vals[i])
+                    
+            np.seterr(divide='ignore') # todo: reset np warnings
+            log_xi_vals_real = [round(np.log10(val), 4) for val in xi_vals_real]
+            log_xi_vals_real = ["N/A" if np.isinf(val) else val for val in log_xi_vals_real]
+            log_xi_vals_projected = [round(np.log10(val), 4) for val in xi_vals_projected]
+            log_xi_vals_projected = ["N/A" if np.isinf(val) else val for val in log_xi_vals_projected]
+                    
             if len(x_vals_real) > 0:
                 fig.add_trace(
                     go.Scatter(
@@ -1289,12 +1302,13 @@ class Mass_Transfer:
                         mode='markers',
                         showlegend=False,
                         name='reaction path',
-                        text = xi_vals_real,
-                        hovertemplate = 'Xi = %{text}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
+                        customdata = np.stack((xi_vals_real, log_xi_vals_real), axis=-1),
+                        hovertemplate = 'Xi: %{customdata[0]}<br>log Xi: %{customdata[1]}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
                         legendgroup='reaction path',
                     )
                 )
             if len(x_vals_projected) > 0:
+                
                 fig.add_trace(
                     go.Scatter(
                         x=x_vals_projected,
@@ -1309,8 +1323,8 @@ class Mass_Transfer:
                         mode='markers',
                         showlegend=False,
                         name='reaction path',
-                        text = xi_vals_projected,
-                        hovertemplate = 'Xi = %{text}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
+                        customdata = np.stack((xi_vals_projected, log_xi_vals_projected), axis=-1),
+                        hovertemplate = 'Xi: %{customdata[0]}<br>log Xi: %{customdata[1]}<br>'+xlab+': %{x}<br>'+ylab+': %{y}<extra></extra>',
                         legendgroup='reaction path',
                     )
                 )
@@ -1556,7 +1570,7 @@ class Mass_Transfer:
 
     
     def plot_elements(self, units="molality", log=True,
-                      plot_width=4, plot_height=3, ppi=122,
+                      plot_width=4, plot_height=3, ppi=122, ylim=None,
                       save_as=None, save_format=None, save_scale=1):
         
         """
@@ -1579,6 +1593,9 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -1659,6 +1676,9 @@ class Mass_Transfer:
 
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+            
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
 
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
@@ -1670,7 +1690,7 @@ class Mass_Transfer:
     
     
     def plot_pH(self, x_type="log_xi", title=None, plot_width=4, plot_height=3,
-                ppi=122, save_as=None, save_format=None, save_scale=1):
+                ppi=122, ylim=None, save_as=None, save_format=None, save_scale=1):
         
         """
         Generate a line plot of pH as a function of the log of the extent of
@@ -1691,6 +1711,26 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -1737,6 +1777,9 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+            
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
             save_as, save_format = dummy_sp._save_figure(fig,
@@ -1748,8 +1791,9 @@ class Mass_Transfer:
     
     def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
                               y_type="mole", log_y=True, df_out=False,
-                              plot_width=4, plot_height=3, ppi=122, show_legend=True,
-                              save_as=None, save_format=None, save_scale=1):
+                              plot_width=4, plot_height=3, ppi=122, ylim=None,
+                              show_legend=True, save_as=None, save_format=None,
+                              save_scale=1):
         
         """
         Generate a line plot of the log moles of product minerals as a
@@ -1780,6 +1824,26 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
             
         Returns
         -------
@@ -1892,6 +1956,9 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
         
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+        
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
             save_as, save_format = dummy_sp._save_figure(fig,
@@ -1908,7 +1975,7 @@ class Mass_Transfer:
     
     def plot_aqueous_species(self, plot_basis=False, plot_species=None,
                              initially_visible=None, show_legend=True,
-                             plot_width=4, plot_height=3, ppi=122,
+                             plot_width=4, plot_height=3, ppi=122, ylim=None,
                              save_as=None, save_format=None, save_scale=1,):
         
         """
@@ -1939,6 +2006,9 @@ class Mass_Transfer:
         ppi : numeric, default 122
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -2021,6 +2091,9 @@ class Mass_Transfer:
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+            
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
             save_as, save_format = dummy_sp._save_figure(fig,
