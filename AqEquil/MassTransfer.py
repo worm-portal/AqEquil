@@ -7,7 +7,7 @@ from chemparse import parse_formula
 import copy
 import os
 import shutil
-from math import log10
+from math import log10, isnan
 import itertools
 from operator import itemgetter
 import re
@@ -759,7 +759,7 @@ class Mass_Transfer:
                                                 projected_points=["real"]*self.moles_product_minerals.shape[0],
                                                 first_pass=False)
         
-            return [fig]
+            fig_list = [fig]
         
         elif len(all_elements_of_interest) >= 3:
 
@@ -1242,9 +1242,9 @@ class Mass_Transfer:
 
         xlab,ylab = self.__get_xy_labs(basis_species_x, basis_species_y)
         
-        np.seterr(divide='ignore') # todo: reset np warnings
-        log_xi_vals = [round(np.log10(val), 4) for val in xi_vals]
-        log_xi_vals = ["N/A" if np.isinf(val) else val for val in log_xi_vals]
+        with np.errstate(divide='ignore'):
+            log_xi_vals = [round(np.log10(val), 4) for val in xi_vals]
+            log_xi_vals = ["N/A" if np.isinf(val) else val for val in log_xi_vals]
         
         
         if path_line_type in ["markers+lines", "lines"]:
@@ -1790,7 +1790,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
-                              y_type="mole", log_y=True, df_out=False,
+                              y_type="mole", log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
                               save_scale=1):
@@ -1816,6 +1816,9 @@ class Mass_Transfer:
             Should a dataframe of values also be returned? For example, if
             `y_type` is set to 'volume', should a table of mineral volumes be
             returned?
+            
+        markers : bool, default True
+            Add circular markers to lines to indicate calculation steps?
             
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -1859,11 +1862,6 @@ class Mass_Transfer:
         xlab = "log Xi"
         xvar = "log Xi"
         
-        if log_y:
-            log_text = "log "
-        else:
-            log_text = ""
-        
         if show_reactant_minerals:
             df = copy.deepcopy(self.moles_minerals)
             title = "{} of reactant and product minerals"
@@ -1871,7 +1869,12 @@ class Mass_Transfer:
         else:
             df = copy.deepcopy(self.moles_product_minerals)
             title = "{} of product minerals"
-        
+            
+        if log_y:
+            log_text = "log "
+        else:
+            log_text = ""
+
         # sort in order of appearance along Xi
         sort_order = list(self.moles_minerals.columns)
             
@@ -1935,24 +1938,60 @@ class Mass_Transfer:
 
         df["value"] = pd.to_numeric(df["value"])
         df["value"] = df["value"].fillna(0)
-        df["value"] = df["value"].replace(0, np.nan)
         
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
             if log_y:
+                df["value"] = df["value"].replace(0, np.nan)
                 df['value'] = np.log10(df['value'])
-            
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
-                              width=plot_width*ppi,  height=plot_height*ppi,
-                              labels=dict(value=ylab, x=xlab), render_mode='svg',
-                             )
+                      width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
+                      labels=dict(value=ylab, x=xlab), render_mode='svg',
+                      )
+        
+        df_to_return = copy.deepcopy(df)
+        
+        # add lines that go to -9999 (representing -Inf) in log y plots
+        if log_y:
+            if not isinstance(ylim, list):
+                # grab the automatic y-axis range from the plot, above
+                full_fig = fig.full_figure_for_development(warn=False)
+                ylim = list(full_fig.layout.yaxis.range)
+                
+            # add new rows
+            for irow in range(0, df.shape[0]):
+                if not isnan(df["value"].iloc[irow]) and irow != 0 and irow != df.shape[0]-1:
+                    if isnan(df["value"].iloc[irow-1]):
+                        new_row = pd.DataFrame({"Xi":df.loc[irow-1, "Xi"], "log Xi":df.loc[irow-1, "log Xi"], "variable":df.loc[irow-1, "variable"], "value":df.loc[irow-1, "value"]}, index=[irow-1])
+                        df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
+                        irow=0
+                    if isnan(df["value"].iloc[irow+1]):
+                        new_row = pd.DataFrame({"Xi":df.loc[irow+1, "Xi"], "log Xi":df.loc[irow+1, "log Xi"], "variable":df.loc[irow+1, "variable"], "value":df.loc[irow+1, "value"]}, index=[irow+1])
+                        df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
+                        irow=0
+            
+            # fill new rows with -9999 value
+            for irow in range(0, df.shape[0]):
+                if not isnan(df["value"].iloc[irow]) and irow != 0 and irow != df.shape[0]-1:
+                    if isnan(df["value"].iloc[irow-1]):
+                        df.loc[irow-1, "value"] = -9999
+                    if isnan(df["value"].iloc[irow+1]):
+                        df.loc[irow+1, "value"] = -9999
+                        
+            # re-create the plot with log values down to -9999. This will screw up the
+            # automatic y-axis range, but we grabbed it from the first generated plot.
+            # We will reset the range in update_layout(yaxis_range) a little later.
+            fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
+                          width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
+                          labels=dict(value=ylab, x=xlab), render_mode='svg',
+                          )
 
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
                           legend_title=None,
                           showlegend=show_legend)
-
+        
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
         
@@ -1966,9 +2005,9 @@ class Mass_Transfer:
                     plot_width, plot_height, ppi)
         
         if df_out:
-            df = pd.pivot_table(df, index='log Xi', columns='variable', values='value').reset_index()
-            df.columns = [col for col in df.columns[:]] # make index column name blank
-            return df, fig
+            df_to_return = pd.pivot_table(df_to_return, index='log Xi', columns='variable', values='value').reset_index()
+            df_to_return.columns = [col for col in df_to_return.columns[:]] # make index column name blank
+            return df_to_return, fig
         else:
             return fig
 
