@@ -384,8 +384,6 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     # error handling in case a suitable basis species cannot be found
     errcheck(length(basis_list[[elem]]) == 0, me=paste0("A suitable basis species could be found to represent the element ", elem, "."))
   }
-         
-print("C")
                             
   # further narrow down the list of potential basis species by grabbing the basis species
   # with the fewest elements+charge from available basis species. In the end there should
@@ -406,7 +404,7 @@ print("C")
                   ". Are necessary basis species being excluded?")
     stop(msg)
   }
-print("D")    
+ 
   simplest_basis <- c()
   for(elem in basis_elem){
     form <- lapply(info(info(basis_list[[elem]]))$formula, makeup)
@@ -421,10 +419,10 @@ print("D")
 
   dissrxns <- lapply(sp_name, spec_diss, simplest_basis, sp_formula_makeup,
                      HOZ_balancers, redox_elem_states, aux_pref, thermo_df, verbose)
-   
-print("E")
   names(dissrxns) <- sp_name
+                            
   dissrxns[["basis_list"]] <- simplest_basis
+                            
   return(dissrxns)
 
 }
@@ -433,7 +431,7 @@ print("E")
 # (meant to lapply this over all species names)
 spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
                       redox_elem_states, aux_pref, thermo_df=NULL, verbose=2){
-    
+
   # determine a balanced dissociation reaction into basis species
 
   # get the elemental composition
@@ -455,6 +453,28 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
   if(!is.null(thermo_df)){
       
     sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"][1]
+
+    if(sp_formula_ox=="nan"){
+      # Triggers when there is no value given in the formula_ox column in
+      # thermo_df for this species.
+
+      basis(c(unlist(simplest_basis), "H+")) # TODO: this may fail depending on the strict basis species within thermo_df
+      out <- subcrt(c(sp), c(-1))
+        
+      coeffs <- out$reaction$coeff
+      names <- out$reaction$name
+        
+      for(i in 1:length(coeffs)){
+        if(i == 1){
+          sp_dissrxn <- paste(sprintf("%.4f", round(coeffs[i], 4)), names[i])
+        }else{
+          sp_dissrxn <- paste(sp_dissrxn, sprintf("%.4f", round(coeffs[i], 4)), names[i])
+        }
+      }
+      
+      return(sp_dissrxn)
+    }
+      
       
     for(elem in basis_elem){
         
@@ -583,7 +603,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
       chosen_basis[[elem]] <- tapply(unlist(chosen_basis[[elem]]), names(unlist(chosen_basis[[elem]])), sum)
     }
   }
-
+    
 #   print(sp)
 #   print("Chosen basis")
 #   print(chosen_basis)
@@ -653,16 +673,18 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     }
   }
   elem_ox <- unique(elem_ox)
+  elem_ox = elem_ox[ !elem_ox == 'nan']
     
   # create pseudoelement names
   redox_elem_states <- list()
   for(elem in suppress_redox){
+      
     # check for multiple oxidation states for this element in thermo_df$formula_ox
     elem_ox_match <- unlist(lapply(lapply(makeup(elem_ox), FUN=names), `[`, 1)) # remove 'Z' in makeup()
     redox_entry <- c()
 
     matches <- elem_ox[elem_ox_match == elem]
-
+      
     for(match in matches){
       if(grepl("\\+", match)){
         mag <- tolower(as.roman(as.numeric(strsplit(match, "\\+")[[1]][2])))
@@ -683,7 +705,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     redox_elem_states[[elem]] <- redox_entry
 
   }
-
+    
   # use element dataframe
   thermo(element = element_df)
     
@@ -703,12 +725,12 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       suppressMessages(thermo(element=new))
     }
   }
-    
+
   known_species <- to_vec(for(i in 1:length(known_oxstates)) paste0(names(known_oxstates)[i], known_oxstates[i]))
                       
   thermo_df["formula_modded"] <- thermo_df["formula"]
   thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]
-                      
+                          
   # create pseudoelements and assign to molecular formulae
   if(length(suppress_redox) > 0){
 
@@ -875,7 +897,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   basis_pref <- basis_df[, "name"]
                                    
   basis_pref_elements <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
-                                   
+
   # handle the possibility of a basis species with more than one non-OH element,
   # e.g., glycine as a basis species has C and N.
   for(i in 1:length(basis_pref_elements)){
@@ -934,7 +956,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   basis_pref["Cl"] <- "Cl-"
   basis_pref["H"] <- "H2O"
   basis_pref["O"] <- "O2(g)"
-  
+                                   
   # handle the rest of the preferred basis species, e.g.,
   # define basis species for redox pseudoelements
   # basis_pref["Feiii"] <- "Fe+3"

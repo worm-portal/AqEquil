@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -5452,6 +5452,7 @@ class Speciation(object):
                                              'lasso2d', 'zoomIn2d', 'zoomOut2d',
                                              'autoScale2d', 'resetScale2d',
                                              'toggleSpikelines'],
+                  
                   'toImageButtonOptions': {
                                              'format': save_format, # one of png, svg, jpeg, webp
                                              'filename': save_as,

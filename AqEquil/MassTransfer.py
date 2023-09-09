@@ -1571,6 +1571,7 @@ class Mass_Transfer:
     
     def plot_elements(self, units="molality", log=True,
                       plot_width=4, plot_height=3, ppi=122, ylim=None,
+                      show_legend=True,
                       save_as=None, save_format=None, save_scale=1):
         
         """
@@ -1670,6 +1671,7 @@ class Mass_Transfer:
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
                           legend_title=None,
+                          showlegend=show_legend,
                           yaxis={'showexponent': 'all',
                                  'exponentformat': 'power'},
                          )
@@ -2705,7 +2707,7 @@ class Mixing_Fluid:
                 element = split_line[2].strip()
                 value = float(split_line[3])
                 fluid_2_dict[element] = value
-                    
+            
             self.reactant = Reactant(reactant_name="Fluid 2",
                                      reactant_type="Special reactant",
                                      special_reactant_dict=fluid_2_dict,
