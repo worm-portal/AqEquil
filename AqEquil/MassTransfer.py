@@ -247,6 +247,7 @@ def react(speciation,
                     capture = True
                 if capture:
                     bottom_half.append(line)
+            
             speciation.raw_6_pickup_dict[sample_name] = bottom_half
             
         except:

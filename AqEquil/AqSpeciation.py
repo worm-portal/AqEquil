@@ -6446,7 +6446,7 @@ class Speciation(object):
             os.makedirs(path)
             
         if chain_mt:
-            raw_p_dict = self.raw_6_pickup_dict
+            raw_p_dict_bottom = self.raw_6_pickup_dict
         else:
             raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
