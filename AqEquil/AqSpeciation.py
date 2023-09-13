@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -220,7 +220,7 @@ def _clean_rpy2_pandas_conversion(
                     "V", "a1.a", "a2.b",
                     "a3.c", "a4.d", "c1.e",
                     "c2.f", "omega.lambda", "z.T",
-                    "azero", "neutral_ion_type",
+                    "azero", "neutral_ion_type", "regenerate_dissrxn",
                     "logK1", "logK2", "logK3", "logK4",
                     "logK5", "logK6", "logK7", "logK8",
                     "T1", "T2", "T3", "T4", "T5", "T6",
@@ -228,6 +228,7 @@ def _clean_rpy2_pandas_conversion(
         str_cols=["name", "abbrv", "state", "formula",
                   "ref1", "ref2", "date",
                   "E_units", "tag", "dissrxn", "formula_ox",
+                  "formula_modded", "formula_ox_modded", 
                   "P1", "P2", "P3", "P4", "P5", "P6",
                   "P7", "P8"],
         NA_string=""):
@@ -3329,7 +3330,7 @@ class AqEquil(object):
             print("Finished creating data0.{}.".format(db))
             
 
-    def make_redox_reactions(self, db=None, redox_pairs="all", auto_load_db=True):
+    def make_redox_reactions(self, redox_pairs="all"):
         
         """
         Generate an organized collection of redox reactions for calculating
@@ -3337,19 +3338,6 @@ class AqEquil(object):
         
         Parameters
         ----------
-        db : str
-            Determines which thermodynamic database is used in the speciation
-            calculation. The database must be a CSV file (not a data0file)
-            because the code must look up properties of chemical species to
-            calculate affinities and energy supplies of reactions.
-            The `db` parameter can either be:
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., "wrm_data.csv". The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-        
         redox_pairs : list of int or "all", default "all"
             List of indices of half reactions in the half cell reaction table
             to be combined when generating full redox reactions.
@@ -3359,35 +3347,12 @@ class AqEquil(object):
             If "all", generate all possible redox reactions from available half
             cell reactions.
         
-        auto_load_db : bool, default True
-            Automatically download and use a WORM-styled CSV if the currently
-            active thermodynamic database does not support affinity and energy
-            supply calculations? If True, the most up-to-date copy of the
-            wrm_data.csv will be downloaded from the URL
-            https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
-            and set as the active thermodynamic database.
-        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         """
-        
-        if db != None:
-            self.thermo._set_active_db(db)
-            
-        if self.thermo.thermo_db_type != "CSV":
-            if self.verbose > 0:
-                if auto_load_db:
-                    print("Warning: Redox reactions require a WORM-styled thermodynamic database CSV file.")
-                else:
-                    self.err_handler.raise_exception("Error: Redox reactions require a WORM-styled CSV file as the active thermodynamic database.")
-            
-            if auto_load_db:
-                if self.verbose > 0:
-                    print("Warning: switching thermodynamic database from", str(self.thermo.thermo_db_filename), "to wrm_data.csv...")
-                self.thermo._set_active_db(db="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv")
-            
+
         db = self.thermo.db
         
         # reset all redox variables stored in the AqEquil class
@@ -3808,7 +3773,7 @@ class AqEquil(object):
         for i in range(0, len(all_reax['Temp_Pairs'])):
             pair_list.append([redox_pairs[all_reax.loc[i, 'Temp_Pairs'][0]], redox_pairs[all_reax.loc[i, 'Temp_Pairs'][1]]])
         all_reax['pairs'] = pair_list
-
+        
         new_elements = []
         for r in range(0, len(all_reax['rO'])):
             for e in elements:
@@ -5040,7 +5005,8 @@ class AqEquil(object):
 
             thermo_df = self.out_list.rx2("thermo_df")
             thermo_df=ro.conversion.rpy2py(thermo_df)
-
+            
+            
     #         regenerated_dissrxns = out_list.rx2("dissrxns")
     #         regenerated_dissrxn_dict = {}
     #         for name in regenerated_dissrxns.names:

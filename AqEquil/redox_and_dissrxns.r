@@ -336,7 +336,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   }
                    
   basis_elem <- unique(basis_elem)   
-                   
+
   sp <- thermo_df
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
@@ -727,7 +727,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   }
 
   known_species <- to_vec(for(i in 1:length(known_oxstates)) paste0(names(known_oxstates)[i], known_oxstates[i]))
-                      
+      
   thermo_df["formula_modded"] <- thermo_df["formula"]
   thermo_df["formula_ox_modded"] <- thermo_df["formula_ox"]
                           
