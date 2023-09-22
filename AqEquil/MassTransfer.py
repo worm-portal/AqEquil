@@ -340,6 +340,7 @@ class Mass_Transfer:
             self.df_cr = self.df[self.df["state"] == 'cr']
         
         # these operations only require a 6o file
+        self.misc_params = self.tab["Table B1 Miscellaneous parameters I"] # warning: may cause Xi mismatch between tab and 6o! Test.
         self.aq_distribution = self.__get_aq_distribution()
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
@@ -350,6 +351,11 @@ class Mass_Transfer:
             # In this case, just assume these tables are equal.
             self.moles_minerals = self.moles_product_minerals
         
+        # join temperature column to other tables
+        self.aq_distribution["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
+        self.moles_minerals["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
+        self.moles_product_minerals["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
+
         
     def mine_6o_table(self,
                       table_start="--- Distribution of Aqueous Solute Species ---",
@@ -1702,7 +1708,8 @@ class Mass_Transfer:
         Parameters
         ----------
         x_type : str, default "log_xi"
-            Variable to appear on the x-axis. Can be either "log_xi" or "xi".
+            Variable to appear on the x-axis. Can be either "log_xi", "xi",
+            or "temperature".
         
         title : str
             Title of the plot to display.
@@ -1743,8 +1750,8 @@ class Mass_Transfer:
 
         df = self.aq_distribution
 
-        df = pd.melt(df, id_vars="Xi", value_vars=["H+"])
-        df.columns = ["Xi", "variable", "value"]
+        df = pd.melt(df, id_vars=["Xi", "Temp(C)"], value_vars=["H+"])
+        df.columns = ["Xi", "Temp(C)", "variable", "value"]
         
         df["variable"] = "pH"
 
@@ -1762,21 +1769,24 @@ class Mass_Transfer:
         elif x_type == "xi":
             xlab = "Xi"
             xvar = "Xi"
+        elif x_type == "temperature":
+            xlab = "Temp(C)"
+            xvar = "Temp(C)"
         else:
             self.err_handler.raise_exception(("x_type must be set to either "
-                "'log_xi' or 'xi'"))
+                "'log_xi', 'xi', or 'temperature'."))
         
         ylab = "pH"
 
         fig = px.line(df, x=xvar, y="value", template="simple_white",
-                              width=plot_width*ppi,  height=plot_height*ppi,
-                              labels=dict(value=ylab, x=xlab), render_mode='svg',
-                             )
+                      width=plot_width*ppi,  height=plot_height*ppi,
+                      labels=dict(value=ylab, x=xlab), render_mode='svg',
+                      )
 
         fig.update_layout(xaxis_title=xlab,
                           yaxis_title=ylab,
                           showlegend=False)
-
+        
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
@@ -1792,8 +1802,9 @@ class Mass_Transfer:
         return fig
     
     
-    def plot_product_minerals(self, show_reactant_minerals=False, plot_minerals=None,
-                              y_type="mole", log_y=True, df_out=False, markers=False,
+    def plot_product_minerals(self, show_reactant_minerals=False,
+                              plot_minerals=None, x_type="log_xi", y_type="mole",
+                              log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
                               save_scale=1):
@@ -1806,6 +1817,14 @@ class Mass_Transfer:
         ----------
         show_reactant_minerals : bool, default False
             Include log moles of reactant minerals?
+            
+        plot_minerals : list, optional
+            List of minerals to plot. Useful for isolating one or more
+            minerals.
+            
+        x_type : str, default "log_xi"
+            Variable to appear on the x-axis. Can be either "log_xi", "xi",
+            or "temperature".
             
         y_type : str, default 'mole'
             The variable to plot on the y-axis. Can be either 'mole' (for moles
@@ -1880,6 +1899,8 @@ class Mass_Transfer:
 
         # sort in order of appearance along Xi
         sort_order = list(self.moles_minerals.columns)
+        
+        sort_order = [v for v in sort_order if v not in self.misc_params.columns]
             
         if y_type == "mole":
             ylab = "{}moles".format(log_text)
@@ -1892,12 +1913,11 @@ class Mass_Transfer:
         elif y_type == "volume":
             ylab = "{}cm<sup>3</sup>".format(log_text)
             title = title.format("Volumes")
-            temps = self.tab["Table B1 Miscellaneous parameters I"]["Temp(C)"]
+            temps = df["Temp(C)"]
             
             # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
             # in order to continue.
             if df.shape[0] == len(temps):
-                df["Temp(C)"] = temps
                 minerals = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
                     
                 for i,T in enumerate(temps):
@@ -1927,26 +1947,40 @@ class Mass_Transfer:
             
         
         plot_columns = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
+
         if isinstance(plot_minerals, list):
             plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
             plot_columns = plot_columns_temp
             
         plot_columns = sorted(plot_columns, key=sort_order.index)
             
-        df = pd.melt(df, id_vars="Xi", value_vars=plot_columns)
-        df.columns = ["Xi", "variable", "value"]
+        df = pd.melt(df, id_vars=["Xi", "Temp(C)"], value_vars=plot_columns)
+        df.columns = ["Xi", "Temp(C)", "variable", "value"]
         df = df[df["variable"] != "None"]
 
         df["Xi"] = pd.to_numeric(df["Xi"])
 
         df["value"] = pd.to_numeric(df["value"])
         df["value"] = df["value"].fillna(0)
-        
+
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
             if log_y:
                 df["value"] = df["value"].replace(0, np.nan)
                 df['value'] = np.log10(df['value'])
+        
+        if x_type == "log_xi":
+            xlab = "log Xi"
+            xvar = "log Xi"
+        elif x_type == "xi":
+            xlab = "Xi"
+            xvar = "Xi"
+        elif x_type == "temperature":
+            xlab = "Temp(C)"
+            xvar = "Temp(C)"
+        else:
+            self.err_handler.raise_exception(("x_type must be set to either "
+                "'log_xi', 'xi', or 'temperature'."))
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                       width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
@@ -1966,11 +2000,11 @@ class Mass_Transfer:
             for irow in range(0, df.shape[0]):
                 if not isnan(df["value"].iloc[irow]) and irow != 0 and irow != df.shape[0]-1:
                     if isnan(df["value"].iloc[irow-1]):
-                        new_row = pd.DataFrame({"Xi":df.loc[irow-1, "Xi"], "log Xi":df.loc[irow-1, "log Xi"], "variable":df.loc[irow-1, "variable"], "value":df.loc[irow-1, "value"]}, index=[irow-1])
+                        new_row = pd.DataFrame({"Xi":df.loc[irow-1, "Xi"], "log Xi":df.loc[irow-1, "log Xi"], "Temp(C)":df.loc[irow-1, "Temp(C)"], "variable":df.loc[irow-1, "variable"], "value":df.loc[irow-1, "value"]}, index=[irow-1])
                         df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
                         irow=0
                     if isnan(df["value"].iloc[irow+1]):
-                        new_row = pd.DataFrame({"Xi":df.loc[irow+1, "Xi"], "log Xi":df.loc[irow+1, "log Xi"], "variable":df.loc[irow+1, "variable"], "value":df.loc[irow+1, "value"]}, index=[irow+1])
+                        new_row = pd.DataFrame({"Xi":df.loc[irow+1, "Xi"], "log Xi":df.loc[irow+1, "log Xi"], "Temp(C)":df.loc[irow+1, "Temp(C)"], "variable":df.loc[irow+1, "variable"], "value":df.loc[irow+1, "value"]}, index=[irow+1])
                         df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
                         irow=0
             
