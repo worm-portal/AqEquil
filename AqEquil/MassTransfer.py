@@ -341,7 +341,14 @@ class Mass_Transfer:
         
         # these operations only require a 6o file
         self.misc_params = self.tab["Table B1 Miscellaneous parameters I"] # warning: may cause Xi mismatch between tab and 6o! Test.
-        self.aq_distribution = self.__get_aq_distribution()
+        self.dissolved_elements_molal = self.tab["Table C1 Dissolved elements(molality)"]
+        self.dissolved_elements_ppm = self.tab["Table C2 Dissolved elements(ppm: mg/kg.sol)"]
+        self.basis_logact = self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"]
+        
+        self.misc_params = self.misc_params.apply(pd.to_numeric)
+        self.aq_distribution_logact = self.__get_aq_distribution(unit="log activity")
+        self.aq_distribution_molal = self.__get_aq_distribution(unit="molality")
+        self.aq_distribution_logmolal = self.__get_aq_distribution(unit="log molality")
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
         
@@ -350,13 +357,7 @@ class Mass_Transfer:
             # that combine reactant and product minerals (because there is no reactant mineral).
             # In this case, just assume these tables are equal.
             self.moles_minerals = self.moles_product_minerals
-        
-        # join temperature column to other tables
-        self.aq_distribution["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
-        self.moles_minerals["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
-        self.moles_product_minerals["Temp(C)"] = [float(t) for t in self.misc_params["Temp(C)"]]
 
-        
     def mine_6o_table(self,
                       table_start="--- Distribution of Aqueous Solute Species ---",
                       table_stop="Species with molalities less than",
@@ -436,7 +437,23 @@ class Mass_Transfer:
                     if len(i.strip().split(' ')) > 2 and i.strip().split(' ')[0] == s:
                         split_i = i.strip().split(' ')
                         split_i_clean = [v for v in split_i if v != '']
-                        vals.append(float(split_i_clean[col_index]))
+                        val = split_i_clean[col_index]
+                        try:
+                            val = float(val)
+                        except:
+                            # if a value is not a float, e.g., 3.1450-100
+                            if "-" in val:
+                                val_list = val.split("-")
+                                val = "".join([val_list[0], "E-", val_list[1]])
+                            elif "+" in val:
+                                val_list = val.split("+")
+                                val = "".join([val_list[0], "E", val_list[1]])
+                            else:
+                                self.err_handler.raise_exception(("Error: "
+                                    "Encountered a non-numeric value when mining "
+                                    "a .6o file: "+val))
+                            val = float(val)
+                        vals.append(val)
                         got_value = True
             species_dict[s] = vals
         
@@ -446,7 +463,7 @@ class Mass_Transfer:
             df = df.drop(['None'], axis=1)
         
         return df
-    
+
     
     def __get_inactive_species(self):
         
@@ -476,16 +493,21 @@ class Mass_Transfer:
         return vals
         
         
-    def __get_aq_distribution(self):
+    def __get_aq_distribution(self, unit="log activity"):
+        
+        if unit == "log activity":
+            col_index = -1
+        elif unit == "molality":
+            col_index = 1
+        elif unit == "log molality":
+            col_index = 2
         
         return self.mine_6o_table(
                       table_start="--- Distribution of Aqueous Solute Species ---",
                       table_stop="Species with molalities less than",
                       ignore = ["", "Species", '---'],
-                      col_index=-1)
- 
-        
- 
+                      col_index=col_index)
+
     def __get_moles_minerals(self):
         
         return self.mine_6o_table(
@@ -1093,10 +1115,10 @@ class Mass_Transfer:
     
     def __get_reaction_path(self, plot_basis_x, plot_basis_y, div_var_name):
 
-        xi_vals=self.aq_distribution["Xi"]
-        proton_vals=self.aq_distribution["H+"]
-        x_vals=self.aq_distribution[plot_basis_x]
-        y_vals=self.aq_distribution[plot_basis_y]
+        xi_vals=self.aq_distribution_logact["Xi"]
+        proton_vals=self.aq_distribution_logact["H+"]
+        x_vals=self.aq_distribution_logact[plot_basis_x]
+        y_vals=self.aq_distribution_logact[plot_basis_y]
 
         assert len(proton_vals) == len(x_vals), f"number of proton values ({proton_vals}) should equal number of x values ({x_vals})"
         assert len(proton_vals) == len(y_vals), f"number of proton values ({proton_vals}) should equal number of y values ({y_vals})"
@@ -1576,7 +1598,33 @@ class Mass_Transfer:
         return fig, pred_minerals_from_fields, pred_minerals_from_lines
 
     
-    def plot_elements(self, units="molality", log=True,
+    def __get_xlab_xvar(self, x_type):
+    
+        x_type_dict = {
+            "logxi" : ["log Xi", "log Xi"],
+            "xi" : ["Xi", "Xi"],
+            "temperature" : ["Temp(C)", "Temperature, °C"],
+            "pressure" : ["Press(bars)", "Pressure, bars"],
+            "pH" : ["pH", "pH"],
+            "pmH" : ["pmH", "pmH"],
+            "logfO2" : ["log fO2", "log <i>f</i>O<sub>2</sub>"],
+            "Eh" : ["Eh(v)", "Eh, volts"],
+            "pe" : ["pe", "pe"],
+            "aw" : ["aw", "aw"],
+        }
+        
+        if x_type not in x_type_dict.keys():
+            self.err_handler.raise_exception(("x_type must be set to either "
+                "'log_xi', 'xi', 'temperature', 'pressure', 'pH', 'pmH',"
+                "'log fO2', 'Eh(v)', 'pe', or 'aw'."))
+        
+        xvar = x_type_dict[x_type][0]
+        xlab = x_type_dict[x_type][1]
+            
+        return xlab, xvar
+    
+    
+    def plot_elements(self, units="molality", log=True, x_type="logxi",
                       plot_width=4, plot_height=3, ppi=122, ylim=None,
                       show_legend=True,
                       save_as=None, save_format=None, save_scale=1):
@@ -1588,8 +1636,7 @@ class Mass_Transfer:
         Parameters
         ----------
         units : str, default "molality"
-            Units of elemental abundance to plot. Can be "molality", "ppm",
-            or "molarity".
+            Units of elemental abundance to plot. Can be "molality" or "ppm".
         
         log : bool, default True
             Display elemental abundances in log scale?
@@ -1631,26 +1678,20 @@ class Mass_Transfer:
         title = "Concentrations of dissolved elements"
         if hasattr(self, 'tab'):
             if units == "molality":
-                df = self.tab["Table C1 Dissolved elements(molality)"]
+                df = pd.concat([self.dissolved_elements_molal, self.misc_params[self.misc_params.columns[2:]]], axis=1)
                 ylab = "{}molality"
-                startcol = 2 # specific to table C1
             elif units == "ppm":
-                df = self.tab["Table C2 Dissolved elements(ppm: mg/kg.sol)"]
+                df = pd.concat([self.dissolved_elements_ppm, self.misc_params[self.misc_params.columns[2:]]], axis=1)
                 ylab = "{}ppm"
-                startcol = 2 # specific to table C2
-            elif units == "molarity":
-                df = self.tab["Table C3 Dissolved elements(molarity)"]
-                ylab = "{}molarity"
-                startcol = 2 # specific to table C3
+#             elif units == "molarity":
                 
         else:
             self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
                 "cannot be processed. This is likely because a thermodynamic database CSV "
                 "was not provided when Mass_Transfer() was called.")
 
-
-        df = pd.melt(df, id_vars="Xi", value_vars=df.columns[startcol:])
-        df.columns = ["Xi", "variable", "value"]
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=list(df.columns))
+        df.columns = list(self.misc_params.columns)+["variable", "value"]
         df["variable"] = df["variable"].apply(chemlabel)
 
         df["Xi"] = pd.to_numeric(df["Xi"])
@@ -1666,9 +1707,8 @@ class Mass_Transfer:
                 ylab = ylab.format("log ")
         if not log:
             ylab = ylab.format("")
-                
-        xlab = "log Xi"
-        xvar = "log Xi"
+        
+        xlab, xvar = self.__get_xlab_xvar(x_type)
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -1698,7 +1738,7 @@ class Mass_Transfer:
         return fig
     
     
-    def plot_pH(self, x_type="log_xi", title=None, plot_width=4, plot_height=3,
+    def plot_pH(self, x_type="logxi", title=None, plot_width=4, plot_height=3,
                 ppi=122, ylim=None, save_as=None, save_format=None, save_scale=1):
         
         """
@@ -1707,8 +1747,8 @@ class Mass_Transfer:
         
         Parameters
         ----------
-        x_type : str, default "log_xi"
-            Variable to appear on the x-axis. Can be either "log_xi", "xi",
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be either "logxi", "xi",
             or "temperature".
         
         title : str
@@ -1747,44 +1787,22 @@ class Mass_Transfer:
         fig : Plotly figure object
             A line plot.
         """
-
-        df = self.aq_distribution
-
-        df = pd.melt(df, id_vars=["Xi", "Temp(C)"], value_vars=["H+"])
-        df.columns = ["Xi", "Temp(C)", "variable", "value"]
         
-        df["variable"] = "pH"
-
-        df["Xi"] = pd.to_numeric(df["Xi"])
-
-        df["value"] = -pd.to_numeric(df["value"])
-        df["value"] = df["value"].fillna(0)
-        df["value"] = df["value"].replace(0, np.nan)
-
-        if x_type == "log_xi":
-            xlab = "log Xi"
-            xvar = "log Xi"
+        df = self.misc_params
+        
+        xlab, xvar = self.__get_xlab_xvar(x_type)
+        
+        if x_type == "logxi":
             with np.errstate(divide='ignore'):
                 df['log Xi'] = np.log10(df['Xi'])
-        elif x_type == "xi":
-            xlab = "Xi"
-            xvar = "Xi"
-        elif x_type == "temperature":
-            xlab = "Temp(C)"
-            xvar = "Temp(C)"
-        else:
-            self.err_handler.raise_exception(("x_type must be set to either "
-                "'log_xi', 'xi', or 'temperature'."))
-        
-        ylab = "pH"
 
-        fig = px.line(df, x=xvar, y="value", template="simple_white",
+        fig = px.line(df, x=xvar, y="pH", template="simple_white",
                       width=plot_width*ppi,  height=plot_height*ppi,
-                      labels=dict(value=ylab, x=xlab), render_mode='svg',
+                      labels=dict(value="pH", x=xlab), render_mode='svg',
                       )
 
         fig.update_layout(xaxis_title=xlab,
-                          yaxis_title=ylab,
+                          yaxis_title="pH",
                           showlegend=False)
         
         if isinstance(title, str):
@@ -1803,7 +1821,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, x_type="log_xi", y_type="mole",
+                              plot_minerals=None, x_type="logxi", y_type="mole",
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -1822,8 +1840,8 @@ class Mass_Transfer:
             List of minerals to plot. Useful for isolating one or more
             minerals.
             
-        x_type : str, default "log_xi"
-            Variable to appear on the x-axis. Can be either "log_xi", "xi",
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be either "logxi", "xi",
             or "temperature".
             
         y_type : str, default 'mole'
@@ -1881,15 +1899,13 @@ class Mass_Transfer:
         
         """
         
-        xlab = "log Xi"
-        xvar = "log Xi"
+        xlab, xvar = self.__get_xlab_xvar(x_type)
         
         if show_reactant_minerals:
-            df = copy.deepcopy(self.moles_minerals)
+            df = pd.concat([self.moles_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
             title = "{} of reactant and product minerals"
-            
         else:
-            df = copy.deepcopy(self.moles_product_minerals)
+            df = pd.concat([self.moles_product_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
             title = "{} of product minerals"
             
         if log_y:
@@ -1918,7 +1934,7 @@ class Mass_Transfer:
             # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
             # in order to continue.
             if df.shape[0] == len(temps):
-                minerals = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
+                minerals = [col for col in df.columns if col not in list(self.misc_params.columns)]
                     
                 for i,T in enumerate(temps):
                     for ii,mineral in enumerate(minerals):
@@ -1946,16 +1962,17 @@ class Mass_Transfer:
                         "'mass', or 'volume'.")
             
         
-        plot_columns = [col for col in df.columns if col not in ["Xi", "Temp(C)"]]
+        plot_columns = [col for col in df.columns if col not in list(self.misc_params.columns)]
 
         if isinstance(plot_minerals, list):
             plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
             plot_columns = plot_columns_temp
             
         plot_columns = sorted(plot_columns, key=sort_order.index)
-            
-        df = pd.melt(df, id_vars=["Xi", "Temp(C)"], value_vars=plot_columns)
-        df.columns = ["Xi", "Temp(C)", "variable", "value"]
+        
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
+        df.columns = list(self.misc_params.columns)+["variable", "value"]
+        
         df = df[df["variable"] != "None"]
 
         df["Xi"] = pd.to_numeric(df["Xi"])
@@ -1968,19 +1985,6 @@ class Mass_Transfer:
             if log_y:
                 df["value"] = df["value"].replace(0, np.nan)
                 df['value'] = np.log10(df['value'])
-        
-        if x_type == "log_xi":
-            xlab = "log Xi"
-            xvar = "log Xi"
-        elif x_type == "xi":
-            xlab = "Xi"
-            xvar = "Xi"
-        elif x_type == "temperature":
-            xlab = "Temp(C)"
-            xvar = "Temp(C)"
-        else:
-            self.err_handler.raise_exception(("x_type must be set to either "
-                "'log_xi', 'xi', or 'temperature'."))
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                       width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
@@ -2000,11 +2004,26 @@ class Mass_Transfer:
             for irow in range(0, df.shape[0]):
                 if not isnan(df["value"].iloc[irow]) and irow != 0 and irow != df.shape[0]-1:
                     if isnan(df["value"].iloc[irow-1]):
-                        new_row = pd.DataFrame({"Xi":df.loc[irow-1, "Xi"], "log Xi":df.loc[irow-1, "log Xi"], "Temp(C)":df.loc[irow-1, "Temp(C)"], "variable":df.loc[irow-1, "variable"], "value":df.loc[irow-1, "value"]}, index=[irow-1])
+                        
+                        df_dict = {}
+                        for col in list(self.misc_params.columns)+["log Xi"]:
+                            df_dict[col] = df.loc[irow-1, col]
+                        df_dict["variable"] = df.loc[irow-1, "variable"]
+                        df_dict["value"] = df.loc[irow-1, "value"]
+                            
+                        new_row = pd.DataFrame(df_dict, index=[irow-1])
                         df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
                         irow=0
+                        
                     if isnan(df["value"].iloc[irow+1]):
-                        new_row = pd.DataFrame({"Xi":df.loc[irow+1, "Xi"], "log Xi":df.loc[irow+1, "log Xi"], "Temp(C)":df.loc[irow+1, "Temp(C)"], "variable":df.loc[irow+1, "variable"], "value":df.loc[irow+1, "value"]}, index=[irow+1])
+                        
+                        df_dict = {}
+                        for col in list(self.misc_params.columns)+["log Xi"]:
+                            df_dict[col] = df.loc[irow+1, col]
+                        df_dict["variable"] = df.loc[irow+1, "variable"]
+                        df_dict["value"] = df.loc[irow+1, "value"]
+                        
+                        new_row = pd.DataFrame(df_dict, index=[irow+1])
                         df = pd.concat([df.iloc[:irow], new_row, df.iloc[irow:]]).reset_index(drop=True)
                         irow=0
             
@@ -2050,6 +2069,7 @@ class Mass_Transfer:
 
     
     def plot_aqueous_species(self, plot_basis=False, plot_species=None,
+                             x_type="logxi", y_type="log activity",
                              initially_visible=None, show_legend=True,
                              plot_width=4, plot_height=3, ppi=122, ylim=None,
                              save_as=None, save_format=None, save_scale=1,):
@@ -2066,6 +2086,14 @@ class Mass_Transfer:
         plot_species : list of str, optional
             A list of aqueous species to plot. If undefined, every species at
             will be plotted at once.
+        
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be either "logxi", "xi",
+            or "temperature".
+        
+        y_type : str, default 'log activity'
+            The variable to plot on the y-axis. Can be either 'log activity',
+            'molality', or 'log molality'.
         
         initially_visible : list of str, optional
             A list of aqueous species that will be visible on the plot
@@ -2111,7 +2139,7 @@ class Mass_Transfer:
         
         if plot_basis:
             if hasattr(self, 'tab'):
-                df = self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"]
+                df = self.basis_logact
                 title = "Solute basis species"
                 startcol = 2 # specific to table E2
             else:
@@ -2119,19 +2147,26 @@ class Mass_Transfer:
                     "cannot be processed. This is likely because a thermodynamic database CSV "
                     "was not provided when Mass_Transfer() was called.")
         else:
-            df = self.aq_distribution
+            if y_type == "log activity":
+                df = pd.concat([self.aq_distribution_logact, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "log activity"
+            elif y_type == "molality":
+                df = pd.concat([self.aq_distribution_molal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "molality"
+            elif y_type == "log molality":
+                df = pd.concat([self.aq_distribution_logmolal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "log molality"
             title = "Solute species"
             startcol = 1
-
-            
             
         plot_columns = [col for col in df.columns[startcol:]]
         if isinstance(plot_species, list):
             plot_columns_temp = [col for col in plot_columns if col in plot_species]
             plot_columns = plot_columns_temp
             
-        df = pd.melt(df, id_vars="Xi", value_vars=plot_columns)
-        df.columns = ["Xi", "variable", "value"]
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=list(df.columns))
+        df.columns = list(self.misc_params.columns)+["variable", "value"]
+        
         df["variable"] = df["variable"].apply(chemlabel)
 
         df["Xi"] = pd.to_numeric(df["Xi"])
@@ -2142,10 +2177,8 @@ class Mass_Transfer:
 
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
-            
-        xlab = "log Xi"
-        ylab = "log activity"
-        xvar = "log Xi"
+        
+        xlab, xvar = self.__get_xlab_xvar(x_type)
 
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
@@ -2587,8 +2620,7 @@ template = """|-----------------------------------------------------------------
 |Mineral Sub-Set Selection Suppression Options | (nxopt)                       |
 |------------------------------------------------------------------------------|
 |Option  |Sub-Set Defining Species| (this is a table header)                   |
-|------------------------------------------------------------------------------|
-|None    |None                    | (uxopt(n), uxcat(n))                       |
+|------------------------------------------------------------------------------|{mineral_suppress_lines}
 |------------------------------------------------------------------------------|
 * Valid mineral sub-set selection suppression option strings (uxopt(n)) are:   *
 *    None        All         Alwith      Allwith                               *
@@ -2684,6 +2716,8 @@ k_act_prod_species_template = """
 gl_template = """
 |{gas_name}|{gas_moles}|{gas_log_fugacity}| --                      |"""
 
+mineral_suppress_template = """
+|{mineral_suppress_option}|                        | (uxopt(n), uxcat(n))                       |"""
 
 srb_template = """
 |->|Molar volume (cm3/mol)   |{amount_volume}| (vreac(n))                         |
@@ -3119,6 +3153,7 @@ class Prepare_Reaction:
                  calc_mode_selection=0,
                  ODE_corrector_mode=0,
                  suppress_redox=False,
+                 mineral_suppression_option="None",
                  fluid_mixing_setup=False,
                  max_finite_difference_order=6,
                  beta_convergence_tolerance=0,
@@ -3298,6 +3333,10 @@ class Prepare_Reaction:
         suppress_redox : bool, default False
             Force suppression of all redox reactions?
         
+        mineral_suppression_option : str, default "None"
+            Option to suppress formation of minerals. Can be either "None" (no
+            minerals are suppressed) or "All" (all minerals are suppressed).
+        
         fluid_mixing_setup : bool, default False
             If True, will write an EQ6 input file with Fluid 1 set up for
             fluid mixing. If False, a normal EQ6 pickup file will be written.
@@ -3391,6 +3430,7 @@ class Prepare_Reaction:
         self.max_n_phase_assemblage_tries=max_n_phase_assemblage_tries
         self.zero_order_step_size=zero_order_step_size
         self.max_interval_in_xi_between_PRS_transfers=max_interval_in_xi_between_PRS_transfers
+        self.mineral_suppression_option=mineral_suppression_option
         
         self.t_checkbox_1=" "
         self.t_checkbox_2=" "
@@ -3488,7 +3528,7 @@ class Prepare_Reaction:
         elif n_mixing_fluid_reactants == 1:
             pass
         else:
-            self.error_handler.raise_exception((""
+            self.err_handler.raise_exception((""
                     "There are {} mixing fluids ".format(n_mixing_fluid_reactants)+""
                     "in the list of reactants. There may only be one."))
         if t_option == 0:
@@ -3569,7 +3609,7 @@ class Prepare_Reaction:
         else:
             msg = ("physical_system_model must either be 'closed', 'titration',"
                 " or 'fluid-centered flow-through open'.")
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if kinetic_mode == "arbitrary":
             self.i2_checkbox_1 = "x"
@@ -3577,7 +3617,7 @@ class Prepare_Reaction:
             self.i2_checkbox_2 = "x"
         else:
             msg = "kinetic_mode must either be 'arbitrary' or 'true'."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
         
         if phase_boundary_search == 0:
             self.i3_checkbox_1 = "x"
@@ -3587,7 +3627,7 @@ class Prepare_Reaction:
             self.i3_checkbox_3 = "x"
         else:
             msg = "phase_boundary_search must be 0, 1, or 2."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if permit_solid_solutions == False:
             self.i4_checkbox_1 = "x"
@@ -3595,7 +3635,7 @@ class Prepare_Reaction:
             self.i4_checkbox_2 = "x"
         else:
             msg = "permit_solid_solutions must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if clear_es_solids_read == False:
             self.i5_checkbox_1 = "x"
@@ -3603,7 +3643,7 @@ class Prepare_Reaction:
             self.i5_checkbox_2 = "x"
         else:
             msg = "clear_es_solids_read must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if clear_es_solids_initial == False:
             self.i6_checkbox_1 = "x"
@@ -3611,7 +3651,7 @@ class Prepare_Reaction:
             self.i6_checkbox_2 = "x"
         else:
             msg = "clear_es_solids_initial must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if clear_es_solids_end == False:
             self.i7_checkbox_1 = "x"
@@ -3619,7 +3659,7 @@ class Prepare_Reaction:
             self.i7_checkbox_2 = "x"
         else:
             msg = "clear_es_solids_end must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         # there is no iopt8
             
@@ -3629,7 +3669,7 @@ class Prepare_Reaction:
             self.i9_checkbox_2 = "x"
         else:
             msg = "clear_prs_solids_read must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if clear_prs_solids_end == False:
             self.i10_checkbox_1 = "x"
@@ -3637,7 +3677,7 @@ class Prepare_Reaction:
             self.i10_checkbox_2 = "x"
         else:
             msg = "clear_prs_solids_end must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if auto_basis_switching_pre_NR == False:
             self.i11_checkbox_1 = "x"
@@ -3645,7 +3685,7 @@ class Prepare_Reaction:
             self.i11_checkbox_2 = "x"
         else:
             msg = "auto_basis_switching_pre_NR must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if auto_basis_switching_post_NR == False:
             self.i12_checkbox_1 = "x"
@@ -3653,7 +3693,7 @@ class Prepare_Reaction:
             self.i12_checkbox_2 = "x"
         else:
             msg = "auto_basis_switching_post_NR must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if calc_mode_selection == 0:
             self.i13_checkbox_1 = "x"
@@ -3663,7 +3703,7 @@ class Prepare_Reaction:
             self.i13_checkbox_3 = "x"
         else:
             msg = "calc_mode_selection must be 0, 1, or 2."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
 
         if ODE_corrector_mode == 0:
             self.i14_checkbox_1 = "x"
@@ -3675,7 +3715,7 @@ class Prepare_Reaction:
             self.i14_checkbox_4 = "x"
         else:
             msg = "ODE_corrector_mode must be 0, 1, or 2."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if suppress_redox == False:
             self.i15_checkbox_1 = "x"
@@ -3683,7 +3723,7 @@ class Prepare_Reaction:
             self.i15_checkbox_2 = "x"
         else:
             msg = "suppress_redox must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
             
         if fluid_mixing_setup == False:
             self.i20_checkbox_1 = "x"
@@ -3691,7 +3731,7 @@ class Prepare_Reaction:
             self.i20_checkbox_2 = "x"
         else:
             msg = "fluid_mixing_setup must be True or False."
-            self.error_handler.raise_exception(msg)
+            self.err_handler.raise_exception(msg)
 
         now = datetime.now()
         self.date_created = now.strftime('%Y-%m-%d %I:%M %p')
@@ -3825,6 +3865,23 @@ class Prepare_Reaction:
         gas_lines = "".join([r.formatted_line for r in self.gases])
         reaction_options_formatted.update(dict(reactant_blocks=reactant_blocks))
         reaction_options_formatted.update(dict(gas_lines=gas_lines))
+        
+        if self.mineral_suppression_option == "None":
+            mineral_suppress_option_value = "None    "
+        elif self.mineral_suppression_option == "All":
+            mineral_suppress_option_value = "All     "
+        else:
+            msg = ("Error in Prepare_Reaction(): `mineral_suppression_option` "
+                   "must be 'None' or 'All'.")
+            self.err_handler.raise_exception(msg)
+            
+        min_supp_temp = copy.copy(mineral_suppress_template)
+        min_supp_dict = dict(mineral_suppress_option=mineral_suppress_option_value)
+        min_supp_temp = min_supp_temp.format(**min_supp_dict)
+        
+        reaction_options_formatted.update(
+                dict(mineral_suppress_lines=min_supp_temp)
+                )
         
         reaction_template = copy.copy(template)
         self.formatted_reaction = reaction_template.format(**reaction_options_formatted)
