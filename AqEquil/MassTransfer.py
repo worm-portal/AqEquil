@@ -262,6 +262,55 @@ def react(speciation,
     return speciation
 
 
+def join_mixes(m1, m2):
+    """
+    Join the results of two mixes, m1 and m2, so that results extend from
+    1:0 to 0:1 m1:m2.
+    
+    Parameters
+    ----------
+    m1, m2 : objects of class Mass_Transfer
+        The mass transfer results of two mixing calculations
+
+    Returns
+    ----------
+    An object of class `Mass_Transfer` with results joined for plotting.
+    """
+    
+    
+    # tables belonging to the Mass Transfer class that are used by its plotting functions
+    tabs = ["misc_params", "basis_logact", "dissolved_elements_molal", "dissolved_elements_ppm", 
+            "aq_distribution_logact", "aq_distribution_molal", "aq_distribution_logmolal",
+            "moles_minerals", "moles_product_minerals"]
+    
+    for tab in tabs:
+        m2_reverse_rows = getattr(m2, tab).iloc[::-1]
+        m2_reverse_rows["Xi"] = [1+(1-float(xi)) for xi in m2_reverse_rows["Xi"]]
+        m2_reverse_rows = m2_reverse_rows[1:]
+        m1_rows = getattr(m1, tab)
+        setattr(m1, tab, pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True))
+        
+    # do the same but for all EQ6 output tables
+    for tab in m1.tab.keys():
+        if tab in m2.tab.keys():
+            m2_reverse_rows = m2.tab[tab].iloc[::-1]
+            m2_reverse_rows["Xi"] = [1+(1-float(xi)) for xi in m2_reverse_rows["Xi"]]
+            m2_reverse_rows = m2_reverse_rows[1:]
+            m1_rows = m1.tab[tab]
+            m1.tab[tab] = pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True)
+    
+    # do the same but for mass contribution tables
+    for tab in m1.mass_contribution_dict.keys():
+        if tab in m2.mass_contribution_dict.keys():
+            m2_reverse_rows = m2.mass_contribution_dict[tab].iloc[::-1]
+            m2_reverse_rows["Xi"] = [1+(1-float(xi)) for xi in m2_reverse_rows["Xi"]]
+            m2_reverse_rows = m2_reverse_rows[1:]
+            m1_rows = m1.mass_contribution_dict[tab]
+            m1.mass_contribution_dict[tab] = pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True)
+    
+    return m1
+
+
 class Mass_Transfer:
     """
     Class containing functions to facilitate mass transfer and reaction path
@@ -358,6 +407,39 @@ class Mass_Transfer:
             # In this case, just assume these tables are equal.
             self.moles_minerals = self.moles_product_minerals
 
+        self.mass_contribution_dict = self.__get_mass_contribution()
+            
+            
+    def __get_mass_contribution(self):
+        
+        bases = [b for b in self.basis_logact.columns if b not in ['Xi', 't(days)', 'H2O', "O2(g)", "H+"]]
+        
+        mass_contribution_dict = {}
+        for basis in bases:
+
+            df = self.mine_6o_table(
+                            table_start="Species Accounting for 99% or More of Aqueous "+basis,
+                            table_stop="Subtotal",
+                            ignore = ["", "Species", '---', '-'],
+                            col_index=-1)
+
+
+            df['Xi'] = df['Xi'].astype(str)
+            df['Other'] = 100 - df.sum(axis=1, numeric_only=True)
+            df['Xi'] = df['Xi'].astype(float)
+
+            df[df["Other"] < 0] = 0
+
+            df["basis"] = basis
+            df["factor"] = None
+            df["molality"] = None
+            
+            mass_contribution_dict[basis] = df
+        
+        return mass_contribution_dict
+            
+        
+            
     def mine_6o_table(self,
                       table_start="--- Distribution of Aqueous Solute Species ---",
                       table_stop="Species with molalities less than",
@@ -1615,7 +1697,7 @@ class Mass_Transfer:
         
         if x_type not in x_type_dict.keys():
             self.err_handler.raise_exception(("x_type must be set to either "
-                "'log_xi', 'xi', 'temperature', 'pressure', 'pH', 'pmH',"
+                "'logxi', 'xi', 'temperature', 'pressure', 'pH', 'pmH',"
                 "'log fO2', 'Eh(v)', 'pe', or 'aw'."))
         
         xvar = x_type_dict[x_type][0]
@@ -2159,12 +2241,12 @@ class Mass_Transfer:
             title = "Solute species"
             startcol = 1
             
-        plot_columns = [col for col in df.columns[startcol:]]
+        plot_columns = [col for col in df.columns]
         if isinstance(plot_species, list):
             plot_columns_temp = [col for col in plot_columns if col in plot_species]
             plot_columns = plot_columns_temp
             
-        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=list(df.columns))
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
         df.columns = list(self.misc_params.columns)+["variable", "value"]
         
         df["variable"] = df["variable"].apply(chemlabel)
@@ -2212,7 +2294,7 @@ class Mass_Transfer:
         return fig
 
     
-    def plot_mass_contribution(self, *args, xi_decimals=3, **kwargs):
+    def plot_mass_contribution(self, *args, x_type="xi", xi_decimals=3, **kwargs):
         
         """
         Generate a bar plot of mass contributions (in mole percent) of aqueous
@@ -2239,36 +2321,33 @@ class Mass_Transfer:
         
         basis = args[0]
         
-        if "sample_label" not in kwargs.keys():
+        if "sample_label" not in kwargs.keys() and x_type == "xi":
             kwargs["sample_label"] = "Xi"
-
+        elif "sample_label" not in kwargs.keys() and x_type == "temperature":
+            kwargs["sample_label"] = "Temp(C)"
         
-        df_sp = self.mine_6o_table(
-                        table_start="Species Accounting for 99% or More of Aqueous "+basis,
-                        table_stop="Subtotal",
-                        ignore = ["", "Species", '---', '-'],
-                        col_index=-1)
+        df_sp = pd.concat([self.mass_contribution_dict.get(basis, "error"),
+                           self.misc_params[self.misc_params.columns[1:]]], axis=1)
         
+        if isinstance(df_sp, str):
+            msg = ("The basis species {} ".format(basis)+"could not be found "
+                   "among available basis species: "
+                   "{}".format(str(list(self.mass_contribution_dict.keys()))))
+            self.err_handler.raise_exception(msg)
         
-        df_sp['Xi'] = df_sp['Xi'].astype(str)
-        df_sp['Other'] = 100 - df_sp.sum(axis=1, numeric_only=True)
-        df_sp['Xi'] = df_sp['Xi'].astype(float)
+        df_sp_melt = df_sp.melt(id_vars=list(self.misc_params.columns)+["basis", "factor", 'molality'])
         
-        df_sp[df_sp["Other"] < 0] = 0
-        
-        df_sp["basis"] = basis
-        df_sp["factor"] = None
-        df_sp["molality"] = None
-        
-        df_sp_melt = df_sp.melt(id_vars=["Xi", "basis", "factor", 'molality'])
-        df_sp_melt.columns = ["sample", "basis", 'factor', 'molality', "species", "percent"]
+        df_sp_melt.rename(columns={kwargs["sample_label"] : "sample",
+                                   df_sp_melt.columns[-2] : "species",
+                                   df_sp_melt.columns[-1] : "percent",
+                                   }, inplace=True)
         
         df_sp_melt = df_sp_melt[df_sp_melt['percent'].notna()]
         
         df_sp_melt.sort_values(["sample", "species", "percent"],
                                axis = 0, ascending = True,
                                inplace = True)
-        
+
         # handle display of Xi on the x axis
         # if number of decimals to display is too low, columns will stack
         # check to see if this happens, then increment xi_decimals until the stacking problem is solved
@@ -2287,12 +2366,19 @@ class Mass_Transfer:
                     xi_decimals += 1
             if not solved_decimals:
                 self.err_handler.raise_exception("Xi decimal formatting is resulting in column stacking even after attempting 10 increments of xi_decimals.")
-        
+
         df_sp_melt['sample'] = df_sp_melt['sample'].apply(lambda x: ('%.'+str(xi_decimals)+'e') % x) # converts Xi to string
-        
+            
+            
         sp = Speciation(args={})
         sp.mass_contribution = df_sp_melt
         
+        
+        if x_type == "xi":
+            xlab = "Xi"
+        elif x_type == "temperature":
+            xlab = "Temperature, °C"
+        # ...
         
         if not kwargs.get("plot_out", False):
             plot_out = False
@@ -2303,7 +2389,7 @@ class Mass_Transfer:
         fig = sp.plot_mass_contribution(*args, **kwargs)
         
         fig.update_layout(
-            xaxis_title="Xi", # add an x axis title
+            xaxis_title=xlab, # add an x axis title
         )
         
         if plot_out:

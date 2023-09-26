@@ -5973,7 +5973,7 @@ class Speciation(object):
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap="WORM", sample_label = "sample",
+                                     colormap="WORM", sample_label="sample",
                                      colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
