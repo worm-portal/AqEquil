@@ -51,19 +51,17 @@ mine_3o <- function(this_file,
 
   # check if file experienced errors. If so, skip processing the file:
   if (grepl("Normal exit", extractme) == FALSE | grepl("\\* Error", extractme)){
-    if(verbose > 0){
-      writeLines(paste0("\nSample ", this_name, " experienced errors during speciation:"))
-
-      output_error <- str_extract_all(extractme, regex("\\* Error.*?\n(\n|$)", dotall=T))
+#     if(verbose > 0){
+#       writeLines(paste0("\nSample ", this_name, " experienced errors during speciation:"))
+#       output_error <- str_extract_all(extractme, regex("\\* Error.*?\n(\n|$)", dotall=T))
+#       output_error <- lapply(output_error, function(x) gsub("\n", " ", x))
+#       output_error <- lapply(output_error, str_squish)
         
-      output_error <- lapply(output_error, function(x) gsub("\n", " ", x))
-      output_error <- lapply(output_error, str_squish)
-        
-      for(i in 1:length(output_error)){
-        writeLines(output_error[[i]])
-      }
+#       for(i in 1:length(output_error)){
+#         writeLines(output_error[[i]])
+#       }
       
-    }
+#     }
 
     setwd("../")
     return(list())

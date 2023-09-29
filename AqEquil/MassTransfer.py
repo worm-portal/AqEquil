@@ -14,6 +14,7 @@ import re
 import collections
 from datetime import datetime
 import numbers
+from natsort import natsorted
 from .AqSpeciation import Error_Handler, Speciation, AqEquil, chemlabel
 
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
@@ -61,6 +62,7 @@ def react(speciation,
           data1_override=None,
           eq36da=os.environ.get('EQ36DA'),
           eq36co=os.environ.get('EQ36CO'),
+          verbose=1,
          ):
     
     """
@@ -114,7 +116,7 @@ def react(speciation,
     """
     
     prev_wd = os.getcwd()
-    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da)
+    ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da, verbose=verbose)
     
     speciation.join_6i_p(reaction_setup, chain_mt)
     __delete_file("data1.dyn")
@@ -188,6 +190,17 @@ def react(speciation,
             file_6bb = files_6bb[0]
             file_6t = files_6t[0]
             file_6tx = files_6tx[0]
+
+            try:
+                # report errors in output
+                with open(cwdd+path_6i+"/"+file_6o) as file:
+                    lines = [line.rstrip() for line in file]
+                EQ6_errors_found = ae._report_3o_6o_errors(lines, sample_name)
+            except:
+                msg = ("Error: could not open "+path_6i+file_6o+" or there "
+                      "is something wrong with EQ3/6 error reporting.")
+                ae.err_handler.raise_exception(msg)
+            
             try:
                 # move output
                 shutil.move(cwdd+path_6i+"/"+file_6o, cwdd+path_6o+"/"+filename_6o)
@@ -214,13 +227,27 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        if isinstance(speciation.thermo.csv_db, pd.DataFrame):
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame) and not EQ6_errors_found:
             m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
+        elif EQ6_errors_found:
+            speciation.sample_data[sample_name]["mass_transfer"] = None
+            if ae.verbose > 0:
+                print(("Mass transfer results for sample '"+sample_name+"' "
+                       "could not be saved because the calculation did not "
+                       "finish due to error(s).\n"))
+        elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            speciation.sample_data[sample_name]["mass_transfer"] = None
+            if ae.verbose > 0:
+                print(("Mass transfer results for sample '"+sample_name+"' "
+                       "could not be saved because the thermodynamic database "
+                       "is not in the required CSV format. E.g., 'wrm_data.csv'"
+                       ". This might be because a data0 or data1 file was used "
+                       "without also providing a supporting CSV file.\n"))
         
         # store input, output, and pickup as dicts in speciation object
         try:
@@ -1830,8 +1857,9 @@ class Mass_Transfer:
         Parameters
         ----------
         x_type : str, default "logxi"
-            Variable to appear on the x-axis. Can be either "logxi", "xi",
-            or "temperature".
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
         
         title : str
             Title of the plot to display.
@@ -1923,8 +1951,9 @@ class Mass_Transfer:
             minerals.
             
         x_type : str, default "logxi"
-            Variable to appear on the x-axis. Can be either "logxi", "xi",
-            or "temperature".
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
             
         y_type : str, default 'mole'
             The variable to plot on the y-axis. Can be either 'mole' (for moles
@@ -2170,8 +2199,9 @@ class Mass_Transfer:
             will be plotted at once.
         
         x_type : str, default "logxi"
-            Variable to appear on the x-axis. Can be either "logxi", "xi",
-            or "temperature".
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
         
         y_type : str, default 'log activity'
             The variable to plot on the y-axis. Can be either 'log activity',
@@ -2294,21 +2324,34 @@ class Mass_Transfer:
         return fig
 
     
-    def plot_mass_contribution(self, *args, x_type="xi", xi_decimals=3, **kwargs):
+    def plot_mass_contribution(self, *args, x_type="xi", x_decimals=3,
+                                     track_xi_steps=True, keep_xi_order=False,
+                                     **kwargs):
         
         """
         Generate a bar plot of mass contributions (in mole percent) of aqueous
-        species formed by a specified basis species at different extents of
-        reaction (Xi).
+        species formed as a function of reaction progress Xi or some other
+        user-defined variable.
         
         Parameters
         ----------
         *args : iterable
             Arguments to be passed to `Speciation.plot_mass_contribution`.
 
-        xi_decimals : int
-            Number of decimals to display in the scientific notation of the
-            extent of reaction, Xi.
+        x_type : str, default "xi"
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
+
+        x_decimals : int
+            Number of decimals to display in the numeric values of the x-axis
+            variable defined by `x_type`.
+
+        track_xi_steps : bool, default True
+            Report steps of Xi on x-axis ticks? Useful for plotting as a
+            function of an x-axis variable that can be out-of-order, like
+            Eh or temperature. This parameter will become True automatically
+            to prevent column stacking.
 
         **kargs : dict
             Keyword arguments to be passed to `Speciation.plot_mass_contribution`.
@@ -2321,65 +2364,88 @@ class Mass_Transfer:
         
         basis = args[0]
         
-        if "sample_label" not in kwargs.keys() and x_type == "xi":
-            kwargs["sample_label"] = "Xi"
-        elif "sample_label" not in kwargs.keys() and x_type == "temperature":
-            kwargs["sample_label"] = "Temp(C)"
+        xlab, kwargs["sample_label"] = self.__get_xlab_xvar(x_type)
         
         df_sp = pd.concat([self.mass_contribution_dict.get(basis, "error"),
                            self.misc_params[self.misc_params.columns[1:]]], axis=1)
         
+        with np.errstate(divide='ignore'):
+            df_sp['log Xi'] = np.log10(df_sp['Xi'])
+        
+        # handle display of the x axis variable
+        # if number of decimals to display is too low, columns will stack
+        # check to see if this happens, then increment x_decimals until the stacking problem is solved
+        if x_decimals < 0:
+            msg = "The parameter x_decimals must be greater than or equal to 0."
+            self.err_handler.raise_exception(msg)
+        original_x_decimals = copy.copy(x_decimals)
+        
+        len_unique_labels_rounded = len(set(df_sp[kwargs["sample_label"]].apply(lambda x: ('%.'+str(x_decimals)+'e') % x)))
+        len_unique_labels_unrounded = len(set(df_sp[kwargs["sample_label"]]))
+        
+        if len_unique_labels_rounded < len_unique_labels_unrounded:
+            x_decimals += 1
+            solved_decimals = False
+            for i in range(x_decimals, x_decimals+10):
+                len_unique_labels_rounded = len(set(df_sp[kwargs["sample_label"]].apply(lambda x: ('%.'+str(x_decimals)+'e') % x)))
+                if len_unique_labels_rounded == len_unique_labels_unrounded:
+                    if self.verbose > 0:
+                        print("Number of decimals to display for x-axis variable",
+                              "increased to", x_decimals, "to prevent column stacking.")
+                    solved_decimals = True
+                    break
+                else:
+                    x_decimals += 1
+            if not solved_decimals:
+                msg = ("X-axis value decimal formatting is resulting in column "
+                       "stacking even after attempting 10 increments of x_decimals.")
+                self.err_handler.raise_exception(msg)
+
         if isinstance(df_sp, str):
             msg = ("The basis species {} ".format(basis)+"could not be found "
                    "among available basis species: "
                    "{}".format(str(list(self.mass_contribution_dict.keys()))))
             self.err_handler.raise_exception(msg)
         
-        df_sp_melt = df_sp.melt(id_vars=list(self.misc_params.columns)+["basis", "factor", 'molality'])
+        df_sp["position"] = list(range(0, df_sp.shape[0]))
+
+        df_sp_melt = df_sp.melt(
+                id_vars=list(self.misc_params.columns)+
+                ["log Xi", "basis", "factor", "molality", "position"])
         
         df_sp_melt.rename(columns={kwargs["sample_label"] : "sample",
                                    df_sp_melt.columns[-2] : "species",
                                    df_sp_melt.columns[-1] : "percent",
                                    }, inplace=True)
-        
+                                      
         df_sp_melt = df_sp_melt[df_sp_melt['percent'].notna()]
         
-        df_sp_melt.sort_values(["sample", "species", "percent"],
-                               axis = 0, ascending = True,
-                               inplace = True)
-
-        # handle display of Xi on the x axis
-        # if number of decimals to display is too low, columns will stack
-        # check to see if this happens, then increment xi_decimals until the stacking problem is solved
-        if xi_decimals < 0:
-            self.err_handler.raise_exception("The parameter xi_decimals must be greater than or equal to 0.")
-        original_xi_decimals = copy.copy(xi_decimals)
-        if len(set(df_sp_melt['sample'].apply(lambda x: ('%.'+str(xi_decimals)+'e') % x))) < len(set(df_sp_melt['sample'])):
-            xi_decimals += 1
-            solved_decimals = False
-            for i in range(xi_decimals, xi_decimals+10):
-                if len(set(df_sp_melt['sample'].apply(lambda x: ('%.'+str(xi_decimals)+'e') % x))) == len(set(df_sp_melt['sample'])):
-                    print("Number of decimals to display for Xi increased to", xi_decimals, "to prevent column stacking.")
-                    solved_decimals = True
-                    break
-                else:
-                    xi_decimals += 1
-            if not solved_decimals:
-                self.err_handler.raise_exception("Xi decimal formatting is resulting in column stacking even after attempting 10 increments of xi_decimals.")
-
-        df_sp_melt['sample'] = df_sp_melt['sample'].apply(lambda x: ('%.'+str(xi_decimals)+'e') % x) # converts Xi to string
+        if keep_xi_order:
+            sample_order = ["position", "species", "percent"]
+        else:
+            sample_order = ["sample", "position", "species", "percent"]
             
+        df_sp_melt.sort_values(sample_order, axis=0, ascending=True, inplace=True)
+
+        if df_sp_melt.dtypes["sample"] != "O": # if the column isn't formatted as a string
+            if any(["e" in v2 for v2 in [str(v1) for v1 in df_sp_melt['sample']]]): # if value is in scientific notation
+                df_sp_melt['sample'] = df_sp_melt['sample'].apply(lambda x: ('%.'+str(x_decimals)+'e') % x) # converts numeric to string
+            else:
+                df_sp_melt['sample'] = [('{0:.'+str(x_decimals)+'f}').format(v) for v in df_sp_melt['sample']]
+            
+            
+        if len(list(set(df_sp_melt["sample"]))) != len(list(set(df_sp_melt["position"]))) or track_xi_steps:
+            # handle duplicate x-axis values to prevent stacking
+            temp_col = []
+            for i,v in enumerate(df_sp_melt["sample"]):
+                temp_col.append(" (step "+str(list(df_sp_melt["position"])[i])+")")
+            df_sp_melt["sample"] = [str(v)+a for v,a in zip(df_sp_melt["sample"], temp_col)]
+            if not track_xi_steps and self.verbose > 0:
+                print("Xi step tracking has been added to x-axis ticks to prevent column stacking.")
             
         sp = Speciation(args={})
         sp.mass_contribution = df_sp_melt
-        
-        
-        if x_type == "xi":
-            xlab = "Xi"
-        elif x_type == "temperature":
-            xlab = "Temperature, °C"
-        # ...
-        
+
         if not kwargs.get("plot_out", False):
             plot_out = False
         else:
@@ -2827,6 +2893,7 @@ class Mixing_Fluid:
     def __init__(self,
                  speciation,
                  sample_name,
+                 mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
                  amount_volume=1,

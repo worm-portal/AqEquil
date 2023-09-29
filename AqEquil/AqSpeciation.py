@@ -695,6 +695,7 @@ class AqEquil(object):
         
             self.data1 = self.thermo.data1
 
+            
     def _capture_r_output(self):
         """
         Capture and create a list of R console messages
@@ -706,7 +707,7 @@ class AqEquil(object):
         
         # If DEBUGGING_R==False, uses python to print R lines after executing an R block 
         # If DEBUGGING_R==True, will ugly print from R directly. Allows printing from R to troubleshoot errors.
-        if DEBUGGING_R:
+        if not DEBUGGING_R:
         
             # Dummy functions #
             def add_to_stdout(line): self.stdout.append(line)
@@ -720,12 +721,44 @@ class AqEquil(object):
             rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
             rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
 
+            
     def _print_captured_r_output(self):
         printable_lines = [line for line in self.stdout if line not in ['[1]', '\n']]
         printable_lines = [line for line in printable_lines if re.search("^\s*\[[0-9]+\]$", line) is None]
         printable_lines = [re.sub(r' \\n\"', "", line) for line in printable_lines]
         [print(line[2:-1]) for line in printable_lines]
 
+        
+    def _report_3o_6o_errors(self, lines, samplename):
+
+        recording = False
+        start_index = 0
+        end_index = -1
+        error_list = []
+        for i,line in enumerate(lines):
+            if "* Error" in line:
+                recording = True
+                start_index = i
+                
+            if (recording and line == "") or (recording and i == len(lines)-1):
+                end_index = i
+                recording = False
+                error_lines = lines[start_index:end_index]
+                error_lines = "\n".join(error_lines)
+                error_list.append(error_lines)
+
+        error_lines = "\n".join(error_list)
+        
+        if len(error_lines) > 0:
+            if self.verbose > 0:
+                print("\nThe sample '"+samplename+"' experienced errors during the reaction:")
+                print(error_lines+"\n")
+            return True
+        else:
+            return False
+            
+    
+        
     def __file_exists(self, filename, ext='.csv'):
         """
         Check that a file exists and that it has the correct extension.
@@ -867,9 +900,16 @@ class AqEquil(object):
             
         if self.thermo.thermo_db_type == "data0":
             data0_lines = self.thermo.thermo_db.split("\n")
-            start_index = [i+1 for i, s in enumerate(data0_lines) if '*  species name' in s]
-            end_index = [i-1 for i, s in enumerate(data0_lines) if 'elements' in s]
-            db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            recording_species = False
+            for i,s in enumerate(data0_lines):
+                if recording_species and "+---" in s:
+                    end_index = i-1
+                    recording_species=False
+                    break
+                if '*  species name' in s:
+                    start_index = i+1
+                    recording_species=True
+            db_species = [i.split()[0] for i in data0_lines[start_index:end_index]]
         elif self.thermo.thermo_db_type == "CSV":
             df_OBIGT = self.thermo.thermo_db
             db_species = list(df_OBIGT["name"])
@@ -887,7 +927,7 @@ class AqEquil(object):
                 " '{}'".format(charge_balance_on)+""
                 " was not found among the headers of the sample input file.")
             err_list.append(err_charge_balance_invalid_sp)
-
+            
         if self.thermo.thermo_db_type in ["data0", "CSV"]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
@@ -1130,7 +1170,8 @@ class AqEquil(object):
             # multiple 3p output files are present in the directory
             # this might happen when using runeq3() by itself in a directory with 3p files
             pass
-                    
+
+
     def runeq6(self,
                filename_6i,
                db,
@@ -2170,7 +2211,7 @@ class AqEquil(object):
                         path_3p=pickup_dir,
                         data1_path=data1_path,
                         dynamic_db_name=dynamic_db_name)
-            
+
             # store input, output, and pickup as dicts in AqEquil object
             try:
                 with open(input_dir + "/" + filename_3i, "r") as f:
@@ -2180,15 +2221,16 @@ class AqEquil(object):
                 pass
             try:
                 with open(output_dir + "/" + filename_3o, "r") as f:
-                    lines=f.readlines()
+                    lines = [line.rstrip() for line in f.readlines()]
                 self.raw_3_output_dict[samplename] = lines
+                EQ3_errors_found = self._report_3o_6o_errors(lines, samplename)
             except:
                 pass
             try:
                 with open(pickup_dir + "/" + filename_3p, "r") as f:
                     lines=f.readlines()
                     
-                # capture everything after "start of the bottom half"
+                # capture everything after "start of the bottom half" of 3p
                 top_half = []
                 bottom_half = []
                 capture = False
@@ -5178,7 +5220,7 @@ class Speciation(object):
             if messages:
                 print("Saved as '{}'".format(filename))
 
-    
+                
     @staticmethod
     def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in ['png', 'jpg', 'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', 'html']:
@@ -6482,6 +6524,14 @@ class Speciation(object):
         """
         
         sample_data = getattr(self, "sample_data")
-        return sample_data[sample]["mass_transfer"]
+        
+        if sample_data[sample]["mass_transfer"] != None:
+            return sample_data[sample]["mass_transfer"]
+        else:
+            msg = ("Mass transfer results are not stored for sample '"+sample+"'. "
+                  "This might be because the reaction calculation did not "
+                  "finish successfully or because the thermodynamic database "
+                  "is a data0 or data1 file without a supporting CSV file.")
+            self.err_handler.raise_exception(msg)
 
     
