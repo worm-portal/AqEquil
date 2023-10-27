@@ -14,12 +14,46 @@ import re
 import collections
 from datetime import datetime
 import numbers
+import roman
 from natsort import natsorted
 from .AqSpeciation import Error_Handler, Speciation, AqEquil, chemlabel
 
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 
+def _format_pseudoelement_name(e):
+    
+    """
+    Format a pseudoelement name
+    E.g., "Fejiip" -> "Fe+2"
+    """
+    
+    if len(e) > 2:
+        e_split_list = e.split("j")
+        
+        if e_split_list[1][-1] == "p":
+            charge_sign = "+"
+        elif e_split_list[1][-1] == "n":
+            charge_sign = "-"
+        elif e_split_list[1][-1] == "z":
+            charge_sign = ""
+        else:
+            print("ERROR in format_pseudoelement_name(): charge sign is not recognized")
+        
+        if charge_sign != "":
+            charge_magnitude_roman = e_split_list[1][:-1].upper()
+            charge_magnitude=roman.fromRoman(charge_magnitude_roman)
+        else:
+            charge_magnitude = 0
+        
+        formatted_elem_name = "".join([e_split_list[0], charge_sign,
+                                       str(charge_magnitude)])
+    else:
+        formatted_elem_name = e
+        
+    return formatted_elem_name
+
+        
 def _get_ion_ratio_exponent(num, denom):
 
     num_formula = parse_formula(num)
@@ -227,27 +261,27 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        if isinstance(speciation.thermo.csv_db, pd.DataFrame) and not EQ6_errors_found:
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame):# and not EQ6_errors_found:
             m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
-        elif EQ6_errors_found:
-            speciation.sample_data[sample_name]["mass_transfer"] = None
-            if ae.verbose > 0:
-                print(("Mass transfer results for sample '"+sample_name+"' "
-                       "could not be saved because the calculation did not "
-                       "finish due to error(s).\n"))
-        elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
-            speciation.sample_data[sample_name]["mass_transfer"] = None
-            if ae.verbose > 0:
-                print(("Mass transfer results for sample '"+sample_name+"' "
-                       "could not be saved because the thermodynamic database "
-                       "is not in the required CSV format. E.g., 'wrm_data.csv'"
-                       ". This might be because a data0 or data1 file was used "
-                       "without also providing a supporting CSV file.\n"))
+#         elif EQ6_errors_found:
+#             speciation.sample_data[sample_name]["mass_transfer"] = None
+#             if ae.verbose > 0:
+#                 print(("Mass transfer results for sample '"+sample_name+"' "
+#                        "could not be saved because the calculation did not "
+#                        "finish due to error(s).\n"))
+#         elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
+#             speciation.sample_data[sample_name]["mass_transfer"] = None
+#             if ae.verbose > 0:
+#                 print(("Mass transfer results for sample '"+sample_name+"' "
+#                        "could not be saved because the thermodynamic database "
+#                        "is not in the required CSV format. E.g., 'wrm_data.csv'"
+#                        ". This might be because a data0 or data1 file was used "
+#                        "without also providing a supporting CSV file.\n"))
         
         # store input, output, and pickup as dicts in speciation object
         try:
@@ -427,6 +461,10 @@ class Mass_Transfer:
         self.aq_distribution_logmolal = self.__get_aq_distribution(unit="log molality")
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
+        
+        # format element names in case there are redox-isolated elements
+        self.dissolved_elements_molal.columns = ["Xi", "t(days)"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_molal.columns if e not in ["Xi", "t(days)"]]
+        self.dissolved_elements_ppm.columns = ["Xi", "t(days)"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_ppm.columns if e not in ["Xi", "t(days)"]]
         
         if self.moles_minerals.shape[0] == 0 and self.moles_product_minerals.shape[0] > 0:
             # in the case of special reactants, there is no grand summary table in the 6o file
@@ -1733,9 +1771,9 @@ class Mass_Transfer:
         return xlab, xvar
     
     
-    def plot_elements(self, units="molality", log=True, x_type="logxi",
-                      plot_width=4, plot_height=3, ppi=122, ylim=None,
-                      show_legend=True,
+    def plot_elements(self, plot_elements=None, units="molality", log=True,
+                      x_type="logxi", plot_width=4, plot_height=3, ppi=122,
+                      ylim=None, show_legend=True, charge_sign_at_end=False,
                       save_as=None, save_format=None, save_scale=1):
         
         """
@@ -1744,6 +1782,10 @@ class Mass_Transfer:
         
         Parameters
         ----------
+        plot_elements : list of str, optional
+            A list of elements to plot. If undefined, every element will be
+            plotted at once.
+        
         units : str, default "molality"
             Units of elemental abundance to plot. Can be "molality" or "ppm".
         
@@ -1760,6 +1802,12 @@ class Mass_Transfer:
             
         ylim : list of two numeric values, optional
             Minimum and maximum value of the y-axis.
+            
+        show_legend : bool, default True
+            Show the legend?
+            
+        charge_sign_at_end : bool, default False
+            Display charge with sign after the number (e.g. SO4 2-)?
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -1799,9 +1847,14 @@ class Mass_Transfer:
                 "cannot be processed. This is likely because a thermodynamic database CSV "
                 "was not provided when Mass_Transfer() was called.")
 
-        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=list(df.columns))
+        plot_columns = [col for col in df.columns]
+        if isinstance(plot_elements, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_elements]
+            plot_columns = plot_columns_temp
+            
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
         df.columns = list(self.misc_params.columns)+["variable", "value"]
-        df["variable"] = df["variable"].apply(chemlabel)
+        df["variable"] = df["variable"].apply(chemlabel, charge_sign_at_end=charge_sign_at_end)
 
         df["Xi"] = pd.to_numeric(df["Xi"])
 
@@ -1981,6 +2034,9 @@ class Mass_Transfer:
             
         ylim : list of two numeric values, optional
             Minimum and maximum value of the y-axis.
+            
+        show_legend : bool, default True
+            Show the legend?
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -2182,8 +2238,10 @@ class Mass_Transfer:
     def plot_aqueous_species(self, plot_basis=False, plot_species=None,
                              x_type="logxi", y_type="log activity",
                              initially_visible=None, show_legend=True,
-                             plot_width=4, plot_height=3, ppi=122, ylim=None,
-                             save_as=None, save_format=None, save_scale=1,):
+                             charge_sign_at_end=False,
+                             plot_width=4, plot_height=3, ppi=122, xlim=None,
+                             ylim=None, save_as=None, save_format=None,
+                             save_scale=1,):
         
         """
         Generate a line plot of the log activities of aqueous species as a
@@ -2215,6 +2273,9 @@ class Mass_Transfer:
         show_legend : bool, default True
             Show the legend?
         
+        charge_sign_at_end : bool, default False
+            Display charge with sign after the number (e.g. SO4 2-)?
+        
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
             is also determined by pixels per inch, set by the parameter `ppi`.
@@ -2223,8 +2284,8 @@ class Mass_Transfer:
             Pixels per inch. Along with `plot_width` and `plot_height`,
             determines the size of interactive plots.
             
-        ylim : list of two numeric values, optional
-            Minimum and maximum value of the y-axis.
+        xlim, ylim : list of two numeric values, optional
+            Minimum and maximum value of the x-axis and y-axis, respectively.
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -2279,7 +2340,7 @@ class Mass_Transfer:
         df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
         df.columns = list(self.misc_params.columns)+["variable", "value"]
         
-        df["variable"] = df["variable"].apply(chemlabel)
+        df["variable"] = df["variable"].apply(chemlabel, charge_sign_at_end=charge_sign_at_end)
 
         df["Xi"] = pd.to_numeric(df["Xi"])
 
@@ -2291,14 +2352,14 @@ class Mass_Transfer:
             df['log Xi'] = np.log10(df['Xi'])
         
         xlab, xvar = self.__get_xlab_xvar(x_type)
-
+        
         fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
                               width=plot_width*ppi,  height=plot_height*ppi,
                               labels=dict(value=ylab, x=xlab), render_mode='svg',
                              )
 
         if isinstance(initially_visible, list):
-            initially_visible_html = [chemlabel(sp) for sp in initially_visible]
+            initially_visible_html = [chemlabel(sp, charge_sign_at_end=charge_sign_at_end) for sp in initially_visible]
             for trace in fig['data']: 
                 if (not trace['name'] in initially_visible_html):
                     trace['showlegend'] = True
@@ -2315,6 +2376,9 @@ class Mass_Transfer:
         if isinstance(ylim, list):
             fig.update_layout(yaxis_range=ylim)
             
+        if isinstance(xlim, list):
+            fig.update_layout(xaxis_range=xlim)
+            
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
             save_as, save_format = dummy_sp._save_figure(fig,
@@ -2325,7 +2389,7 @@ class Mass_Transfer:
 
     
     def plot_mass_contribution(self, *args, x_type="xi", x_decimals=3,
-                                     track_xi_steps=True, keep_xi_order=False,
+                                     track_steps=True, keep_xi_order=False,
                                      **kwargs):
         
         """
@@ -2347,11 +2411,12 @@ class Mass_Transfer:
             Number of decimals to display in the numeric values of the x-axis
             variable defined by `x_type`.
 
-        track_xi_steps : bool, default True
-            Report steps of Xi on x-axis ticks? Useful for plotting as a
+        track_steps : bool, default True
+            Show reported xi steps on x-axis ticks? Useful for plotting as a
             function of an x-axis variable that can be out-of-order, like
             Eh or temperature. This parameter will become True automatically
-            to prevent column stacking.
+            if it will prevent column stacking (which happens if there are
+            duplicate x-axis values).
 
         **kargs : dict
             Keyword arguments to be passed to `Speciation.plot_mass_contribution`.
@@ -2434,14 +2499,14 @@ class Mass_Transfer:
                 df_sp_melt['sample'] = [('{0:.'+str(x_decimals)+'f}').format(v) for v in df_sp_melt['sample']]
             
             
-        if len(list(set(df_sp_melt["sample"]))) != len(list(set(df_sp_melt["position"]))) or track_xi_steps:
+        if len(list(set(df_sp_melt["sample"]))) != len(list(set(df_sp_melt["position"]))) or track_steps:
             # handle duplicate x-axis values to prevent stacking
             temp_col = []
             for i,v in enumerate(df_sp_melt["sample"]):
                 temp_col.append(" (step "+str(list(df_sp_melt["position"])[i])+")")
             df_sp_melt["sample"] = [str(v)+a for v,a in zip(df_sp_melt["sample"], temp_col)]
-            if not track_xi_steps and self.verbose > 0:
-                print("Xi step tracking has been added to x-axis ticks to prevent column stacking.")
+            if not track_steps and self.verbose > 0:
+                print("Reported Xi step tracking has been added to x-axis ticks to prevent column stacking.")
             
         sp = Speciation(args={})
         sp.mass_contribution = df_sp_melt
@@ -2872,7 +2937,7 @@ mineral_suppress_template = """
 |{mineral_suppress_option}|                        | (uxopt(n), uxcat(n))                       |"""
 
 srb_template = """
-|->|Molar volume (cm3/mol)   |{amount_volume}| (vreac(n))                         |
+|->|Molar volume (cm3/mol)   |{molar_volume}| (vreac(n))                         |
 |------------------------------------------------------------------------------|
 |->|Composition                                                                |
 |------------------------------------------------------------------------------|
@@ -2896,7 +2961,7 @@ class Mixing_Fluid:
                  mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
-                 amount_volume=1,
+                 molar_volume=1,
                  hide_traceback=True,
                 ):
 
@@ -2935,7 +3000,7 @@ class Mixing_Fluid:
                                      special_reactant_dict=fluid_2_dict,
                                      amount_remaining=amount_remaining,
                                      amount_destroyed=amount_destroyed,
-                                     amount_volume=amount_volume,
+                                     molar_volume=molar_volume,
                                      hide_traceback=hide_traceback)
             
             self.formatted_block = self.reactant.formatted_block
@@ -2988,7 +3053,7 @@ class Reactant:
                  reactant_status="Reacting",
                  amount_remaining=1,
                  amount_destroyed=0,
-                 amount_volume=0,
+                 molar_volume=0,
                  surface_area_option=0,
                  surface_area_value=0,
                  surface_area_factor=0,
@@ -3098,7 +3163,7 @@ class Reactant:
         self.reactant_status=reactant_status
         self.amount_remaining=amount_remaining
         self.amount_destroyed=amount_destroyed
-        self.amount_volume=amount_volume
+        self.molar_volume=molar_volume
         self.sa_val_1=0
         self.sa_val_2=0
         self.sa_val_3=0
@@ -3166,7 +3231,7 @@ class Reactant:
             elem_lines = "".join(elem_lines)
             
             srb_dict_formatted = dict(
-                    amount_volume = f"{'{:.5E}'.format(self.amount_volume):>12}",
+                    molar_volume = f"{'{:.5E}'.format(self.molar_volume):>12}",
                     srb_stoich = elem_lines,
                     )
             

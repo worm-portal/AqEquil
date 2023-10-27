@@ -4456,8 +4456,9 @@ class AqEquil(object):
                 self.data0_lettercode = None
 
             elif db[-4:].lower() == ".csv" and (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-
+                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
+                
+                
                 self._load_csv(db, source="URL", download_csv_files=download_csv_files)
 
                 self.thermo_db = self.csv_db

@@ -64,7 +64,7 @@ order_thermo_df <- function(thermo_df, fixed_species, verbose){
   }else{
     aux_entries_with_nonstrict_aux <- data.frame()
   }
-
+    
   if(nrow(aux_entries_with_nonstrict_aux) > 0){
     # sort aux species with nonstrict aux so that their order of 
     # declaration won't cause EQPT errors.
@@ -283,9 +283,9 @@ errcheck <- function(expr, me="", mw="", verbose){
       },
       warning = function(w){
         if(mw != ""){
-          vmessage(paste0("A warning occurred:\n", mw, "Additional detail:\n", w), 1, verbose)
+          print(paste0("A warning occurred:\n", mw, "Additional detail:\n", w), 1, verbose)
         }else{
-          vmessage(paste0("A warning occurred:\n", w), 1, verbose)
+          print(paste0("A warning occurred:\n", w), 1, verbose)
         }
       }
   )
@@ -675,7 +675,11 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   elem_ox <- unique(elem_ox)
   elem_ox = elem_ox[ !elem_ox == 'nan']
     
-  # create pseudoelement names
+  # Create pseudoelement names.
+  # Fe+3 is formatted as Fejiiip. C-4 is formatted as Fejivn. S0 is formatted as Sjz
+  # Element name is separated from charge by 'j' (because no element in the periodic table has a lowercase j)
+  # The letter at the end is either p (for positive), n (for negative), or z (for zero)
+  # The letters in between j and n/p/z is the magnitude of the charge in roman numerals.
   redox_elem_states <- list()
   for(elem in suppress_redox){
       
@@ -691,15 +695,15 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         if(is.na(mag)){
           mag <- "i"
         }
-        redox_entry[match] <- paste0(elem, mag, "p")
+        redox_entry[match] <- paste0(elem, "j", mag, "p")
       }else if(grepl("\\-", match)){
         mag <- tolower(as.roman(as.numeric(strsplit(match, "\\-")[[1]][2])))
         if(is.na(mag)){
           mag <- "i"
         }
-        redox_entry[match] <- paste0(elem, mag, "n") # n for negative charge
+        redox_entry[match] <- paste0(elem, "j", mag, "n") # n for negative charge
       }else{
-        redox_entry[match] <- paste0(elem, "z") # z for zero charge
+        redox_entry[match] <- paste0(elem, "jz") # z for zero charge
       }
     }
     redox_elem_states[[elem]] <- redox_entry
@@ -1112,7 +1116,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
-  }
+  }    
                                    
   # generate dissociation reactions
   dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
