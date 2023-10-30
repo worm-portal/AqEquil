@@ -453,7 +453,9 @@ class Mass_Transfer:
         self.misc_params = self.tab["Table B1 Miscellaneous parameters I"] # warning: may cause Xi mismatch between tab and 6o! Test.
         self.dissolved_elements_molal = self.tab["Table C1 Dissolved elements(molality)"]
         self.dissolved_elements_ppm = self.tab["Table C2 Dissolved elements(ppm: mg/kg.sol)"]
+        
         self.basis_logact = self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"]
+        self.basis_logact = self.basis_logact.drop(['t(days)'], axis=1)
         
         self.misc_params = self.misc_params.apply(pd.to_numeric)
         self.aq_distribution_logact = self.__get_aq_distribution(unit="log activity")
@@ -1951,7 +1953,7 @@ class Mass_Transfer:
             A line plot.
         """
         
-        df = self.misc_params
+        df = copy.deepcopy(self.misc_params)
         
         xlab, xvar = self.__get_xlab_xvar(x_type)
         
@@ -2312,9 +2314,9 @@ class Mass_Transfer:
         
         if plot_basis:
             if hasattr(self, 'tab'):
-                df = self.basis_logact
+                df = pd.concat([self.basis_logact, self.misc_params[self.misc_params.columns[1:]]], axis=1)
                 title = "Solute basis species"
-                startcol = 2 # specific to table E2
+                ylab = "log activity"
             else:
                 self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
                     "cannot be processed. This is likely because a thermodynamic database CSV "
@@ -2330,7 +2332,6 @@ class Mass_Transfer:
                 df = pd.concat([self.aq_distribution_logmolal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
                 ylab = "log molality"
             title = "Solute species"
-            startcol = 1
             
         plot_columns = [col for col in df.columns]
         if isinstance(plot_species, list):
@@ -2473,10 +2474,9 @@ class Mass_Transfer:
             self.err_handler.raise_exception(msg)
         
         df_sp["position"] = list(range(0, df_sp.shape[0]))
-
+        
         df_sp_melt = df_sp.melt(
-                id_vars=list(self.misc_params.columns)+
-                ["log Xi", "basis", "factor", "molality", "position"])
+                id_vars=list(self.misc_params.columns)+["log Xi", "basis", "factor", "molality", "position"])
         
         df_sp_melt.rename(columns={kwargs["sample_label"] : "sample",
                                    df_sp_melt.columns[-2] : "species",
