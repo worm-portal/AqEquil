@@ -319,24 +319,23 @@ match_basis_comp <- function(sp_elems, elem){
 get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c(),
                         HOZ_balancers=c("H+", "O2", "H2O"),
                         thermo_df=NULL, verbose=2){
-    
+
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
-    
+
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
-      
-    basis_elem <- (function (x) setdiff(names(unlist(makeup(info(info(x), check.it=F)$formula))), c("H", "O", "Z"))) (thermo_df[, "name"])
-    basis_elem <- c(basis_elem, names(basis_pref))
+    basis_elem <- (function (x) setdiff(names(unlist(makeup(x))), c("H", "O", "Z"))) (thermo_df[, "formula_modded"])             
+    basis_elem <- c(basis_elem, names(basis_pref))    
   }else{
     # if there are no species, define basis list in dissrxns and exit the function
     dissrxns <- list(basis_list = basis_pref)
     return(dissrxns)
   }
+       
+  basis_elem <- unique(basis_elem)
                    
-  basis_elem <- unique(basis_elem)   
-
   sp <- thermo_df
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
@@ -1100,7 +1099,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     stop(paste("One or more errors were encountered during database processing.",
                msg_missing_basis, msg_not_basis))
   }
-                                   
+
   df_needs_dissrxns <- thermo_df %>%
     filter(tag != "basis") %>%
     filter(regenerate_dissrxn == TRUE)
@@ -1117,7 +1116,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
   }    
-                                   
+
   # generate dissociation reactions
   dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,
@@ -1126,7 +1125,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
-                                   
+
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if(nrow(df_needs_dissrxns) > 0){
     names <- df_needs_dissrxns[["name"]]

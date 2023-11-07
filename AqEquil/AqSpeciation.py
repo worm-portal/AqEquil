@@ -686,7 +686,6 @@ class AqEquil(object):
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
             self.download_csv_files = download_csv_files
-            self.exclude_category = exclude_category
             self.suppress_redox = suppress_redox
             self.exceed_Ttr = exceed_Ttr
             self.input_template = input_template
@@ -4193,7 +4192,6 @@ class AqEquil(object):
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            #exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
