@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -1293,9 +1293,9 @@ class AqEquil(object):
     def __plot_TP_grid_polyfit(self, xvals, yvals, poly_coeffs_1, poly_coeffs_2,
                                res=500, width=600, height=300):
 
-        print("R COEFFS")
-        print(poly_coeffs_1)
-        print(poly_coeffs_2)
+#         print("R COEFFS")
+#         print(poly_coeffs_1)
+#         print(poly_coeffs_2)
         
         
         f1_x = np.linspace(xvals[0], xvals[3], num=res)
@@ -3094,9 +3094,7 @@ class AqEquil(object):
 
                     
                     if min(grid_temps) < min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list) and logK_extrapolate == "none":
-                        print(sp)
-                        print(logK_extrapolate)
-                        
+
                         min_sp = str(min(sp_temps_grid))
                         min_grid = str(min(grid_temps))
                         if dynamic_db:

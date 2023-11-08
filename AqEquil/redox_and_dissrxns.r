@@ -430,7 +430,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 # (meant to lapply this over all species names)
 spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
                       redox_elem_states, aux_pref, thermo_df=NULL, verbose=2){
-
+    
   # determine a balanced dissociation reaction into basis species
 
   # get the elemental composition
@@ -781,7 +781,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
           }
             
           # create a modified formula_ox column in the modified_thermo_df if there
-          # is redox suppression, such that "Fe+2 2Cl-" becomes "Feii+2 2Cl-"
+          # is redox suppression, such that "Fe+2 2Cl-" becomes "Fejiip+2 2Cl-"
           this_formula_modded <- this_formula
           for(ox_elem in names(redox_elem_states)){
             for(ox_state in names(this_formula)){
@@ -896,7 +896,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     filter(tag=="basis")
   aux_df <- thermo_df %>%
     filter(tag=="aux")
-
+                                   
   basis_pref <- basis_df[, "name"]
                                    
   basis_pref_elements <- lapply(lapply(lapply(basis_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
@@ -935,20 +935,39 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   aux_pref <- aux_pref[keep]
   aux_pref_names <- aux_pref_names[keep]
                                    
-  # Also remove aux basis species from the preferred list if they have more than
-  # one atom of the same element.
-  #     E.g., remove S2-2, S2O3-2, etc.
   if(!identical(aux_pref, character(0))){
-  keep <- c()
-  for(i in 1:length(aux_pref)){
-    if(makeup(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
-      keep <- c(keep, i)
+    # Also remove aux basis species from the preferred list if they have more than
+    # one atom of the same element.
+    #     E.g., remove S2-2, S2O3-2, etc.
+    keep <- c()
+    for(i in 1:length(aux_pref)){
+      if(makeup(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "formula_modded"])[aux_pref_names[[i]]] == 1){
+        keep <- c(keep, i)
+      }
     }
-  }
-  aux_pref <- aux_pref[keep]
-  aux_pref_names <- aux_pref_names[keep]
-    
-  names(aux_pref) <- aux_pref_names
+    aux_pref <- aux_pref[keep]
+    aux_pref_names <- aux_pref_names[keep]
+      
+    # Also remove aux basis species from the preferred list if their dissociation
+    # reaction includes another aux basis species
+    #    E.g., remove H2S (aux) if its dissociation reaction includes HS- (aux) 
+    reject <- c()
+    for(i in 1:length(aux_pref)){
+      auxd <- strsplit(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "dissrxn"], " ")[[1]]
+      auxd <- auxd[3:length(auxd)]
+      for(a in aux_pref){
+        if(a %in% auxd){
+          reject <- c(reject, i)
+        }
+      }
+    }
+      
+    reject <- unique(reject)
+      
+    aux_pref <- aux_pref[-reject]
+    aux_pref_names <- aux_pref_names[-reject]
+     
+    names(aux_pref) <- aux_pref_names
   }else{
     aux_pref <- list()
     aux_pref_names <- c()
@@ -986,7 +1005,6 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         
         basis_pref <- c(basis_pref, valid_aux[1]) # add valid aux to basis prefs. The [1] just selects the first valid aux species if there are multiple. Selection method can probably be improved.
         aux_pref <- aux_pref[aux_pref != valid_aux]
-        
         thermo_df[thermo_df[, "name"] == valid_aux, "tag"] <- "basis"
 
       }else{
@@ -1039,7 +1057,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       species_in_dissrxns_that_are_not_basis <- c(species_in_dissrxns_that_are_not_basis, basis)
     }
   }
-                                   
+
   if(length(missing_basis_species) == 1){
     if(is.na(missing_basis_species)){
       missing_basis_species = c()
@@ -1130,7 +1148,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   if(nrow(df_needs_dissrxns) > 0){
     names <- df_needs_dissrxns[["name"]]
     generated_dissrxns <- dissrxns[names]
-    nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4))
+    nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4)) # length != 4 refers to picking dissrxns that do not look something like -1.0000 iron 1.0000 iron
     basis_idx <- !nonbasis_idx
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
     nonbasis_names <- unique(nonbasis_names)
@@ -1153,7 +1171,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
 #   print(tail(thermo_df))
                                   
   thermo_df[is.na(thermo_df)]=''
-  
+
   out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
                                   
   return(out_list)

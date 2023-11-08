@@ -120,12 +120,12 @@ create_data0 <- function(thermo_df,
   # due to one or more NA in its dissrxn logK grid
   skipped_species <- c()
     
-  # loop through species in OBIGT file
+  # loop through species in thermo_df
   for(idx in 1:nrow(thermo_df)){
 
     entry <- thermo_df[idx, ]
     name <- entry$name
-
+      
     if (name %in% c("O2(g)", "H2O", "H+")){
       vmessage(paste(name, "is included as a basis species by default. Moving to the next species..."), 2, verbose)
       next
@@ -151,7 +151,7 @@ create_data0 <- function(thermo_df,
       # if this species is an auxiliary basis species, flag and continue with aqueous formatting
       aux_basis <- TRUE
     }
-
+        
     # format charge for this species' data0 entry
     if("Z" %in% names(elem)){
       charge <- elem["Z"]
