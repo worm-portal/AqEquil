@@ -2389,6 +2389,96 @@ class Mass_Transfer:
         return fig
 
     
+    def plot_reaction(self, species, stoich,
+                      divisor=1, xvar="Temp(C)", yvar="G", yunits="kcal/mol",
+                      ylab=None, show_zero_line=True):
+
+        assert len(species) == len(stoich)
+
+        s_logact_dict = {}
+        for s in species:
+            print("s")
+            print(s)
+            print("A")
+            print(self.df[self.df["name"]==s]["state"])
+            print("B")
+            print(list(self.df[self.df["name"]==s]["state"]))
+            print("C")
+            
+            if s == "H+":
+                s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
+            elif s != "H+" and list(self.df[self.df["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                s_logact_dict[s] = list(self.aq_distribution_logact[s])
+            else:
+                s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
+            
+
+        y_list = []
+        for i,T in enumerate(list(self.misc_params["Temp(C)"])):
+            logK = subcrt(species,
+                          stoich,
+                          T=T,
+                          P=list(self.misc_params["Press(bars)"])[i], show=False, messages=False).out["logK"]
+
+            logK = float(logK)
+
+            logQ = sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)])
+
+            if yunits in ["cal/mol", "kcal/mol"]:
+                r_div = 4.184
+            elif yunits in ["J/mol", "kJ/mol"]:
+                r_div = 1
+
+            if "k" in yunits:
+                k_div = 1000
+            else:
+                k_div = 1
+
+            R = 8.314/r_div  # gas constant, unit = [cal/mol/K]
+            A = 2.303 * R * (273.15+T) * (logK - logQ)  # affinity, unit = [cal/mol]
+            A = A/k_div
+
+            if yvar=="G":
+                G = -A # gibbs free energy, unit = [cal/mol]
+                y_list.append(G/divisor)
+                ylab_out="ΔG, {}".format(yunits)
+            elif yvar=="A":
+                y_list.append(A/divisor)
+                ylab_out="A, {}".format(yunits)
+            
+            if ylab != None:
+                ylab_out = yalb
+
+
+        df = pd.DataFrame(dict(
+            x = list(self.misc_params[xvar]),
+            y = y_list
+        ))
+        fig = px.line(df, x="x", y="y", template="simple_white")
+        
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab_out)
+
+        if isinstance(title, str):
+            fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+            
+        if isinstance(xlim, list):
+            fig.update_layout(xaxis_range=xlim)
+            
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+            
+        if show_zero_line:
+            fig.add_hline(y=0, line_width=3, line_dash="dash", line_color="black")
+            
+        fig.show()
+    
     def plot_mass_contribution(self, *args, x_type="xi", x_decimals=3,
                                      track_steps=True, keep_xi_order=False,
                                      **kwargs):
