@@ -16,7 +16,7 @@ from datetime import datetime
 import numbers
 import roman
 from natsort import natsorted
-from .AqSpeciation import Error_Handler, Speciation, AqEquil, chemlabel
+from .AqSpeciation import Error_Handler, Speciation, AqEquil, chemlabel, check_balance, format_equation
 
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
@@ -1907,7 +1907,7 @@ class Mass_Transfer:
         
         """
         Generate a line plot of pH as a function of the log of the extent of
-        reaction (log Xi).
+        reaction (log Xi) or some other variable.
         
         Parameters
         ----------
@@ -1994,7 +1994,8 @@ class Mass_Transfer:
         
         """
         Generate a line plot of the log moles of product minerals as a
-        function of the log of the extent of reaction (log Xi).
+        function of the log of the extent of reaction (log Xi) or some other
+        variable.
         
         Parameters
         ----------
@@ -2243,11 +2244,12 @@ class Mass_Transfer:
                              charge_sign_at_end=False,
                              plot_width=4, plot_height=3, ppi=122, xlim=None,
                              ylim=None, save_as=None, save_format=None,
-                             save_scale=1,):
+                             save_scale=1):
         
         """
         Generate a line plot of the log activities of aqueous species as a
-        function of the log of the extent of reaction (log Xi).
+        function of the log of the extent of reaction (log Xi) or some other
+        variable.
         
         Parameters
         ----------
@@ -2389,47 +2391,149 @@ class Mass_Transfer:
         return fig
 
     
-    def plot_reaction(self, species, stoich,
-                      divisor=1, xvar="Temp(C)", yvar="G", yunits="kcal/mol",
-                      ylab=None, show_zero_line=True):
+    def plot_energy(self, species, stoich,
+                    divisor=1, x_type="logxi", y_type="A", y_units="kcal/mol",
+                    show_zero_line=True, xlab=None, ylab=None, title=None,
+                    charge_sign_at_end=False,
+                    plot_width=4, plot_height=3, ppi=122,
+                    xlim=None, ylim=None, df_out=False,
+                    save_as=None, save_format=None,
+                    save_scale=1, print_logK_messages=False):
+        
+        """
+        Generate a line plot of the energy profile for a reaction as a
+        function of the log of the extent of reaction (log Xi) or some other
+        variable.
+        
+        Parameters
+        ----------
+        species : list of str
+            A list of species that match the order of the stoichiometric
+            reaction coefficients in the `stoich` parameter.
 
-        assert len(species) == len(stoich)
+        stoich : list of numeric
+            A list of stoichiometric reaction coefficients that match the order
+            of the species in the `species` parameter.
+        
+        divisor : float, default 1
+            Divide all values in the energy profile by this number. Useful for
+            calculating energy per electron transferred or similar.
+        
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
+        
+        y_type : str, default 'A'
+            The variable to plot on the y-axis. Can be either 'A' (for chemical
+            affinity), or 'G' (for Gibbs free energy, ΔG).
+        
+        y_units : str, default 'kcal/mol'
+            The unit that energy will be reported in. Can be 'kcal/mol',
+            'cal/mol', 'J/mol', or 'kJ/mol'.
+        
+        show_zero_line : bool, default True
+            If True, displays a dotted line where affinity or ΔG equals 0 (at
+            equilibrium).
+        
+        xlab, ylab : str, optional
+            Custom x and y axis labels.
+        
+        title : str, optional
+            Title of the plot to display.
+        
+        charge_sign_at_end : bool, default False
+            Display charge with sign after the number (e.g. SO4 2- instead of
+            SO4-2) in species names when the reaction is displayed in the plot
+            title?
+        
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        xlim, ylim : list of two numeric values, optional
+            Minimum and maximum value of the x-axis and y-axis, respectively.
+            
+        df_out = bool, default False
+            Return a pandas dataframe in addition to a figure?
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
 
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+            
+        print_logK_messages : bool, default False
+            Print pyCHNOSZ messages while the logK of the reaction is
+            calculated?
+            
+        Returns
+        -------
+        fig : Plotly figure object, optionally a Pandas Dataframe
+            A line plot. If `df_out` is True, also returns a dataframe.
+        """
+        
+        # check that the reaction is balanced
+        formulas = []
+        for s in species:
+            if s == "H+":
+                formulas.append("H+")
+            elif s == "H2O":
+                formulas.append("H2O")
+            else:
+                formulas.append(list(self.thermodata_csv[self.thermodata_csv["name"]==s]["formula"])[0])
+        missing_composition = check_balance(formulas, stoich)
+
+        equation_to_display = format_equation(
+                                      species,
+                                      stoich,
+                                      charge_sign_at_end=charge_sign_at_end,
+                                      )
+        
+        # create a dictionary of species logacts across xi
         s_logact_dict = {}
         for s in species:
-            print("s")
-            print(s)
-            print("A")
-            print(self.df[self.df["name"]==s]["state"])
-            print("B")
-            print(list(self.df[self.df["name"]==s]["state"]))
-            print("C")
-            
-            if s == "H+":
+            if s == "H+" or s == "H2O":
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-            elif s != "H+" and list(self.df[self.df["name"]==s]["state"])[0] not in ["cr", "liq"]:
+            elif s != "H+" and list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
                 s_logact_dict[s] = list(self.aq_distribution_logact[s])
             else:
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
             
-
+        xlab, xvar = self.__get_xlab_xvar(x_type)
+            
         y_list = []
         for i,T in enumerate(list(self.misc_params["Temp(C)"])):
             logK = subcrt(species,
                           stoich,
                           T=T,
-                          P=list(self.misc_params["Press(bars)"])[i], show=False, messages=False).out["logK"]
+                          P=list(self.misc_params["Press(bars)"])[i], show=False, messages=print_logK_messages).out["logK"]
 
             logK = float(logK)
 
             logQ = sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)])
 
-            if yunits in ["cal/mol", "kcal/mol"]:
+            if y_units in ["cal/mol", "kcal/mol"]:
                 r_div = 4.184
-            elif yunits in ["J/mol", "kJ/mol"]:
+            elif y_units in ["J/mol", "kJ/mol"]:
                 r_div = 1
 
-            if "k" in yunits:
+            if "k" in y_units:
                 k_div = 1000
             else:
                 k_div = 1
@@ -2438,27 +2542,36 @@ class Mass_Transfer:
             A = 2.303 * R * (273.15+T) * (logK - logQ)  # affinity, unit = [cal/mol]
             A = A/k_div
 
-            if yvar=="G":
+            if y_type=="G":
                 G = -A # gibbs free energy, unit = [cal/mol]
                 y_list.append(G/divisor)
-                ylab_out="ΔG, {}".format(yunits)
-            elif yvar=="A":
+                ylab_out="ΔG, {}".format(y_units)
+            elif y_type=="A":
                 y_list.append(A/divisor)
-                ylab_out="A, {}".format(yunits)
+                ylab_out="A, {}".format(y_units)
             
+            if xlab != None:
+                xlab_out = xlab
             if ylab != None:
-                ylab_out = yalb
+                ylab_out = ylab
 
+        df = copy.deepcopy(self.misc_params)
+        with np.errstate(divide='ignore'):
+            df['log Xi'] = np.log10(df['Xi'])
+            
+        df_y_name = y_type+", "+y_units
+        df[df_y_name] = y_list
 
-        df = pd.DataFrame(dict(
-            x = list(self.misc_params[xvar]),
-            y = y_list
-        ))
-        fig = px.line(df, x="x", y="y", template="simple_white")
+        fig = px.line(df, x=xvar, y=df_y_name,
+                      width=plot_width*ppi, height=plot_height*ppi,
+                      template="simple_white")
         
-        fig.update_layout(xaxis_title=xlab,
+        fig.update_layout(xaxis_title=xlab_out,
                           yaxis_title=ylab_out)
 
+        if title == None:
+            title = "Energy profile for the reaction<br>"+equation_to_display
+        
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
 
@@ -2477,7 +2590,11 @@ class Mass_Transfer:
         if show_zero_line:
             fig.add_hline(y=0, line_width=3, line_dash="dash", line_color="black")
             
-        fig.show()
+        if df_out:
+            return fig, df
+        else:
+            return fig
+    
     
     def plot_mass_contribution(self, *args, x_type="xi", x_decimals=3,
                                      track_steps=True, keep_xi_order=False,
@@ -2486,7 +2603,7 @@ class Mass_Transfer:
         """
         Generate a bar plot of mass contributions (in mole percent) of aqueous
         species formed as a function of reaction progress Xi or some other
-        user-defined variable.
+        variable.
         
         Parameters
         ----------
