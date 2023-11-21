@@ -1902,8 +1902,9 @@ class Mass_Transfer:
         return fig
     
     
-    def plot_pH(self, x_type="logxi", title=None, plot_width=4, plot_height=3,
-                ppi=122, ylim=None, save_as=None, save_format=None, save_scale=1):
+    def plot_pH(self, x_type="logxi", show_neutrality=True, title=None,
+                plot_width=4, plot_height=3, ppi=122, ylim=None, save_as=None,
+                save_format=None, save_scale=1):
         
         """
         Generate a line plot of pH as a function of the log of the extent of
@@ -1915,6 +1916,9 @@ class Mass_Transfer:
             Variable to appear on the x-axis. Can be "logxi", "xi",
             "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
             "aw".
+        
+        show_neutrality : bool, default True,
+            Display a line representing neutral pH?
         
         title : str
             Title of the plot to display.
@@ -1975,6 +1979,33 @@ class Mass_Transfer:
 
         if isinstance(ylim, list):
             fig.update_layout(yaxis_range=ylim)
+        
+        if show_neutrality:
+            _, df_pH = self.plot_energy(species=["H2O", "H+", "OH-"],
+                                        stoich=[-1, 1, 1],
+                                        divisor=-2,
+                                        x_type=x_type,
+                                        y_type="logK",
+                                        df_out=True,
+                                        )
+            
+            fig.add_trace(go.Scatter(x=df_pH[xvar],
+                                     y=df_pH["logK"],
+                                     mode='lines',
+                                     name='neutral pH',
+                                     showlegend=True,
+                                     hovertemplate = xlab+': %{x}<br>pH: %{y}<extra></extra>',
+                                     line=dict(color='silver',
+                                               width=3,
+                                               dash='dot')
+                                    ))
+
+            fig['data'][0]['showlegend']=True
+            fig['data'][0]['name']='pH'
+            fig['data'][1]['showlegend']=True
+            fig['data'][1]['name']='neutral pH'
+            fig.update_layout(showlegend=True)
+            
             
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
@@ -2392,9 +2423,9 @@ class Mass_Transfer:
 
     
     def plot_energy(self, species, stoich,
-                    divisor=1, x_type="logxi", y_type="A", y_units="kcal/mol",
-                    show_zero_line=True, xlab=None, ylab=None, title=None,
-                    charge_sign_at_end=False,
+                    divisor=1, x_type="logxi", y_type="A", y_units="kcal",
+                    show_zero_line=True, limiting=None, xlab=None, ylab=None,
+                    title=None, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     xlim=None, ylim=None, df_out=False,
                     save_as=None, save_format=None,
@@ -2426,15 +2457,25 @@ class Mass_Transfer:
         
         y_type : str, default 'A'
             The variable to plot on the y-axis. Can be either 'A' (for chemical
-            affinity), or 'G' (for Gibbs free energy, ΔG).
+            affinity), 'G' (for Gibbs free energy, ΔG), 'logK' (for the log
+            of the equilibrium constant), or 'logQ' (for the log of the reaction
+            quotient).
         
-        y_units : str, default 'kcal/mol'
-            The unit that energy will be reported in. Can be 'kcal/mol',
-            'cal/mol', 'J/mol', or 'kJ/mol'.
+        y_units : str, default 'kcal'
+            The unit that energy will be reported in (per mol for G and A, or
+            per kg fluid for energy supply, or unitless for logK and logQ).
+            Can be 'kcal', 'cal', 'J', or 'kJ'.
         
         show_zero_line : bool, default True
             If True, displays a dotted line where affinity or ΔG equals 0 (at
             equilibrium).
+        
+        limiting : str, optional
+            Name of the species to act as the limiting reactant when calculating
+            energy supply. If this parameter is left undefined, then a
+            limiting reactant will be chosen automatically based on
+            concentration and stoichiometry. This parameter is ignored unless
+            `y_type` is set to 'E' (energy supply).
         
         xlab, ylab : str, optional
             Custom x and y axis labels.
@@ -2507,70 +2548,146 @@ class Mass_Transfer:
         
         # create a dictionary of species logacts across xi
         s_logact_dict = {}
+        s_molal_dict = {}
         for s in species:
-            if s == "H+" or s == "H2O":
+            if s == "H+":
+                s_logact_dict[s] = [-pH for pH in list(self.misc_params["pH"])]
+                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["pH"])
+            elif s == "H2O":
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-            elif s != "H+" and list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+            elif list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
                 s_logact_dict[s] = list(self.aq_distribution_logact[s])
+                s_molal_dict[s] = list(self.aq_distribution_molal[s])
             else:
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
+                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
             
         xlab, xvar = self.__get_xlab_xvar(x_type)
             
-        y_list = []
-        for i,T in enumerate(list(self.misc_params["Temp(C)"])):
-            logK = subcrt(species,
-                          stoich,
-                          T=T,
-                          P=list(self.misc_params["Press(bars)"])[i], show=False, messages=print_logK_messages).out["logK"]
+        if y_type not in ["logK", "logQ"]:
+            if y_units in ["cal", "kcal"]:
+                r_div = 4.184
+            elif y_units in ["J", "kJ"]:
+                r_div = 1
+            R = 8.314/r_div  # gas constant, unit = [cal/mol/K]
 
-            logK = float(logK)
+        if "k" in y_units:
+            k_div = 1000
+        else:
+            k_div = 1
+            
+        y_list = []
+        lr_name_list = []
+        for i,T in enumerate(list(self.misc_params["Temp(C)"])):
+            if y_type != "logQ":
+                logK = subcrt(species,
+                              stoich,
+                              T=T,
+                              P=list(self.misc_params["Press(bars)"])[i], show=False, messages=print_logK_messages).out["logK"]
+
+                logK = float(logK)
+
+            if y_type == "logK":
+                ylab_out = "log K"
+                if title == None:
+                    title = "Equilibrium constant for the reaction<br>"+equation_to_display
+                y_list.append(round(logK/divisor, 4))
+                df_y_name = "logK"
+                continue
+                
 
             logQ = sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)])
 
-            if y_units in ["cal/mol", "kcal/mol"]:
-                r_div = 4.184
-            elif y_units in ["J/mol", "kJ/mol"]:
-                r_div = 1
-
-            if "k" in y_units:
-                k_div = 1000
-            else:
-                k_div = 1
-
-            R = 8.314/r_div  # gas constant, unit = [cal/mol/K]
-            A = 2.303 * R * (273.15+T) * (logK - logQ)  # affinity, unit = [cal/mol]
-            A = A/k_div
-
-            if y_type=="G":
-                G = -A # gibbs free energy, unit = [cal/mol]
-                y_list.append(G/divisor)
-                ylab_out="ΔG, {}".format(y_units)
-            elif y_type=="A":
-                y_list.append(A/divisor)
-                ylab_out="A, {}".format(y_units)
+            if y_type == "logQ":
+                ylab_out = "log Q"
+                if title == None:
+                    title = "Reaction quotient for the reaction<br>"+equation_to_display
+                y_list.append(round(logQ/divisor, 4))
+                df_y_name = "logQ"
+                continue
             
-            if xlab != None:
-                xlab_out = xlab
-            if ylab != None:
-                ylab_out = ylab
+            else:
+                A = 2.303 * R * (273.15+T) * (logK - logQ)  # affinity, unit = [cal/mol]
+                A = A/k_div
+                
+                if title == None:
+                    title = "Energy profile for the reaction<br>"+equation_to_display
+                
+                if y_type=="G":
+                    G = -A # gibbs free energy, unit = [cal/mol]
+                    y_list.append(G/divisor)
+                    ylab_out="ΔG, {}".format(y_units)
+                    y_units_out = y_units+"/mol"
+                elif y_type=="A":
+                    y_list.append(round(A/divisor, 4))
+                    ylab_out="A, {}".format(y_units)
+                    y_units_out = y_units+"/mol"
+                elif y_type=="E":
+                    
+                    if not isinstance(limiting, str):
+                        lrc_dict = {}
+                        for i_s,s in enumerate(species):
+                            # identify valid limiting reactants and record concentrations
+                            # 1. negative coefficient (reactant)
+                            # 2. can't be OH-, H+, H2O
+                            # 3. can't be cr or liq
+                            if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                                lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
+                    
+                    # todo: what if there are multiple limiting reactants?
+                    # todo: what if the user chooses an invalid limiting reactant (or product?)
+#                     if len(lrc_dict) > 0:
+                    if not isinstance(limiting, str):
+                        lr_name = min(lrc_dict, key=lrc_dict.get)
+                    else:
+                        lr_name = limiting
+                    lr_concentration = s_molal_dict[lr_name][i]
+                    lr_name_list.append(chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end))
+                    lr_stoich = -stoich[species.index(lr_name)]
+                    E = A * (lr_concentration/lr_stoich)
+                    y_list.append(round(E/divisor, 4))
+                    y_units_out = y_units+"/kg fluid"
+                    ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
+#                     else:
+#                         lr_name_list.append("NA")
+#                         y_list.append(float('NaN'))
+#                         y_units_out = y_units+"/kg fluid"
+#                         ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
+
+                df_y_name = y_type+", "+y_units_out
+
+            
+        if xlab != None:
+            xlab_out = xlab
+        if ylab != None:
+            ylab_out = ylab
 
         df = copy.deepcopy(self.misc_params)
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
             
-        df_y_name = y_type+", "+y_units
         df[df_y_name] = y_list
 
+        
         fig = px.line(df, x=xvar, y=df_y_name,
                       width=plot_width*ppi, height=plot_height*ppi,
                       template="simple_white")
         
+        if y_type=="E":
+            fig.add_trace(
+                go.Scatter(
+                    x=df[xvar],
+                    y=df[df_y_name],
+                    mode='lines',
+                    customdata = lr_name_list,
+                    hovertemplate = xlab+': %{x}<br>'+ylab_out+': %{y}<br>Limiting : %{customdata}<extra></extra>',
+                )
+            )
+            fig.data[0].visible=False
+        
         fig.update_layout(xaxis_title=xlab_out,
                           yaxis_title=ylab_out)
-
-        if title == None:
-            title = "Energy profile for the reaction<br>"+equation_to_display
         
         if isinstance(title, str):
             fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
