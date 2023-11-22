@@ -2424,7 +2424,7 @@ class Mass_Transfer:
     
     def plot_energy(self, species, stoich,
                     divisor=1, x_type="logxi", y_type="A", y_units="kcal",
-                    show_zero_line=True, limiting=None, xlab=None, ylab=None,
+                    show_zero_line=False, limiting=None, xlab=None, ylab=None,
                     title=None, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     xlim=None, ylim=None, df_out=False,
@@ -2466,7 +2466,7 @@ class Mass_Transfer:
             per kg fluid for energy supply, or unitless for logK and logQ).
             Can be 'kcal', 'cal', 'J', or 'kJ'.
         
-        show_zero_line : bool, default True
+        show_zero_line : bool, default False
             If True, displays a dotted line where affinity or ΔG equals 0 (at
             equilibrium).
         
@@ -2529,6 +2529,12 @@ class Mass_Transfer:
             A line plot. If `df_out` is True, also returns a dataframe.
         """
         
+        # check that the divisor is valid
+        if isinstance(divisor, list) or isinstance(divisor, pd.Series):
+            if len(divisor) != len(self.misc_params["Temp(C)"]):
+                self.err_handler.raise_exception("The length of the divisor is "
+                    "not equal to the number of reported xi steps.")
+        
         # check that the reaction is balanced
         formulas = []
         for s in species:
@@ -2580,6 +2586,12 @@ class Mass_Transfer:
         y_list = []
         lr_name_list = []
         for i,T in enumerate(list(self.misc_params["Temp(C)"])):
+            
+            if isinstance(divisor, list):
+                divisor_i = divisor[i]
+            else:
+                divisor_i = divisor
+            
             if y_type != "logQ":
                 logK = subcrt(species,
                               stoich,
@@ -2592,7 +2604,7 @@ class Mass_Transfer:
                 ylab_out = "log K"
                 if title == None:
                     title = "Equilibrium constant for the reaction<br>"+equation_to_display
-                y_list.append(round(logK/divisor, 4))
+                y_list.append(round(logK/divisor_i, 4))
                 df_y_name = "logK"
                 continue
                 
@@ -2603,7 +2615,7 @@ class Mass_Transfer:
                 ylab_out = "log Q"
                 if title == None:
                     title = "Reaction quotient for the reaction<br>"+equation_to_display
-                y_list.append(round(logQ/divisor, 4))
+                y_list.append(round(logQ/divisor_i, 4))
                 df_y_name = "logQ"
                 continue
             
@@ -2616,12 +2628,12 @@ class Mass_Transfer:
                 
                 if y_type=="G":
                     G = -A # gibbs free energy, unit = [cal/mol]
-                    y_list.append(G/divisor)
-                    ylab_out="ΔG, {}".format(y_units)
+                    y_list.append(G/divisor_i)
+                    ylab_out="ΔG, {}/mol".format(y_units)
                     y_units_out = y_units+"/mol"
                 elif y_type=="A":
-                    y_list.append(round(A/divisor, 4))
-                    ylab_out="A, {}".format(y_units)
+                    y_list.append(round(A/divisor_i, 4))
+                    ylab_out="A, {}/mol".format(y_units)
                     y_units_out = y_units+"/mol"
                 elif y_type=="E":
                     
@@ -2646,7 +2658,7 @@ class Mass_Transfer:
                     lr_name_list.append(chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end))
                     lr_stoich = -stoich[species.index(lr_name)]
                     E = A * (lr_concentration/lr_stoich)
-                    y_list.append(round(E/divisor, 4))
+                    y_list.append(round(E/divisor_i, 4))
                     y_units_out = y_units+"/kg fluid"
                     ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
 #                     else:
