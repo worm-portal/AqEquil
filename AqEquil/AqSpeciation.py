@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -3236,10 +3236,12 @@ class AqEquil(object):
             
             reject_indices = list(rejected_sp_i_dict.keys())
             reject_names = list(free_logK_df.iloc[reject_indices]["name"])
+            reject_states = list(free_logK_df.iloc[reject_indices]["state"])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            self.thermo.df_rejected_species = pd.concat([self.thermo.df_rejected_species, pd.DataFrame({'database name':[self.thermo.logK_db_filename]*len(reject_indices), 'database index':reject_indices, "name":reject_names, "reason for rejection":reject_reasons})], ignore_index=True)
-                        
+            for i,n in enumerate(reject_names):
+                self.thermo._reject_species(name=n, reason=reject_reasons[i])
+       
             return valid_sp_i
             
             
@@ -4307,6 +4309,7 @@ class AqEquil(object):
             self.df_rejected_species = pd.DataFrame({'database name':[],
                                                      'database index':[],
                                                      "name":[],
+                                                     "state":[],
                                                      "reason for rejection":[]})
             
             # active thermo db attributes
@@ -4437,12 +4440,14 @@ class AqEquil(object):
                 if isinstance(self.__getattribute__(db_name), pd.DataFrame):
                     if name in list(self.__getattribute__(db_name)["name"]):
                         idx_list = [i for i,n in enumerate(self.__getattribute__(db_name)["name"]) if n==name]
-                        for i in idx_list:
+                        state_list = [self.__getattribute__(db_name)["state"][idx] for i,idx in enumerate(idx_list)]
+                        for i,idx in enumerate(idx_list):
                             if name not in list(self.df_rejected_species["name"]) or i not in list(self.df_rejected_species.loc[self.df_rejected_species["name"]==name, "database index"]):
-                                d = pd.DataFrame({'database name': [self.__getattribute__(db_name+"_filename")], 'database index': [int(i)], 'name': [name], 'reason for rejection': [reason]})
+                                d = pd.DataFrame({'database name': [self.__getattribute__(db_name+"_filename")], 'database index': [int(idx)], 'name': [name], 'state': [state_list[i]], 'reason for rejection': [reason]})
                                 self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
                         break
-                        
+                    
+                    
         def _remove_missing_G_species(self):
             # remove species that are missing a gibbs free energy value.
             # handle minerals first. Reject any that have missing G in any polymorph.
@@ -5159,15 +5164,17 @@ class AqEquil(object):
 
             thermo_df = self.out_list.rx2("thermo_df")
             thermo_df=ro.conversion.rpy2py(thermo_df)
-            
+
             # Currently, species rejected by r.suppress_redox_and_generate_dissrxns()
             # are rejected because they cannot be written with valid basis species.
             # e.g., the mineral "iron" would be rejected when Fe is redox-isolated because
             # there is no aqueous basis species representing Fe with an oxidation state of 0.
             rejected_species = self.out_list.rx2("dissrxns").rx2("rejected_species")
-            for i,sp in enumerate(rejected_species):
-                self._reject_species(sp, "A dissociation reaction could not be written with valid basis species.")
             
+            if type(rejected_species) != rpy2.rinterface_lib.sexp.NULLType:
+                for i,sp in enumerate(rejected_species):
+                    self._reject_species(sp, "A dissociation reaction could not be written with valid basis species.")
+
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             # convert E units and calculate missing GHS values
@@ -6637,13 +6644,14 @@ class Speciation(object):
         
         sample_data = getattr(self, "sample_data")
         
-        if sample_data[sample]["mass_transfer"] != None:
-            return sample_data[sample]["mass_transfer"]
-        else:
-            msg = ("Mass transfer results are not stored for sample '"+sample+"'. "
-                  "This might be because the reaction calculation did not "
-                  "finish successfully or because the thermodynamic database "
-                  "is a data0 or data1 file without a supporting CSV file.")
-            self.err_handler.raise_exception(msg)
+        if "mass_transfer" in list(sample_data[sample].keys()):
+            if sample_data[sample]["mass_transfer"] != None:
+                return sample_data[sample]["mass_transfer"]
+            
+        msg = ("Mass transfer results are not stored for sample '"+sample+"'. "
+              "This might be because the reaction calculation did not "
+              "finish successfully or because the thermodynamic database "
+              "is a data0 or data1 file without a supporting CSV file.")
+        self.err_handler.raise_exception(msg)
 
     

@@ -261,27 +261,27 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        if isinstance(speciation.thermo.csv_db, pd.DataFrame):# and not EQ6_errors_found:
+        if isinstance(speciation.thermo.csv_db, pd.DataFrame) and not EQ6_errors_found:
             m = Mass_Transfer(thermodata_csv=speciation.thermo.csv_db,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
-#         elif EQ6_errors_found:
-#             speciation.sample_data[sample_name]["mass_transfer"] = None
-#             if ae.verbose > 0:
-#                 print(("Mass transfer results for sample '"+sample_name+"' "
-#                        "could not be saved because the calculation did not "
-#                        "finish due to error(s).\n"))
-#         elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
-#             speciation.sample_data[sample_name]["mass_transfer"] = None
-#             if ae.verbose > 0:
-#                 print(("Mass transfer results for sample '"+sample_name+"' "
-#                        "could not be saved because the thermodynamic database "
-#                        "is not in the required CSV format. E.g., 'wrm_data.csv'"
-#                        ". This might be because a data0 or data1 file was used "
-#                        "without also providing a supporting CSV file.\n"))
+        elif EQ6_errors_found:
+            speciation.sample_data[sample_name]["mass_transfer"] = None
+            if ae.verbose > 0:
+                print(("Mass transfer results for sample '"+sample_name+"' "
+                       "could not be saved because the calculation did not "
+                       "finish due to error(s).\n"))
+        elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
+            speciation.sample_data[sample_name]["mass_transfer"] = None
+            if ae.verbose > 0:
+                print(("Mass transfer results for sample '"+sample_name+"' "
+                       "could not be saved because the thermodynamic database "
+                       "is not in the required CSV format. E.g., 'wrm_data.csv'"
+                       ". This might be because a data0 or data1 file was used "
+                       "without also providing a supporting CSV file.\n"))
         
         # store input, output, and pickup as dicts in speciation object
         try:
@@ -412,6 +412,7 @@ class Mass_Transfer:
         self.inactive_species = self.__get_inactive_species()
         
         if isinstance(thermodata_csv, pd.DataFrame) or isinstance(thermodata_csv, str):
+            
             # these operations require a WORM-style thermodynamic database CSV
             
             obigt = thermo().OBIGT
@@ -419,6 +420,9 @@ class Mass_Transfer:
             _ = add_OBIGT(thermodata_csv, force=True, messages=False)
             
             self.tab = self.process_tab(tab_name, thermodata_csv)
+            
+            if len(self.tab) == 0:
+                self.err_handler.raise_exception("An empty TAB file was encountered!")
 
             if isinstance(thermodata_csv, str):
                 self.df = pd.read_csv(thermodata_csv)
@@ -2458,8 +2462,8 @@ class Mass_Transfer:
         y_type : str, default 'A'
             The variable to plot on the y-axis. Can be either 'A' (for chemical
             affinity), 'G' (for Gibbs free energy, ΔG), 'logK' (for the log
-            of the equilibrium constant), or 'logQ' (for the log of the reaction
-            quotient).
+            of the equilibrium constant), 'logQ' (for the log of the reaction
+            quotient), or 'E' for energy supply.
         
         y_units : str, default 'kcal'
             The unit that energy will be reported in (per mol for G and A, or
@@ -2535,6 +2539,7 @@ class Mass_Transfer:
                 self.err_handler.raise_exception("The length of the divisor is "
                     "not equal to the number of reported xi steps.")
         
+        
         # check that the reaction is balanced
         formulas = []
         for s in species:
@@ -2543,9 +2548,50 @@ class Mass_Transfer:
             elif s == "H2O":
                 formulas.append("H2O")
             else:
-                formulas.append(list(self.thermodata_csv[self.thermodata_csv["name"]==s]["formula"])[0])
+                if s in list(self.thermodata_csv["name"]):
+                    formulas.append(list(self.thermodata_csv[self.thermodata_csv["name"]==s]["formula"])[0])
+                else:
+                    self.err_handler.raise_exception("Valid thermodynamic data "
+                            "was not found for species "+str(s)+"")
+                    
         missing_composition = check_balance(formulas, stoich)
-
+        
+        
+        # check that there are valid limiting reactants when calculating energy
+        # e.g., prevent issue when the only reactant is a mineral, etc.
+        reactant_idx = [1 if i<0 else 0 for i in stoich]
+        reactants = [species[i] for i,idx in enumerate(reactant_idx) if idx == 1]
+        invalid_limiting_reactants = []
+        for r in reactants:
+            if r not in ["H2O", "H+", "OH-"]:
+                if list(self.thermodata_csv[self.thermodata_csv["name"]==r]["state"])[0] != "aq":
+                    invalid_limiting_reactants.append(r)
+            else:
+                invalid_limiting_reactants.append(r)
+        if reactants == invalid_limiting_reactants and y_type == "E":
+            self.err_handler.raise_exception("Energy supply for this reaction "
+                "cannot be calculated because none of the reactants are "
+                "limiting. A limiting reactant must be aqueous and cannot be H+ "
+                "or OH-.")
+        
+        if limiting != None:
+            # check that the limiting reactant is in the thermodynamic database
+            if limiting not in list(self.thermodata_csv["name"]):
+                self.err_handler.raise_exception("Valid thermodynamic data was "
+                        "not found for limiting reactant "+str(limiting)+"")
+            
+            # check that the limiting reactant is aqueous or gaseous
+            if list(self.thermodata_csv[self.thermodata_csv["name"]==limiting]["state"])[0] != "aq":
+                self.err_handler.raise_exception("The limiting reactant must "
+                        "be an aqueous species.")
+            
+            # check that the limiting reactant is a reactant in the `species` parameter
+            if limiting not in reactants:
+                self.err_handler.raise_exception("The species specified as a "
+                        "limiting reactant, '"+str(limiting)+"', is not a "
+                        "reactant in this reaction.")
+                
+        # format reaction equation
         equation_to_display = format_equation(
                                       species,
                                       stoich,
@@ -2563,11 +2609,19 @@ class Mass_Transfer:
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
                 s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
             elif list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
-                s_logact_dict[s] = list(self.aq_distribution_logact[s])
-                s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                if s in self.aq_distribution_logact.columns:
+                    # aqueous species
+                    s_logact_dict[s] = list(self.aq_distribution_logact[s])
+                    s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                else:
+                    self.err_handler.raise_exception("The species "+str(s)+" is "
+                            "not among the distribution of aqueous species in "
+                            "this calculation.")
             else:
+                # liq and cr species
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
                 s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+                
             
         xlab, xvar = self.__get_xlab_xvar(x_type)
             
@@ -2647,17 +2701,31 @@ class Mass_Transfer:
                             if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermodata_csv[self.thermodata_csv["name"]==s]["state"])[0] not in ["cr", "liq"]:
                                 lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
                     
-                    # todo: what if there are multiple limiting reactants?
-                    # todo: what if the user chooses an invalid limiting reactant (or product?)
-#                     if len(lrc_dict) > 0:
                     if not isinstance(limiting, str):
                         lr_name = min(lrc_dict, key=lrc_dict.get)
+                        lr_val = lrc_dict[lr_name]
+                        
+                        # handle situations where there might be multiple limiting reactants
+                        lr_list = []
+                        for k,v in zip(lrc_dict.keys(), lrc_dict.values()):
+                            if v == lr_val:
+                                lr_list.append(str(k))
+            
                     else:
-                        lr_name = limiting
+                        lr_list = [limiting]
+                        
+                    lr_list_formatted = [chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end) for lr_name in lr_list]
+                    if len(lr_list_formatted) > 1:
+                        lr_reported = ", ".join(lr_list_formatted)
+                    else:
+                        lr_reported = lr_list[0]
+                        
+                    lr_name = lr_list[0] # doesn't matter which lr is used to calculate
                     lr_concentration = s_molal_dict[lr_name][i]
-                    lr_name_list.append(chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end))
+                    lr_name_list.append(lr_reported)
                     lr_stoich = -stoich[species.index(lr_name)]
                     E = A * (lr_concentration/lr_stoich)
+
                     y_list.append(round(E/divisor_i, 4))
                     y_units_out = y_units+"/kg fluid"
                     ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")

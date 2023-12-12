@@ -20,6 +20,43 @@ vmessage <- function(m, vlevel, verbose){
   }
 }
 
+
+format_pseudoelement_name_R <- function(e){
+    
+  # Format a pseudoelement name
+  # E.g., "Fejiip" -> "Fe+2"
+  # This is the R version of an analagous python function in MassTransfer.py
+
+  if(nchar(e) > 2){
+    e_split_list <- strsplit(e, split = "j")[[1]]
+        
+    if(str_sub(e_split_list[2], -1)  == "p"){
+      charge_sign <- "+"
+    }else if(str_sub(e_split_list[2], -1) == "n"){
+      charge_sign <- "-"
+    }else if(str_sub(e_split_list[2], -1) == "z"){
+      charge_sign <- ""
+    }else{
+      stop("ERROR in format_pseudoelement_name_R(): charge sign is not recognized")
+    }
+        
+    if(charge_sign != ""){
+      charge_magnitude_roman <- toupper(str_sub(e_split_list[2],1,-2))
+      charge_magnitude <- as.numeric(as.roman(charge_magnitude_roman))
+    }else{
+      charge_magnitude <- 0
+    }
+        
+    formatted_elem_name <- paste0(e_split_list[1], charge_sign, charge_magnitude)
+        
+  }else{
+    formatted_elem_name <- e
+  }
+        
+  return(formatted_elem_name)
+}
+
+
 # function for inserting a row at index r while shifting other rows down
 insertRow <- function(existingDF, newrow, r) {
   if(r < nrow(existingDF)){
@@ -341,14 +378,10 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   # This part starts the process of finding new basis species to represent elements
   # when they become redox-isolated. For example, finding new strict basis
   # species for S-2 and S+6 if sulfur becomes redox-isolated.
-  # EQ3/6 basis species must be aqueous (or gaseous, as with O2(g)). However, if
-  # this is allowed, problems arise later in the code where a suitable basis
-  # species can't be found for S+0 in sulfur, C+0 in graphite, and Fe+0 in iron, etc.
-  # Currently, these zero oxidation state elements only appear in one mineral apiece.
+  # EQ3/6 basis species must be aqueous (or gaseous, as with O2(g)).
   sp <- thermo_df %>% filter(!(state %in% c("cr", "cr2", "cr3", "cr4", "cr5", "liq")))
   #sp <- thermo_df
-                   
-                   
+
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
   names(sp_formula_makeup) <- sp$name
@@ -356,12 +389,6 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   # loop through each element and assign preferred basis species (if supplied)
   # or automatically choose compatible basis species
   basis_list <- list()
-                   
-#   # check that every basis element has a basis pref
-#   if(!setequal(basis_elem, names(basis_pref))){
-#     missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
-#     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
-#   }
        
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
@@ -441,12 +468,17 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
       }
     }
     sp_name <- sp_name[rm_i]
+    
+    elements_without_basis_formatted <- c()
+    for(e in elements_without_basis){
+      elements_without_basis_formatted <- c(elements_without_basis_formatted, format_pseudoelement_name_R(e))
+    }
       
-    msg <- paste("Warning: The following elements",
-                  "appear in chemical species but do not have representative",
-                  "basis species:", paste(elements_without_basis, collapse=", "),
-                  ". Species that contain this element:", paste(problem_sp, collapse=", "),
-                  ". These species will not be included in the speciation...")
+    msg <- paste("Warning: The following elements (or oxidation states)",
+                 "appear in chemical species but do not have representative",
+                 "basis species:", paste(elements_without_basis_formatted, collapse=", "),
+                 ". Species that contain these:", paste(problem_sp, collapse=", "),
+                 ". These species will be excluded from the speciation...")
     print(msg)
       
   }
@@ -1189,9 +1221,11 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
-                                   
-  thermo_df <- dissrxns[["thermo_df_modified"]]
 
+  if("thermo_df_modified" %in% names(dissrxns)){
+    thermo_df <- dissrxns[["thermo_df_modified"]]
+  }
+                                   
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if(nrow(df_needs_dissrxns) > 0){
 
@@ -1199,7 +1233,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     names <- names[! names %in% dissrxns[["rejected_species"]]]
     generated_dissrxns <- dissrxns[names]
       
-    nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4)) # length != 4 refers to picking dissrxns that do not look something like -1.0000 iron 1.0000 iron
+    nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) x[2] != x[4])) # x[2] != x[4] refers to picking dissrxns that do not look something like -1.0000 HCO3- 1.0000 HCO3-
               
     basis_idx <- !nonbasis_idx
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
@@ -1224,7 +1258,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
 #   print(tail(thermo_df))
 
   thermo_df[is.na(thermo_df)]=''
-
+                                  
   out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
                                   
   return(out_list)
