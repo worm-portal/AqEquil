@@ -4428,21 +4428,34 @@ class AqEquil(object):
                 input_template.to_csv("sample_input_template.csv", index=False)
 
 
+        def _reject_species(self, name, reason):
+            
+            dbs_to_search = ["csv_db", "logK_db", "logK_S_db"]
+            
+            db_filename = None
+            for db_name in dbs_to_search:
+                if isinstance(self.__getattribute__(db_name), pd.DataFrame):
+                    if name in list(self.__getattribute__(db_name)["name"]):
+                        idx_list = [i for i,n in enumerate(self.__getattribute__(db_name)["name"]) if n==name]
+                        for i in idx_list:
+                            if name not in list(self.df_rejected_species["name"]) or i not in list(self.df_rejected_species.loc[self.df_rejected_species["name"]==name, "database index"]):
+                                d = pd.DataFrame({'database name': [self.__getattribute__(db_name+"_filename")], 'database index': [int(i)], 'name': [name], 'reason for rejection': [reason]})
+                                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        break
+                        
         def _remove_missing_G_species(self):
             # remove species that are missing a gibbs free energy value.
             # handle minerals first. Reject any that have missing G in any polymorph.
             mineral_name_reject = list(set(self.csv_db[(self.csv_db["G"].isnull()) & (self.csv_db['state'].str.contains('cr'))]["name"]))
             
             idx = list(self.csv_db[self.csv_db["name"].isin(mineral_name_reject)].index)
-
             names = self.csv_db["name"].loc[idx]
 
-            self.csv_db = self.csv_db[~self.csv_db["name"].isin(mineral_name_reject)]
-
-            for i,name in enumerate(names):
-                d = pd.DataFrame({'database name': [self.csv_db_filename], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["missing Gibbs free energy in at least one polymorph"]})
-                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+            for name in names:
+                self._reject_species(name=name, reason="missing Gibbs free energy for at least one polymorph")
             
+            self.csv_db = self.csv_db[~self.csv_db["name"].isin(mineral_name_reject)]
+    
             # TODO: other states besides minerals
                 
         def _set_active_db(self, db=None, download_csv_files=False):
@@ -5018,25 +5031,24 @@ class AqEquil(object):
                     if isinstance(self.exclude_category[key], list):
                         
                         idx = list(df[df[key].isin(self.exclude_category[key])].index)
-                        
                         names = df["name"].loc[idx]
+                        
+                        for name in names:
+                            self._reject_species(name=name, reason="excluded by user")
                         
                         df = df[~df[key].isin(self.exclude_category[key])]
                         
-                        for i,name in enumerate(names):
-                            d = pd.DataFrame({'database name': [df_name], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["excluded by user"]})
-                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
-                        
+
                     elif isinstance(self.exclude_category[key], str):
                         
                         idx = list(df[df[key] != self.exclude_category[key]].index)
                         names = df["name"].loc[idx]
                         
-                        df = df[~df[key] != self.exclude_category[key]]
+                        for name in names:
+                            self._reject_species(name=name, reason="excluded by user")
                         
-                        for i,name in enumerate(names):
-                            d = pd.DataFrame({'database name': [df_name], 'database index': [idx[i]], 'name': [name], 'reason for rejection': ["excluded by user"]})
-                            self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        df = df[~df[key] != self.exclude_category[key]]
+
                     else:
                         self.err_handler.raise_exception("The parameter exclude_category must either be a string or a list.")
             return df
@@ -5148,14 +5160,14 @@ class AqEquil(object):
             thermo_df = self.out_list.rx2("thermo_df")
             thermo_df=ro.conversion.rpy2py(thermo_df)
             
+            # Currently, species rejected by r.suppress_redox_and_generate_dissrxns()
+            # are rejected because they cannot be written with valid basis species.
+            # e.g., the mineral "iron" would be rejected when Fe is redox-isolated because
+            # there is no aqueous basis species representing Fe with an oxidation state of 0.
+            rejected_species = self.out_list.rx2("dissrxns").rx2("rejected_species")
+            for i,sp in enumerate(rejected_species):
+                self._reject_species(sp, "A dissociation reaction could not be written with valid basis species.")
             
-    #         regenerated_dissrxns = out_list.rx2("dissrxns")
-    #         regenerated_dissrxn_dict = {}
-    #         for name in regenerated_dissrxns.names:
-    #             if name != "basis_list":
-    #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
-
-
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
             # convert E units and calculate missing GHS values

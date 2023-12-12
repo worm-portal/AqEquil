@@ -319,10 +319,12 @@ match_basis_comp <- function(sp_elems, elem){
 get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c(),
                         HOZ_balancers=c("H+", "O2", "H2O"),
                         thermo_df=NULL, verbose=2){
-
+    
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
+    
+  names(sp_name) <- sp_name
 
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
@@ -335,8 +337,18 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   }
        
   basis_elem <- unique(basis_elem)
+  
+  # This part starts the process of finding new basis species to represent elements
+  # when they become redox-isolated. For example, finding new strict basis
+  # species for S-2 and S+6 if sulfur becomes redox-isolated.
+  # EQ3/6 basis species must be aqueous (or gaseous, as with O2(g)). However, if
+  # this is allowed, problems arise later in the code where a suitable basis
+  # species can't be found for S+0 in sulfur, C+0 in graphite, and Fe+0 in iron, etc.
+  # Currently, these zero oxidation state elements only appear in one mineral apiece.
+  sp <- thermo_df %>% filter(!(state %in% c("cr", "cr2", "cr3", "cr4", "cr5", "liq")))
+  #sp <- thermo_df
                    
-  sp <- thermo_df
+                   
   sp_formula <- sp$formula_modded
   sp_formula_makeup <- makeup(sp_formula)
   names(sp_formula_makeup) <- sp$name
@@ -350,8 +362,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
 #     missing_basis <- basis_elem[!(basis_elem %in% names(basis_pref))]
 #     stop(paste("Error: the element(s)", paste(missing_basis, collapse=", "), "require strict basis species in the database."))
 #   }
-  
-                   
+       
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
@@ -366,7 +377,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     # provide a vector of potential basis species for this element
     basis_list[[elem]] <- sp$name[idx]
     names(basis_list[[elem]]) <- sp$name[idx]
-
+      
     # get formula makeup of potential basis species
     frm_mkup <- lapply(unlist(lapply(lapply(lapply(basis_list[[elem]], FUN=info), FUN=info), `[`, "formula")), makeup)
       
@@ -396,14 +407,50 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
       elements_without_basis <- c(elements_without_basis, elem)
     }
   }
+                      
   if(length(elements_without_basis) > 0){
-    msg <- paste("Error during database processing. The following elements",
+      
+    # Discard non-basis species containing elements that do not have a
+    # representative basis species
+    sp_all <- thermo_df
+    sp_all_formula <- sp_all$formula_modded
+    sp_all_formula_makeup <- makeup(sp_all_formula)
+    names(sp_all_formula_makeup) <- sp_all$name
+    sp_all_elem_names <- lapply(sp_all_formula_makeup, names)
+    
+    problem_sp = c()
+    for(ewb in elements_without_basis){
+      for(s in names(sp_all_elem_names)){
+        if(ewb %in% sp_all_elem_names[[s]]){
+          problem_sp <- c(problem_sp, s)
+        }
+      }
+    }
+    problem_sp <- unique(problem_sp)
+
+    for(ewb in elements_without_basis){
+      basis_list[[ewb]] <- NULL
+      basis_elem <- basis_elem[basis_elem != ewb]
+    }
+    thermo_df <- thermo_df %>% filter(!(name %in% problem_sp))
+      
+    rm_i <- c()
+    for(i in 1:length(sp_name)){
+      if(sp_name[[i]] %in% problem_sp){
+        rm_i <- c(rm_i, -i)
+      }
+    }
+    sp_name <- sp_name[rm_i]
+      
+    msg <- paste("Warning: The following elements",
                   "appear in chemical species but do not have representative",
                   "basis species:", paste(elements_without_basis, collapse=", "),
-                  ". Are necessary basis species being excluded?")
-    stop(msg)
+                  ". Species that contain this element:", paste(problem_sp, collapse=", "),
+                  ". These species will not be included in the speciation...")
+    print(msg)
+      
   }
- 
+                            
   simplest_basis <- c()
   for(elem in basis_elem){
     form <- lapply(info(info(basis_list[[elem]]))$formula, makeup)
@@ -417,11 +464,15 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   }
 
   dissrxns <- lapply(sp_name, spec_diss, simplest_basis, sp_formula_makeup,
-                     HOZ_balancers, redox_elem_states, aux_pref, thermo_df, verbose)
+                     HOZ_balancers, redox_elem_states, aux_pref,
+                     thermo_df, verbose)
+
   names(dissrxns) <- sp_name
-                            
+
   dissrxns[["basis_list"]] <- simplest_basis
-                            
+  dissrxns[["rejected_species"]] <- problem_sp
+  dissrxns[["thermo_df_modified"]] <- thermo_df
+        
   return(dissrxns)
 
 }
@@ -448,7 +499,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
     
   # Check whether an auxiliary basis species given in thermo_df would work
   # better than a strict basis species.
-    
+
   if(!is.null(thermo_df)){
       
     sp_formula_ox = thermo_df[thermo_df["name"]==sp, "formula_ox_modded"][1]
@@ -474,7 +525,6 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
       return(sp_dissrxn)
     }
       
-      
     for(elem in basis_elem){
         
       sp_formula_ox_split <- strsplit(sp_formula_ox, " ")
@@ -482,7 +532,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 #       print(paste("species:", sp))
 #       print(paste("elem:", elem))
 #       print(paste("formula ox:", sp_formula_ox))
-#       print("formula ox split:")
+#       print(paste("formula ox split:", sp_formula_ox_split))
         
       # get the element plus oxidation state from formula ox
       # e.g., turn "2Al+3" into "Al+3"
@@ -490,9 +540,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
       step1 <- sp_formula_ox_split[[1]]
       step2 <- step1[grepl(paste0(elem,"([^a-z]|$)"), step1)]
       step3 <- gsub("^[[:digit:]]+(\\.[[:digit:]]+)?", "", step2)
-        
       sp_ox_elem <- makeup(step3)
-
       sp_num_elem <- as.numeric(gsub("([0-9]?)[A-Z].*", "\\1", sp_formula_ox_split[[1]][grepl(paste0(elem,"([^a-z]|$)"), sp_formula_ox_split[[1]], perl=T)], perl=T))
       sp_num_elem <- ifelse(is.na(sp_num_elem), 1, sp_num_elem)
       names(sp_num_elem) <- rep(simplest_basis[[elem]], length(sp_num_elem))
@@ -922,7 +970,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                    
   aux_pref <- unlist(aux_df[, "name"])
   aux_pref_names <- lapply(lapply(lapply(aux_df[,"formula_modded"], makeup), names), setdiff, c("Z", "O", "H"))
-                                   
+
   # Remove aux basis species from the preferred list if they contain more than
   # one element besides O and H.
   #     E.g., remove CN-, OCN-, etc.
@@ -978,14 +1026,6 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   basis_pref["Cl"] <- "Cl-"
   basis_pref["H"] <- "H2O"
   basis_pref["O"] <- "O2(g)"
-                                   
-  # handle the rest of the preferred basis species, e.g.,
-  # define basis species for redox pseudoelements
-  # basis_pref["Feiii"] <- "Fe+3"
-  # basis_pref["Feii"] <- "Fe+2"
-  # basis_pref["Fez"] <- "iron"
-  # basis_pref["Siin"] <- "HS-"
-  # basis_pref["Svi"] <- "SO4-2"
                                    
   # Ensure that each element has a representative strict basis species.
   # If not, assign one from aux species.
@@ -1067,6 +1107,9 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   if(length(missing_basis_species) > 0){
     for(species in thermo_df[, "name"]){
       tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
+      if(length(tag)>1){
+        tag <- tag[1]
+      }
       if(tag != "basis"){
         dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
         dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
@@ -1092,6 +1135,9 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   if(length(species_in_dissrxns_that_are_not_basis) > 0){
     for(species in thermo_df[, "name"]){
       tag <- thermo_df[thermo_df[, "name"] == species, "tag"]
+      if(length(tag)>1){
+        tag <- tag[1]
+      }
       if(tag != "basis"){
         dissrxn <- thermo_df[thermo_df[, "name"] == species, "dissrxn"]
         dissrxn <- strsplit(dissrxn, " ")[[1]] # split the rxn into coeffs and species
@@ -1133,8 +1179,8 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
-  }    
-
+  }
+                                   
   # generate dissociation reactions
   dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,
@@ -1143,21 +1189,28 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
+                                   
+  thermo_df <- dissrxns[["thermo_df_modified"]]
 
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if(nrow(df_needs_dissrxns) > 0){
+
     names <- df_needs_dissrxns[["name"]]
+    names <- names[! names %in% dissrxns[["rejected_species"]]]
     generated_dissrxns <- dissrxns[names]
+      
     nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) length(x)!=4)) # length != 4 refers to picking dissrxns that do not look something like -1.0000 iron 1.0000 iron
+              
     basis_idx <- !nonbasis_idx
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
     nonbasis_names <- unique(nonbasis_names)
     basis_names <- names(basis_idx)[basis_idx]
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
+                    
     if(!identical(basis_names, character(0))){
       vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
     }
-                                  
+
     # replace dissrxns with any regenerated dissrxns
     for(name in names){
         
@@ -1169,7 +1222,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     }
   }
 #   print(tail(thermo_df))
-                                  
+
   thermo_df[is.na(thermo_df)]=''
 
   out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)

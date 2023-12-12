@@ -2423,9 +2423,9 @@ class Mass_Transfer:
 
     
     def plot_energy(self, species, stoich,
-                    divisor=1, x_type="logxi", y_type="A", y_units="kcal",
+                    divisor=1, x_type="logxi", y_type="A", y_units="kcal", 
                     show_zero_line=False, limiting=None, xlab=None, ylab=None,
-                    title=None, charge_sign_at_end=False,
+                    title=None, charge_sign_at_end=False, log_y=False,
                     plot_width=4, plot_height=3, ppi=122,
                     xlim=None, ylim=None, df_out=False,
                     save_as=None, save_format=None,
@@ -2682,7 +2682,7 @@ class Mass_Transfer:
         df[df_y_name] = y_list
 
         
-        fig = px.line(df, x=xvar, y=df_y_name,
+        fig = px.line(df, x=xvar, y=df_y_name, log_y=log_y,
                       width=plot_width*ppi, height=plot_height*ppi,
                       template="simple_white")
         
