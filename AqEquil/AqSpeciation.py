@@ -837,6 +837,7 @@ class AqEquil(object):
         start_index = 0
         end_index = -1
         error_list = []
+        normal_exit = False
         for i,line in enumerate(lines):
             if "* Error" in line:
                 recording = True
@@ -845,10 +846,16 @@ class AqEquil(object):
             if (recording and line == "") or (recording and i == len(lines)-1):
                 end_index = i
                 recording = False
-                error_lines = lines[start_index:end_index]
+                error_lines = lines[start_index:end_index+1]
                 error_lines = "\n".join(error_lines)
                 error_list.append(error_lines)
 
+            if "Normal exit" in line:
+                normal_exit = True
+                
+        if not normal_exit and len(error_list)==0:
+            error_list.append("\n * Error - (EQ6) The calculation did not terminate normally.")
+                
         error_lines = "\n".join(error_list)
         
         if len(error_lines) > 0:
