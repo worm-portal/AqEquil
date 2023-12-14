@@ -222,8 +222,11 @@ def react(speciation,
             file_6o = files_6o[0]
             file_6ba = files_6ba[0]
             file_6bb = files_6bb[0]
-            file_6t = files_6t[0]
-            file_6tx = files_6tx[0]
+            try:
+                file_6t = files_6t[0]
+                file_6tx = files_6tx[0]
+            except:
+                pass
 
             try:
                 # report errors in output
@@ -240,8 +243,11 @@ def react(speciation,
                 shutil.move(cwdd+path_6i+"/"+file_6o, cwdd+path_6o+"/"+filename_6o)
                 shutil.move(cwdd+path_6i+"/"+file_6ba, cwdd+path_extra_out+"/"+filename_6ba)
                 shutil.move(cwdd+path_6i+"/"+file_6bb, cwdd+path_extra_out+"/"+filename_6bb)
-                shutil.move(cwdd+path_6i+"/"+file_6t, cwdd+path_extra_out+"/"+filename_6t)
-                shutil.move(cwdd+path_6i+"/"+file_6tx, cwdd+path_extra_out+"/"+filename_6tx)
+                try:
+                    shutil.move(cwdd+path_6i+"/"+file_6t, cwdd+path_extra_out+"/"+filename_6t)
+                    shutil.move(cwdd+path_6i+"/"+file_6tx, cwdd+path_extra_out+"/"+filename_6tx)
+                except:
+                    pass
             except:
                 ae.err_handler.raise_exception(("Error: could not move", path_6i+"/"+file_6o, "to", path_6o+"/"+filename_6o))
         
@@ -352,13 +358,14 @@ def join_mixes(m1, m2):
         setattr(m1, tab, pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True))
         
     # do the same but for all EQ6 output tables
-    for tab in m1.tab.keys():
-        if tab in m2.tab.keys():
-            m2_reverse_rows = m2.tab[tab].iloc[::-1]
-            m2_reverse_rows["Xi"] = [1+(1-float(xi)) for xi in m2_reverse_rows["Xi"]]
-            m2_reverse_rows = m2_reverse_rows[1:]
-            m1_rows = m1.tab[tab]
-            m1.tab[tab] = pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True)
+    if m1.tab != None and m2.tab != None:
+        for tab in m1.tab.keys():
+            if tab in m2.tab.keys():
+                m2_reverse_rows = m2.tab[tab].iloc[::-1]
+                m2_reverse_rows["Xi"] = [1+(1-float(xi)) for xi in m2_reverse_rows["Xi"]]
+                m2_reverse_rows = m2_reverse_rows[1:]
+                m1_rows = m1.tab[tab]
+                m1.tab[tab] = pd.concat([m1_rows, m2_reverse_rows]).reset_index(drop=True)
     
     # do the same but for mass contribution tables
     for tab in m1.mass_contribution_dict.keys():
@@ -423,14 +430,11 @@ class Mass_Transfer:
             
             self.df = copy.deepcopy(self.thermo.csv_db)
             
-            self.tab = self.process_tab(tab_name, self.thermo.csv_db)
-            
-            if len(self.tab) == 0:
-                if verbose > 0:
-                    print("An empty TAB file was encountered...")
-                return None
+            try:
+                self.tab = self.process_tab(tab_name, self.thermo.csv_db)
+            except:
+                self.tab = None
 
-            
             # remove species that do not have Gibbs free energy values
             self.df = self.df[~self.df["G"].isna()]
             
@@ -451,23 +455,23 @@ class Mass_Transfer:
             self.basis_aux_df = pd.concat([basis_df, aux_df, refstate_df])
             self.df_cr = self.df[self.df["state"] == 'cr']
         
-        self.misc_params = self.tab["Table B1 Miscellaneous parameters I"] # warning: may cause Xi mismatch between tab and 6o! Test.
-        self.dissolved_elements_molal = self.tab["Table C1 Dissolved elements(molality)"]
-        self.dissolved_elements_ppm = self.tab["Table C2 Dissolved elements(ppm: mg/kg.sol)"]
-        
-        self.basis_logact = self.tab["Table E2 Basis species(log activity; log fugacity for O2(g))"]
-        self.basis_logact = self.basis_logact.drop(['t(days)'], axis=1)
-        
-        self.misc_params = self.misc_params.apply(pd.to_numeric)
+        self.misc_params = self.__get_misc_params() # warning: may cause Xi mismatch between tab and 6o! Test.
+        self.dissolved_elements_molal = self.__get_dissolved_elements(unit="molality")
+        self.dissolved_elements_ppm = self.__get_dissolved_elements(unit="ppm")
+ 
         self.aq_distribution_logact = self.__get_aq_distribution(unit="log activity")
         self.aq_distribution_molal = self.__get_aq_distribution(unit="molality")
         self.aq_distribution_logmolal = self.__get_aq_distribution(unit="log molality")
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
         
+        self.basis_molality = self.__get_basis_species(unit="molality")
+        self.basis_ppm = self.__get_basis_species(unit="ppm")
+        self.basis_logact = self.__get_basis_species(unit="logact") # this one needs to be after __get_aq_distribution()
+        
         # format element names in case there are redox-isolated elements
-        self.dissolved_elements_molal.columns = ["Xi", "t(days)"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_molal.columns if e not in ["Xi", "t(days)"]]
-        self.dissolved_elements_ppm.columns = ["Xi", "t(days)"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_ppm.columns if e not in ["Xi", "t(days)"]]
+        self.dissolved_elements_molal.columns = ["Xi"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_molal.columns if e not in ["Xi", "t(days)"]]
+        self.dissolved_elements_ppm.columns = ["Xi"]+[_format_pseudoelement_name(e) for e in self.dissolved_elements_ppm.columns if e not in ["Xi", "t(days)"]]
         
         if self.moles_minerals.shape[0] == 0 and self.moles_product_minerals.shape[0] > 0:
             # in the case of special reactants, there is no grand summary table in the 6o file
@@ -478,6 +482,110 @@ class Mass_Transfer:
         self.mass_contribution_dict = self.__get_mass_contribution()
             
             
+    def __get_misc_params(self):
+        
+        recording = False
+        xi_vals = []
+        t_vals = []
+        p_vals = []
+        pH_vals = []
+        pmH_vals = []
+        logfO2_vals = []
+        Eh_vals = []
+        pe_vals = []
+        aw_vals = []
+        for line in self.six_o_file_lines:
+            if "                    Xi=" in line:
+                recording = True
+                splitstrings = line.strip().split(" ")
+                xi = [float(v) for v in splitstrings if v not in ['', 'Xi=']][0]
+                xi_vals.append(xi)
+            elif " Temperature=" in line and recording:
+                splitstrings = line.strip().split(" ")
+                t = [float(v) for v in splitstrings if v not in ['', 'Temperature=', 'C']][0]
+                t_vals.append(t)
+            elif " Pressure=" in line and recording:
+                splitstrings = line.strip().split(" ")
+                p = [float(v) for v in splitstrings if v not in ['', 'Pressure=', 'bars']][0]
+                p_vals.append(p)
+            elif "NBS pH scale " in line and recording:
+                splitstrings = line.strip().split(" ")
+                multival = [float(v) for v in splitstrings if v not in ['', 'NBS', 'pH', 'scale']]
+                pH_vals.append(multival[0])
+                Eh_vals.append(multival[1])
+                pe_vals.append(multival[2])
+            elif "Mesmer pH (pmH) scale " in line and recording:
+                splitstrings = line.strip().split(" ")
+                pmH = [float(v) for v in splitstrings if v not in ['', 'Mesmer', 'pH', '(pmH)', 'scale']][0]
+                pmH_vals.append(pmH)
+            elif "  Log oxygen fugacity=" in line and recording:
+                splitstrings = line.strip().split(" ")
+                logfO2 = [float(v) for v in splitstrings if v not in ['', "Log", "oxygen", "fugacity="]][0]
+                logfO2_vals.append(logfO2)
+            elif "  Activity of water=" in line and recording:
+                splitstrings = line.strip().split(" ")
+                aw = [float(v) for v in splitstrings if v not in ['', "Activity", "of", "water="]][0]
+                aw_vals.append(aw)
+            if "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -" in line:
+                recording = False
+
+        df = pd.DataFrame({
+            "Xi":xi_vals,
+            "t(days)":[0]*len(xi_vals), # TODO: make this actually reflect days, need an example output file
+            "Temp(C)":t_vals,
+            "Press(bars)":p_vals,
+            "pH":pH_vals,
+            "pmH":pmH_vals,
+            "log fO2":logfO2_vals,
+            "Eh(v)":Eh_vals,
+            "pe":pe_vals,
+            "aw":aw_vals,
+        })
+        
+        return df
+            
+            
+    def __get_dissolved_elements(self, unit="molality"):
+        
+        if unit == "molality":
+            col_index = -1
+        elif unit == "mg/kg.sol" or unit == "ppm":
+            col_index = 1
+        else:
+            self.err_handler.raise_exception("Error in get_dissolved_elements()"
+                    ". Unit not recognized.")
+        
+        return self.mine_6o_table(table_start="Elemental Composition of the Aqueous Solution",
+                table_stop="Numerical Composition of the Aqueous Solution",
+                ignore = ["", "Element", '---', '-'],
+                col_index=col_index)
+            
+        
+    def __get_basis_species(self, unit="logact"):
+        
+        if unit == "molality" or unit == "logact":
+            col_index = -1
+        elif unit == "mg/kg.sol" or unit == "ppm":
+            col_index = 1
+        else:
+            self.err_handler.raise_exception("Error in get_basis_species()"
+                    ". Unit not recognized.")
+        
+        basis_df = self.mine_6o_table(table_start="Numerical Composition of the Aqueous Solution",
+                table_stop="Sensible Composition of the Aqueous Solution",
+                ignore = ["", "Some", 'Species', '---', '-'],
+                col_index=col_index)
+        
+        if unit in ["molality", "ppm", 'mg/kg.sol']:
+            return basis_df
+        elif unit == "logact":
+            
+            cols_to_harvest = [b for b in basis_df.columns if b not in ["O2(g)", "H2O"]]
+            
+            return self.aq_distribution_logact[cols_to_harvest]
+        
+        
+        
     def __get_mass_contribution(self):
         
         bases = [b for b in self.basis_logact.columns if b not in ['Xi', 't(days)', 'H2O', "O2(g)", "H+"]]
@@ -686,7 +794,10 @@ class Mass_Transfer:
         Print the names of tables contained in a tab file processed by the
         the Mass_Transfer class.
         """
-        [print(key) for key in self.tab.keys()]
+        if self.tab != None:
+            [print(key) for key in self.tab.keys()]
+        else:
+            print("A processed TAB file is not associated with this sample.")
 
         
     @staticmethod
@@ -1836,19 +1947,13 @@ class Mass_Transfer:
         """
         
         title = "Concentrations of dissolved elements"
-        if hasattr(self, 'tab'):
-            if units == "molality":
-                df = pd.concat([self.dissolved_elements_molal, self.misc_params[self.misc_params.columns[2:]]], axis=1)
-                ylab = "{}molality"
-            elif units == "ppm":
-                df = pd.concat([self.dissolved_elements_ppm, self.misc_params[self.misc_params.columns[2:]]], axis=1)
-                ylab = "{}ppm"
+        if units == "molality":
+            df = pd.concat([self.dissolved_elements_molal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+            ylab = "{}molality"
+        elif units == "ppm":
+            df = pd.concat([self.dissolved_elements_ppm, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+            ylab = "{}ppm"
 #             elif units == "molarity":
-                
-        else:
-            self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
-                "cannot be processed. This is likely because a thermodynamic database CSV "
-                "was not provided when Mass_Transfer() was called.")
 
         plot_columns = [col for col in df.columns]
         if isinstance(plot_elements, list):
@@ -2347,14 +2452,11 @@ class Mass_Transfer:
         """
         
         if plot_basis:
-            if hasattr(self, 'tab'):
-                df = pd.concat([self.basis_logact, self.misc_params[self.misc_params.columns[1:]]], axis=1)
-                title = "Solute basis species"
-                ylab = "log activity"
-            else:
-                self.err_handler.raise_exception("Cannot plot basis species because the TAB file "
-                    "cannot be processed. This is likely because a thermodynamic database CSV "
-                    "was not provided when Mass_Transfer() was called.")
+
+            df = pd.concat([self.basis_logact, self.misc_params[self.misc_params.columns[1:]]], axis=1)
+            title = "Solute basis species"
+            ylab = "log activity"
+
         else:
             if y_type == "log activity":
                 df = pd.concat([self.aq_distribution_logact, self.misc_params[self.misc_params.columns[1:]]], axis=1)
@@ -3128,9 +3230,9 @@ template = """|-----------------------------------------------------------------
 |  [x] ( 0) Write a PICKUP file                                                |
 |------------------------------------------------------------------------------|
 |iopt(18) - TAB File Options:                                                  |
-|  [ ] (-1) Don't write a TAB file                                             |
-|  [x] ( 0) Write a TAB file                                                   |
-|  [ ] ( 1) Write a TAB file, prepending TABX file data from a previous run    |
+|  [{i18_checkbox_1}] (-1) Don't write a TAB file                                             |
+|  [{i18_checkbox_2}] ( 0) Write a TAB file                                                   |
+|  [{i18_checkbox_3}] ( 1) Write a TAB file, prepending TABX file data from a previous run    |
 |------------------------------------------------------------------------------|
 |iopt(20) - Advanced EQ6 PICKUP File Options:                                  |
 |  [{i20_checkbox_1}] ( 0) Write a normal EQ6 PICKUP file                                     |
@@ -3775,6 +3877,7 @@ class Prepare_Reaction:
                  calc_mode_selection=0,
                  ODE_corrector_mode=0,
                  mineral_suppression_option="None",
+                 write_tab=-1, # do not write a TAB file by default because EQ6 can encounter an access violation when writing a TAB file
                  fluid_mixing_setup=False,
                  max_finite_difference_order=6,
                  beta_convergence_tolerance=0,
@@ -3955,6 +4058,12 @@ class Prepare_Reaction:
             Option to suppress formation of minerals. Can be either "None" (no
             minerals are suppressed) or "All" (all minerals are suppressed).
         
+        write_tab : int, default -1
+            Option to write a TAB file. Valid options include:
+            - -1 do not write a TAB file (default)
+            - 0 write a TAB file
+            - 1 write a TAB file prepending TABX file data from a previous run
+        
         fluid_mixing_setup : bool, default False
             If True, will write an EQ6 input file with Fluid 1 set up for
             fluid mixing. If False, a normal EQ6 pickup file will be written.
@@ -4105,6 +4214,9 @@ class Prepare_Reaction:
         self.i14_checkbox_4 = " "
         self.i15_checkbox_1 = " "
         self.i15_checkbox_2 = " "
+        self.i18_checkbox_1 = " "
+        self.i18_checkbox_2 = " "
+        self.i18_checkbox_3 = " "
         self.i20_checkbox_1 = " "
         self.i20_checkbox_2 = " "
         
@@ -4340,6 +4452,17 @@ class Prepare_Reaction:
         # option in the AqEquil class instead.
         self.i15_checkbox_1 = "x"
 
+        if write_tab == -1:
+            self.i18_checkbox_1 = "x"
+        elif write_tab == 0:
+            self.i18_checkbox_2 = "x"
+        elif write_tab == 1:
+            self.i18_checkbox_3 = "x"
+        else:
+            self.err_handler.raise_exception("write_tab_option must be -1, 0, "
+                    "or 1.")
+            
+        
         if fluid_mixing_setup == False:
             self.i20_checkbox_1 = "x"
         elif fluid_mixing_setup == True:
@@ -4434,6 +4557,9 @@ class Prepare_Reaction:
             i14_checkbox_4=self.i14_checkbox_4,
             i15_checkbox_1=self.i15_checkbox_1,
             i15_checkbox_2=self.i15_checkbox_2,
+            i18_checkbox_1=self.i18_checkbox_1,
+            i18_checkbox_2=self.i18_checkbox_2,
+            i18_checkbox_3=self.i18_checkbox_3,
             i20_checkbox_1=self.i20_checkbox_1,
             i20_checkbox_2=self.i20_checkbox_2,
         )
