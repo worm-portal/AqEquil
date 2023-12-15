@@ -1062,7 +1062,7 @@ class Mass_Transfer:
                         "The xyb parameter must either be None or a list of "
                         "three basis species to serve as x, y, and balance variables."))
         
-        if self.df == None:
+        if not isinstance(self.df, pd.DataFrame):
             error_messages.append(("The plot_reaction_paths() function requires "
                     "a thermodynamic database in a WORM-style CSV format, e.g., "
                     "'wrm_data.csv'. You may be getting this message because "
@@ -2179,7 +2179,7 @@ class Mass_Transfer:
         if isinstance(ylim, list):
             fig.update_layout(yaxis_range=ylim)
         
-        if show_neutrality and self.thermo.csv_db != None:
+        if show_neutrality and isinstance(self.thermo.csv_db, pd.DataFrame):
             _, df_pH = self.plot_energy(species=["H2O", "H+", "OH-"],
                                         stoich=[-1, 1, 1],
                                         divisor=-2,
@@ -2722,7 +2722,7 @@ class Mass_Transfer:
             A line plot. If `df_out` is True, also returns a dataframe.
         """
         # check that a thermodynamic CSV is being used
-        if self.thermo.csv_db == None:
+        if not isinstance(self.thermo.csv_db, pd.DataFrame):
             self.err_handler.raise_exception("The plot_energy() function requires "
                     "a thermodynamic database in a WORM-style CSV format, e.g., "
                     "'wrm_data.csv'. You may be getting this message because "
@@ -2849,7 +2849,7 @@ class Mass_Transfer:
                               show=False,
                               messages=print_logK_messages).out["logK"]
 
-                logK = float(logK)
+                logK = float(logK.iloc[0])
 
             if y_type == "logK":
                 ylab_out = "log K"
