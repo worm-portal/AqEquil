@@ -267,27 +267,19 @@ def react(speciation,
         else:
             ae.err_handler.raise_exception("Error: multiple pickup files detected for one mass transfer calculation.")
         
-        if isinstance(speciation.thermo.csv_db, pd.DataFrame) and not EQ6_errors_found:
+        if not EQ6_errors_found:
             m = Mass_Transfer(thermo=speciation.thermo,
                               six_o_file='rxn_6o/'+filename_6o,
                               tab_name="eq6_extra_out/"+filename_6i[:-2] + 'csv',
                               hide_traceback=hide_traceback)
 
             speciation.sample_data[sample_name]["mass_transfer"] = m
-        elif EQ6_errors_found:
+        else:
             speciation.sample_data[sample_name]["mass_transfer"] = None
             if ae.verbose > 0:
                 print(("Mass transfer results for sample '"+sample_name+"' "
                        "could not be saved because the calculation did not "
                        "finish due to error(s).\n"))
-        elif not isinstance(speciation.thermo.csv_db, pd.DataFrame):
-            speciation.sample_data[sample_name]["mass_transfer"] = None
-            if ae.verbose > 0:
-                print(("Mass transfer results for sample '"+sample_name+"' "
-                       "could not be saved because the thermodynamic database "
-                       "is not in the required CSV format. E.g., 'wrm_data.csv'"
-                       ". This might be because a data0 or data1 file was used "
-                       "without also providing a supporting CSV file.\n"))
         
         # store input, output, and pickup as dicts in speciation object
         try:
@@ -454,8 +446,14 @@ class Mass_Transfer:
             self.basis_df = pd.concat([basis_df])
             self.basis_aux_df = pd.concat([basis_df, aux_df, refstate_df])
             self.df_cr = self.df[self.df["state"] == 'cr']
+        else:
+            self.df = None
+            self.tab = None
+            self.basis_df = None
+            self.basis_aux_df = None
+            self.df_cr = None
         
-        self.misc_params = self.__get_misc_params() # warning: may cause Xi mismatch between tab and 6o! Test.
+        self.misc_params = self.__get_misc_params()
         self.dissolved_elements_molal = self.__get_dissolved_elements(unit="molality")
         self.dissolved_elements_ppm = self.__get_dissolved_elements(unit="ppm")
  
@@ -463,7 +461,21 @@ class Mass_Transfer:
         self.aq_distribution_molal = self.__get_aq_distribution(unit="molality")
         self.aq_distribution_logmolal = self.__get_aq_distribution(unit="log molality")
         self.moles_minerals = self.__get_moles_minerals()
-        self.moles_product_minerals = self.__get_moles_product_minerals()
+
+        self.saturation_states_pure_solids_log_Q_over_K = self.__get_saturation_states(unit="logQ/K")
+        self.saturation_states_pure_solids_affinity = self.__get_saturation_states(unit="affinity")
+        
+        self.saturation_states_solid_solutions_log_Q_over_K = self.__get_ss_saturation_states(unit="logQ/K")
+        self.saturation_states_solid_solutions_affinity = self.__get_ss_saturation_states(unit="affinity")
+        self.solid_solution_names = [col for col in list(self.saturation_states_solid_solutions_affinity.columns) if col != "Xi"] # required by a few things below
+        
+        self.moles_product_minerals_and_solid_solutions = self.__get_moles_product_minerals(include_solid_solutions=True)
+        self.moles_product_minerals = self.__get_moles_product_minerals(include_solid_solutions=False) # relies on self.solid_solution_names
+        
+        self.solid_solution_x_dict = self.__get_solid_solution_product_phases(unit="x") # relies on self.solid_solution_names
+        self.solid_solution_log_x_dict = self.__get_solid_solution_product_phases(unit="log x") # relies on self.solid_solution_names
+        self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log lambda") # relies on self.solid_solution_names
+        self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log activity") # relies on self.solid_solution_names
         
         self.basis_molality = self.__get_basis_species(unit="molality")
         self.basis_ppm = self.__get_basis_species(unit="ppm")
@@ -544,6 +556,38 @@ class Mass_Transfer:
         
         return df
             
+            
+    def __get_saturation_states(self, unit="logQ/K"):
+        
+        if unit == "logQ/K":
+            col_index = 1
+        elif unit == "affinity":
+            col_index = 2
+        else:
+            self.err_handler.raise_exception("Error in get_saturation_states()"
+                    ". Unit not recognized.")
+        
+        return self.mine_6o_table(table_start="--- Saturation States of Pure Solids ---",
+                table_stop="--- Saturation States of Pure Liquids ---",
+                ignore = ["", "Phases", 'Phase', '---', '-'],
+                col_index=col_index)
+    
+    
+    def __get_ss_saturation_states(self, unit="logQ/K"):
+        
+        if unit == "logQ/K":
+            col_index = 1
+        elif unit == "affinity":
+            col_index = 2
+        else:
+            self.err_handler.raise_exception("Error in get_ss_saturation_states()"
+                    ". Unit not recognized.")
+        
+        return self.mine_6o_table(table_start="--- Saturation States of Solid Solutions ---",
+                table_stop="--- Summary of Saturated and Supersaturated Phases ---",
+                ignore = ["", "Phases", 'Phase', '---', '-'],
+                col_index=col_index)
+    
             
     def __get_dissolved_elements(self, unit="molality"):
         
@@ -703,14 +747,17 @@ class Mass_Transfer:
                             if "-" in val:
                                 val_list = val.split("-")
                                 val = "".join([val_list[0], "E-", val_list[1]])
+                                val = float(val)
                             elif "+" in val:
                                 val_list = val.split("+")
                                 val = "".join([val_list[0], "E", val_list[1]])
+                                val = float(val)
+                            elif "SATD" in val:
+                                pass
                             else:
                                 self.err_handler.raise_exception(("Error: "
                                     "Encountered a non-numeric value when mining "
                                     "a .6o file: "+val))
-                            val = float(val)
                         vals.append(val)
                         got_value = True
             species_dict[s] = vals
@@ -775,18 +822,56 @@ class Mass_Transfer:
                       col_index=2)
 
     
-    def __get_moles_product_minerals(self):
+    def __get_moles_product_minerals(self, include_solid_solutions=True):
         
         if "Grand Summary of Solid Phases" in "\n".join(self.six_o_file_lines):
             table_stop = "Grand Summary of Solid Phases"
         else:
             table_stop = "Mass, grams       Volume, cm3"
         
-        return self.mine_6o_table(
+        df = self.mine_6o_table(
                       table_start="--- Summary of Solid Phases (ES) ---",
                       table_stop=table_stop,
                       ignore = ["", "Phase/End-member", '---'],
                       col_index=2)
+        
+        if not include_solid_solutions:
+            mineral_names_to_keep = []
+            minerals_in_solid_solutions = []
+            
+            recording = True
+            for col in df.columns:
+                if col not in self.solid_solution_names:
+                    mineral_names_to_keep.append(col)
+            df = df[mineral_names_to_keep]
+            
+        return df
+        
+        
+    def __get_solid_solution_product_phases(self, unit="x"):
+        
+        if unit == "x":
+            col_index = 1
+        elif unit == "log x":
+            col_index = 2
+        elif unit == "log lambda":
+            col_index = 3
+        elif unit == "log activity":
+            col_index = 4
+        
+        ss_dict = {}
+        for ss in self.solid_solution_names:
+            df = self.mine_6o_table(
+                         table_start="--- "+ss+" ---",
+                         table_stop="Mineral",
+                         ignore = ["", "Component", "Ideal", '---'],
+                         col_index=col_index)
+            
+            if not df.empty:
+                ss_dict[ss] = df
+        
+        
+        return ss_dict
         
         
     def print_tabs(self):
@@ -976,6 +1061,12 @@ class Mass_Transfer:
                 error_messages.append(("Error in xyb={}".format(xyb)+". "
                         "The xyb parameter must either be None or a list of "
                         "three basis species to serve as x, y, and balance variables."))
+        
+        if self.df == None:
+            error_messages.append(("The plot_reaction_paths() function requires "
+                    "a thermodynamic database in a WORM-style CSV format, e.g., "
+                    "'wrm_data.csv'. You may be getting this message because "
+                    "a data0 or data1 file was used."))
         
         if len(error_messages)>0:
             self.err_handler.raise_exception("\n".join(error_messages))
@@ -2024,7 +2115,9 @@ class Mass_Transfer:
             "aw".
         
         show_neutrality : bool, default True,
-            Display a line representing neutral pH?
+            Display a reference line representing neutral pH? Setting this
+            option to True requires a thermodynamic database in a WORM-style CSV
+            format, e.g., 'wrm_data.csv'.
         
         title : str
             Title of the plot to display.
@@ -2062,7 +2155,7 @@ class Mass_Transfer:
         fig : Plotly figure object
             A line plot.
         """
-        
+
         df = copy.deepcopy(self.misc_params)
         
         xlab, xvar = self.__get_xlab_xvar(x_type)
@@ -2086,7 +2179,7 @@ class Mass_Transfer:
         if isinstance(ylim, list):
             fig.update_layout(yaxis_range=ylim)
         
-        if show_neutrality:
+        if show_neutrality and self.thermo.csv_db != None:
             _, df_pH = self.plot_energy(species=["H2O", "H+", "OH-"],
                                         stoich=[-1, 1, 1],
                                         divisor=-2,
@@ -2111,7 +2204,7 @@ class Mass_Transfer:
             fig['data'][1]['showlegend']=True
             fig['data'][1]['name']='neutral pH'
             fig.update_layout(showlegend=True)
-            
+
             
         if isinstance(save_as, str):
             dummy_sp = Speciation({})
@@ -2123,7 +2216,8 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, x_type="logxi", y_type="mole",
+                              plot_minerals=None, solid_solutions=True,
+                              x_type="logxi", y_type="mole",
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -2142,6 +2236,9 @@ class Mass_Transfer:
         plot_minerals : list, optional
             List of minerals to plot. Useful for isolating one or more
             minerals.
+            
+        solid_solutions : bool, default True
+            Show solid solutions?
             
         x_type : str, default "logxi"
             Variable to appear on the x-axis. Can be "logxi", "xi",
@@ -2238,32 +2335,25 @@ class Mass_Transfer:
             title = title.format("Volumes")
             temps = df["Temp(C)"]
             
-            # assert that number of Xi values in the tab file tables equals number of xi values in product minerals table
-            # in order to continue.
-            if df.shape[0] == len(temps):
-                minerals = [col for col in df.columns if col not in list(self.misc_params.columns)]
-                    
-                for i,T in enumerate(temps):
-                    for ii,mineral in enumerate(minerals):
-                        mineral_df = copy.deepcopy(self.df[self.df["name"]==mineral])
-                        polymorph_idxs = []
-                        for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
-                            
-                            if float(T) < float(list(mineral_df["z.T"])[0]):
-                                polymorph_idxs.append(iii)
-                        if len(polymorph_idxs)==0:
-                            polymorph_idx = iii
-                        else:
-                            polymorph_idx = polymorph_idxs[0]
-                            
+            minerals = [col for col in df.columns if col not in list(self.misc_params.columns)]
 
-                        partial_molal_volume = list(mineral_df["V"])[polymorph_idx]
-                        
-                        df.at[i, mineral] = df[mineral][i]*partial_molal_volume
-            else:
-                self.err_handler.raise_exception("There is a mismatch between the "
-                        "number of Xi values in the TAB-style table and the number "
-                        "of Xi values in the table of moles of minerals.")
+            for i,T in enumerate(temps):
+                for ii,mineral in enumerate(minerals):
+                    mineral_df = copy.deepcopy(self.df[self.df["name"]==mineral])
+                    polymorph_idxs = []
+                    for iii in range(0, mineral_df.shape[0]): # loop through mineral polymorphs
+
+                        if float(T) < float(list(mineral_df["z.T"])[0]):
+                            polymorph_idxs.append(iii)
+                    if len(polymorph_idxs)==0:
+                        polymorph_idx = iii
+                    else:
+                        polymorph_idx = polymorph_idxs[0]
+
+
+                    partial_molal_volume = list(mineral_df["V"])[polymorph_idx]
+
+                    df.at[i, mineral] = df[mineral][i]*partial_molal_volume
         else:
             self.err_handler.raise_exception("y_type must be either 'mole', "
                         "'mass', or 'volume'.")
@@ -2631,14 +2721,19 @@ class Mass_Transfer:
         fig : Plotly figure object, optionally a Pandas Dataframe
             A line plot. If `df_out` is True, also returns a dataframe.
         """
+        # check that a thermodynamic CSV is being used
+        if self.thermo.csv_db == None:
+            self.err_handler.raise_exception("The plot_energy() function requires "
+                    "a thermodynamic database in a WORM-style CSV format, e.g., "
+                    "'wrm_data.csv'. You may be getting this message because "
+                    "a data0 or data1 file was used.")
         
         # check that the divisor is valid
         if isinstance(divisor, list) or isinstance(divisor, pd.Series):
             if len(divisor) != len(self.misc_params["Temp(C)"]):
                 self.err_handler.raise_exception("The length of the divisor is "
                     "not equal to the number of reported xi steps.")
-        
-        
+
         # check that the reaction is balanced
         formulas = []
         for s in species:
