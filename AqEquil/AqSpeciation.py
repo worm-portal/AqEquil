@@ -1,4 +1,4 @@
-DEBUGGING_R = False
+DEBUGGING_R = True
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -4481,7 +4481,7 @@ class AqEquil(object):
 
                 self.data0_lettercode = db
                 self.dynamic_db = False
-
+                
                 # search for a data1 file in the eq36da directory
                 if os.path.exists(self.eq36da + "/data1." + db) and os.path.isfile(self.eq36da + "/data1." + db):
                     self.thermo_db = None
