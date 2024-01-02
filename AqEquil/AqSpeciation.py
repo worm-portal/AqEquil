@@ -5675,7 +5675,7 @@ class Speciation(object):
             A figure object is returned if `plot_out` is true. Otherwise, a
             figure is simply displayed.
         """
-
+        
         if not isinstance(y, list):
             y = [y]
 
