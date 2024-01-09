@@ -165,13 +165,16 @@ preprocess <- function(input_filename,
     f2 <- function(T) {
       return(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3 + poly_coeffs_2[5]*T^4)
     }
-                                   
-    if(grid_temps[1] <= temp_degC && temp_degC <= grid_temps[4]){
-      pressure_bar <- f1(temp_degC)
-    }else if (grid_temps[4] <= temp_degC && temp_degC <= grid_temps[8]){
-      pressure_bar <- f2(temp_degC)
-    }else{
-      stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))
+
+    pressure_bar <- c()
+    for(T in temp_degC){
+      if(grid_temps[1] <= T && T <= grid_temps[4]){
+        pressure_bar <- c(pressure_bar, f1(T))
+      }else if (grid_temps[4] <= T && T <= grid_temps[8]){
+        pressure_bar <- c(pressure_bar, f2(T))
+      }else{
+        stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))
+      }
     }
     
     if(strict_minimum_pressure){

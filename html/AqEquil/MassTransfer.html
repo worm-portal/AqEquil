@@ -61,8 +61,8 @@ def _get_ion_ratio_exponent(num, denom):
 
     if num_total_charge == 0 or denom_total_charge == 0:
         return 0
-    
-    return num_total_charge/denom_total_charge
+
+    return abs(num_total_charge)/abs(denom_total_charge)
 
 
 def __delete_file(file):
@@ -317,11 +317,6 @@ class Mass_Transfer:
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
-        
-        f=open(self.six_o_file, mode=&#39;r&#39;)
-        self.six_o_file_lines=f.readlines()
-        f.close()
-        
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
         self.verbose = verbose
@@ -371,12 +366,6 @@ class Mass_Transfer:
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
         
-        if self.moles_minerals.shape[0] == 0 and self.moles_product_minerals.shape[0] &gt; 0:
-            # in the case of special reactants, there is no grand summary table in the 6o file
-            # that combine reactant and product minerals (because there is no reactant mineral).
-            # In this case, just assume these tables are equal.
-            self.moles_minerals = self.moles_product_minerals
-        
         
     def mine_6o_table(self,
                       table_start=&#34;--- Distribution of Aqueous Solute Species ---&#34;,
@@ -414,8 +403,10 @@ class Mass_Transfer:
             containing the values of chemical species mined from the file.
         &#34;&#34;&#34;
         
-        lines = self.six_o_file_lines
-        
+        f=open(self.six_o_file, mode=&#39;r&#39;)
+        lines=f.readlines()
+        f.close()
+
         species = []
         xi_vals=[]
         collect_values = False
@@ -471,7 +462,9 @@ class Mass_Transfer:
     
     def __get_inactive_species(self):
         
-        lines=self.six_o_file_lines
+        f=open(self.six_o_file, mode=&#39;r&#39;)
+        lines=f.readlines()
+        f.close()
 
         table_start = &#34;--- Inactive Species ---&#34;
         table_stop = &#34;The activity coefficients of aqueous species&#34;
@@ -518,14 +511,9 @@ class Mass_Transfer:
     
     def __get_moles_product_minerals(self):
         
-        if &#34;Grand Summary of Solid Phases&#34; in &#34;\n&#34;.join(self.six_o_file_lines):
-            table_stop = &#34;Grand Summary of Solid Phases&#34;
-        else:
-            table_stop = &#34;Mass, grams       Volume, cm3&#34;
-        
         return self.mine_6o_table(
                       table_start=&#34;--- Summary of Solid Phases (ES) ---&#34;,
-                      table_stop=table_stop,
+                      table_stop=&#34;Grand Summary of Solid Phases&#34;,
                       ignore = [&#34;&#34;, &#34;Phase/End-member&#34;, &#39;---&#39;],
                       col_index=2)
         
@@ -751,8 +739,6 @@ class Mass_Transfer:
                 
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
-        all_elements_of_interest = sorted(all_elements_of_interest)
-        
         self.all_elements_of_interest = all_elements_of_interest
         
         fig_list = []
@@ -851,7 +837,7 @@ class Mass_Transfer:
                               &#34;calculation to avoid lengthy calculation times.&#34;)
                 
                 for triad in element_plot_triad:
-                    
+
                     # do a quick first pass at making figures to see which points are projections.
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
@@ -862,9 +848,6 @@ class Mass_Transfer:
                                                         first_pass=True, # flag for skipping certain calculations/plotting
                                                         res=1) # low res first pass
 
-                    if pred_minerals_from_fields == None:
-                        pred_minerals_from_fields=[None]*self.moles_product_minerals.shape[0]
-                    
                     fig_list.append(fig)
                     pred_minerals_from_fields_list.append(pred_minerals_from_fields)
                     pred_minerals_from_lines_list.append(pred_minerals_from_lines)
@@ -883,7 +866,7 @@ class Mass_Transfer:
                         formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
                                            ii,mineral in enumerate(xirow[1:]) if
                                            mineral&gt;0]
-                        
+
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
                         for mineral in formed_minerals:
@@ -1011,22 +994,15 @@ class Mass_Transfer:
                 header = split_line[1:-1]
 
                 # handle instances where the tab file creates extra columns for things like &#34;albite,low&#34;
-                if table_name in [&#34;Table P Moles of product minerals&#34;,
-                                  &#34;Table Q Saturation indices of potential product phases&#34;,
-                                  &#34;Table J Moles of reactants destroyed/created&#34;,
-                                  &#34;Table K Affinities of reactants (kcal)&#34;]:
-                    
-                    if table_name in [&#34;Table P Moles of product minerals&#34;,
-                                      &#34;Table J Moles of reactants destroyed/created&#34;]:
-                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P and J
-                    elif table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+                if table_name == &#34;Table P Moles of product minerals&#34; or table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+                    if table_name == &#34;Table P Moles of product minerals&#34;:
+                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P
+                    else:
                         new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;H2O&#34;, &#34;Gas&#34;] # table Q
-                    elif table_name == &#34;Table K Affinities of reactants (kcal)&#34;:
-                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;Total&#34;]
 
                     for i,h in enumerate(header):
 
-                        if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34; and h != &#34;Total&#34;:
+                        if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34;:
                             if h not in thermo_db_names:
                                 if header[i-1]+&#34;,&#34;+h in thermo_db_names:
                                     new_header = new_header[:-1]
@@ -1123,7 +1099,7 @@ class Mass_Transfer:
 
         x_vals = [log10((10**float(x))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_x, &#34;H+&#34;)) for x,d in zip(x_vals,proton_vals)]
         y_vals = [log10((10**float(y))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_y, &#34;H+&#34;)) for y,d in zip(y_vals,proton_vals)]
-        
+
         return xi_vals, x_vals, y_vals
 
     
@@ -1200,6 +1176,9 @@ class Mass_Transfer:
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
             
+            # TODO: remove this b.c it&#39;s only here for debugging
+            self.e = e
+            
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
@@ -1243,9 +1222,7 @@ class Mass_Transfer:
     @staticmethod
     def __calc_dissrxn_logK(mineral, T, P):
 
-        logK = subcrt([mineral], coeff=[-1], property=&#39;logK&#39;, T=T, P=P,
-                      show=False, messages=False)[&#34;out&#34;][&#34;logK&#34;].item()
-        
+        logK = subcrt([mineral], coeff=[1], property=&#39;logK&#39;, T=T, P=P, show=False, messages=False)[&#34;out&#34;][&#34;logK&#34;].item()
         return logK
 
     
@@ -1388,6 +1365,15 @@ class Mass_Transfer:
             
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
+        
+#         basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
+#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
+#         basis_sp_list = list(set(basis_sp_list))
+        
+#         if basis_species_x not in basis_sp_list:
+#             basis_sp_list += [basis_species_x]
+#         if basis_species_y not in basis_sp_list:
+#             basis_sp_list += [basis_species_y]
 
         basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + [&#34;H+&#34;,&#34;H2O&#34;]))
     
@@ -1467,7 +1453,7 @@ class Mass_Transfer:
         
 #         print(&#34;field minerals&#34;)
 #         print(field_minerals_to_plot)
-    
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
             
         
@@ -1490,7 +1476,7 @@ class Mass_Transfer:
             annotation_coords=annotation_coords,
             field_minerals_exist=field_minerals_exist, path_margin=self.path_margin,
             annotation=annotation, messages=False)
-
+        
         # plot minerals with a single element of interest as a line
         plot_x_range, plot_y_range = self.__get_plot_range(x_vals, y_vals)
         
@@ -1530,30 +1516,28 @@ class Mass_Transfer:
 
                     if self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[0]:
                         # vertical line
-                        x0, x1 = (1/mineral_formula_dict[e_pair[0]])*logK, (1/mineral_formula_dict[e_pair[0]])*logK
+                        x0, x1 = (-1/mineral_formula_dict[e_pair[0]])*logK, (-1/mineral_formula_dict[e_pair[0]])*logK
                         y0 = min(plot_y_range)
                         y1 = max(plot_y_range)
                         color = v_line_color
                         hovertemplate=mineral+&#39;&lt;br&gt;&#39;+xlab+&#39; = &#39;+str(round(x0, 3))
                     elif self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[1]:
                         # horizontal line
-                        y0, y1 = (1/mineral_formula_dict[e_pair[1]])*logK, (1/mineral_formula_dict[e_pair[1]])*logK
+                        y0, y1 = (-1/mineral_formula_dict[e_pair[1]])*logK, (-1/mineral_formula_dict[e_pair[1]])*logK
                         x0 = min(plot_x_range)
                         x1 = max(plot_x_range)
                         color=h_line_color
                         hovertemplate=mineral+&#39;&lt;br&gt;&#39;+ylab+&#39; = &#39;+str(round(y0))
 
                 if len(eoi) == 2:
-                    
+
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
                     
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
-                    y0 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
-                    y1 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
-                    
-                    intercept = (1/mineral_formula_dict[e_pair[1]])*logK
-                    
+                    y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
+                    y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
+                    intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
                     
                     hovertemplate = mineral+&#39;&lt;br&gt;slope = &#39;+str(round(line_slope))+&#39;&lt;br&gt;intercept = &#39;+str(round(intercept))+&#39;&lt;extra&gt;&lt;/extra&gt;&#39;
@@ -1871,8 +1855,7 @@ class Mass_Transfer:
                         else:
                             polymorph_idx = polymorph_idxs[0]
                             
-
-                        partial_molal_volume = list(mineral_df[&#34;V&#34;])[polymorph_idx]
+                        partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
                         
                         df.at[i, mineral] = df[mineral][i]*partial_molal_volume
             else:
@@ -2508,7 +2491,7 @@ rb_template = &#34;&#34;&#34;
 |-&gt;|Amount remaining (moles) |{amount_remaining}| (morr(n))                          |
 |------------------------------------------------------------------------------|
 |-&gt;|Amount destroyed (moles) |{amount_destroyed}| (modr(n))                          |
-|------------------------------------------------------------------------------|{sr_block}
+|------------------------------------------------------------------------------|
 |-&gt;|Surface area option (nsk(n)):                                              |
 |-&gt;|  [{sa_checkbox_1}] ( 0) Constant surface area:                                          |
 |-&gt;|             Value (cm2)       |{sa_val_1}| (sfcar(n))                   |
@@ -2564,115 +2547,6 @@ gl_template = &#34;&#34;&#34;
 |{gas_name}|{gas_moles}|{gas_log_fugacity}| --                      |&#34;&#34;&#34;
 
 
-srb_template = &#34;&#34;&#34;
-|-&gt;|Molar volume (cm3/mol)   |{amount_volume}| (vreac(n))                         |
-|------------------------------------------------------------------------------|
-|-&gt;|Composition                                                                |
-|------------------------------------------------------------------------------|
-|---&gt;|Element |Stoich. Number        | (this is a table header)                |
-|------------------------------------------------------------------------------|{srb_stoich}
-|------------------------------------------------------------------------------|
-|-&gt;|Reaction                                                                   |
-|------------------------------------------------------------------------------|
-|---&gt;|Species                 |Reaction Coefficient  | (this is a table header)|
-|------------------------------------------------------------------------------|
-|------------------------------------------------------------------------------|&#34;&#34;&#34;
-
-srb_stoich_template = &#34;&#34;&#34;
-|---&gt;|{elem}|{elem_val}| (uesri(i,n), cesri(i,n))                |&#34;&#34;&#34;
-
-
-class Mixing_Fluid:
-    def __init__(self,
-                 speciation,
-                 sample_name,
-                 amount_remaining=1,
-                 amount_destroyed=0,
-                 amount_volume=1,
-                 hide_traceback=True,
-                ):
-
-        self.err_handler = Error_Handler(clean=hide_traceback)
-    
-        # Prepare a special reactant to be used in a mixing calculation.
-        if isinstance(speciation, Speciation):
-            
-            self.sample_name = sample_name
-            self.speciation_sample_data = speciation.sample_data[sample_name]
-            self.T = self.speciation_sample_data[&#34;temperature&#34;]
-            
-            elemental_composition_lines = []
-            capture = False
-            for i,line in enumerate(speciation.raw_3_pickup_dict_top[sample_name]):
-                if &#34;|-&gt;|Composition&#34; in line:
-                    capture = True
-                    i_start = i
-                if &#34;|-&gt;|Reaction&#34; in line:
-                    capture = False
-                if capture and i &gt; i_start + 3:
-                    elemental_composition_lines.append(line)
-            
-            # ignore last line, which is a divider &#34;|----------...&#34;
-            elemental_composition_lines = elemental_composition_lines[:-1]
-
-            fluid_2_dict = {}
-            for line in elemental_composition_lines:
-                split_line = line.split(&#34;|&#34;)
-                element = split_line[2].strip()
-                value = float(split_line[3])
-                fluid_2_dict[element] = value
-                    
-            self.reactant = Reactant(reactant_name=&#34;Fluid 2&#34;,
-                                     reactant_type=&#34;Special reactant&#34;,
-                                     special_reactant_dict=fluid_2_dict,
-                                     amount_remaining=amount_remaining,
-                                     amount_destroyed=amount_destroyed,
-                                     amount_volume=amount_volume,
-                                     hide_traceback=hide_traceback)
-            
-            self.formatted_block = self.reactant.formatted_block
-            self.reactant_type = &#34;Special reactant&#34;
-            
-        else:
-            self.err_handler.raise_exception((&#34;The speciation parameter was&#34;
-                    &#34; not given a Speciation object. A Speciation object is&#34;
-                    &#34; produced by the AqEquil.speciate() function.&#34;))
-
-        # handle fluid mixing reaction block
-
-        lines_to_keep = self.formatted_block.split(&#34;\n&#34;)
-        raw_p_dict_top = speciation.raw_3_pickup_dict_top
-
-        # grab this fluid&#39;s reaction block
-        reaction_block_lines = []
-        capture = False
-        for line in raw_p_dict_top[sample_name]:
-            if &#34;|-&gt;|Reaction&#34; in line:
-                capture = True
-            if &#34;|-&gt;|Surface area&#34; in line:
-                capture = False
-            if capture:
-                reaction_block_lines.append(line)
-
-        # insert this fluid&#39;s reaction block
-        before_lines = []
-        after_lines = []
-        is_before = True
-        for i,line in enumerate(lines_to_keep):
-            if &#34;|-&gt;|Reaction&#34; in line:
-                is_before=False
-            if is_before:
-                before_lines.append(line)
-            else:
-                after_lines.append(line)
-
-        # trim redundant lines
-        after_lines = after_lines[5:]
-
-        lines_to_keep = before_lines + reaction_block_lines + after_lines
-
-        self.formatted_block = &#34;\n&#34;.join(lines_to_keep)
-
 class Reactant:
     def __init__(self,
                  reactant_name,
@@ -2680,7 +2554,6 @@ class Reactant:
                  reactant_status=&#34;Reacting&#34;,
                  amount_remaining=1,
                  amount_destroyed=0,
-                 amount_volume=0,
                  surface_area_option=0,
                  surface_area_value=0,
                  surface_area_factor=0,
@@ -2692,7 +2565,6 @@ class Reactant:
                  b_eq1=1,
                  b_eq2=0,
                  b_eq3=0,
-                 special_reactant_dict={},
                  hide_traceback=True,
                  ):
         
@@ -2790,15 +2662,12 @@ class Reactant:
         self.reactant_status=reactant_status
         self.amount_remaining=amount_remaining
         self.amount_destroyed=amount_destroyed
-        self.amount_volume=amount_volume
         self.sa_val_1=0
         self.sa_val_2=0
         self.sa_val_3=0
         self.sa_checkbox_1= &#34; &#34;
         self.sa_checkbox_2= &#34; &#34;
         self.sa_checkbox_3= &#34; &#34;
-        
-        self.special_reactant_dict=special_reactant_dict
         
         if surface_area_option == 0:
             self.sa_checkbox_1 = &#34;x&#34;
@@ -2822,55 +2691,34 @@ class Reactant:
         
         self.__format_rate_block(&#34;forward&#34;)
         self.__format_rate_block(&#34;backward&#34;)
-
+        
         self.__format_block()
 
 
     def __format_block(self):
         
         rb_dict_formatted = dict(
-                reactant_name = f&#34;{self.reactant_name:&lt;24}&#34;,
-                reactant_type = f&#34;{self.reactant_type:&lt;24}&#34;,
-                reactant_status = f&#34;{self.reactant_status:&lt;24}&#34;,
-                amount_remaining = f&#34;{&#39;{:.5E}&#39;.format(self.amount_remaining):&gt;12}&#34;,
-                amount_destroyed = f&#34;{&#39;{:.5E}&#39;.format(self.amount_destroyed):&gt;12}&#34;,
-                sa_checkbox_1 = self.sa_checkbox_1,
-                sa_checkbox_2 = self.sa_checkbox_2,
-                sa_checkbox_3 = self.sa_checkbox_3,
-                sa_val_1 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_1):&gt;12}&#34;,
-                sa_val_2 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_2):&gt;12}&#34;,
-                sa_val_3 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_3):&gt;12}&#34;,
-                sa_factor = f&#34;{&#39;{:.5E}&#39;.format(self.sa_factor):&gt;12}&#34;,
-                f_rate_law = f&#34;{self.f_rate_law:&lt;24}&#34;,
-                b_rate_law = f&#34;{self.b_rate_law:&lt;24}&#34;,
-                f_rate_block = self.formatted_f_rate_block,
-                b_rate_block = self.formatted_b_rate_block,
-                )
-
-        if self.reactant_type.lower() == &#34;special reactant&#34;:
-            elem_lines = []
-            for key in list(self.special_reactant_dict.keys()):
-                sp_elem_line = copy.copy(srb_stoich_template)
-                elem_name = f&#34;{str(key):&lt;8}&#34;
-                elem_value = f&#34;{&#39;{:.15E}&#39;.format(float(self.special_reactant_dict[key])):&gt;22}&#34;
-                sp_elem_line = sp_elem_line.format(**{&#34;elem&#34;:elem_name, &#34;elem_val&#34;:elem_value})
-                elem_lines.append(sp_elem_line)
-            elem_lines = &#34;&#34;.join(elem_lines)
-            
-            srb_dict_formatted = dict(
-                    amount_volume = f&#34;{&#39;{:.5E}&#39;.format(self.amount_volume):&gt;12}&#34;,
-                    srb_stoich = elem_lines,
-                    )
-            
-            sp_reactant_block_template = copy.copy(srb_template)
-            sp_reactant_block_formatted = sp_reactant_block_template.format(**srb_dict_formatted)
-            rb_dict_formatted[&#34;sr_block&#34;] = sp_reactant_block_formatted
-        else:
-            rb_dict_formatted[&#34;sr_block&#34;] = &#34;&#34;
-   
+            reactant_name = f&#34;{self.reactant_name:&lt;24}&#34;,
+            reactant_type = f&#34;{self.reactant_type:&lt;24}&#34;,
+            reactant_status = f&#34;{self.reactant_status:&lt;24}&#34;,
+            amount_remaining = f&#34;{&#39;{:.5E}&#39;.format(self.amount_remaining):&gt;12}&#34;,
+            amount_destroyed = f&#34;{&#39;{:.5E}&#39;.format(self.amount_destroyed):&gt;12}&#34;,
+            sa_checkbox_1 = self.sa_checkbox_1,
+            sa_checkbox_2 = self.sa_checkbox_2,
+            sa_checkbox_3 = self.sa_checkbox_3,
+            sa_val_1 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_1):&gt;12}&#34;,
+            sa_val_2 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_2):&gt;12}&#34;,
+            sa_val_3 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_3):&gt;12}&#34;,
+            sa_factor = f&#34;{&#39;{:.5E}&#39;.format(self.sa_factor):&gt;12}&#34;,
+            f_rate_law = f&#34;{self.f_rate_law:&lt;24}&#34;,
+            b_rate_law = f&#34;{self.b_rate_law:&lt;24}&#34;,
+            f_rate_block = self.formatted_f_rate_block,
+            b_rate_block = self.formatted_b_rate_block,
+        )
+    
         reactant_block_template = copy.copy(rb_template)
         self.formatted_block = reactant_block_template.format(**rb_dict_formatted)
-    
+        
     def __format_rate_block(self, direction):
         if direction == &#34;forward&#34;:
             d=&#34;f&#34;
@@ -2961,10 +2809,10 @@ class Prepare_Reaction:
     def __init__(self,
                  reactants,
                  gases=[],
-                 t_option=None,
+                 t_option=0,
                  t_value_1=None, # temp
-                 t_value_2=None,  # temp or deriv
-                 t_value_3=None,  # mass ratio factor
+                 t_value_2=0,  # temp or deriv
+                 t_value_3=0,  # mass ratio factor
                  p_option=0,
                  p_value_1=None,  # pressure
                  p_value_2=0,  # deriv
@@ -3329,47 +3177,10 @@ class Prepare_Reaction:
         self.i20_checkbox_1 = &#34; &#34;
         self.i20_checkbox_2 = &#34; &#34;
         
+        
         tval_var_to_format = None
         pval_var_to_format = None
         
-        # set t_option and t_value defaults when there is a mixing calculation
-        n_mixing_fluid_reactants=0
-        for reactant in reactants:
-            if isinstance(reactant, Mixing_Fluid):
-                n_mixing_fluid_reactants += 1
-                if t_option == None:
-                    t_option = 3
-                    self.t_option=t_option
-                if t_value_1 == None:
-                    t_value_1 = None # will be formatted with temp of fluid 1 later
-                    self.t_value_1=t_value_1
-                if t_value_2 == None:
-                    t_value_2 = float(reactant.T) # temp of fluid 2
-                    self.t_value_2=t_value_2
-                if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
-                    self.t_value_3=t_value_3
-                
-        if n_mixing_fluid_reactants == 0:
-            # set t_option and t_value defaults when there is no mixing calculation
-            if t_option == None:
-                t_option = 0
-                self.t_option = 0
-#             if t_value_1 == None:
-#                 t_value_1 = None
-#                 self.t_value_1 = 0
-#             if t_value_2 == None:
-#                 t_value_2 = 0
-#                 self.t_value_2 = 0
-#             if t_value_3 == None:
-#                 t_value_3 = 0
-#                 self.t_value_3 = 0
-        elif n_mixing_fluid_reactants == 1:
-            pass
-        else:
-            self.error_handler.raise_exception((&#34;&#34;
-                    &#34;There are {} mixing fluids &#34;.format(n_mixing_fluid_reactants)+&#34;&#34;
-                    &#34;in the list of reactants. There may only be one.&#34;))
         if t_option == 0:
             self.t_checkbox_1=&#34;x&#34;
             if isinstance(t_value_1, numbers.Number):
@@ -3400,8 +3211,6 @@ class Prepare_Reaction:
                 self.tval7=t_value_2
                 self.tval8=t_value_3
             else:
-                self.tval7=t_value_2
-                self.tval8=t_value_3
                 tval_var_to_format = 6
         else:
             raise Exception(&#34;t_option must be 0, 1, 2, or 3.&#34;)
@@ -4092,11 +3901,6 @@ the point.</dd>
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.six_o_file = six_o_file
-        
-        f=open(self.six_o_file, mode=&#39;r&#39;)
-        self.six_o_file_lines=f.readlines()
-        f.close()
-        
         self.thermodata_csv = thermodata_csv
         self.tab_name = tab_name
         self.verbose = verbose
@@ -4146,12 +3950,6 @@ the point.</dd>
         self.moles_minerals = self.__get_moles_minerals()
         self.moles_product_minerals = self.__get_moles_product_minerals()
         
-        if self.moles_minerals.shape[0] == 0 and self.moles_product_minerals.shape[0] &gt; 0:
-            # in the case of special reactants, there is no grand summary table in the 6o file
-            # that combine reactant and product minerals (because there is no reactant mineral).
-            # In this case, just assume these tables are equal.
-            self.moles_minerals = self.moles_product_minerals
-        
         
     def mine_6o_table(self,
                       table_start=&#34;--- Distribution of Aqueous Solute Species ---&#34;,
@@ -4189,8 +3987,10 @@ the point.</dd>
             containing the values of chemical species mined from the file.
         &#34;&#34;&#34;
         
-        lines = self.six_o_file_lines
-        
+        f=open(self.six_o_file, mode=&#39;r&#39;)
+        lines=f.readlines()
+        f.close()
+
         species = []
         xi_vals=[]
         collect_values = False
@@ -4246,7 +4046,9 @@ the point.</dd>
     
     def __get_inactive_species(self):
         
-        lines=self.six_o_file_lines
+        f=open(self.six_o_file, mode=&#39;r&#39;)
+        lines=f.readlines()
+        f.close()
 
         table_start = &#34;--- Inactive Species ---&#34;
         table_stop = &#34;The activity coefficients of aqueous species&#34;
@@ -4293,14 +4095,9 @@ the point.</dd>
     
     def __get_moles_product_minerals(self):
         
-        if &#34;Grand Summary of Solid Phases&#34; in &#34;\n&#34;.join(self.six_o_file_lines):
-            table_stop = &#34;Grand Summary of Solid Phases&#34;
-        else:
-            table_stop = &#34;Mass, grams       Volume, cm3&#34;
-        
         return self.mine_6o_table(
                       table_start=&#34;--- Summary of Solid Phases (ES) ---&#34;,
-                      table_stop=table_stop,
+                      table_stop=&#34;Grand Summary of Solid Phases&#34;,
                       ignore = [&#34;&#34;, &#34;Phase/End-member&#34;, &#39;---&#39;],
                       col_index=2)
         
@@ -4526,8 +4323,6 @@ the point.</dd>
                 
         all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
         
-        all_elements_of_interest = sorted(all_elements_of_interest)
-        
         self.all_elements_of_interest = all_elements_of_interest
         
         fig_list = []
@@ -4626,7 +4421,7 @@ the point.</dd>
                               &#34;calculation to avoid lengthy calculation times.&#34;)
                 
                 for triad in element_plot_triad:
-                    
+
                     # do a quick first pass at making figures to see which points are projections.
                     fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                         triad, T=self.T, P=self.P,
@@ -4637,9 +4432,6 @@ the point.</dd>
                                                         first_pass=True, # flag for skipping certain calculations/plotting
                                                         res=1) # low res first pass
 
-                    if pred_minerals_from_fields == None:
-                        pred_minerals_from_fields=[None]*self.moles_product_minerals.shape[0]
-                    
                     fig_list.append(fig)
                     pred_minerals_from_fields_list.append(pred_minerals_from_fields)
                     pred_minerals_from_lines_list.append(pred_minerals_from_lines)
@@ -4658,7 +4450,7 @@ the point.</dd>
                         formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
                                            ii,mineral in enumerate(xirow[1:]) if
                                            mineral&gt;0]
-                        
+
                         available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
                         for mineral in formed_minerals:
@@ -4786,22 +4578,15 @@ the point.</dd>
                 header = split_line[1:-1]
 
                 # handle instances where the tab file creates extra columns for things like &#34;albite,low&#34;
-                if table_name in [&#34;Table P Moles of product minerals&#34;,
-                                  &#34;Table Q Saturation indices of potential product phases&#34;,
-                                  &#34;Table J Moles of reactants destroyed/created&#34;,
-                                  &#34;Table K Affinities of reactants (kcal)&#34;]:
-                    
-                    if table_name in [&#34;Table P Moles of product minerals&#34;,
-                                      &#34;Table J Moles of reactants destroyed/created&#34;]:
-                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P and J
-                    elif table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+                if table_name == &#34;Table P Moles of product minerals&#34; or table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+                    if table_name == &#34;Table P Moles of product minerals&#34;:
+                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P
+                    else:
                         new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;H2O&#34;, &#34;Gas&#34;] # table Q
-                    elif table_name == &#34;Table K Affinities of reactants (kcal)&#34;:
-                        new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;Total&#34;]
 
                     for i,h in enumerate(header):
 
-                        if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34; and h != &#34;Total&#34;:
+                        if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34;:
                             if h not in thermo_db_names:
                                 if header[i-1]+&#34;,&#34;+h in thermo_db_names:
                                     new_header = new_header[:-1]
@@ -4898,7 +4683,7 @@ the point.</dd>
 
         x_vals = [log10((10**float(x))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_x, &#34;H+&#34;)) for x,d in zip(x_vals,proton_vals)]
         y_vals = [log10((10**float(y))/(10**float(d))**_get_ion_ratio_exponent(plot_basis_y, &#34;H+&#34;)) for y,d in zip(y_vals,proton_vals)]
-        
+
         return xi_vals, x_vals, y_vals
 
     
@@ -4975,6 +4760,9 @@ the point.</dd>
             a = affinity(**args)
             e = equilibrate(a, balance=self.__get_basis_from_elem(div_var_name), messages=messages)
             
+            # TODO: remove this b.c it&#39;s only here for debugging
+            self.e = e
+            
             table,fig = diagram_interactive(e, colormap=colormap, borders=borders,
                            balance=self.__get_basis_from_elem(div_var_name),
                            width=plot_width*ppi, height=plot_height*ppi,
@@ -5018,9 +4806,7 @@ the point.</dd>
     @staticmethod
     def __calc_dissrxn_logK(mineral, T, P):
 
-        logK = subcrt([mineral], coeff=[-1], property=&#39;logK&#39;, T=T, P=P,
-                      show=False, messages=False)[&#34;out&#34;][&#34;logK&#34;].item()
-        
+        logK = subcrt([mineral], coeff=[1], property=&#39;logK&#39;, T=T, P=P, show=False, messages=False)[&#34;out&#34;][&#34;logK&#34;].item()
         return logK
 
     
@@ -5163,6 +4949,15 @@ the point.</dd>
             
         basis_species_x = self.__get_basis_from_elem(e_pair[0])
         basis_species_y = self.__get_basis_from_elem(e_pair[1])
+        
+#         basis_sp_list = list(self.tab[&#34;Table E2 Basis species(log activity; log fugacity for O2(g))&#34;].columns)[2:-1]
+#         basis_sp_list += [self.__get_basis_from_elem(e) for e in self.all_elements_of_interest]
+#         basis_sp_list = list(set(basis_sp_list))
+        
+#         if basis_species_x not in basis_sp_list:
+#             basis_sp_list += [basis_species_x]
+#         if basis_species_y not in basis_sp_list:
+#             basis_sp_list += [basis_species_y]
 
         basis_sp_list = list(set([self.__get_basis_from_elem(e) for e in triad] + [&#34;H+&#34;,&#34;H2O&#34;]))
     
@@ -5242,7 +5037,7 @@ the point.</dd>
         
 #         print(&#34;field minerals&#34;)
 #         print(field_minerals_to_plot)
-    
+        
         xi_vals, x_vals, y_vals = self.__get_reaction_path(basis_species_x, basis_species_y, div_var_name)
             
         
@@ -5265,7 +5060,7 @@ the point.</dd>
             annotation_coords=annotation_coords,
             field_minerals_exist=field_minerals_exist, path_margin=self.path_margin,
             annotation=annotation, messages=False)
-
+        
         # plot minerals with a single element of interest as a line
         plot_x_range, plot_y_range = self.__get_plot_range(x_vals, y_vals)
         
@@ -5305,30 +5100,28 @@ the point.</dd>
 
                     if self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[0]:
                         # vertical line
-                        x0, x1 = (1/mineral_formula_dict[e_pair[0]])*logK, (1/mineral_formula_dict[e_pair[0]])*logK
+                        x0, x1 = (-1/mineral_formula_dict[e_pair[0]])*logK, (-1/mineral_formula_dict[e_pair[0]])*logK
                         y0 = min(plot_y_range)
                         y1 = max(plot_y_range)
                         color = v_line_color
                         hovertemplate=mineral+&#39;&lt;br&gt;&#39;+xlab+&#39; = &#39;+str(round(x0, 3))
                     elif self.__get_elem_ox_of_interest_in_minerals(mineral)[0] == e_pair[1]:
                         # horizontal line
-                        y0, y1 = (1/mineral_formula_dict[e_pair[1]])*logK, (1/mineral_formula_dict[e_pair[1]])*logK
+                        y0, y1 = (-1/mineral_formula_dict[e_pair[1]])*logK, (-1/mineral_formula_dict[e_pair[1]])*logK
                         x0 = min(plot_x_range)
                         x1 = max(plot_x_range)
                         color=h_line_color
                         hovertemplate=mineral+&#39;&lt;br&gt;&#39;+ylab+&#39; = &#39;+str(round(y0))
 
                 if len(eoi) == 2:
-                    
+
                     line_slope = mineral_formula_dict[e_pair[0]]/mineral_formula_dict[e_pair[1]]
                     
                     x0 = min(plot_x_range)
                     x1 = max(plot_x_range)
-                    y0 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
-                    y1 = (1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
-                    
-                    intercept = (1/mineral_formula_dict[e_pair[1]])*logK
-                    
+                    y0 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x0
+                    y1 = (-1/mineral_formula_dict[e_pair[1]])*logK - line_slope*x1
+                    intercept = (-1/mineral_formula_dict[e_pair[1]])*logK
                     color = d_line_color
                     
                     hovertemplate = mineral+&#39;&lt;br&gt;slope = &#39;+str(round(line_slope))+&#39;&lt;br&gt;intercept = &#39;+str(round(intercept))+&#39;&lt;extra&gt;&lt;/extra&gt;&#39;
@@ -5646,8 +5439,7 @@ the point.</dd>
                         else:
                             polymorph_idx = polymorph_idxs[0]
                             
-
-                        partial_molal_volume = list(mineral_df[&#34;V&#34;])[polymorph_idx]
+                        partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
                         
                         df.at[i, mineral] = df[mineral][i]*partial_molal_volume
             else:
@@ -6013,22 +5805,15 @@ def process_tab(tab_name, thermodata_csv):
             header = split_line[1:-1]
 
             # handle instances where the tab file creates extra columns for things like &#34;albite,low&#34;
-            if table_name in [&#34;Table P Moles of product minerals&#34;,
-                              &#34;Table Q Saturation indices of potential product phases&#34;,
-                              &#34;Table J Moles of reactants destroyed/created&#34;,
-                              &#34;Table K Affinities of reactants (kcal)&#34;]:
-                
-                if table_name in [&#34;Table P Moles of product minerals&#34;,
-                                  &#34;Table J Moles of reactants destroyed/created&#34;]:
-                    new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P and J
-                elif table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+            if table_name == &#34;Table P Moles of product minerals&#34; or table_name == &#34;Table Q Saturation indices of potential product phases&#34;:
+                if table_name == &#34;Table P Moles of product minerals&#34;:
+                    new_header = [&#34;Xi&#34;, &#34;t(days)&#34;] # table P
+                else:
                     new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;H2O&#34;, &#34;Gas&#34;] # table Q
-                elif table_name == &#34;Table K Affinities of reactants (kcal)&#34;:
-                    new_header = [&#34;Xi&#34;, &#34;t(days)&#34;, &#34;Total&#34;]
 
                 for i,h in enumerate(header):
 
-                    if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34; and h != &#34;Total&#34;:
+                    if h != &#34;Xi&#34; and h != &#34;t(days)&#34; and h != &#34;H2O&#34; and h != &#34;Gas&#34;:
                         if h not in thermo_db_names:
                             if header[i-1]+&#34;,&#34;+h in thermo_db_names:
                                 new_header = new_header[:-1]
@@ -6130,8 +5915,10 @@ containing the values of chemical species mined from the file.</dd>
         containing the values of chemical species mined from the file.
     &#34;&#34;&#34;
     
-    lines = self.six_o_file_lines
-    
+    f=open(self.six_o_file, mode=&#39;r&#39;)
+    lines=f.readlines()
+    f.close()
+
     species = []
     xi_vals=[]
     collect_values = False
@@ -6882,8 +6669,7 @@ set to False by default).</dd>
                     else:
                         polymorph_idx = polymorph_idxs[0]
                         
-
-                    partial_molal_volume = list(mineral_df[&#34;V&#34;])[polymorph_idx]
+                    partial_molal_volume = mineral_df[&#34;V&#34;][polymorph_idx]
                     
                     df.at[i, mineral] = df[mineral][i]*partial_molal_volume
         else:
@@ -7267,8 +7053,6 @@ specified, fig_list will only contain the single figure of interest.</dd>
             
     all_elements_of_interest = [elem for elem in all_elements_of_interest_pre if elem not in bad_elem]
     
-    all_elements_of_interest = sorted(all_elements_of_interest)
-    
     self.all_elements_of_interest = all_elements_of_interest
     
     fig_list = []
@@ -7367,7 +7151,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                           &#34;calculation to avoid lengthy calculation times.&#34;)
             
             for triad in element_plot_triad:
-                
+
                 # do a quick first pass at making figures to see which points are projections.
                 fig, pred_minerals_from_fields, pred_minerals_from_lines = self.__plot_reaction_path_main(
                                                     triad, T=self.T, P=self.P,
@@ -7378,9 +7162,6 @@ specified, fig_list will only contain the single figure of interest.</dd>
                                                     first_pass=True, # flag for skipping certain calculations/plotting
                                                     res=1) # low res first pass
 
-                if pred_minerals_from_fields == None:
-                    pred_minerals_from_fields=[None]*self.moles_product_minerals.shape[0]
-                
                 fig_list.append(fig)
                 pred_minerals_from_fields_list.append(pred_minerals_from_fields)
                 pred_minerals_from_lines_list.append(pred_minerals_from_lines)
@@ -7399,7 +7180,7 @@ specified, fig_list will only contain the single figure of interest.</dd>
                     formed_minerals = [self.moles_product_minerals.columns[1:][ii] for
                                        ii,mineral in enumerate(xirow[1:]) if
                                        mineral&gt;0]
-                    
+
                     available_pred_minerals_from_fields = [l[irow] for l in pred_minerals_from_fields_list]
 
                     for mineral in formed_minerals:
@@ -7490,111 +7271,9 @@ the Mass_Transfer class.</p></div>
 </dd>
 </dl>
 </dd>
-<dt id="AqEquil.MassTransfer.Mixing_Fluid"><code class="flex name class">
-<span>class <span class="ident">Mixing_Fluid</span></span>
-<span>(</span><span>speciation, sample_name, amount_remaining=1, amount_destroyed=0, amount_volume=1, hide_traceback=True)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Mixing_Fluid:
-    def __init__(self,
-                 speciation,
-                 sample_name,
-                 amount_remaining=1,
-                 amount_destroyed=0,
-                 amount_volume=1,
-                 hide_traceback=True,
-                ):
-
-        self.err_handler = Error_Handler(clean=hide_traceback)
-    
-        # Prepare a special reactant to be used in a mixing calculation.
-        if isinstance(speciation, Speciation):
-            
-            self.sample_name = sample_name
-            self.speciation_sample_data = speciation.sample_data[sample_name]
-            self.T = self.speciation_sample_data[&#34;temperature&#34;]
-            
-            elemental_composition_lines = []
-            capture = False
-            for i,line in enumerate(speciation.raw_3_pickup_dict_top[sample_name]):
-                if &#34;|-&gt;|Composition&#34; in line:
-                    capture = True
-                    i_start = i
-                if &#34;|-&gt;|Reaction&#34; in line:
-                    capture = False
-                if capture and i &gt; i_start + 3:
-                    elemental_composition_lines.append(line)
-            
-            # ignore last line, which is a divider &#34;|----------...&#34;
-            elemental_composition_lines = elemental_composition_lines[:-1]
-
-            fluid_2_dict = {}
-            for line in elemental_composition_lines:
-                split_line = line.split(&#34;|&#34;)
-                element = split_line[2].strip()
-                value = float(split_line[3])
-                fluid_2_dict[element] = value
-                    
-            self.reactant = Reactant(reactant_name=&#34;Fluid 2&#34;,
-                                     reactant_type=&#34;Special reactant&#34;,
-                                     special_reactant_dict=fluid_2_dict,
-                                     amount_remaining=amount_remaining,
-                                     amount_destroyed=amount_destroyed,
-                                     amount_volume=amount_volume,
-                                     hide_traceback=hide_traceback)
-            
-            self.formatted_block = self.reactant.formatted_block
-            self.reactant_type = &#34;Special reactant&#34;
-            
-        else:
-            self.err_handler.raise_exception((&#34;The speciation parameter was&#34;
-                    &#34; not given a Speciation object. A Speciation object is&#34;
-                    &#34; produced by the AqEquil.speciate() function.&#34;))
-
-        # handle fluid mixing reaction block
-
-        lines_to_keep = self.formatted_block.split(&#34;\n&#34;)
-        raw_p_dict_top = speciation.raw_3_pickup_dict_top
-
-        # grab this fluid&#39;s reaction block
-        reaction_block_lines = []
-        capture = False
-        for line in raw_p_dict_top[sample_name]:
-            if &#34;|-&gt;|Reaction&#34; in line:
-                capture = True
-            if &#34;|-&gt;|Surface area&#34; in line:
-                capture = False
-            if capture:
-                reaction_block_lines.append(line)
-
-        # insert this fluid&#39;s reaction block
-        before_lines = []
-        after_lines = []
-        is_before = True
-        for i,line in enumerate(lines_to_keep):
-            if &#34;|-&gt;|Reaction&#34; in line:
-                is_before=False
-            if is_before:
-                before_lines.append(line)
-            else:
-                after_lines.append(line)
-
-        # trim redundant lines
-        after_lines = after_lines[5:]
-
-        lines_to_keep = before_lines + reaction_block_lines + after_lines
-
-        self.formatted_block = &#34;\n&#34;.join(lines_to_keep)</code></pre>
-</details>
-</dd>
 <dt id="AqEquil.MassTransfer.Prepare_Reaction"><code class="flex name class">
 <span>class <span class="ident">Prepare_Reaction</span></span>
-<span>(</span><span>reactants, gases=[], t_option=None, t_value_1=None, t_value_2=None, t_value_3=None, p_option=0, p_value_1=None, p_value_2=0, xi_range=[0, 1], time_range=[0, 1e+38], pH_range=[-1e+38, 1e+38], Eh_range=[-1e+38, 1e+38], fO2_range=[-1e+38, 1e+38], aw_range=[-1e+38, 1e+38], max_n_steps=900, xi_print_int=1, log_xi_print_int=1, time_print_int=1e+38, log_time_print_int=1e+38, pH_print_interval=1e+38, Eh_print_interval=1e+38, logfO2_print_interval=1e+38, aw_print_interval=1e+38, n_steps_print_interval=100, physical_system_model='closed', kinetic_mode='arbitrary', phase_boundary_search=0, permit_solid_solutions=False, clear_es_solids_read=False, clear_es_solids_initial=False, clear_es_solids_end=False, clear_prs_solids_read=False, clear_prs_solids_end=False, auto_basis_switching_pre_NR=False, auto_basis_switching_post_NR=False, calc_mode_selection=0, ODE_corrector_mode=0, suppress_redox=False, fluid_mixing_setup=False, max_finite_difference_order=6, beta_convergence_tolerance=0, del_convergence_tolerance=0, max_n_NR_iter=500, search_find_convergeance_tolerance=0, saturation_tolerance=0, max_n_phase_assemblage_tries=0, zero_order_step_size=0, max_interval_in_xi_between_PRS_transfers=0, filename=None, hide_traceback=True)</span>
+<span>(</span><span>reactants, gases=[], t_option=0, t_value_1=None, t_value_2=0, t_value_3=0, p_option=0, p_value_1=None, p_value_2=0, xi_range=[0, 1], time_range=[0, 1e+38], pH_range=[-1e+38, 1e+38], Eh_range=[-1e+38, 1e+38], fO2_range=[-1e+38, 1e+38], aw_range=[-1e+38, 1e+38], max_n_steps=900, xi_print_int=1, log_xi_print_int=1, time_print_int=1e+38, log_time_print_int=1e+38, pH_print_interval=1e+38, Eh_print_interval=1e+38, logfO2_print_interval=1e+38, aw_print_interval=1e+38, n_steps_print_interval=100, physical_system_model='closed', kinetic_mode='arbitrary', phase_boundary_search=0, permit_solid_solutions=False, clear_es_solids_read=False, clear_es_solids_initial=False, clear_es_solids_end=False, clear_prs_solids_read=False, clear_prs_solids_end=False, auto_basis_switching_pre_NR=False, auto_basis_switching_post_NR=False, calc_mode_selection=0, ODE_corrector_mode=0, suppress_redox=False, fluid_mixing_setup=False, max_finite_difference_order=6, beta_convergence_tolerance=0, del_convergence_tolerance=0, max_n_NR_iter=500, search_find_convergeance_tolerance=0, saturation_tolerance=0, max_n_phase_assemblage_tries=0, zero_order_step_size=0, max_interval_in_xi_between_PRS_transfers=0, filename=None, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class used to set the parameters of a reaction between the results of a
@@ -7764,10 +7443,10 @@ the point.</dd>
     def __init__(self,
                  reactants,
                  gases=[],
-                 t_option=None,
+                 t_option=0,
                  t_value_1=None, # temp
-                 t_value_2=None,  # temp or deriv
-                 t_value_3=None,  # mass ratio factor
+                 t_value_2=0,  # temp or deriv
+                 t_value_3=0,  # mass ratio factor
                  p_option=0,
                  p_value_1=None,  # pressure
                  p_value_2=0,  # deriv
@@ -8132,47 +7811,10 @@ the point.</dd>
         self.i20_checkbox_1 = &#34; &#34;
         self.i20_checkbox_2 = &#34; &#34;
         
+        
         tval_var_to_format = None
         pval_var_to_format = None
         
-        # set t_option and t_value defaults when there is a mixing calculation
-        n_mixing_fluid_reactants=0
-        for reactant in reactants:
-            if isinstance(reactant, Mixing_Fluid):
-                n_mixing_fluid_reactants += 1
-                if t_option == None:
-                    t_option = 3
-                    self.t_option=t_option
-                if t_value_1 == None:
-                    t_value_1 = None # will be formatted with temp of fluid 1 later
-                    self.t_value_1=t_value_1
-                if t_value_2 == None:
-                    t_value_2 = float(reactant.T) # temp of fluid 2
-                    self.t_value_2=t_value_2
-                if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
-                    self.t_value_3=t_value_3
-                
-        if n_mixing_fluid_reactants == 0:
-            # set t_option and t_value defaults when there is no mixing calculation
-            if t_option == None:
-                t_option = 0
-                self.t_option = 0
-#             if t_value_1 == None:
-#                 t_value_1 = None
-#                 self.t_value_1 = 0
-#             if t_value_2 == None:
-#                 t_value_2 = 0
-#                 self.t_value_2 = 0
-#             if t_value_3 == None:
-#                 t_value_3 = 0
-#                 self.t_value_3 = 0
-        elif n_mixing_fluid_reactants == 1:
-            pass
-        else:
-            self.error_handler.raise_exception((&#34;&#34;
-                    &#34;There are {} mixing fluids &#34;.format(n_mixing_fluid_reactants)+&#34;&#34;
-                    &#34;in the list of reactants. There may only be one.&#34;))
         if t_option == 0:
             self.t_checkbox_1=&#34;x&#34;
             if isinstance(t_value_1, numbers.Number):
@@ -8203,8 +7845,6 @@ the point.</dd>
                 self.tval7=t_value_2
                 self.tval8=t_value_3
             else:
-                self.tval7=t_value_2
-                self.tval8=t_value_3
                 tval_var_to_format = 6
         else:
             raise Exception(&#34;t_option must be 0, 1, 2, or 3.&#34;)
@@ -8514,7 +8154,7 @@ the point.</dd>
 </dd>
 <dt id="AqEquil.MassTransfer.Reactant"><code class="flex name class">
 <span>class <span class="ident">Reactant</span></span>
-<span>(</span><span>reactant_name, reactant_type='Pure mineral', reactant_status='Reacting', amount_remaining=1, amount_destroyed=0, amount_volume=0, surface_area_option=0, surface_area_value=0, surface_area_factor=0, f_rate_law='Relative rate equation', f_eq1=1, f_eq2=0, f_eq3=0, b_rate_law='Partial equilibrium', b_eq1=1, b_eq2=0, b_eq3=0, special_reactant_dict={}, hide_traceback=True)</span>
+<span>(</span><span>reactant_name, reactant_type='Pure mineral', reactant_status='Reacting', amount_remaining=1, amount_destroyed=0, surface_area_option=0, surface_area_value=0, surface_area_factor=0, f_rate_law='Relative rate equation', f_eq1=1, f_eq2=0, f_eq3=0, b_rate_law='Partial equilibrium', b_eq1=1, b_eq2=0, b_eq3=0, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class used to define reactants for <code><a title="AqEquil.MassTransfer.Prepare_Reaction" href="#AqEquil.MassTransfer.Prepare_Reaction">Prepare_Reaction</a></code>.</p>
@@ -8592,7 +8232,6 @@ the point.</dd>
                  reactant_status=&#34;Reacting&#34;,
                  amount_remaining=1,
                  amount_destroyed=0,
-                 amount_volume=0,
                  surface_area_option=0,
                  surface_area_value=0,
                  surface_area_factor=0,
@@ -8604,7 +8243,6 @@ the point.</dd>
                  b_eq1=1,
                  b_eq2=0,
                  b_eq3=0,
-                 special_reactant_dict={},
                  hide_traceback=True,
                  ):
         
@@ -8702,15 +8340,12 @@ the point.</dd>
         self.reactant_status=reactant_status
         self.amount_remaining=amount_remaining
         self.amount_destroyed=amount_destroyed
-        self.amount_volume=amount_volume
         self.sa_val_1=0
         self.sa_val_2=0
         self.sa_val_3=0
         self.sa_checkbox_1= &#34; &#34;
         self.sa_checkbox_2= &#34; &#34;
         self.sa_checkbox_3= &#34; &#34;
-        
-        self.special_reactant_dict=special_reactant_dict
         
         if surface_area_option == 0:
             self.sa_checkbox_1 = &#34;x&#34;
@@ -8734,55 +8369,34 @@ the point.</dd>
         
         self.__format_rate_block(&#34;forward&#34;)
         self.__format_rate_block(&#34;backward&#34;)
-
+        
         self.__format_block()
 
 
     def __format_block(self):
         
         rb_dict_formatted = dict(
-                reactant_name = f&#34;{self.reactant_name:&lt;24}&#34;,
-                reactant_type = f&#34;{self.reactant_type:&lt;24}&#34;,
-                reactant_status = f&#34;{self.reactant_status:&lt;24}&#34;,
-                amount_remaining = f&#34;{&#39;{:.5E}&#39;.format(self.amount_remaining):&gt;12}&#34;,
-                amount_destroyed = f&#34;{&#39;{:.5E}&#39;.format(self.amount_destroyed):&gt;12}&#34;,
-                sa_checkbox_1 = self.sa_checkbox_1,
-                sa_checkbox_2 = self.sa_checkbox_2,
-                sa_checkbox_3 = self.sa_checkbox_3,
-                sa_val_1 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_1):&gt;12}&#34;,
-                sa_val_2 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_2):&gt;12}&#34;,
-                sa_val_3 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_3):&gt;12}&#34;,
-                sa_factor = f&#34;{&#39;{:.5E}&#39;.format(self.sa_factor):&gt;12}&#34;,
-                f_rate_law = f&#34;{self.f_rate_law:&lt;24}&#34;,
-                b_rate_law = f&#34;{self.b_rate_law:&lt;24}&#34;,
-                f_rate_block = self.formatted_f_rate_block,
-                b_rate_block = self.formatted_b_rate_block,
-                )
-
-        if self.reactant_type.lower() == &#34;special reactant&#34;:
-            elem_lines = []
-            for key in list(self.special_reactant_dict.keys()):
-                sp_elem_line = copy.copy(srb_stoich_template)
-                elem_name = f&#34;{str(key):&lt;8}&#34;
-                elem_value = f&#34;{&#39;{:.15E}&#39;.format(float(self.special_reactant_dict[key])):&gt;22}&#34;
-                sp_elem_line = sp_elem_line.format(**{&#34;elem&#34;:elem_name, &#34;elem_val&#34;:elem_value})
-                elem_lines.append(sp_elem_line)
-            elem_lines = &#34;&#34;.join(elem_lines)
-            
-            srb_dict_formatted = dict(
-                    amount_volume = f&#34;{&#39;{:.5E}&#39;.format(self.amount_volume):&gt;12}&#34;,
-                    srb_stoich = elem_lines,
-                    )
-            
-            sp_reactant_block_template = copy.copy(srb_template)
-            sp_reactant_block_formatted = sp_reactant_block_template.format(**srb_dict_formatted)
-            rb_dict_formatted[&#34;sr_block&#34;] = sp_reactant_block_formatted
-        else:
-            rb_dict_formatted[&#34;sr_block&#34;] = &#34;&#34;
-   
+            reactant_name = f&#34;{self.reactant_name:&lt;24}&#34;,
+            reactant_type = f&#34;{self.reactant_type:&lt;24}&#34;,
+            reactant_status = f&#34;{self.reactant_status:&lt;24}&#34;,
+            amount_remaining = f&#34;{&#39;{:.5E}&#39;.format(self.amount_remaining):&gt;12}&#34;,
+            amount_destroyed = f&#34;{&#39;{:.5E}&#39;.format(self.amount_destroyed):&gt;12}&#34;,
+            sa_checkbox_1 = self.sa_checkbox_1,
+            sa_checkbox_2 = self.sa_checkbox_2,
+            sa_checkbox_3 = self.sa_checkbox_3,
+            sa_val_1 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_1):&gt;12}&#34;,
+            sa_val_2 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_2):&gt;12}&#34;,
+            sa_val_3 = f&#34;{&#39;{:.5E}&#39;.format(self.sa_val_3):&gt;12}&#34;,
+            sa_factor = f&#34;{&#39;{:.5E}&#39;.format(self.sa_factor):&gt;12}&#34;,
+            f_rate_law = f&#34;{self.f_rate_law:&lt;24}&#34;,
+            b_rate_law = f&#34;{self.b_rate_law:&lt;24}&#34;,
+            f_rate_block = self.formatted_f_rate_block,
+            b_rate_block = self.formatted_b_rate_block,
+        )
+    
         reactant_block_template = copy.copy(rb_template)
         self.formatted_block = reactant_block_template.format(**rb_dict_formatted)
-    
+        
     def __format_rate_block(self, direction):
         if direction == &#34;forward&#34;:
             d=&#34;f&#34;
@@ -8866,9 +8480,6 @@ the point.</dd>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.print_tabs" href="#AqEquil.MassTransfer.Mass_Transfer.print_tabs">print_tabs</a></code></li>
 <li><code><a title="AqEquil.MassTransfer.Mass_Transfer.process_tab" href="#AqEquil.MassTransfer.Mass_Transfer.process_tab">process_tab</a></code></li>
 </ul>
-</li>
-<li>
-<h4><code><a title="AqEquil.MassTransfer.Mixing_Fluid" href="#AqEquil.MassTransfer.Mixing_Fluid">Mixing_Fluid</a></code></h4>
 </li>
 <li>
 <h4><code><a title="AqEquil.MassTransfer.Prepare_Reaction" href="#AqEquil.MassTransfer.Prepare_Reaction">Prepare_Reaction</a></code></h4>
