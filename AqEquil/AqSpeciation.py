@@ -1,4 +1,4 @@
-DEBUGGING_R = True
+DEBUGGING_R = False
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
 import os
@@ -4447,7 +4447,7 @@ class AqEquil(object):
                 if isinstance(self.__getattribute__(db_name), pd.DataFrame):
                     if name in list(self.__getattribute__(db_name)["name"]):
                         idx_list = [i for i,n in enumerate(self.__getattribute__(db_name)["name"]) if n==name]
-                        state_list = [self.__getattribute__(db_name)["state"][idx] for i,idx in enumerate(idx_list)]
+                        state_list = [self.__getattribute__(db_name)["state"].iloc[idx] for i,idx in enumerate(idx_list)]
                         for i,idx in enumerate(idx_list):
                             if name not in list(self.df_rejected_species["name"]) or i not in list(self.df_rejected_species.loc[self.df_rejected_species["name"]==name, "database index"]):
                                 d = pd.DataFrame({'database name': [self.__getattribute__(db_name+"_filename")], 'database index': [int(idx)], 'name': [name], 'state': [state_list[i]], 'reason for rejection': [reason]})
@@ -5779,11 +5779,12 @@ class Speciation(object):
                     ylabel = "{} {} [{}]".format(chemlabel(y[0]), unit_type, unit)
                 else:
                     ylabel = "{} {}".format(chemlabel(y[0]), unit_type)
-
         
         df = pd.melt(df, id_vars=["name"], value_vars=y)
+        
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
-
+        df = df.rename(columns={"variable": "y_variable"})
+        
         df['y_variable'] = df['y_variable'].apply(chemlabel)
         
         
