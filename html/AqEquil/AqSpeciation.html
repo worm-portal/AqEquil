@@ -26,7 +26,7 @@
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">DEBUGGING_R = True
+<pre><code class="python">DEBUGGING_R = False
 FIXED_SPECIES = [&#34;H2O&#34;, &#34;H+&#34;, &#34;O2(g)&#34;, &#34;water&#34;, &#34;Cl-&#34;, &#34;e-&#34;, &#34;OH-&#34;, &#34;O2&#34;, &#34;H2O(g)&#34;]
 
 import os
@@ -248,7 +248,7 @@ def _clean_rpy2_pandas_conversion(
                     &#34;V&#34;, &#34;a1.a&#34;, &#34;a2.b&#34;,
                     &#34;a3.c&#34;, &#34;a4.d&#34;, &#34;c1.e&#34;,
                     &#34;c2.f&#34;, &#34;omega.lambda&#34;, &#34;z.T&#34;,
-                    &#34;azero&#34;, &#34;neutral_ion_type&#34;,
+                    &#34;azero&#34;, &#34;neutral_ion_type&#34;, &#34;regenerate_dissrxn&#34;,
                     &#34;logK1&#34;, &#34;logK2&#34;, &#34;logK3&#34;, &#34;logK4&#34;,
                     &#34;logK5&#34;, &#34;logK6&#34;, &#34;logK7&#34;, &#34;logK8&#34;,
                     &#34;T1&#34;, &#34;T2&#34;, &#34;T3&#34;, &#34;T4&#34;, &#34;T5&#34;, &#34;T6&#34;,
@@ -256,6 +256,7 @@ def _clean_rpy2_pandas_conversion(
         str_cols=[&#34;name&#34;, &#34;abbrv&#34;, &#34;state&#34;, &#34;formula&#34;,
                   &#34;ref1&#34;, &#34;ref2&#34;, &#34;date&#34;,
                   &#34;E_units&#34;, &#34;tag&#34;, &#34;dissrxn&#34;, &#34;formula_ox&#34;,
+                  &#34;formula_modded&#34;, &#34;formula_ox_modded&#34;, 
                   &#34;P1&#34;, &#34;P2&#34;, &#34;P3&#34;, &#34;P4&#34;, &#34;P5&#34;, &#34;P6&#34;,
                   &#34;P7&#34;, &#34;P8&#34;],
         NA_string=&#34;&#34;):
@@ -364,6 +365,63 @@ def _all_equal(iterable):
     return next(g, True) and not next(g, False)
 
 
+def check_balance(formulas, stoich):
+    &#34;&#34;&#34;
+    Check that a chemical reaction is balanced. If not, get missing composition.
+    
+    Parameters
+    ----------
+    formulas : list of str
+        A list of species formulas that match the order of
+        the stoichiometric reaction coefficients in the `stoich` parameter.
+    
+    stoich : list of numeric
+        A list of stoichiometric reaction coefficients that match the order of
+        the species formulas in the `formulas` parameter. Reactants are
+        negative.
+        
+    Returns
+    -------
+    A printed warning and a dictionary of the missing composition if the
+    reaction is unbalanced.
+    &#34;&#34;&#34;
+    
+    if len(formulas) != len(stoich):
+        raise Exception(&#34;The number of species formulas does not match the &#34;
+              &#34;number of stoichiometric coefficients in the reaction.&#34;)
+    
+    # sum all elements, +, and - by their reaction coefficient
+    all_dict = {}
+    for i,s in enumerate(formulas):
+        s_dict = parse_formula(s)
+        s_dict = {key: stoich[i]*s_dict[key] for key in s_dict.keys()}
+        all_dict = {k: all_dict.get(k, 0) + s_dict.get(k, 0) for k in set(all_dict) | set(s_dict)}
+    
+    # sum + and - as Z (charge)
+    if &#34;+&#34; not in list(all_dict.keys()):
+        all_dict[&#34;+&#34;] = 0
+    if &#34;-&#34; not in list(all_dict.keys()):
+        all_dict[&#34;-&#34;] = 0
+    all_dict[&#34;Z&#34;] = all_dict[&#34;+&#34;] - all_dict[&#34;-&#34;]
+    del all_dict[&#34;+&#34;]
+    del all_dict[&#34;-&#34;]
+    
+    # delete all elements with a value of 0 (balanced)
+    for key in list(all_dict.keys()):
+        if all_dict[key] == 0:
+            del all_dict[key]
+    
+    # print warnings, prepare missing composition dictionary
+    if len(list(all_dict.keys())) &gt; 0:
+        missing_composition_dict = {k:[-all_dict[k]] for k in all_dict.keys()}
+        print(&#34;Warning! The reaction is unbalanced. It is missing this composition:&#34;)
+        print(pd.DataFrame(missing_composition_dict).to_string(index=False))
+    else:
+        missing_composition_dict = {}
+    
+    return missing_composition_dict
+        
+
 def chemlabel(name, charge_sign_at_end=False):
     
     &#34;&#34;&#34;
@@ -400,6 +458,52 @@ def chemlabel(name, charge_sign_at_end=False):
         name = name+&#34; (input)&#34;
     
     return(name)
+
+
+def format_equation(species, stoich, charge_sign_at_end=False):
+    &#34;&#34;&#34;
+    Format a chemical equation to display in HTML
+    (e.g., Plotly plots)
+    
+    Parameters
+    ----------
+    species : list of str
+        List of species in the reaction
+        
+    stoich : list of numeric
+        List of stoichiometric reaction coefficients (reactants are negative)
+    
+    charge_sign_at_end : bool, default False
+        Display charge with sign after the number (e.g. SO4 2-)?
+        
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    &#34;&#34;&#34;
+    reactants_list = []
+    products_list = []
+    for i,s in enumerate(species):
+        s_f = chemlabel(s, charge_sign_at_end=charge_sign_at_end)
+        if stoich[i] &lt; 0:
+            if stoich[i] != -1:
+                entry = str(abs(stoich[i])) + &#34; &#34; + s_f
+            else:
+                entry = s_f
+            reactants_list.append(entry)
+        elif stoich[i] &gt; 0:
+            if stoich[i] != 1:
+                entry = str(stoich[i]) + &#34; &#34; + s_f
+            else:
+                entry = s_f
+            products_list.append(entry)
+    
+    reactants_together = &#34; + &#34;.join(reactants_list)
+    products_together = &#34; + &#34;.join(products_list)
+    
+    equation_str = &#34; → &#34;.join([reactants_together, products_together])
+    
+    return equation_str
 
 
 def _html_chemname_format(name, charge_sign_at_end=False):
@@ -692,15 +796,14 @@ class AqEquil(object):
         
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
-        self.raw_3_pickup_dict = {}
+        self.raw_3_pickup_dict_bottom = {}
+        self.raw_3_pickup_dict_top = {}
         
         self.batch_T = []
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
-                                                 &#34;name&#34;:[],
-                                                 &#34;reason for rejection&#34;:[]})
+
         
         
         if load_thermo:
@@ -714,7 +817,6 @@ class AqEquil(object):
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
             self.download_csv_files = download_csv_files
-            self.exclude_category = exclude_category
             self.suppress_redox = suppress_redox
             self.exceed_Ttr = exceed_Ttr
             self.input_template = input_template
@@ -723,6 +825,7 @@ class AqEquil(object):
         
             self.data1 = self.thermo.data1
 
+            
     def _capture_r_output(self):
         &#34;&#34;&#34;
         Capture and create a list of R console messages
@@ -734,7 +837,7 @@ class AqEquil(object):
         
         # If DEBUGGING_R==False, uses python to print R lines after executing an R block 
         # If DEBUGGING_R==True, will ugly print from R directly. Allows printing from R to troubleshoot errors.
-        if DEBUGGING_R:
+        if not DEBUGGING_R:
         
             # Dummy functions #
             def add_to_stdout(line): self.stdout.append(line)
@@ -748,12 +851,51 @@ class AqEquil(object):
             rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
             rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
 
+            
     def _print_captured_r_output(self):
         printable_lines = [line for line in self.stdout if line not in [&#39;[1]&#39;, &#39;\n&#39;]]
         printable_lines = [line for line in printable_lines if re.search(&#34;^\s*\[[0-9]+\]$&#34;, line) is None]
         printable_lines = [re.sub(r&#39; \\n\&#34;&#39;, &#34;&#34;, line) for line in printable_lines]
         [print(line[2:-1]) for line in printable_lines]
 
+        
+    def _report_3o_6o_errors(self, lines, samplename):
+
+        recording = False
+        start_index = 0
+        end_index = -1
+        error_list = []
+        normal_exit = False
+        for i,line in enumerate(lines):
+            if &#34;* Error&#34; in line:
+                recording = True
+                start_index = i
+                
+            if (recording and line == &#34;&#34;) or (recording and i == len(lines)-1):
+                end_index = i
+                recording = False
+                error_lines = lines[start_index:end_index+1]
+                error_lines = &#34;\n&#34;.join(error_lines)
+                error_list.append(error_lines)
+
+            if &#34;Normal exit&#34; in line:
+                normal_exit = True
+                
+        if not normal_exit and len(error_list)==0:
+            error_list.append(&#34;\n * Error - (EQ6) The calculation did not terminate normally.&#34;)
+                
+        error_lines = &#34;\n&#34;.join(error_list)
+        
+        if len(error_lines) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;\nThe sample &#39;&#34;+samplename+&#34;&#39; experienced errors during the reaction:&#34;)
+                print(error_lines+&#34;\n&#34;)
+            return True
+        else:
+            return False
+            
+    
+        
     def __file_exists(self, filename, ext=&#39;.csv&#39;):
         &#34;&#34;&#34;
         Check that a file exists and that it has the correct extension.
@@ -895,9 +1037,16 @@ class AqEquil(object):
             
         if self.thermo.thermo_db_type == &#34;data0&#34;:
             data0_lines = self.thermo.thermo_db.split(&#34;\n&#34;)
-            start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
-            end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
-            db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            recording_species = False
+            for i,s in enumerate(data0_lines):
+                if recording_species and &#34;+---&#34; in s:
+                    end_index = i-1
+                    recording_species=False
+                    break
+                if &#39;*  species name&#39; in s:
+                    start_index = i+1
+                    recording_species=True
+            db_species = [i.split()[0] for i in data0_lines[start_index:end_index]]
         elif self.thermo.thermo_db_type == &#34;CSV&#34;:
             df_OBIGT = self.thermo.thermo_db
             db_species = list(df_OBIGT[&#34;name&#34;])
@@ -915,7 +1064,7 @@ class AqEquil(object):
                 &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
                 &#34; was not found among the headers of the sample input file.&#34;)
             err_list.append(err_charge_balance_invalid_sp)
-
+            
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
@@ -1140,7 +1289,9 @@ class AqEquil(object):
             except:
                 self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3o, &#34;to&#34;, path_3o+&#34;/&#34;+filename_3o)
         else:
-            self.err_handler.raise_exception(&#34;Error: multiple output files detected for one speciation calculation.&#34;)
+            # multiple 3o output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3o files
+            pass
             
         if len(files_3p) == 0:
             if self.verbose &gt; 0:
@@ -1153,9 +1304,11 @@ class AqEquil(object):
             except:
                 self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3p, &#34;to&#34;, path_3p+&#34;/&#34;+filename_3p)
         else:
-            self.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one speciation calculation.&#34;)
+            # multiple 3p output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3p files
+            pass
 
-                    
+
     def runeq6(self,
                filename_6i,
                db,
@@ -1278,9 +1431,9 @@ class AqEquil(object):
     def __plot_TP_grid_polyfit(self, xvals, yvals, poly_coeffs_1, poly_coeffs_2,
                                res=500, width=600, height=300):
 
-        print(&#34;R COEFFS&#34;)
-        print(poly_coeffs_1)
-        print(poly_coeffs_2)
+#         print(&#34;R COEFFS&#34;)
+#         print(poly_coeffs_1)
+#         print(poly_coeffs_2)
         
         
         f1_x = np.linspace(xvals[0], xvals[3], num=res)
@@ -1465,6 +1618,7 @@ class AqEquil(object):
                  alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
+                 blanks_are_0=False,
                  strict_minimum_pressure=True,
                  aq_scale=1,
                  verbose=1,
@@ -1653,6 +1807,9 @@ class AqEquil(object):
         suppress_missing : bool, default True
             Suppress the formation of an aqueous species if it is missing a
             value in the user-supplied sample spreadsheet?
+
+        blanks_are_0 : bool, default False
+            Assume all blank values in the water chemistry input file are 0?
             
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
@@ -2068,9 +2225,14 @@ class AqEquil(object):
                                                water_model=water_model,
                                                verbose=self.verbose)
         
+        
         self._print_captured_r_output()
         
         self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+        
+        
+        if blanks_are_0:
+            self.df_input_processed = self.df_input_processed.fillna(1E-18)
         
         self.__mk_check_del_directory(&#39;rxn_3i&#39;)
         self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -2186,7 +2348,7 @@ class AqEquil(object):
                         path_3p=pickup_dir,
                         data1_path=data1_path,
                         dynamic_db_name=dynamic_db_name)
-            
+
             # store input, output, and pickup as dicts in AqEquil object
             try:
                 with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
@@ -2196,14 +2358,30 @@ class AqEquil(object):
                 pass
             try:
                 with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
-                    lines=f.readlines()
+                    lines = [line.rstrip() for line in f.readlines()]
                 self.raw_3_output_dict[samplename] = lines
+                EQ3_errors_found = self._report_3o_6o_errors(lines, samplename)
             except:
                 pass
             try:
                 with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                     lines=f.readlines()
-                self.raw_3_pickup_dict[samplename] = lines
+                    
+                # capture everything after &#34;start of the bottom half&#34; of 3p
+                top_half = []
+                bottom_half = []
+                capture = False
+                for line in lines:
+                    if &#34;Start of the bottom half of the input file&#34; in line:
+                        capture = True
+                    if capture:
+                        bottom_half.append(line)
+                    else:
+                        top_half.append(line)
+                        
+                self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+                self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+                
             except:
                 pass
             
@@ -2588,14 +2766,14 @@ class AqEquil(object):
         
         speciation.raw_3_input_dict = self.raw_3_input_dict
         speciation.raw_3_output_dict = self.raw_3_output_dict
-        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+        speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
         speciation.raw_6_input_dict = {}
         speciation.raw_6_output_dict = {}
         speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
-        speciation.df_rejected_species = self.df_rejected_species
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
         speciation.batch_P = self.batch_P
@@ -2845,11 +3023,11 @@ class AqEquil(object):
         if internal and len(self.logK_models.keys()) &gt; 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                if name not in list(self.df_rejected_species[&#34;name&#34;]):
+                if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                     msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                     self.err_handler.raise_exception(msg)
                 else:
-                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                    reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                     
                     msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                            &#34;plotted because it was rejected from the &#34;
@@ -3054,9 +3232,7 @@ class AqEquil(object):
 
                     
                     if min(grid_temps) &lt; min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list) and logK_extrapolate == &#34;none&#34;:
-                        print(sp)
-                        print(logK_extrapolate)
-                        
+
                         min_sp = str(min(sp_temps_grid))
                         min_grid = str(min(grid_temps))
                         if dynamic_db:
@@ -3095,11 +3271,13 @@ class AqEquil(object):
             
             reject_indices = list(rejected_sp_i_dict.keys())
             reject_names = list(free_logK_df.iloc[reject_indices][&#34;name&#34;])
+            reject_states = list(free_logK_df.iloc[reject_indices][&#34;state&#34;])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            df_rejected_species = pd.DataFrame({&#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})
-                        
-            return valid_sp_i, df_rejected_species
+            for i,n in enumerate(reject_names):
+                self.thermo._reject_species(name=n, reason=reject_reasons[i])
+       
+            return valid_sp_i
             
             
     def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
@@ -3262,7 +3440,7 @@ class AqEquil(object):
             
             free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            valid_i = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
                 grid_or_sample_press,
@@ -3331,7 +3509,7 @@ class AqEquil(object):
             print(&#34;Finished creating data0.{}.&#34;.format(db))
             
 
-    def make_redox_reactions(self, db=None, redox_pairs=&#34;all&#34;, auto_load_db=True):
+    def make_redox_reactions(self, redox_pairs=&#34;all&#34;):
         
         &#34;&#34;&#34;
         Generate an organized collection of redox reactions for calculating
@@ -3339,19 +3517,6 @@ class AqEquil(object):
         
         Parameters
         ----------
-        db : str
-            Determines which thermodynamic database is used in the speciation
-            calculation. The database must be a CSV file (not a data0file)
-            because the code must look up properties of chemical species to
-            calculate affinities and energy supplies of reactions.
-            The `db` parameter can either be:
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-        
         redox_pairs : list of int or &#34;all&#34;, default &#34;all&#34;
             List of indices of half reactions in the half cell reaction table
             to be combined when generating full redox reactions.
@@ -3361,35 +3526,12 @@ class AqEquil(object):
             If &#34;all&#34;, generate all possible redox reactions from available half
             cell reactions.
         
-        auto_load_db : bool, default True
-            Automatically download and use a WORM-styled CSV if the currently
-            active thermodynamic database does not support affinity and energy
-            supply calculations? If True, the most up-to-date copy of the
-            wrm_data.csv will be downloaded from the URL
-            https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
-            and set as the active thermodynamic database.
-        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         &#34;&#34;&#34;
-        
-        if db != None:
-            self.thermo._set_active_db(db)
-            
-        if self.thermo.thermo_db_type != &#34;CSV&#34;:
-            if self.verbose &gt; 0:
-                if auto_load_db:
-                    print(&#34;Warning: Redox reactions require a WORM-styled thermodynamic database CSV file.&#34;)
-                else:
-                    self.err_handler.raise_exception(&#34;Error: Redox reactions require a WORM-styled CSV file as the active thermodynamic database.&#34;)
-            
-            if auto_load_db:
-                if self.verbose &gt; 0:
-                    print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
-            
+
         db = self.thermo.db
         
         # reset all redox variables stored in the AqEquil class
@@ -3810,7 +3952,7 @@ class AqEquil(object):
         for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
             pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
         all_reax[&#39;pairs&#39;] = pair_list
-
+        
         new_elements = []
         for r in range(0, len(all_reax[&#39;rO&#39;])):
             for e in elements:
@@ -4188,7 +4330,6 @@ class AqEquil(object):
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
@@ -4200,6 +4341,12 @@ class AqEquil(object):
             self.eq36da = self.AqEquil_instance.eq36da
             self.eq36co = self.AqEquil_instance.eq36co
 
+            self.df_rejected_species = pd.DataFrame({&#39;database name&#39;:[],
+                                                     &#39;database index&#39;:[],
+                                                     &#34;name&#34;:[],
+                                                     &#34;state&#34;:[],
+                                                     &#34;reason for rejection&#34;:[]})
+            
             # active thermo db attributes
             self.thermo_db = None
             self.thermo_db_type = None
@@ -4268,6 +4415,7 @@ class AqEquil(object):
                     self._load_logK_S(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
             else:
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+                
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
@@ -4318,6 +4466,38 @@ class AqEquil(object):
                 input_template.to_csv(&#34;sample_input_template.csv&#34;, index=False)
 
 
+        def _reject_species(self, name, reason):
+            
+            dbs_to_search = [&#34;csv_db&#34;, &#34;logK_db&#34;, &#34;logK_S_db&#34;]
+            
+            db_filename = None
+            for db_name in dbs_to_search:
+                if isinstance(self.__getattribute__(db_name), pd.DataFrame):
+                    if name in list(self.__getattribute__(db_name)[&#34;name&#34;]):
+                        idx_list = [i for i,n in enumerate(self.__getattribute__(db_name)[&#34;name&#34;]) if n==name]
+                        state_list = [self.__getattribute__(db_name)[&#34;state&#34;].iloc[idx] for i,idx in enumerate(idx_list)]
+                        for i,idx in enumerate(idx_list):
+                            if name not in list(self.df_rejected_species[&#34;name&#34;]) or i not in list(self.df_rejected_species.loc[self.df_rejected_species[&#34;name&#34;]==name, &#34;database index&#34;]):
+                                d = pd.DataFrame({&#39;database name&#39;: [self.__getattribute__(db_name+&#34;_filename&#34;)], &#39;database index&#39;: [int(idx)], &#39;name&#39;: [name], &#39;state&#39;: [state_list[i]], &#39;reason for rejection&#39;: [reason]})
+                                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        break
+                    
+                    
+        def _remove_missing_G_species(self):
+            # remove species that are missing a gibbs free energy value.
+            # handle minerals first. Reject any that have missing G in any polymorph.
+            mineral_name_reject = list(set(self.csv_db[(self.csv_db[&#34;G&#34;].isnull()) &amp; (self.csv_db[&#39;state&#39;].str.contains(&#39;cr&#39;))][&#34;name&#34;]))
+            
+            idx = list(self.csv_db[self.csv_db[&#34;name&#34;].isin(mineral_name_reject)].index)
+            names = self.csv_db[&#34;name&#34;].loc[idx]
+
+            for name in names:
+                self._reject_species(name=name, reason=&#34;missing Gibbs free energy for at least one polymorph&#34;)
+            
+            self.csv_db = self.csv_db[~self.csv_db[&#34;name&#34;].isin(mineral_name_reject)]
+    
+            # TODO: other states besides minerals
+                
         def _set_active_db(self, db=None, download_csv_files=False):
             &#34;&#34;&#34;
             Set the main active thermodynamic database to a CSV file, a data0 file,
@@ -4329,7 +4509,7 @@ class AqEquil(object):
 
                 self.data0_lettercode = db
                 self.dynamic_db = False
-
+                
                 # search for a data1 file in the eq36da directory
                 if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
                     self.thermo_db = None
@@ -4428,8 +4608,9 @@ class AqEquil(object):
                 self.data0_lettercode = None
 
             elif db[-4:].lower() == &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-                # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-
+                # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
+                
+                
                 self._load_csv(db, source=&#34;URL&#34;, download_csv_files=download_csv_files)
 
                 self.thermo_db = self.csv_db
@@ -4870,6 +5051,7 @@ class AqEquil(object):
 
             # Check that thermodynamic database input files exist and are formatted correctly.
             self._check_csv_db()
+            self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
 
@@ -4885,10 +5067,28 @@ class AqEquil(object):
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
                         print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
+                        
                     if isinstance(self.exclude_category[key], list):
+                        
+                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
+                        for name in names:
+                            self._reject_species(name=name, reason=&#34;excluded by user&#34;)
+                        
                         df = df[~df[key].isin(self.exclude_category[key])]
+                        
+
                     elif isinstance(self.exclude_category[key], str):
+                        
+                        idx = list(df[df[key] != self.exclude_category[key]].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
+                        for name in names:
+                            self._reject_species(name=name, reason=&#34;excluded by user&#34;)
+                        
                         df = df[~df[key] != self.exclude_category[key]]
+
                     else:
                         self.err_handler.raise_exception(&#34;The parameter exclude_category must either be a string or a list.&#34;)
             return df
@@ -5000,12 +5200,15 @@ class AqEquil(object):
             thermo_df = self.out_list.rx2(&#34;thermo_df&#34;)
             thermo_df=ro.conversion.rpy2py(thermo_df)
 
-    #         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
-    #         regenerated_dissrxn_dict = {}
-    #         for name in regenerated_dissrxns.names:
-    #             if name != &#34;basis_list&#34;:
-    #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
-
+            # Currently, species rejected by r.suppress_redox_and_generate_dissrxns()
+            # are rejected because they cannot be written with valid basis species.
+            # e.g., the mineral &#34;iron&#34; would be rejected when Fe is redox-isolated because
+            # there is no aqueous basis species representing Fe with an oxidation state of 0.
+            rejected_species = self.out_list.rx2(&#34;dissrxns&#34;).rx2(&#34;rejected_species&#34;)
+            
+            if type(rejected_species) != rpy2.rinterface_lib.sexp.NULLType:
+                for i,sp in enumerate(rejected_species):
+                    self._reject_species(sp, &#34;A dissociation reaction could not be written with valid basis species.&#34;)
 
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
@@ -5132,7 +5335,6 @@ class Speciation(object):
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -5172,7 +5374,7 @@ class Speciation(object):
             if messages:
                 print(&#34;Saved as &#39;{}&#39;&#34;.format(filename))
 
-    
+                
     @staticmethod
     def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
@@ -5412,6 +5614,7 @@ class Speciation(object):
                                              &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
                                              &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
                                              &#39;toggleSpikelines&#39;],
+                  
                   &#39;toImageButtonOptions&#39;: {
                                              &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
                                              &#39;filename&#39;: save_as,
@@ -5500,7 +5703,7 @@ class Speciation(object):
             A figure object is returned if `plot_out` is true. Otherwise, a
             figure is simply displayed.
         &#34;&#34;&#34;
-
+        
         if not isinstance(y, list):
             y = [y]
 
@@ -5604,11 +5807,12 @@ class Speciation(object):
                     ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
                 else:
                     ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
-
         
         df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
+        
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
+        df = df.rename(columns={&#34;variable&#34;: &#34;y_variable&#34;})
+        
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
@@ -5966,7 +6170,7 @@ class Speciation(object):
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label=&#34;sample&#34;,
                                      colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
@@ -6405,11 +6609,11 @@ class Speciation(object):
             os.makedirs(path)
             
         if chain_mt:
-            raw_p_dict = self.raw_6_pickup_dict
+            raw_p_dict_bottom = self.raw_6_pickup_dict
         else:
-            raw_p_dict = self.raw_3_pickup_dict
+            raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
-        for sample_name in raw_p_dict.keys():
+        for sample_name in raw_p_dict_bottom.keys():
             sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
             
             if isinstance(filepath_6i, str):
@@ -6428,7 +6632,7 @@ class Speciation(object):
             if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
                 
-            lines_3p = raw_p_dict[sample_name]
+            lines_3p = raw_p_dict_bottom[sample_name]
             
             lines_to_keep = []
             for line in lines_6i:
@@ -6475,7 +6679,16 @@ class Speciation(object):
         &#34;&#34;&#34;
         
         sample_data = getattr(self, &#34;sample_data&#34;)
-        return sample_data[sample][&#34;mass_transfer&#34;]
+        
+        if &#34;mass_transfer&#34; in list(sample_data[sample].keys()):
+            if sample_data[sample][&#34;mass_transfer&#34;] != None:
+                return sample_data[sample][&#34;mass_transfer&#34;]
+            
+        msg = (&#34;Mass transfer results are not stored for sample &#39;&#34;+sample+&#34;&#39;. &#34;
+              &#34;This might be because the reaction calculation did not &#34;
+              &#34;finish successfully or because the thermodynamic database &#34;
+              &#34;is a data0 or data1 file without a supporting CSV file.&#34;)
+        self.err_handler.raise_exception(msg)
 
     </code></pre>
 </details>
@@ -6487,6 +6700,88 @@ class Speciation(object):
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="AqEquil.AqSpeciation.check_balance"><code class="name flex">
+<span>def <span class="ident">check_balance</span></span>(<span>formulas, stoich)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Check that a chemical reaction is balanced. If not, get missing composition.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>formulas</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>A list of species formulas that match the order of
+the stoichiometric reaction coefficients in the <code>stoich</code> parameter.</dd>
+<dt><strong><code>stoich</code></strong> :&ensp;<code>list</code> of <code>numeric</code></dt>
+<dd>A list of stoichiometric reaction coefficients that match the order of
+the species formulas in the <code>formulas</code> parameter. Reactants are
+negative.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>A printed warning and a dictionary</code> of <code>the missing composition if the</code></dt>
+<dd>&nbsp;</dd>
+</dl>
+<p>reaction is unbalanced.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def check_balance(formulas, stoich):
+    &#34;&#34;&#34;
+    Check that a chemical reaction is balanced. If not, get missing composition.
+    
+    Parameters
+    ----------
+    formulas : list of str
+        A list of species formulas that match the order of
+        the stoichiometric reaction coefficients in the `stoich` parameter.
+    
+    stoich : list of numeric
+        A list of stoichiometric reaction coefficients that match the order of
+        the species formulas in the `formulas` parameter. Reactants are
+        negative.
+        
+    Returns
+    -------
+    A printed warning and a dictionary of the missing composition if the
+    reaction is unbalanced.
+    &#34;&#34;&#34;
+    
+    if len(formulas) != len(stoich):
+        raise Exception(&#34;The number of species formulas does not match the &#34;
+              &#34;number of stoichiometric coefficients in the reaction.&#34;)
+    
+    # sum all elements, +, and - by their reaction coefficient
+    all_dict = {}
+    for i,s in enumerate(formulas):
+        s_dict = parse_formula(s)
+        s_dict = {key: stoich[i]*s_dict[key] for key in s_dict.keys()}
+        all_dict = {k: all_dict.get(k, 0) + s_dict.get(k, 0) for k in set(all_dict) | set(s_dict)}
+    
+    # sum + and - as Z (charge)
+    if &#34;+&#34; not in list(all_dict.keys()):
+        all_dict[&#34;+&#34;] = 0
+    if &#34;-&#34; not in list(all_dict.keys()):
+        all_dict[&#34;-&#34;] = 0
+    all_dict[&#34;Z&#34;] = all_dict[&#34;+&#34;] - all_dict[&#34;-&#34;]
+    del all_dict[&#34;+&#34;]
+    del all_dict[&#34;-&#34;]
+    
+    # delete all elements with a value of 0 (balanced)
+    for key in list(all_dict.keys()):
+        if all_dict[key] == 0:
+            del all_dict[key]
+    
+    # print warnings, prepare missing composition dictionary
+    if len(list(all_dict.keys())) &gt; 0:
+        missing_composition_dict = {k:[-all_dict[k]] for k in all_dict.keys()}
+        print(&#34;Warning! The reaction is unbalanced. It is missing this composition:&#34;)
+        print(pd.DataFrame(missing_composition_dict).to_string(index=False))
+    else:
+        missing_composition_dict = {}
+    
+    return missing_composition_dict</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.chemlabel"><code class="name flex">
 <span>def <span class="ident">chemlabel</span></span>(<span>name, charge_sign_at_end=False)</span>
 </code></dt>
@@ -6636,6 +6931,73 @@ the <code><a title="AqEquil.AqSpeciation.Speciation" href="#AqEquil.AqSpeciation
     return sp_total</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.AqSpeciation.format_equation"><code class="name flex">
+<span>def <span class="ident">format_equation</span></span>(<span>species, stoich, charge_sign_at_end=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Format a chemical equation to display in HTML
+(e.g., Plotly plots)</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>species</code></strong> :&ensp;<code>list</code> of <code>str</code></dt>
+<dd>List of species in the reaction</dd>
+<dt><strong><code>stoich</code></strong> :&ensp;<code>list</code> of <code>numeric</code></dt>
+<dd>List of stoichiometric reaction coefficients (reactants are negative)</dd>
+<dt><strong><code>charge_sign_at_end</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Display charge with sign after the number (e.g. SO4 2-)?</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>A formatted chemical formula string.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def format_equation(species, stoich, charge_sign_at_end=False):
+    &#34;&#34;&#34;
+    Format a chemical equation to display in HTML
+    (e.g., Plotly plots)
+    
+    Parameters
+    ----------
+    species : list of str
+        List of species in the reaction
+        
+    stoich : list of numeric
+        List of stoichiometric reaction coefficients (reactants are negative)
+    
+    charge_sign_at_end : bool, default False
+        Display charge with sign after the number (e.g. SO4 2-)?
+        
+    
+    Returns
+    -------
+    A formatted chemical formula string.
+    &#34;&#34;&#34;
+    reactants_list = []
+    products_list = []
+    for i,s in enumerate(species):
+        s_f = chemlabel(s, charge_sign_at_end=charge_sign_at_end)
+        if stoich[i] &lt; 0:
+            if stoich[i] != -1:
+                entry = str(abs(stoich[i])) + &#34; &#34; + s_f
+            else:
+                entry = s_f
+            reactants_list.append(entry)
+        elif stoich[i] &gt; 0:
+            if stoich[i] != 1:
+                entry = str(stoich[i]) + &#34; &#34; + s_f
+            else:
+                entry = s_f
+            products_list.append(entry)
+    
+    reactants_together = &#34; + &#34;.join(reactants_list)
+    products_together = &#34; + &#34;.join(products_list)
+    
+    equation_str = &#34; → &#34;.join([reactants_together, products_together])
+    
+    return equation_str</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.load"><code class="name flex">
 <span>def <span class="ident">load</span></span>(<span>filename, messages=True, hide_traceback=True)</span>
 </code></dt>
@@ -6716,7 +7078,7 @@ the point.</dd>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da='/home/shock/EQ3_6v8.0a/db', eq36co='/usr/local/bin', db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_category={}, suppress_redox=[], input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
+<span>(</span><span>eq36da='/repos/WORM-db', eq36co='/usr/local/bin', db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_category={}, suppress_redox=[], input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -7028,15 +7390,14 @@ energy supplies during speciation.</dd>
         
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
-        self.raw_3_pickup_dict = {}
+        self.raw_3_pickup_dict_bottom = {}
+        self.raw_3_pickup_dict_top = {}
         
         self.batch_T = []
         self.batch_P = []
         
         self.logK_models = {}
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[],
-                                                 &#34;name&#34;:[],
-                                                 &#34;reason for rejection&#34;:[]})
+
         
         
         if load_thermo:
@@ -7050,7 +7411,6 @@ energy supplies during speciation.</dd>
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
             self.download_csv_files = download_csv_files
-            self.exclude_category = exclude_category
             self.suppress_redox = suppress_redox
             self.exceed_Ttr = exceed_Ttr
             self.input_template = input_template
@@ -7059,6 +7419,7 @@ energy supplies during speciation.</dd>
         
             self.data1 = self.thermo.data1
 
+            
     def _capture_r_output(self):
         &#34;&#34;&#34;
         Capture and create a list of R console messages
@@ -7070,7 +7431,7 @@ energy supplies during speciation.</dd>
         
         # If DEBUGGING_R==False, uses python to print R lines after executing an R block 
         # If DEBUGGING_R==True, will ugly print from R directly. Allows printing from R to troubleshoot errors.
-        if DEBUGGING_R:
+        if not DEBUGGING_R:
         
             # Dummy functions #
             def add_to_stdout(line): self.stdout.append(line)
@@ -7084,12 +7445,51 @@ energy supplies during speciation.</dd>
             rpy2.rinterface_lib.callbacks.consolewrite_print     = add_to_stdout
             rpy2.rinterface_lib.callbacks.consolewrite_warnerror = add_to_stderr
 
+            
     def _print_captured_r_output(self):
         printable_lines = [line for line in self.stdout if line not in [&#39;[1]&#39;, &#39;\n&#39;]]
         printable_lines = [line for line in printable_lines if re.search(&#34;^\s*\[[0-9]+\]$&#34;, line) is None]
         printable_lines = [re.sub(r&#39; \\n\&#34;&#39;, &#34;&#34;, line) for line in printable_lines]
         [print(line[2:-1]) for line in printable_lines]
 
+        
+    def _report_3o_6o_errors(self, lines, samplename):
+
+        recording = False
+        start_index = 0
+        end_index = -1
+        error_list = []
+        normal_exit = False
+        for i,line in enumerate(lines):
+            if &#34;* Error&#34; in line:
+                recording = True
+                start_index = i
+                
+            if (recording and line == &#34;&#34;) or (recording and i == len(lines)-1):
+                end_index = i
+                recording = False
+                error_lines = lines[start_index:end_index+1]
+                error_lines = &#34;\n&#34;.join(error_lines)
+                error_list.append(error_lines)
+
+            if &#34;Normal exit&#34; in line:
+                normal_exit = True
+                
+        if not normal_exit and len(error_list)==0:
+            error_list.append(&#34;\n * Error - (EQ6) The calculation did not terminate normally.&#34;)
+                
+        error_lines = &#34;\n&#34;.join(error_list)
+        
+        if len(error_lines) &gt; 0:
+            if self.verbose &gt; 0:
+                print(&#34;\nThe sample &#39;&#34;+samplename+&#34;&#39; experienced errors during the reaction:&#34;)
+                print(error_lines+&#34;\n&#34;)
+            return True
+        else:
+            return False
+            
+    
+        
     def __file_exists(self, filename, ext=&#39;.csv&#39;):
         &#34;&#34;&#34;
         Check that a file exists and that it has the correct extension.
@@ -7231,9 +7631,16 @@ energy supplies during speciation.</dd>
             
         if self.thermo.thermo_db_type == &#34;data0&#34;:
             data0_lines = self.thermo.thermo_db.split(&#34;\n&#34;)
-            start_index = [i+1 for i, s in enumerate(data0_lines) if &#39;*  species name&#39; in s]
-            end_index = [i-1 for i, s in enumerate(data0_lines) if &#39;elements&#39; in s]
-            db_species = [i.split()[0] for i in data0_lines[start_index[0]:end_index[0]]]
+            recording_species = False
+            for i,s in enumerate(data0_lines):
+                if recording_species and &#34;+---&#34; in s:
+                    end_index = i-1
+                    recording_species=False
+                    break
+                if &#39;*  species name&#39; in s:
+                    start_index = i+1
+                    recording_species=True
+            db_species = [i.split()[0] for i in data0_lines[start_index:end_index]]
         elif self.thermo.thermo_db_type == &#34;CSV&#34;:
             df_OBIGT = self.thermo.thermo_db
             db_species = list(df_OBIGT[&#34;name&#34;])
@@ -7251,7 +7658,7 @@ energy supplies during speciation.</dd>
                 &#34; &#39;{}&#39;&#34;.format(charge_balance_on)+&#34;&#34;
                 &#34; was not found among the headers of the sample input file.&#34;)
             err_list.append(err_charge_balance_invalid_sp)
-
+            
         if self.thermo.thermo_db_type in [&#34;data0&#34;, &#34;CSV&#34;]:
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
@@ -7476,7 +7883,9 @@ energy supplies during speciation.</dd>
             except:
                 self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3o, &#34;to&#34;, path_3o+&#34;/&#34;+filename_3o)
         else:
-            self.err_handler.raise_exception(&#34;Error: multiple output files detected for one speciation calculation.&#34;)
+            # multiple 3o output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3o files
+            pass
             
         if len(files_3p) == 0:
             if self.verbose &gt; 0:
@@ -7489,9 +7898,11 @@ energy supplies during speciation.</dd>
             except:
                 self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3p, &#34;to&#34;, path_3p+&#34;/&#34;+filename_3p)
         else:
-            self.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one speciation calculation.&#34;)
+            # multiple 3p output files are present in the directory
+            # this might happen when using runeq3() by itself in a directory with 3p files
+            pass
 
-                    
+
     def runeq6(self,
                filename_6i,
                db,
@@ -7614,9 +8025,9 @@ energy supplies during speciation.</dd>
     def __plot_TP_grid_polyfit(self, xvals, yvals, poly_coeffs_1, poly_coeffs_2,
                                res=500, width=600, height=300):
 
-        print(&#34;R COEFFS&#34;)
-        print(poly_coeffs_1)
-        print(poly_coeffs_2)
+#         print(&#34;R COEFFS&#34;)
+#         print(poly_coeffs_1)
+#         print(poly_coeffs_2)
         
         
         f1_x = np.linspace(xvals[0], xvals[3], num=res)
@@ -7801,6 +8212,7 @@ energy supplies during speciation.</dd>
                  alter_options=[],
                  charge_balance_on=&#34;none&#34;,
                  suppress_missing=True,
+                 blanks_are_0=False,
                  strict_minimum_pressure=True,
                  aq_scale=1,
                  verbose=1,
@@ -7989,6 +8401,9 @@ energy supplies during speciation.</dd>
         suppress_missing : bool, default True
             Suppress the formation of an aqueous species if it is missing a
             value in the user-supplied sample spreadsheet?
+
+        blanks_are_0 : bool, default False
+            Assume all blank values in the water chemistry input file are 0?
             
         strict_minimum_pressure : bool, default True
             Ensure that the minimum pressure in the speciation calculation does
@@ -8404,9 +8819,14 @@ energy supplies during speciation.</dd>
                                                water_model=water_model,
                                                verbose=self.verbose)
         
+        
         self._print_captured_r_output()
         
         self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+        
+        
+        if blanks_are_0:
+            self.df_input_processed = self.df_input_processed.fillna(1E-18)
         
         self.__mk_check_del_directory(&#39;rxn_3i&#39;)
         self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -8522,7 +8942,7 @@ energy supplies during speciation.</dd>
                         path_3p=pickup_dir,
                         data1_path=data1_path,
                         dynamic_db_name=dynamic_db_name)
-            
+
             # store input, output, and pickup as dicts in AqEquil object
             try:
                 with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
@@ -8532,14 +8952,30 @@ energy supplies during speciation.</dd>
                 pass
             try:
                 with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
-                    lines=f.readlines()
+                    lines = [line.rstrip() for line in f.readlines()]
                 self.raw_3_output_dict[samplename] = lines
+                EQ3_errors_found = self._report_3o_6o_errors(lines, samplename)
             except:
                 pass
             try:
                 with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                     lines=f.readlines()
-                self.raw_3_pickup_dict[samplename] = lines
+                    
+                # capture everything after &#34;start of the bottom half&#34; of 3p
+                top_half = []
+                bottom_half = []
+                capture = False
+                for line in lines:
+                    if &#34;Start of the bottom half of the input file&#34; in line:
+                        capture = True
+                    if capture:
+                        bottom_half.append(line)
+                    else:
+                        top_half.append(line)
+                        
+                self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+                self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+                
             except:
                 pass
             
@@ -8924,14 +9360,14 @@ energy supplies during speciation.</dd>
         
         speciation.raw_3_input_dict = self.raw_3_input_dict
         speciation.raw_3_output_dict = self.raw_3_output_dict
-        speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+        speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+        speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
         speciation.raw_6_input_dict = {}
         speciation.raw_6_output_dict = {}
         speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
         
-        speciation.df_rejected_species = self.df_rejected_species
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
         speciation.batch_P = self.batch_P
@@ -9181,11 +9617,11 @@ energy supplies during speciation.</dd>
         if internal and len(self.logK_models.keys()) &gt; 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
-                if name not in list(self.df_rejected_species[&#34;name&#34;]):
+                if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                     msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                     self.err_handler.raise_exception(msg)
                 else:
-                    reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                    reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                     
                     msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                            &#34;plotted because it was rejected from the &#34;
@@ -9390,9 +9826,7 @@ energy supplies during speciation.</dd>
 
                     
                     if min(grid_temps) &lt; min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list) and logK_extrapolate == &#34;none&#34;:
-                        print(sp)
-                        print(logK_extrapolate)
-                        
+
                         min_sp = str(min(sp_temps_grid))
                         min_grid = str(min(grid_temps))
                         if dynamic_db:
@@ -9431,11 +9865,13 @@ energy supplies during speciation.</dd>
             
             reject_indices = list(rejected_sp_i_dict.keys())
             reject_names = list(free_logK_df.iloc[reject_indices][&#34;name&#34;])
+            reject_states = list(free_logK_df.iloc[reject_indices][&#34;state&#34;])
             reject_reasons =list(rejected_sp_i_dict.values())
             
-            df_rejected_species = pd.DataFrame({&#39;database index&#39;:reject_indices, &#34;name&#34;:reject_names, &#34;reason for rejection&#34;:reject_reasons})
-                        
-            return valid_sp_i, df_rejected_species
+            for i,n in enumerate(reject_names):
+                self.thermo._reject_species(name=n, reason=reject_reasons[i])
+       
+            return valid_sp_i
             
             
     def _check_valid_free_logK_sp_dissrxn(self, valid_sp_i, rejected_sp_i_dict, free_logK_df, db_sp_names):
@@ -9598,7 +10034,7 @@ energy supplies during speciation.</dd>
             
             free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-            valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+            valid_i = self.__get_i_of_valid_free_logK_sp(
                 free_logK_df,
                 grid_or_sample_temps,
                 grid_or_sample_press,
@@ -9667,7 +10103,7 @@ energy supplies during speciation.</dd>
             print(&#34;Finished creating data0.{}.&#34;.format(db))
             
 
-    def make_redox_reactions(self, db=None, redox_pairs=&#34;all&#34;, auto_load_db=True):
+    def make_redox_reactions(self, redox_pairs=&#34;all&#34;):
         
         &#34;&#34;&#34;
         Generate an organized collection of redox reactions for calculating
@@ -9675,19 +10111,6 @@ energy supplies during speciation.</dd>
         
         Parameters
         ----------
-        db : str
-            Determines which thermodynamic database is used in the speciation
-            calculation. The database must be a CSV file (not a data0file)
-            because the code must look up properties of chemical species to
-            calculate affinities and energy supplies of reactions.
-            The `db` parameter can either be:
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-        
         redox_pairs : list of int or &#34;all&#34;, default &#34;all&#34;
             List of indices of half reactions in the half cell reaction table
             to be combined when generating full redox reactions.
@@ -9697,35 +10120,12 @@ energy supplies during speciation.</dd>
             If &#34;all&#34;, generate all possible redox reactions from available half
             cell reactions.
         
-        auto_load_db : bool, default True
-            Automatically download and use a WORM-styled CSV if the currently
-            active thermodynamic database does not support affinity and energy
-            supply calculations? If True, the most up-to-date copy of the
-            wrm_data.csv will be downloaded from the URL
-            https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
-            and set as the active thermodynamic database.
-        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         &#34;&#34;&#34;
-        
-        if db != None:
-            self.thermo._set_active_db(db)
-            
-        if self.thermo.thermo_db_type != &#34;CSV&#34;:
-            if self.verbose &gt; 0:
-                if auto_load_db:
-                    print(&#34;Warning: Redox reactions require a WORM-styled thermodynamic database CSV file.&#34;)
-                else:
-                    self.err_handler.raise_exception(&#34;Error: Redox reactions require a WORM-styled CSV file as the active thermodynamic database.&#34;)
-            
-            if auto_load_db:
-                if self.verbose &gt; 0:
-                    print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
-            
+
         db = self.thermo.db
         
         # reset all redox variables stored in the AqEquil class
@@ -10146,7 +10546,7 @@ energy supplies during speciation.</dd>
         for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
             pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
         all_reax[&#39;pairs&#39;] = pair_list
-
+        
         new_elements = []
         for r in range(0, len(all_reax[&#39;rO&#39;])):
             for e in elements:
@@ -10524,7 +10924,6 @@ energy supplies during speciation.</dd>
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
-            exclude_category = self.AqEquil_instance.exclude_category
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
             input_template = self.AqEquil_instance.input_template
@@ -10536,6 +10935,12 @@ energy supplies during speciation.</dd>
             self.eq36da = self.AqEquil_instance.eq36da
             self.eq36co = self.AqEquil_instance.eq36co
 
+            self.df_rejected_species = pd.DataFrame({&#39;database name&#39;:[],
+                                                     &#39;database index&#39;:[],
+                                                     &#34;name&#34;:[],
+                                                     &#34;state&#34;:[],
+                                                     &#34;reason for rejection&#34;:[]})
+            
             # active thermo db attributes
             self.thermo_db = None
             self.thermo_db_type = None
@@ -10604,6 +11009,7 @@ energy supplies during speciation.</dd>
                     self._load_logK_S(&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv&#34;, source=&#34;URL&#34;, download_csv_files=download_csv_files)
             else:
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+                
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
@@ -10654,6 +11060,38 @@ energy supplies during speciation.</dd>
                 input_template.to_csv(&#34;sample_input_template.csv&#34;, index=False)
 
 
+        def _reject_species(self, name, reason):
+            
+            dbs_to_search = [&#34;csv_db&#34;, &#34;logK_db&#34;, &#34;logK_S_db&#34;]
+            
+            db_filename = None
+            for db_name in dbs_to_search:
+                if isinstance(self.__getattribute__(db_name), pd.DataFrame):
+                    if name in list(self.__getattribute__(db_name)[&#34;name&#34;]):
+                        idx_list = [i for i,n in enumerate(self.__getattribute__(db_name)[&#34;name&#34;]) if n==name]
+                        state_list = [self.__getattribute__(db_name)[&#34;state&#34;].iloc[idx] for i,idx in enumerate(idx_list)]
+                        for i,idx in enumerate(idx_list):
+                            if name not in list(self.df_rejected_species[&#34;name&#34;]) or i not in list(self.df_rejected_species.loc[self.df_rejected_species[&#34;name&#34;]==name, &#34;database index&#34;]):
+                                d = pd.DataFrame({&#39;database name&#39;: [self.__getattribute__(db_name+&#34;_filename&#34;)], &#39;database index&#39;: [int(idx)], &#39;name&#39;: [name], &#39;state&#39;: [state_list[i]], &#39;reason for rejection&#39;: [reason]})
+                                self.df_rejected_species = pd.concat([self.df_rejected_species, d], ignore_index=True)
+                        break
+                    
+                    
+        def _remove_missing_G_species(self):
+            # remove species that are missing a gibbs free energy value.
+            # handle minerals first. Reject any that have missing G in any polymorph.
+            mineral_name_reject = list(set(self.csv_db[(self.csv_db[&#34;G&#34;].isnull()) &amp; (self.csv_db[&#39;state&#39;].str.contains(&#39;cr&#39;))][&#34;name&#34;]))
+            
+            idx = list(self.csv_db[self.csv_db[&#34;name&#34;].isin(mineral_name_reject)].index)
+            names = self.csv_db[&#34;name&#34;].loc[idx]
+
+            for name in names:
+                self._reject_species(name=name, reason=&#34;missing Gibbs free energy for at least one polymorph&#34;)
+            
+            self.csv_db = self.csv_db[~self.csv_db[&#34;name&#34;].isin(mineral_name_reject)]
+    
+            # TODO: other states besides minerals
+                
         def _set_active_db(self, db=None, download_csv_files=False):
             &#34;&#34;&#34;
             Set the main active thermodynamic database to a CSV file, a data0 file,
@@ -10665,7 +11103,7 @@ energy supplies during speciation.</dd>
 
                 self.data0_lettercode = db
                 self.dynamic_db = False
-
+                
                 # search for a data1 file in the eq36da directory
                 if os.path.exists(self.eq36da + &#34;/data1.&#34; + db) and os.path.isfile(self.eq36da + &#34;/data1.&#34; + db):
                     self.thermo_db = None
@@ -10764,8 +11202,9 @@ energy supplies during speciation.</dd>
                 self.data0_lettercode = None
 
             elif db[-4:].lower() == &#34;.csv&#34; and (db[0:8].lower() == &#34;https://&#34; or db[0:7].lower() == &#34;http://&#34; or db[0:4].lower() == &#34;www.&#34;):
-                # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-
+                # e.g., &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
+                
+                
                 self._load_csv(db, source=&#34;URL&#34;, download_csv_files=download_csv_files)
 
                 self.thermo_db = self.csv_db
@@ -11206,6 +11645,7 @@ energy supplies during speciation.</dd>
 
             # Check that thermodynamic database input files exist and are formatted correctly.
             self._check_csv_db()
+            self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
 
@@ -11221,10 +11661,28 @@ energy supplies during speciation.</dd>
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
                         print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
+                        
                     if isinstance(self.exclude_category[key], list):
+                        
+                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
+                        for name in names:
+                            self._reject_species(name=name, reason=&#34;excluded by user&#34;)
+                        
                         df = df[~df[key].isin(self.exclude_category[key])]
+                        
+
                     elif isinstance(self.exclude_category[key], str):
+                        
+                        idx = list(df[df[key] != self.exclude_category[key]].index)
+                        names = df[&#34;name&#34;].loc[idx]
+                        
+                        for name in names:
+                            self._reject_species(name=name, reason=&#34;excluded by user&#34;)
+                        
                         df = df[~df[key] != self.exclude_category[key]]
+
                     else:
                         self.err_handler.raise_exception(&#34;The parameter exclude_category must either be a string or a list.&#34;)
             return df
@@ -11336,12 +11794,15 @@ energy supplies during speciation.</dd>
             thermo_df = self.out_list.rx2(&#34;thermo_df&#34;)
             thermo_df=ro.conversion.rpy2py(thermo_df)
 
-    #         regenerated_dissrxns = out_list.rx2(&#34;dissrxns&#34;)
-    #         regenerated_dissrxn_dict = {}
-    #         for name in regenerated_dissrxns.names:
-    #             if name != &#34;basis_list&#34;:
-    #                 regenerated_dissrxn_dict[name] = regenerated_dissrxns.rx2(name)[0]
-
+            # Currently, species rejected by r.suppress_redox_and_generate_dissrxns()
+            # are rejected because they cannot be written with valid basis species.
+            # e.g., the mineral &#34;iron&#34; would be rejected when Fe is redox-isolated because
+            # there is no aqueous basis species representing Fe with an oxidation state of 0.
+            rejected_species = self.out_list.rx2(&#34;dissrxns&#34;).rx2(&#34;rejected_species&#34;)
+            
+            if type(rejected_species) != rpy2.rinterface_lib.sexp.NULLType:
+                for i,sp in enumerate(rejected_species):
+                    self._reject_species(sp, &#34;A dissociation reaction could not be written with valid basis species.&#34;)
 
             thermo_df = _clean_rpy2_pandas_conversion(thermo_df)
 
@@ -11531,7 +11992,7 @@ calculation. 2 for all messages, 1 for errors or warnings only,
         
         free_logK_df = _clean_rpy2_pandas_conversion(self.thermo.logK_db)
 
-        valid_i, self.df_rejected_species = self.__get_i_of_valid_free_logK_sp(
+        valid_i = self.__get_i_of_valid_free_logK_sp(
             free_logK_df,
             grid_or_sample_temps,
             grid_or_sample_press,
@@ -11601,25 +12062,13 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
-<span>def <span class="ident">make_redox_reactions</span></span>(<span>self, db=None, redox_pairs='all', auto_load_db=True)</span>
+<span>def <span class="ident">make_redox_reactions</span></span>(<span>self, redox_pairs='all')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate an organized collection of redox reactions for calculating
 chemical affinity and energy supply values during speciation.</p>
 <h2 id="parameters">Parameters</h2>
 <dl>
-<dt><strong><code>db</code></strong> :&ensp;<code>str</code></dt>
-<dd>Determines which thermodynamic database is used in the speciation
-calculation. The database must be a CSV file (not a data0file)
-because the code must look up properties of chemical species to
-calculate affinities and energy supplies of reactions.
-The <code>db</code> parameter can either be:
-- The name of a CSV file containing thermodynamic data located in
-the current working directory, e.g., "wrm_data.csv". The CSV file
-will be used to generate a data0 file for each sample (using
-additional arguments from <code>db_args</code> if desired).
-- The URL of a CSV file containing thermodynamic data, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</dd>
 <dt><strong><code>redox_pairs</code></strong> :&ensp;<code>list</code> of <code>int</code> or <code>"all"</code>, default <code>"all"</code></dt>
 <dd>List of indices of half reactions in the half cell reaction table
 to be combined when generating full redox reactions.
@@ -11628,13 +12077,6 @@ in the table stored in the <code>half_cell_reactions</code> attribute of the
 <code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code> class.
 If "all", generate all possible redox reactions from available half
 cell reactions.</dd>
-<dt><strong><code>auto_load_db</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Automatically download and use a WORM-styled CSV if the currently
-active thermodynamic database does not support affinity and energy
-supply calculations? If True, the most up-to-date copy of the
-wrm_data.csv will be downloaded from the URL
-<a href="https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv">https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv</a>
-and set as the active thermodynamic database.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Output is stored in the <code>affinity_energy_reactions_raw</code> and
@@ -11643,7 +12085,7 @@ and set as the active thermodynamic database.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">    def make_redox_reactions(self, db=None, redox_pairs=&#34;all&#34;, auto_load_db=True):
+<pre><code class="python">    def make_redox_reactions(self, redox_pairs=&#34;all&#34;):
         
         &#34;&#34;&#34;
         Generate an organized collection of redox reactions for calculating
@@ -11651,19 +12093,6 @@ and set as the active thermodynamic database.</dd>
         
         Parameters
         ----------
-        db : str
-            Determines which thermodynamic database is used in the speciation
-            calculation. The database must be a CSV file (not a data0file)
-            because the code must look up properties of chemical species to
-            calculate affinities and energy supplies of reactions.
-            The `db` parameter can either be:
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
-        
         redox_pairs : list of int or &#34;all&#34;, default &#34;all&#34;
             List of indices of half reactions in the half cell reaction table
             to be combined when generating full redox reactions.
@@ -11673,35 +12102,12 @@ and set as the active thermodynamic database.</dd>
             If &#34;all&#34;, generate all possible redox reactions from available half
             cell reactions.
         
-        auto_load_db : bool, default True
-            Automatically download and use a WORM-styled CSV if the currently
-            active thermodynamic database does not support affinity and energy
-            supply calculations? If True, the most up-to-date copy of the
-            wrm_data.csv will be downloaded from the URL
-            https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
-            and set as the active thermodynamic database.
-        
         Returns
         ----------
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         &#34;&#34;&#34;
-        
-        if db != None:
-            self.thermo._set_active_db(db)
-            
-        if self.thermo.thermo_db_type != &#34;CSV&#34;:
-            if self.verbose &gt; 0:
-                if auto_load_db:
-                    print(&#34;Warning: Redox reactions require a WORM-styled thermodynamic database CSV file.&#34;)
-                else:
-                    self.err_handler.raise_exception(&#34;Error: Redox reactions require a WORM-styled CSV file as the active thermodynamic database.&#34;)
-            
-            if auto_load_db:
-                if self.verbose &gt; 0:
-                    print(&#34;Warning: switching thermodynamic database from&#34;, str(self.thermo.thermo_db_filename), &#34;to wrm_data.csv...&#34;)
-                self.thermo._set_active_db(db=&#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;)
-            
+
         db = self.thermo.db
         
         # reset all redox variables stored in the AqEquil class
@@ -12122,7 +12528,7 @@ and set as the active thermodynamic database.</dd>
         for i in range(0, len(all_reax[&#39;Temp_Pairs&#39;])):
             pair_list.append([redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][0]], redox_pairs[all_reax.loc[i, &#39;Temp_Pairs&#39;][1]]])
         all_reax[&#39;pairs&#39;] = pair_list
-
+        
         new_elements = []
         for r in range(0, len(all_reax[&#39;rO&#39;])):
             for e in elements:
@@ -12430,11 +12836,11 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
     if internal and len(self.logK_models.keys()) &gt; 0:
         # use internally calculated logK models already stored...
         if name not in self.logK_models.keys():
-            if name not in list(self.df_rejected_species[&#34;name&#34;]):
+            if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                 msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                 self.err_handler.raise_exception(msg)
             else:
-                reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                 
                 msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                        &#34;plotted because it was rejected from the &#34;
@@ -12694,7 +13100,9 @@ This parameter is for internal use.</dd>
         except:
             self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3o, &#34;to&#34;, path_3o+&#34;/&#34;+filename_3o)
     else:
-        self.err_handler.raise_exception(&#34;Error: multiple output files detected for one speciation calculation.&#34;)
+        # multiple 3o output files are present in the directory
+        # this might happen when using runeq3() by itself in a directory with 3o files
+        pass
         
     if len(files_3p) == 0:
         if self.verbose &gt; 0:
@@ -12707,7 +13115,9 @@ This parameter is for internal use.</dd>
         except:
             self.err_handler.raise_exception(&#34;Error: could not move&#34;, path_3i+&#34;/&#34;+file_3p, &#34;to&#34;, path_3p+&#34;/&#34;+filename_3p)
     else:
-        self.err_handler.raise_exception(&#34;Error: multiple pickup files detected for one speciation calculation.&#34;)</code></pre>
+        # multiple 3p output files are present in the directory
+        # this might happen when using runeq3() by itself in a directory with 3p files
+        pass</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.runeq6"><code class="name flex">
@@ -13030,7 +13440,7 @@ notebook.</dd>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, blanks_are_0=False, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -13188,6 +13598,8 @@ to have zero net charge.</dd>
 <dt><strong><code>suppress_missing</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Suppress the formation of an aqueous species if it is missing a
 value in the user-supplied sample spreadsheet?</dd>
+<dt><strong><code>blanks_are_0</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
+<dd>Assume all blank values in the water chemistry input file are 0?</dd>
 <dt><strong><code>strict_minimum_pressure</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Ensure that the minimum pressure in the speciation calculation does
 not go below the minimum pressure in the TP grid of the data0 file?</dd>
@@ -13304,6 +13716,7 @@ db_args = {
              alter_options=[],
              charge_balance_on=&#34;none&#34;,
              suppress_missing=True,
+             blanks_are_0=False,
              strict_minimum_pressure=True,
              aq_scale=1,
              verbose=1,
@@ -13492,6 +13905,9 @@ db_args = {
     suppress_missing : bool, default True
         Suppress the formation of an aqueous species if it is missing a
         value in the user-supplied sample spreadsheet?
+
+    blanks_are_0 : bool, default False
+        Assume all blank values in the water chemistry input file are 0?
         
     strict_minimum_pressure : bool, default True
         Ensure that the minimum pressure in the speciation calculation does
@@ -13907,9 +14323,14 @@ db_args = {
                                            water_model=water_model,
                                            verbose=self.verbose)
     
+    
     self._print_captured_r_output()
     
     self.df_input_processed = ro.conversion.rpy2py(input_processed_list.rx2(&#34;df&#34;))
+    
+    
+    if blanks_are_0:
+        self.df_input_processed = self.df_input_processed.fillna(1E-18)
     
     self.__mk_check_del_directory(&#39;rxn_3i&#39;)
     self.__mk_check_del_directory(&#39;rxn_3o&#39;)
@@ -14025,7 +14446,7 @@ db_args = {
                     path_3p=pickup_dir,
                     data1_path=data1_path,
                     dynamic_db_name=dynamic_db_name)
-        
+
         # store input, output, and pickup as dicts in AqEquil object
         try:
             with open(input_dir + &#34;/&#34; + filename_3i, &#34;r&#34;) as f:
@@ -14035,14 +14456,30 @@ db_args = {
             pass
         try:
             with open(output_dir + &#34;/&#34; + filename_3o, &#34;r&#34;) as f:
-                lines=f.readlines()
+                lines = [line.rstrip() for line in f.readlines()]
             self.raw_3_output_dict[samplename] = lines
+            EQ3_errors_found = self._report_3o_6o_errors(lines, samplename)
         except:
             pass
         try:
             with open(pickup_dir + &#34;/&#34; + filename_3p, &#34;r&#34;) as f:
                 lines=f.readlines()
-            self.raw_3_pickup_dict[samplename] = lines
+                
+            # capture everything after &#34;start of the bottom half&#34; of 3p
+            top_half = []
+            bottom_half = []
+            capture = False
+            for line in lines:
+                if &#34;Start of the bottom half of the input file&#34; in line:
+                    capture = True
+                if capture:
+                    bottom_half.append(line)
+                else:
+                    top_half.append(line)
+                    
+            self.raw_3_pickup_dict_top[samplename] = top_half # top half of the 3p file, including header for mixing calcs
+            self.raw_3_pickup_dict_bottom[samplename] = bottom_half # the bottom half
+            
         except:
             pass
         
@@ -14427,14 +14864,14 @@ db_args = {
     
     speciation.raw_3_input_dict = self.raw_3_input_dict
     speciation.raw_3_output_dict = self.raw_3_output_dict
-    speciation.raw_3_pickup_dict = self.raw_3_pickup_dict
+    speciation.raw_3_pickup_dict_top = self.raw_3_pickup_dict_top
+    speciation.raw_3_pickup_dict_bottom = self.raw_3_pickup_dict_bottom
     speciation.raw_6_input_dict = {}
     speciation.raw_6_output_dict = {}
     speciation.raw_6_pickup_dict = {}
     speciation.thermo = self.thermo
     speciation.data1 = self.data1
     
-    speciation.df_rejected_species = self.df_rejected_species
     speciation.logK_models = self.logK_models
     speciation.batch_T = self.batch_T
     speciation.batch_P = self.batch_P
@@ -14663,7 +15100,6 @@ speciation report.</dd>
     def __init__(self, args, hide_traceback=True):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
-        self.df_rejected_species = pd.DataFrame({&#39;database index&#39;:[], &#34;name&#34;:[], &#34;reason for rejection&#34;:[]})
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
         for k in args:
             setattr(self, k, args[k])
@@ -14703,7 +15139,7 @@ speciation report.</dd>
             if messages:
                 print(&#34;Saved as &#39;{}&#39;&#34;.format(filename))
 
-    
+                
     @staticmethod
     def _save_figure(fig, save_as, save_format, save_scale, plot_width, plot_height, ppi):
         if isinstance(save_format, str) and save_format not in [&#39;png&#39;, &#39;jpg&#39;, &#39;jpeg&#39;, &#39;webp&#39;, &#39;svg&#39;, &#39;pdf&#39;, &#39;eps&#39;, &#39;json&#39;, &#39;html&#39;]:
@@ -14943,6 +15379,7 @@ speciation report.</dd>
                                              &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
                                              &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
                                              &#39;toggleSpikelines&#39;],
+                  
                   &#39;toImageButtonOptions&#39;: {
                                              &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
                                              &#39;filename&#39;: save_as,
@@ -15031,7 +15468,7 @@ speciation report.</dd>
             A figure object is returned if `plot_out` is true. Otherwise, a
             figure is simply displayed.
         &#34;&#34;&#34;
-
+        
         if not isinstance(y, list):
             y = [y]
 
@@ -15135,11 +15572,12 @@ speciation report.</dd>
                     ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
                 else:
                     ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
-
         
         df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
+        
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
+        df = df.rename(columns={&#34;variable&#34;: &#34;y_variable&#34;})
+        
         df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
         
         
@@ -15497,7 +15935,7 @@ speciation report.</dd>
             
     def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label=&#34;sample&#34;,
                                      colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
@@ -15936,11 +16374,11 @@ speciation report.</dd>
             os.makedirs(path)
             
         if chain_mt:
-            raw_p_dict = self.raw_6_pickup_dict
+            raw_p_dict_bottom = self.raw_6_pickup_dict
         else:
-            raw_p_dict = self.raw_3_pickup_dict
+            raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
             
-        for sample_name in raw_p_dict.keys():
+        for sample_name in raw_p_dict_bottom.keys():
             sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
             
             if isinstance(filepath_6i, str):
@@ -15959,7 +16397,7 @@ speciation report.</dd>
             if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
                 lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
                 
-            lines_3p = raw_p_dict[sample_name]
+            lines_3p = raw_p_dict_bottom[sample_name]
             
             lines_to_keep = []
             for line in lines_6i:
@@ -16006,7 +16444,16 @@ speciation report.</dd>
         &#34;&#34;&#34;
         
         sample_data = getattr(self, &#34;sample_data&#34;)
-        return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
+        
+        if &#34;mass_transfer&#34; in list(sample_data[sample].keys()):
+            if sample_data[sample][&#34;mass_transfer&#34;] != None:
+                return sample_data[sample][&#34;mass_transfer&#34;]
+            
+        msg = (&#34;Mass transfer results are not stored for sample &#39;&#34;+sample+&#34;&#39;. &#34;
+              &#34;This might be because the reaction calculation did not &#34;
+              &#34;finish successfully or because the thermodynamic database &#34;
+              &#34;is a data0 or data1 file without a supporting CSV file.&#34;)
+        self.err_handler.raise_exception(msg)</code></pre>
 </details>
 <h3>Methods</h3>
 <dl>
@@ -16140,7 +16587,7 @@ figure is simply displayed.</dd>
         A figure object is returned if `plot_out` is true. Otherwise, a
         figure is simply displayed.
     &#34;&#34;&#34;
-
+    
     if not isinstance(y, list):
         y = [y]
 
@@ -16244,11 +16691,12 @@ figure is simply displayed.</dd>
                 ylabel = &#34;{} {} [{}]&#34;.format(chemlabel(y[0]), unit_type, unit)
             else:
                 ylabel = &#34;{} {}&#34;.format(chemlabel(y[0]), unit_type)
-
     
     df = pd.melt(df, id_vars=[&#34;name&#34;], value_vars=y)
+    
     df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
-
+    df = df.rename(columns={&#34;variable&#34;: &#34;y_variable&#34;})
+    
     df[&#39;y_variable&#39;] = df[&#39;y_variable&#39;].apply(chemlabel)
     
     
@@ -16348,11 +16796,11 @@ figure is simply displayed.</dd>
         os.makedirs(path)
         
     if chain_mt:
-        raw_p_dict = self.raw_6_pickup_dict
+        raw_p_dict_bottom = self.raw_6_pickup_dict
     else:
-        raw_p_dict = self.raw_3_pickup_dict
+        raw_p_dict_bottom = self.raw_3_pickup_dict_bottom
         
-    for sample_name in raw_p_dict.keys():
+    for sample_name in raw_p_dict_bottom.keys():
         sample_filename = self.sample_data[sample_name][&#39;filename&#39;][:-3]
         
         if isinstance(filepath_6i, str):
@@ -16371,7 +16819,7 @@ figure is simply displayed.</dd>
         if lines_6i[-1][-1:] != &#34;\n&#34;: # \n counts as 1 character, not 2
             lines_6i[-1] = lines_6i[-1]+&#34;\n&#34;
             
-        lines_3p = raw_p_dict[sample_name]
+        lines_3p = raw_p_dict_bottom[sample_name]
         
         lines_to_keep = []
         for line in lines_6i:
@@ -16504,7 +16952,16 @@ columns in a section (if a section name is provided).</dd>
     &#34;&#34;&#34;
     
     sample_data = getattr(self, &#34;sample_data&#34;)
-    return sample_data[sample][&#34;mass_transfer&#34;]</code></pre>
+    
+    if &#34;mass_transfer&#34; in list(sample_data[sample].keys()):
+        if sample_data[sample][&#34;mass_transfer&#34;] != None:
+            return sample_data[sample][&#34;mass_transfer&#34;]
+        
+    msg = (&#34;Mass transfer results are not stored for sample &#39;&#34;+sample+&#34;&#39;. &#34;
+          &#34;This might be because the reaction calculation did not &#34;
+          &#34;finish successfully or because the thermodynamic database &#34;
+          &#34;is a data0 or data1 file without a supporting CSV file.&#34;)
+    self.err_handler.raise_exception(msg)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.plot_logK_fit"><code class="name flex">
@@ -16588,11 +17045,11 @@ logK extrapolation options defined by <code>logK_extrapolate</code>.</dd>
     if internal and len(self.logK_models.keys()) &gt; 0:
         # use internally calculated logK models already stored...
         if name not in self.logK_models.keys():
-            if name not in list(self.df_rejected_species[&#34;name&#34;]):
+            if name not in list(self.thermo.df_rejected_species[&#34;name&#34;]):
                 msg = &#34;The chemical species &#34; + str(name) + &#34; is not recognized.&#34;
                 self.err_handler.raise_exception(msg)
             else:
-                reject_reason = list(self.df_rejected_species.loc[self.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
+                reject_reason = list(self.thermo.df_rejected_species.loc[self.thermo.df_rejected_species[&#39;name&#39;] == name, &#39;reason for rejection&#39;])[0]
                 
                 msg = (&#34;The chemical species &#34; + str(name) + &#34; cannot be &#34;
                        &#34;plotted because it was rejected from the &#34;
@@ -16823,7 +17280,7 @@ figure is simply displayed.</dd>
 </summary>
 <pre><code class="python">    def plot_mass_contribution(self, basis, title=None, sort_by=None,
                                      ascending=True, sort_y_by=None, width=0.9,
-                                     colormap=&#34;WORM&#34;, sample_label = &#34;sample&#34;,
+                                     colormap=&#34;WORM&#34;, sample_label=&#34;sample&#34;,
                                      colors=None,
                                      plot_width=4, plot_height=3, ppi=122,
                                      save_as=None, save_format=None,
@@ -17204,6 +17661,7 @@ it is generated.</dd>
                                          &#39;lasso2d&#39;, &#39;zoomIn2d&#39;, &#39;zoomOut2d&#39;,
                                          &#39;autoScale2d&#39;, &#39;resetScale2d&#39;,
                                          &#39;toggleSpikelines&#39;],
+              
               &#39;toImageButtonOptions&#39;: {
                                          &#39;format&#39;: save_format, # one of png, svg, jpeg, webp
                                          &#39;filename&#39;: save_as,
@@ -17864,8 +18322,10 @@ figure is simply displayed.</dd>
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="">
+<li><code><a title="AqEquil.AqSpeciation.check_balance" href="#AqEquil.AqSpeciation.check_balance">check_balance</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.chemlabel" href="#AqEquil.AqSpeciation.chemlabel">chemlabel</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.compare" href="#AqEquil.AqSpeciation.compare">compare</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.format_equation" href="#AqEquil.AqSpeciation.format_equation">format_equation</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.load" href="#AqEquil.AqSpeciation.load">load</a></code></li>
 </ul>
 </li>

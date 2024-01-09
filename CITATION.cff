@@ -12,6 +12,10 @@ authors:
     given-names: Jordyn
     orcid: "https://orcid.org/0000-0001-9133-8485"
   -
+    affiliation: "Arizona State University, School of Earth and Space Exploration"
+    family-names: Park
+    given-names: Nuri
+  -
     affiliation: "University of Minnesota, Department of Soil, Water, and Climate"
     family-names: Ely
     given-names: Tucker
@@ -21,11 +25,11 @@ authors:
     family-names: Shock
     given-names: Everett
     orcid: "https://orcid.org/0000-0002-4283-0163"
-cff-version: "0.2.22"
+cff-version: "0.3.0"
 license: MIT
 message: "If you use this software, please cite it using these metadata."
 repository-code: "https://github.com/worm-portal/AqEquil"
 title: "AqEquil: Python package for aqueous geochemical speciation"
-version: "0.16.7"
-date-released: 2023-03-21
+version: "0.18.0"
+date-released: 2024-01-09
 ...

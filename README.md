@@ -2,7 +2,7 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8067365.svg)](https://doi.org/10.5281/zenodo.8067365)
 
-Boyer, G., Robare, J., Ely, T., Shock, E.L.
+Boyer, G., Robare, J., Park, N., Ely, T., Shock, E.L.
 
 ## About
 
@@ -10,11 +10,11 @@ AqEquil is a Python 3 package that enables users to rapidly perform aqueous spec
 
 Water sample data in CSV format is automatically converted to a format readable by EQ3 and then speciated. Distributions of aqueous species, mineral saturation indices, oxidation reduction potentials, and more are data-mined and returned as Pandas tables and interactive Plotly visualizations.
 
-Speciated fluids can be further reacted with minerals in mass transfer calculations to produce tables and interactive diagrams of reaction paths and composition changes as a function of reaction progress.
+Speciated fluids can be further reacted with minerals or other fluids in mass transfer calculations to produce tables and interactive diagrams of reaction paths and composition changes as a function of reaction progress.
 
 ## Requirements
 
-AqEquil has only been tested with Ubuntu LTS 20.04.
+AqEquil has only been tested with Ubuntu 22.04.3 LTS.
 
 This installation requires the Linux version of EQ3/6 v8.0a, which can downloaded [here](https://github.com/LLNL/EQ3_6). Installation instructions are provided there.
 
