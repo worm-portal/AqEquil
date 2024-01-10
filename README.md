@@ -1,6 +1,6 @@
 # AqEquil
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.8067365.svg)](https://doi.org/10.5281/zenodo.8067365)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.10476850.svg)](https://doi.org/10.5281/zenodo.10476850)
 
 Boyer, G., Robare, J., Park, N., Ely, T., Shock, E.L.
 
