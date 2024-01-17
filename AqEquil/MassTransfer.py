@@ -471,8 +471,9 @@ class Mass_Transfer:
         
         self.moles_product_minerals_and_solid_solutions = self.__get_moles_product_minerals(include_solid_solutions=True)
         self.moles_product_minerals = self.__get_moles_product_minerals(include_solid_solutions=False) # relies on self.solid_solution_names
-        
+
         self.solid_solution_x_dict = self.__get_solid_solution_product_phases(unit="x") # relies on self.solid_solution_names
+        self.moles_solid_solutions = self.moles_product_minerals_and_solid_solutions.loc[:, ["Xi"] + list(self.solid_solution_x_dict.keys())]
         self.solid_solution_log_x_dict = self.__get_solid_solution_product_phases(unit="log x") # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log lambda") # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log activity") # relies on self.solid_solution_names
@@ -522,13 +523,15 @@ class Mass_Transfer:
                 p_vals.append(p)
             elif "NBS pH scale " in line and recording:
                 splitstrings = line.strip().split(" ")
-                multival = [float(v) for v in splitstrings if v not in ['', 'NBS', 'pH', 'scale']]
+                multival = [v for v in splitstrings if v not in ['', 'NBS', 'pH', 'scale']]
+                multival = [float(v) if v != "********" else float('nan') for v in multival]
                 pH_vals.append(multival[0])
                 Eh_vals.append(multival[1])
                 pe_vals.append(multival[2])
             elif "Mesmer pH (pmH) scale " in line and recording:
                 splitstrings = line.strip().split(" ")
-                pmH = [float(v) for v in splitstrings if v not in ['', 'Mesmer', 'pH', '(pmH)', 'scale']][0]
+                pmH = [v for v in splitstrings if v not in ['', 'Mesmer', 'pH', '(pmH)', 'scale']]
+                pmH = [float(v) if v != "********" else float('nan') for v in pmH][0]
                 pmH_vals.append(pmH)
             elif "  Log oxygen fugacity=" in line and recording:
                 splitstrings = line.strip().split(" ")
@@ -2216,8 +2219,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, solid_solutions=True,
-                              x_type="logxi", y_type="mole",
+                              plot_minerals=None, x_type="logxi", y_type="mole",
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -2236,9 +2238,6 @@ class Mass_Transfer:
         plot_minerals : list, optional
             List of minerals to plot. Useful for isolating one or more
             minerals.
-            
-        solid_solutions : bool, default True
-            Show solid solutions?
             
         x_type : str, default "logxi"
             Variable to appear on the x-axis. Can be "logxi", "xi",
@@ -3559,21 +3558,54 @@ class Mixing_Fluid:
     def __init__(self,
                  speciation,
                  sample_name,
-                 mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
                  molar_volume=1,
+                 mass_ratio=1,
                  hide_traceback=True,
                 ):
 
+        """
+        Class used to define the fluid to be mixed with other fluids in
+        `Prepare_Reaction`.
+
+        Parameters
+        ----------
+        speciation : object of class Speciation
+            The speciation object containing the fluid to be mixed.
+
+        sample_name : str
+            The name of the fluid sample that will be mixed with all other
+            speciated fluids.
+
+        amount_remaining : float, default 1
+            Number of moles of the fluid to be mixed with all others.
+
+        amount_destroyed : float, default 0
+            Number of moles of the mixing fluid that has been destroyed.
+
+        molar_volume : float, default 1
+            Molar volume of the mixing fluid, in moles/cm3.
+
+        mass_ratio : float, default 1
+            Ratio of mass of the mixing fluid to all other fluids.
+
+        hide_traceback : bool, default True
+            Hide traceback message when encountering errors handled by this
+            class? When True, error messages handled by this class will be short
+            and to the point.
+            
+        """
+        
         self.err_handler = Error_Handler(clean=hide_traceback)
-    
+
         # Prepare a special reactant to be used in a mixing calculation.
         if isinstance(speciation, Speciation):
             
             self.sample_name = sample_name
             self.speciation_sample_data = speciation.sample_data[sample_name]
             self.T = self.speciation_sample_data["temperature"]
+            self.mass_ratio = mass_ratio
             
             elemental_composition_lines = []
             capture = False
@@ -4333,7 +4365,7 @@ class Prepare_Reaction:
                     t_value_2 = float(reactant.T) # temp of fluid 2
                     self.t_value_2=t_value_2
                 if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
+                    t_value_3 = reactant.mass_ratio # mass ratio factor
                     self.t_value_3=t_value_3
                 
         if n_mixing_fluid_reactants == 0:
