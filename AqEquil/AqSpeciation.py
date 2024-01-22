@@ -5605,9 +5605,9 @@ class Speciation(object):
 
     
 
-    def barplot(self, y="pH", title=None, convert_log=True, show_missing=True,
-                plot_width=4, plot_height=3, ppi=122, colormap="WORM",
-                save_as=None, save_format=None, save_scale=1,
+    def barplot(self, y="pH", title=None, convert_log=True, plot_zero=True,
+                show_missing=True, plot_width=4, plot_height=3, ppi=122,
+                colormap="WORM", save_as=None, save_format=None, save_scale=1,
                 interactive=True, plot_out=False):
         
         """
@@ -5626,6 +5626,10 @@ class Speciation(object):
             Convert units "log_activity", "log_molality", "log_gamma", and
             "log_fugacity" to "activity", "molality", "gamma", and "fugacity",
             respectively?
+
+        plot_zero : bool, default True
+            Plot zero values? Additionally, include series with all NaN (blank)
+            values in the legend?
         
         show_missing : bool, default True
             Show samples that do not have bars?
@@ -5786,8 +5790,7 @@ class Speciation(object):
         df = df.rename(columns={"variable": "y_variable"})
         
         df['y_variable'] = df['y_variable'].apply(chemlabel)
-        
-        
+
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
             
             # get formatted reactions to display
@@ -5811,6 +5814,10 @@ class Speciation(object):
 
             if len(y) == 1:
                 ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
+
+            if not plot_zero:
+                df = df.dropna(subset=['y_value'])
+                df = df[df.y_value != 0]
             
             # customdata for displaying reactions has to be here instead of in update_traces
             fig = px.bar(df, x="name", y="y_value",
@@ -5823,6 +5830,10 @@ class Speciation(object):
                 hovertemplate = "%{x} <br>"+ylabel+": %{y}<br>%{customdata}")
 
         else:
+
+            if not plot_zero:
+                df = df.dropna(subset=['y_value'])
+                df = df[df.y_value != 0]
             
             fig = px.bar(df, x="name", y="y_value",
                 height=plot_height*ppi, width=plot_width*ppi,
@@ -5866,12 +5877,12 @@ class Speciation(object):
             fig.show(config=config)
 
         
-    def scatterplot(self, x="pH", y="Temperature", title=None,
-                          plot_width=4, plot_height=3, ppi=122,
-                          fill_alpha=0.7, point_size=10,
-                          ylab=None, lineplot=False,
-                          colormap="WORM", save_as=None, save_format=None,
-                          save_scale=1, interactive=True, plot_out=False):
+    def scatterplot(self, x="pH", y="Temperature", title=None, plot_zero=True,
+                    plot_width=4, plot_height=3, ppi=122,
+                    fill_alpha=0.7, point_size=10,
+                    ylab=None, lineplot=False,
+                    colormap="WORM", save_as=None, save_format=None,
+                    save_scale=1, interactive=True, plot_out=False):
         
         """
         Vizualize two or more sample variables with a scatterplot.
@@ -5885,6 +5896,10 @@ class Speciation(object):
 
         title : str, optional
             Title of the plot.
+
+        plot_zero : bool, default True
+            Plot zero values? Additionally, include series with all NaN (blank)
+            values in the legend?
         
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -5968,8 +5983,6 @@ class Speciation(object):
             xunit_type = ""
             xunit = ""
 
-        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
-        
         for i, yi in enumerate(y):
             y_col = self.lookup(yi)
             
@@ -6044,6 +6057,19 @@ class Speciation(object):
             else:
                 xlabel = "{} {}".format(x_formatted, xunit_type)
 
+        df = self.lookup(["name", x]+y).copy()
+        df.loc[:, "name"] = df.index
+        df.columns = df.columns.get_level_values(0)
+        df = pd.melt(df, id_vars=["name", x], value_vars=y)
+        df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
+
+        if not plot_zero:
+            df = df.dropna(subset=['y_value'])
+            df = df[df.y_value != 0]
+
+        # get colors
+        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
+        
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
@@ -6053,12 +6079,6 @@ class Speciation(object):
         
         # html format color dict key names
         dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
-        
-        df = self.lookup(["name", x]+y).copy()
-        df.loc[:, "name"] = df.index
-        df.columns = df.columns.get_level_values(0)
-        df = pd.melt(df, id_vars=["name", x], value_vars=y)
-        df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
         
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
