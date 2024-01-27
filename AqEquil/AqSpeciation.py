@@ -15,6 +15,9 @@ from urllib.request import urlopen
 from io import StringIO
 
 import warnings
+
+warnings.simplefilter(action='ignore', category=FutureWarning) # TEMPORARY! Disable this once FutureWarning issues have been solved.
+
 import subprocess
 import pkg_resources
 import pandas as pd
@@ -645,6 +648,16 @@ class AqEquil(object):
     
     download_csv_files : bool, default False
         Download copies of database CSV files to your current working directory?
+
+    exclude_organics : bool, default False
+        Exclude organic molecules from thermodynamic database? Organic species
+        are excluded from the main thermodynamic database CSV and the
+        equilibrium constant (logK) CSV database. This parameter has no effect
+        if the thermodynamic database is a data0 or data1 file.
+        Requires that the databases have a 'category_1' column that designates
+        organic molecules.
+        The purpose of this parameter is to quickly toggle:
+        `exclude_category={'category_1':["organic_aq", "organic_cr"]}`
     
     exclude_category : dict
         Exclude species from thermodynamic databases based on column values.
@@ -741,7 +754,8 @@ class AqEquil(object):
                  logK_S=None,
                  logK_extrapolate="none",
                  download_csv_files=False,
-                 exclude_category={},
+                 exclude_organics=False,
+                 exclude_category=None,
                  suppress_redox=[],
                  input_template="none",
                  water_model="SUPCRT92",
@@ -749,7 +763,7 @@ class AqEquil(object):
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
-
+        
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
@@ -784,6 +798,20 @@ class AqEquil(object):
             self.db = db
             self.elements = elements
             self.solid_solutions = solid_solutions
+
+            if exclude_category is None:
+                exclude_category = dict()
+            
+            if exclude_organics:
+                if not isinstance(exclude_category.get("category_1"), list):
+                    exclude_category["category_1"] = ["organic_aq", "organic_cr"]
+                else:
+                    print("category_1 exists in 'exclude_category' dict.")
+                    if "organic_aq" not in exclude_category["category_1"]:
+                        exclude_category["category_1"] = exclude_category["category_1"].append("organic_aq")
+                    if "organic_cr" not in exclude_category["category_1"]:
+                        exclude_category["category_1"] = exclude_category["category_1"].append("organic_cr")
+            
             self.exclude_category = exclude_category
             self.logK = logK
             self.logK_S = logK_S
@@ -1609,6 +1637,7 @@ class AqEquil(object):
                  get_solid_solutions=True,
                  get_affinity_energy=False,
                  negative_energy_supplies=False,
+                 mineral_reactant_energy_supplies=False,
                  rxn_filename=None,
                  not_limiting=["H+", "OH-", "H2O"],
                  get_charge_balance=True,
@@ -1857,6 +1886,13 @@ class AqEquil(object):
             depleting the limiting reactant of a reaction. This metric is not
             always helpful when examing energy supply results, so this option is
             set to False by default.
+
+        mineral_reactant_energy_supplies : bool, default False
+            Report energy supplies for reactions with mineral reactants? This
+            option is False by default because mineral reactants are considered
+            to be unlimited. As a result, energy supplies from reactions with
+            reactant minerals tend to be artificially high, especially in
+            systems where the reactant minerals are unstable.
         
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
@@ -2401,6 +2437,7 @@ class AqEquil(object):
             get_solid_solutions=get_solid_solutions,
             get_affinity_energy=get_affinity_energy,
             negative_energy_supplies=negative_energy_supplies,
+            mineral_reactant_energy_supplies=mineral_reactant_energy_supplies,
             load_rxn_file=load_rxn_file,
             not_limiting=_convert_to_RVector(not_limiting),
             batch_3o_filename=batch_3o_filename,
@@ -5878,6 +5915,7 @@ class Speciation(object):
 
         
     def scatterplot(self, x="pH", y="Temperature", title=None, plot_zero=True,
+                    rxns_as_labels=True, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     fill_alpha=0.7, point_size=10,
                     ylab=None, lineplot=False,
@@ -5900,6 +5938,10 @@ class Speciation(object):
         plot_zero : bool, default True
             Plot zero values? Additionally, include series with all NaN (blank)
             values in the legend?
+
+        rxns_as_labels : bool, default True
+            Display reactions as legend labels when plotting affinities and
+            energy supplies?
         
         plot_width, plot_height : numeric, default 4 by 3
             Width and height of the plot, in inches. Size of interactive plots
@@ -6040,7 +6082,7 @@ class Speciation(object):
             elif 'Temperature' in y:
                 ylabel = 'Temperature [°C]'
             else:
-                y_formatted = chemlabel(y[0])
+                y_formatted = chemlabel(y[0], charge_sign_at_end=charge_sign_at_end)
                 if unit != "":
                     ylabel = "{} {} [{}]".format(y_formatted, unit_type, unit)
                 else:
@@ -6051,7 +6093,7 @@ class Speciation(object):
         elif x == 'Temperature':
             xlabel = 'Temperature [°C]'
         else:
-            x_formatted = chemlabel(x)
+            x_formatted = chemlabel(x, charge_sign_at_end=charge_sign_at_end)
             if xunit != "":
                 xlabel = "{} {} [{}]".format(x_formatted, xunit_type, xunit)
             else:
@@ -6067,25 +6109,29 @@ class Speciation(object):
             df = df.dropna(subset=['y_value'])
             df = df[df.y_value != 0]
 
-        # get colors
-        colors = _get_colors(colormap, len(y), alpha=fill_alpha)
-        
-        # convert rgba to hex
-        colors = [matplotlib.colors.rgb2hex(c) for c in colors]
 
-        # map each species to its color, e.g.,
-        # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
-        dict_species_color = {sp:color for sp,color in zip(y, colors)}
-        
-        # html format color dict key names
-        dict_species_color = {chemlabel(k):v for k,v in dict_species_color.items()}
-        
-        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
+        if isinstance(colormap, str):
+            # get colors
+            colors = _get_colors(colormap, len(y), alpha=fill_alpha)
+            
+            # convert rgba to hex
+            colors = [matplotlib.colors.rgb2hex(c) for c in colors]
+    
+            # map each species to its color, e.g.,
+            # {'CO2': '#000000', 'HCO3-': '#1699d3', 'Other': '#736ca8'}
+            dict_species_color = {sp:color for sp,color in zip(y, colors)}
+            
+            # html format color dict key names
+            dict_species_color = {chemlabel(k, charge_sign_at_end=charge_sign_at_end):v for k,v in dict_species_color.items()}
+        else:
+            dict_species_color = {}
+
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
             
             # get formatted reactions to display
             if not isinstance(self.reactions_for_plotting, pd.DataFrame):
                 self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
-                                                                       charge_sign_at_end=False,
+                                                                       charge_sign_at_end=charge_sign_at_end,
                                                                        show=False, simplify=True)
             
             y_find = [yi.replace("_energy", "").replace("_affinity", "") for yi in y]
@@ -6095,13 +6141,14 @@ class Speciation(object):
             rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
             if len(y) == 1:
-                ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0]), unit_type, unit)
+                ylabel = "{}<br>{} [{}]".format(chemlabel(y_find[0], charge_sign_at_end=charge_sign_at_end), unit_type, unit)
             
             df["formatted_rxn"] = df["y_variable"].map(rxn_dict)
         else:
             df["formatted_rxn"] = ""
-        
-        df['y_variable'] = df['y_variable'].apply(chemlabel)
+
+        df['y_variable_original'] = df['y_variable']
+        df['y_variable'] = df['y_variable'].apply(chemlabel, charge_sign_at_end=charge_sign_at_end)
         
         if ylab != None:
             ylabel=ylab
@@ -6113,7 +6160,7 @@ class Speciation(object):
                              labels={x: xlabel,  "y_value": ylabel},
                              category_orders={"species": y},
                              color_discrete_map=dict_species_color,
-                             custom_data=['name', 'formatted_rxn'],
+                             custom_data=['name', 'formatted_rxn', 'y_variable_original'],
                              template="simple_white")
         else:
             fig = px.scatter(df, x=x, y="y_value", color="y_variable",
@@ -6123,12 +6170,19 @@ class Speciation(object):
                              category_orders={"species": y},
                              color_discrete_map=dict_species_color,
                              opacity=fill_alpha,
-                             custom_data=['name', 'formatted_rxn'],
+                             custom_data=['name', 'formatted_rxn', 'y_variable_original'],
                              template="simple_white")
-        
+
+        if rxns_as_labels:
+            newnames = {y:r for y,r in zip(list(df["y_variable"]), list(df["formatted_rxn"]))}
+            fig.for_each_trace(lambda t: t.update(name = newnames[t.name],
+                                                  legendgroup = newnames[t.name],
+                                                  hovertemplate = t.hovertemplate.replace(t.name, newnames[t.name])
+                                                 )
+                      )
         
         fig.update_traces(marker=dict(size=point_size),
-                          hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>%{customdata[1]}")
+                          hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>Reaction name: %{customdata[2]}<br>Reaction: %{customdata[1]}")
         fig.update_layout(legend_title=None,
                           title={'text':title, 'x':0.5, 'xanchor':'center'},
                           margin={"t": 40},

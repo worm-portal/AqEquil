@@ -32,6 +32,7 @@ mine_3o <- function(this_file,
                     get_affinity_energy=T,
                     negative_energy_supplies=F,
                     not_limiting=c("H+", "OH-", "H2O"),
+                    mineral_reactant_energy_supplies=F,
                     mass_contribution_other=T,
                     verbose=1){
     
@@ -607,23 +608,31 @@ mine_3o <- function(this_file,
         not_lim_index <- which(reactant_names %in% not_limiting)
 
         names(reactant_molalities) <- reactant_names
+
+        blank_row <- data.frame(rxn=rxn_name,
+                                affinity=affinity_per_mol_e,
+                                energy_supply=NA,
+                                mol_rxn=1,
+                                electrons=electrons,
+                                reaction=paste(full_rxn,collapse=" "),
+                                limiting=NA,
+                                stringsAsFactors=FALSE)
           
         if(length(not_lim_index) == 0){
           molality_div_stoich <- reactant_molalities/abs(reactant_stoich)
+        }else if((!mineral_reactant_energy_supplies) && any(reactant_names %in% CHNOSZ_cr_names)){
+          # if calculating energy supplies from mineral reactants is disallowed and there is a mineral reactant
+          # then append NAs and continue...
+          df_rxn <- rbind(df_rxn, blank_row)
+          next
+            
         }else if(all(reactant_names %in% not_limiting)){
             
           # if there are no limiting reactants (e.g., reactants are all minerals)
           # then append NAs and continue...
-          df_rxn <- rbind(df_rxn, data.frame(rxn=rxn_name,
-                                             affinity=affinity_per_mol_e,
-                                             energy_supply=NA,
-                                             mol_rxn=1,
-                                             electrons=electrons,
-                                             reaction=paste(full_rxn,collapse=" "),
-                                             limiting=NA,
-                                             stringsAsFactors=FALSE))
-            
+          df_rxn <- rbind(df_rxn, blank_row)
           next
+            
         }else{
           molality_div_stoich <- reactant_molalities[-not_lim_index]/abs(reactant_stoich[-not_lim_index])
         }
@@ -921,6 +930,7 @@ main_3o_mine <- function(files_3o,
                          get_solid_solutions,
                          get_affinity_energy,
                          negative_energy_supplies,
+                         mineral_reactant_energy_supplies,
                          load_rxn_file,
                          not_limiting,
                          mass_contribution_other,
@@ -995,6 +1005,7 @@ main_3o_mine <- function(files_3o,
                          get_affinity_energy=get_affinity_energy,
                          negative_energy_supplies=negative_energy_supplies,
                          not_limiting=not_limiting,
+                         mineral_reactant_energy_supplies=mineral_reactant_energy_supplies,
                          mass_contribution_other=mass_contribution_other,
                          verbose=verbose)
       
