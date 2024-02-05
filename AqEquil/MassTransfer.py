@@ -2330,6 +2330,14 @@ class Mass_Transfer:
             self.err_handler.raise_exception("Plotting mineral masses is not yet "
                     "supported.")
         elif y_type == "volume":
+
+            if not isinstance(self.df, pd.DataFrame):
+                self.err_handler.raise_exception("Plotting mineral volume "
+                        "requires a WORM-formatted CSV thermodynamic database. "
+                        "You may be seeing this message because your speciation "
+                        "used a data0-type thermodynamic database (e.g., 'wrm'), "
+                        "which does not contain mineral volume data.")
+            
             ylab = "{}cm<sup>3</sup>".format(log_text)
             title = title.format("Volumes")
             temps = df["Temp(C)"]
@@ -2556,6 +2564,10 @@ class Mass_Transfer:
             elif y_type == "log molality":
                 df = pd.concat([self.aq_distribution_logmolal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
                 ylab = "log molality"
+            else:
+                self.err_handler.raise_exception("The chosen 'y_type' parameter "
+                    "is not recognized. 'y_type' can be 'log activity', "
+                    "'molality', or 'log molality'")
             title = "Solute species"
             
         plot_columns = [col for col in df.columns]

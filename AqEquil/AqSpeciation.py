@@ -6172,17 +6172,21 @@ class Speciation(object):
                              opacity=fill_alpha,
                              custom_data=['name', 'formatted_rxn', 'y_variable_original'],
                              template="simple_white")
-
-        if rxns_as_labels:
-            newnames = {y:r for y,r in zip(list(df["y_variable"]), list(df["formatted_rxn"]))}
-            fig.for_each_trace(lambda t: t.update(name = newnames[t.name],
-                                                  legendgroup = newnames[t.name],
-                                                  hovertemplate = t.hovertemplate.replace(t.name, newnames[t.name])
-                                                 )
-                      )
+            
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.affinity_energy_formatted_reactions, pd.DataFrame):
+            if rxns_as_labels:
+                newnames = {y:r for y,r in zip(list(df["y_variable"]), list(df["formatted_rxn"]))}
+                fig.for_each_trace(lambda t: t.update(name = newnames[t.name],
+                                                      legendgroup = newnames[t.name],
+                                                      hovertemplate = t.hovertemplate.replace(t.name, newnames[t.name])
+                                                     ))
+            fig.update_traces(marker=dict(size=point_size),
+                              hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>Reaction name: %{customdata[2]}<br>Reaction: %{customdata[1]}")
         
-        fig.update_traces(marker=dict(size=point_size),
-                          hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>Reaction name: %{customdata[2]}<br>Reaction: %{customdata[1]}")
+        else:
+            fig.update_traces(marker=dict(size=point_size),
+                              hovertemplate = "%{customdata[0]}<br>"+xlabel+": %{x} <br>"+ylabel+": %{y}<br>%{customdata[1]}")
+        
         fig.update_layout(legend_title=None,
                           title={'text':title, 'x':0.5, 'xanchor':'center'},
                           margin={"t": 40},
