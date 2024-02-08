@@ -2306,10 +2306,10 @@ class Mass_Transfer:
         
         if show_reactant_minerals:
             df = pd.concat([self.moles_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
-            title = "{} of reactant and product minerals"
+            title = "{}{} of reactant and product minerals"
         else:
             df = pd.concat([self.moles_product_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
-            title = "{} of product minerals"
+            title = "{}{} of product minerals"
             
         if log_y:
             log_text = "log "
@@ -2323,10 +2323,10 @@ class Mass_Transfer:
             
         if y_type == "mole":
             ylab = "{}moles".format(log_text)
-            title = title.format(log_text, "Moles")
+            title = title.format(log_text, "moles")
         elif y_type == "mass": # not yet supported
             y_lab = "{}grams".format(log_text)
-            title = title.format(log_text, "Masses")
+            title = title.format(log_text, "masses")
             self.err_handler.raise_exception("Plotting mineral masses is not yet "
                     "supported.")
         elif y_type == "volume":
@@ -2339,7 +2339,7 @@ class Mass_Transfer:
                         "which does not contain mineral volume data.")
             
             ylab = "{}cm<sup>3</sup>".format(log_text)
-            title = title.format("Volumes")
+            title = title.format(log_text, "volumes")
             temps = df["Temp(C)"]
             
             minerals = [col for col in df.columns if col not in list(self.misc_params.columns)]

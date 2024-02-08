@@ -2782,6 +2782,7 @@ class AqEquil(object):
         speciation.raw_6_pickup_dict = {}
         speciation.thermo = self.thermo
         speciation.data1 = self.data1
+        speciation.verbose = self.verbose
         
         speciation.logK_models = self.logK_models
         speciation.batch_T = self.batch_T
@@ -5496,7 +5497,16 @@ class Speciation(object):
         if isinstance(col, str):
             col = [col]
         
-        return self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
+        df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
+
+        l = [c for c in col if c in df.columns]
+
+        nonexistant_col = [c for c in col if c not in df.columns]
+        
+        if self.verbose > 0 and len(nonexistant_col) > 0:
+            print("Column(s) not found:", nonexistant_col)
+        
+        return df[l]
     
     
     def __convert_aq_units_to_log_friendly(self, species, rows):
