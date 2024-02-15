@@ -667,7 +667,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
           # this element in the non-basis species, just pick the first one, thus the [1].
           # Maybe there is a better way to decide but I'm going with this for now.
           chosen_basis_name <- names(which.min(abs(basis_ave_ox_states-sp_ox_elem["Z"])))[1]
-          
+            
           n_elem_in_basis <- sp_formula_makeup[[chosen_basis_name]][elem]
             
           names(sp_num_elem) <- chosen_basis_name
@@ -821,7 +821,16 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     for(idx in 1:nrow(thermo_df)){
 
       species_name <- thermo_df[idx, "name"]
-        
+      sp_formula <- thermo_df[thermo_df[, "name"] == species_name, "formula"]
+      sp_formula_ox <- thermo_df[thermo_df[, "name"] == species_name, "formula_ox"]
+
+      # the species has no value for 'formula_ox' (the [1] is to have a single value to test vs nan in the case of mineral polymorphs)
+      if(sp_formula_ox[1] == "nan"){
+        thermo_df[thermo_df[, "name"] == species_name, "formula_modded"] <- sp_formula
+        thermo_df[thermo_df[, "name"] == species_name, "formula_ox_modded"] <- sp_formula_ox
+        next
+      }
+
       # get makeup and charge of this species
       this_makeup <- makeup(thermo_df[idx, "formula"])
         
@@ -830,14 +839,13 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       if(is.na(charge)){
         charge <- 0
       }
-        
+
+
       # for each element in this species, see if it matches an entry in redox_elem_states
       this_formula <- c()
       for(elem in elems){
-        
+
         if(elem %in% names(redox_elem_states)){
-            
-          sp_formula_ox <- thermo_df[thermo_df[, "name"] == species_name, "formula_ox"]
 
           # get oxidation state info
           formula_ox <- strsplit(sp_formula_ox, " ")
@@ -915,8 +923,11 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         
       modified_formula <- c()
       previous_elems <- c()
+
       for(name in names(this_formula)){
+
         elem <- names(which(sapply(lapply(redox_elem_states, FUN=names), FUN=function(x) name %in% x)))
+
         if(!identical(elem, character(0))){
           modified_formula[redox_elem_states[[elem]][name]] <- this_formula[name]
         }else{
@@ -930,6 +941,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         }
         previous_elems <- c(previous_elems, elem)
       }
+
                                    
       formula_vec <- c(rbind(names(modified_formula), modified_formula))
       formula <- paste(formula_vec[formula_vec!="1"], collapse="")

@@ -26,6 +26,7 @@ from chemparse import parse_formula
 from IPython.core.display import display, HTML
 import periodictable
 
+import pyCHNOSZ
 from ._HKF_cgl import OBIGT2eos, calc_logK
 
 # matplotlib for static plots
@@ -882,7 +883,7 @@ class AqEquil(object):
                 normal_exit = True
                 
         if not normal_exit and len(error_list)==0:
-            error_list.append("\n * Error - (EQ6) The calculation did not terminate normally.")
+            error_list.append("\n * Error - (EQ3/6) The calculation did not terminate normally.")
                 
         error_lines = "\n".join(error_list)
         
@@ -3541,8 +3542,6 @@ class AqEquil(object):
         Output is stored in the `affinity_energy_reactions_raw` and
         `affinity_energy_reactions_table` attributes of the `AqEquil` class.
         """
-
-        db = self.thermo.db
         
         # reset all redox variables stored in the AqEquil class
         self.affinity_energy_reactions_raw = None
@@ -3573,8 +3572,15 @@ class AqEquil(object):
         self.redox_pairs = redox_pairs
         
         df = self.half_cell_reactions.iloc[redox_pairs].reset_index(drop=True)
+
+        if isinstance(self.thermo.thermo_db, pd.DataFrame):
+            wrm_data = self.thermo.thermo_db
+        elif isinstance(self.thermo.csv_db, pd.DataFrame):
+            wrm_data = self.thermo.csv_db
+        else:
+            self.err_handler.raise_exception("A WORM-style CSV database must be "
+                    "loaded in order to make redox reactions.")
         
-        wrm_data = self.thermo.thermo_db
         basis_df = wrm_data.loc[wrm_data['tag'] == 'basis']
         
         db_names = []
@@ -4237,7 +4243,7 @@ class AqEquil(object):
                 oxidant_3 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], "Oxidant_3"]
                 reductant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], "Reductant_1"]
                 reductant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], "Reductant_2"]
-                
+
                 oxidants = [ox for ox in [oxidant_1, oxidant_2, oxidant_3] if str(ox) != 'nan']
                 reductants = [rd for rd in [reductant_1, reductant_2] if str(rd) != 'nan']
                 
@@ -4259,6 +4265,7 @@ class AqEquil(object):
 
                     reactant_names = [names[i] for i in range(0, len(names)) if float(coeffs[i]) < 0]
                     for sp in reactant_names:
+                        
                         if sp in oxidants and oxidant_sigma_needed:
                             i = names.index(sp)
                             names[i] = u"\u03A3"+sp
@@ -5351,6 +5358,270 @@ class Speciation(object):
 
     def __getitem__(self, item):
          return getattr(self, item)
+
+
+    def energy_test(self, species, stoich,
+                    divisor=1, reactant_dict=None,
+                    x_type="logxi", y_type="A", y_units="kcal", 
+                    show_zero_line=False, limiting=None, charge_sign_at_end=False,
+                    df_out=False, print_logK_messages=False):
+
+        # check that a thermodynamic CSV is being used
+        if not isinstance(self.thermo.csv_db, pd.DataFrame):
+            self.err_handler.raise_exception("The plot_energy() function requires "
+                    "a thermodynamic database in a WORM-style CSV format, e.g., "
+                    "'wrm_data.csv'. You may be getting this message because "
+                    "a data0 or data1 file was used.")
+        
+        # check that the divisor is valid
+        if isinstance(divisor, list) or isinstance(divisor, pd.Series):
+            if len(divisor) != len(self.misc_params["Temp(C)"]):
+                self.err_handler.raise_exception("The length of the divisor is "
+                    "not equal to the number of reported xi steps.")
+
+        # check that the reaction is balanced
+        formulas = []
+        for s in species:
+            if s == "H+":
+                formulas.append("H+")
+            elif s == "H2O":
+                formulas.append("H2O")
+            else:
+                if s in list(self.thermo.csv_db["name"]):
+                    formulas.append(list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["formula"])[0])
+                else:
+                    self.err_handler.raise_exception("Valid thermodynamic data "
+                            "was not found for species "+str(s)+"")
+                    
+        missing_composition = check_balance(formulas, stoich)
+
+        # assign aq_distribution_logact table to Speciation
+        df_aq_distribution_logact = pd.DataFrame()
+        for sample in self.sample_data.keys():
+            df_aq_distribution_logact[sample] = self.sample_data[sample]["aq_distribution"]["log_activity"]
+        df_aq_distribution_logact = df_aq_distribution_logact.T
+        df_aq_distribution_logact.insert(0, "Xi", 0)
+        self.aq_distribution_logact = df_aq_distribution_logact
+
+        # assign aq_distribution_molal table to Speciation
+        df_aq_distribution_molal = pd.DataFrame()
+        for sample in self.sample_data.keys():
+            df_aq_distribution_molal[sample] = self.sample_data[sample]["aq_distribution"]["molality"]
+        df_aq_distribution_molal = df_aq_distribution_molal.T
+        df_aq_distribution_molal.insert(0, "Xi", 0)
+        self.aq_distribution_molal = df_aq_distribution_molal
+
+        # assign misc_params table to Speciation
+        df_misc_param_row_list = []
+        for sample in self.sample_data.keys():
+            df_misc_param_row_list.append(pd.DataFrame({
+                "Temp(C)" : [self.sample_data[sample]['temperature']],
+                "Press(bars)" : [self.sample_data[sample]['pressure']],
+                "pH" : [-self.sample_data[sample]['aq_distribution']["log_activity"]['H+']],
+                "logfO2" : [self.sample_data[sample]["fugacity"]["log_fugacity"]["O2(g)"]],
+            }))
+        df_misc_params = pd.concat(df_misc_param_row_list)
+        df_misc_params.insert(0, "Xi", 0)
+        df_misc_params.index = list(self.sample_data.keys())
+        self.misc_params = df_misc_params
+        
+        # check that there are valid limiting reactants when calculating energy
+        # e.g., prevent issue when the only reactant is a mineral, etc.
+        reactant_idx = [1 if i<0 else 0 for i in stoich]
+        reactants = [species[i] for i,idx in enumerate(reactant_idx) if idx == 1]
+        invalid_limiting_reactants = []
+        for r in reactants:
+            if r not in ["H2O", "H+", "OH-"]:
+                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq":
+                    invalid_limiting_reactants.append(r)
+            else:
+                invalid_limiting_reactants.append(r)
+        if reactants == invalid_limiting_reactants and y_type == "E":
+            self.err_handler.raise_exception("Energy supply for this reaction "
+                "cannot be calculated because none of the reactants are "
+                "limiting. A limiting reactant must be aqueous and cannot be H+ "
+                "or OH-.")
+        
+        if limiting != None:
+            # check that the limiting reactant is in the thermodynamic database
+            if limiting not in list(self.thermo.csv_db["name"]):
+                self.err_handler.raise_exception("Valid thermodynamic data was "
+                        "not found for limiting reactant "+str(limiting)+"")
+            
+            # check that the limiting reactant is aqueous or gaseous
+            if list(self.thermo.csv_db[self.thermo.csv_db["name"]==limiting]["state"])[0] != "aq":
+                self.err_handler.raise_exception("The limiting reactant must "
+                        "be an aqueous species.")
+            
+            # check that the limiting reactant is a reactant in the `species` parameter
+            if limiting not in reactants:
+                self.err_handler.raise_exception("The species specified as a "
+                        "limiting reactant, '"+str(limiting)+"', is not a "
+                        "reactant in this reaction.")
+                
+        # format reaction equation
+        equation_to_display = format_equation(
+                                      species,
+                                      stoich,
+                                      charge_sign_at_end=charge_sign_at_end,
+                                      )
+        
+        # create a dictionary of species logacts across xi
+        s_logact_dict = {}
+        s_molal_dict = {}
+        for s in species:
+            if s == "H+":
+                s_logact_dict[s] = [v for v in list(self.aq_distribution_logact["H+"])]
+                s_molal_dict[s] = [float("NaN")]*len(list(self.aq_distribution_logact["H+"]))
+            elif s == "H2O":
+                s_logact_dict[s] = [v for v in list(self.aq_distribution_logact["H2O"])]
+                s_molal_dict[s] = [float("NaN")]*len(self.aq_distribution_logact["H2O"])
+            elif list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                if s in self.aq_distribution_logact.columns:
+                    # aqueous species
+                    s_logact_dict[s] = list(self.aq_distribution_logact[s])
+                    
+                    if isinstance(reactant_dict, dict):
+                        if s in list(reactant_dict.keys()):
+                            s_molal_dict[s] = list(self.aq_distribution_molal[reactant_dict[s]].sum(axis=1, numeric_only=True))
+                        else:
+                            s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                    else:
+                        s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                else:
+                    # s_logact_dict[s] = [0]*self.aq_distribution_logact.shape[0]
+                    # s_molal_dict[s] = [0]*self.aq_distribution_logact.shape[0]
+                    self.err_handler.raise_exception("The species "+str(s)+" is "
+                            "not among the distribution of aqueous species in "
+                            "this calculation.")
+            else:
+                # liq and cr species
+                s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
+                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+            
+        if y_type not in ["logK", "logQ"]:
+            if y_units in ["cal", "kcal"]:
+                r_div = 4.184
+            elif y_units in ["J", "kJ"]:
+                r_div = 1
+            R = 8.314/r_div  # gas constant, unit = [cal/mol/K]
+
+        if "k" in y_units:
+            k_div = 1000
+        else:
+            k_div = 1
+            
+        y_list = []
+        lr_name_list = []
+        for i,T in enumerate(list(self.misc_params["Temp(C)"])):
+            
+            if isinstance(divisor, list):
+                divisor_i = divisor[i]
+            else:
+                divisor_i = divisor
+            
+            if y_type != "logQ":
+                logK = pyCHNOSZ.subcrt(
+                              species,
+                              stoich,
+                              T=T,
+                              P=list(self.misc_params["Press(bars)"])[i],
+                              show=False,
+                              messages=print_logK_messages).out["logK"]
+
+                logK = float(logK.iloc[0])
+
+            if y_type == "logK":
+                ylab_out = "log K"
+                y_list.append(round(logK/divisor_i, 4))
+                df_y_name = "logK"
+                continue
+                
+
+            logQ = sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)])
+
+            if y_type == "logQ":
+                ylab_out = "log Q"
+                y_list.append(round(logQ/divisor_i, 4))
+                df_y_name = "logQ"
+                continue
+            
+            else:
+                A = 2.303 * R * (273.15+T) * (logK - logQ)  # affinity, unit = [cal/mol]
+                A = A/k_div
+                
+                if y_type=="G":
+                    G = -A # gibbs free energy, unit = [cal/mol]
+                    y_list.append(G/divisor_i)
+                    ylab_out="ΔG, {}/mol".format(y_units)
+                    y_units_out = y_units+"/mol"
+                elif y_type=="A":
+                    y_list.append(round(A/divisor_i, 4))
+                    ylab_out="A, {}/mol".format(y_units)
+                    y_units_out = y_units+"/mol"
+                elif y_type=="E":
+                    
+                    if not isinstance(limiting, str):
+                        lrc_dict = {}
+                        for i_s,s in enumerate(species):
+                            # identify valid limiting reactants and record concentrations
+                            # 1. negative coefficient (reactant)
+                            # 2. can't be OH-, H+, H2O
+                            # 3. can't be cr or liq
+                            if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                                lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
+                    
+                    if not isinstance(limiting, str):
+                        lr_name = min(lrc_dict, key=lrc_dict.get)
+                        lr_val = lrc_dict[lr_name]
+                        
+                        # handle situations where there might be multiple limiting reactants
+                        lr_list = []
+                        for k,v in zip(lrc_dict.keys(), lrc_dict.values()):
+                            if v == lr_val:
+                                lr_list.append(str(k))
+            
+                    else:
+                        lrc_dict = {}
+                        lr_list = [limiting]
+
+                    if len(lr_list) > 0 and sum([math.isnan(v) for v in list(lrc_dict.values())]) == 0:
+                        # if there is a limiting reactant and no values of 'nan' for limiting reactant concentrations...
+                        
+                        lr_list_formatted = [chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end) for lr_name in lr_list]
+                        if len(lr_list_formatted) > 1:
+                            lr_reported = ", ".join(lr_list_formatted)
+                        else:
+                            lr_reported = lr_list[0]
+    
+                        lr_name = lr_list[0] # doesn't matter which lr is used to calculate
+                        lr_concentration = s_molal_dict[lr_name][i]
+                        lr_name_list.append(lr_reported)
+                        lr_stoich = -stoich[species.index(lr_name)]
+                        E = A * (lr_concentration/lr_stoich)
+    
+                        y_list.append(round(E/divisor_i, 4))
+                        y_units_out = y_units+"/kg fluid"
+                        ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
+    #                     else:
+    #                         lr_name_list.append("NA")
+    #                         y_list.append(float('NaN'))
+    #                         y_units_out = y_units+"/kg fluid"
+    #                         ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
+                    else:
+                        y_list.append(float('nan'))
+            
+
+                df_y_name = y_type+", "+y_units_out
+
+        # df = copy.deepcopy(self.misc_params)
+        # with np.errstate(divide='ignore'):
+        #     df['log Xi'] = np.log10(df['Xi'])
+            
+        # df[df_y_name] = y_list
+
+        return df_y_name, y_list
+
     
     @staticmethod
     def __unique(seq):
