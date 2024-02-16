@@ -542,9 +542,10 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 
       basis(c(unlist(simplest_basis), "H+")) # TODO: this may fail depending on the strict basis species within thermo_df
       out <- subcrt(c(sp), c(-1))
-        
+
       coeffs <- out$reaction$coeff
       names <- out$reaction$name
+      names[names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
         
       for(i in 1:length(coeffs)){
         if(i == 1){
@@ -696,6 +697,22 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
   isp <- suppressMessages(info(c(sp, basis_to_include)))
 
   autobalance <- subcrt_bal(isp, c(-1, coeffs_to_include))
+
+  # find least common denominator (LCD) between species that is dissociating and its
+  # basis species, then multiply coefficients so that none are below 1.0
+  # e.g., coefficients c(-1.0000000, 0.5000000, 0.1666667, 1.0000000, -1.0000000)
+  # have an LCD of 6, so the new coefficients will be:
+  # c(-6.0000000, 3.0000000, 1.0000000, 6.0000000, -6.0000000)
+  # TODO: there may be instances where this doesn't work? So far tests seem ok.
+  if(any(abs(autobalance$newcoeff)<1)){
+    fracs = autobalance$newcoeff
+    lcd = max(fracs[1]/-fracs)
+    coeffs = fracs*lcd
+    coeffs = round(as.numeric(coeffs), 4)
+    names(coeffs) = names(autobalance$newcoeff)
+    autobalance$newcoeff = coeffs
+  }
+        
   spec_names <- thermo()$OBIGT[autobalance$newspecies, "name"]
     
   spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
@@ -1233,12 +1250,12 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
-
+  # Produce a warning message about which dissrxns were (re)generated and what they are.
   if("thermo_df_modified" %in% names(dissrxns)){
     thermo_df <- dissrxns[["thermo_df_modified"]]
   }
                                    
-  # Produce a warning message about which dissrxns were (re)generated and what they are.
+  
   if(nrow(df_needs_dissrxns) > 0){
 
     names <- df_needs_dissrxns[["name"]]
@@ -1251,6 +1268,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
     nonbasis_names <- unique(nonbasis_names)
     basis_names <- names(basis_idx)[basis_idx]
+
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
                     
     if(!identical(basis_names, character(0))){
