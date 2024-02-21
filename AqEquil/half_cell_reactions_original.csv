@@ -1,0 +1,20 @@
+Redox Couple,Oxidant_1,Oxidant_2,Oxidant_3,Reductant_1,Reductant_2
+SO4-2 to sulfur,SO4-2,HSO4-,NA,S,NA
+SO4-2 to pyrite,SO4-2,HSO4-,NA,pyrite,NA
+SO4-2 to H2S,SO4-2,HSO4-,NA,H2S,HS-
+sulfur to pyrite,sulfur,NA,NA,pyrite,NA
+sulfur to H2S,sulfur,NA,NA,H2S,HS-
+pyrite to H2S,pyrite,NA,NA,H2S,HS-
+goethite to magnetite,goethite,NA,NA,magnetite,NA
+goethite to Fe+2,goethite,NA,NA,Fe+2,NA
+hematite to magnetite,hematite,NA,NA,magnetite,NA
+hematite to Fe+2,hematite,NA,NA,Fe+2,NA
+magnetite to Fe+2,magnetite,NA,NA,Fe+2,NA
+CO2 to CO,CO2,HCO3-,CO3-2,CO,NA
+CO2 to CH4,CO2,HCO3-,CO3-2,CH4,NA
+CO to CH4,CO,NA,NA,CH4,NA
+NO3- to NO2-,NO3-,HNO3,NA,NO2-,HNO2
+NO3- to NH3,NO3-,HNO3,NA,NH3,NH4+
+NO2- to NH3,NO2-,HNO2,NA,NH3,NH4+
+O2 to H2O,O2,NA,NA,H2O,NA
+H2O to H2,H2O,NA,NA,H2,NA

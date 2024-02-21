@@ -356,13 +356,15 @@ match_basis_comp <- function(sp_elems, elem){
 get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c(),
                         HOZ_balancers=c("H+", "O2", "H2O"),
                         thermo_df=NULL, verbose=2){
+
+
     
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
     
   names(sp_name) <- sp_name
-
+    
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
     basis_elem <- (function (x) setdiff(names(unlist(makeup(x))), c("H", "O", "Z"))) (thermo_df[, "formula_modded"])             
