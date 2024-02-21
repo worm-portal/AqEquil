@@ -5361,9 +5361,83 @@ class Speciation(object):
          return getattr(self, item)
 
 
-    def show_redox_reactions_new(self, formatted=True, charge_sign_at_end=False,
-                                  hide_subreactions=True, simplify=True,
-                                  show=True):
+    def get_energy_affinity_new(self, y_type = "E"):
+        stream = pkg_resources.resource_stream(__name__, "speciation_groups.txt")
+        with stream as s:
+            content = s.read().decode()
+            
+        content = content.split("\n")
+        lines = [line.rstrip() for line in content]
+        
+        grouped_sp_dict = {}
+        for i,line in enumerate(lines):
+            line = line.strip().split(":")
+            assert len(line) == 2 # will fail if : in species names
+            group_name = line[0].strip()
+            group_species = line[1].strip().split(" ")
+            group_species = list(collections.OrderedDict.fromkeys(group_species)) # remove duplicates
+            grouped_sp_dict[group_name] = group_species
+
+        grouped_sp_dict_unpacked = {}
+        for key in list(grouped_sp_dict.keys()):
+            for sp in grouped_sp_dict[key]:
+                grouped_sp_dict_unpacked[sp] = grouped_sp_dict[key]
+
+        y_name_list = []
+        val_list_list = []
+        result_dict = {}
+
+        coeff_colnames = [c for c in list(self.affinity_energy_reactions_table.columns) if "coeff_" in c]
+        species_colnames = [c for c in list(self.affinity_energy_reactions_table.columns) if "species_" in c]
+        
+        for rxn in list(self.affinity_energy_reactions_table.index):
+        
+            coeff_list = list(self.affinity_energy_reactions_table[coeff_colnames].loc[rxn])
+            coeff_list = [v for v in coeff_list if not math.isnan(v)]
+            coeff_list = [float(v) for v in coeff_list]
+        
+            species_list = list(self.affinity_energy_reactions_table[species_colnames].loc[rxn])
+            species_list = [v for v in species_list if isinstance(v, str)]
+        
+            # print(coeff_list, species_list)
+            
+            if len(coeff_list) != len(species_list):
+                print("ERROR! coeff species length mismatch!")
+        
+            if y_type in ["A", "G"]:
+                divisor = self.affinity_energy_reactions_table["mol_e-_transferred_per_mol_rxn"].loc[rxn]
+                divisor = float(divisor)
+            else:
+                divisor = 1
+        
+            redox_pair = self.affinity_energy_reactions_table["redox_pairs"].loc[rxn]
+            # reactant_dict = redox_pair_dicts[str(redox_pair[0])+"_"+str(redox_pair[1])]
+        
+            try:
+                y_name, val_list = self.calculate_energy(
+                                species=species_list,
+                                stoich=coeff_list,
+                                divisor=divisor,
+                                reactant_dict=grouped_sp_dict_unpacked,
+                                y_type=y_type,
+                                y_units="cal",
+                                charge_sign_at_end=True,
+                                )
+            except:
+                # can be bad if none of the reactants are limiting
+                y_name = str(rxn)+"_____BAD" ###########################################
+                val_list = [0]*len(self.sample_data.keys())
+                
+            
+            result_dict[rxn+" "+y_name] = val_list
+        df = pd.DataFrame(result_dict)
+        df.index = list(self.sample_data.keys())
+        return df
+    
+
+    def show_redox_reactions_new(self, formatted=True,
+                                 charge_sign_at_end=False,
+                                 show=True):
         
         """
         Show a table of redox reactions generated with the function
@@ -5378,9 +5452,6 @@ class Speciation(object):
             Display charge with sign after the number (e.g. SO4 2-)? Ignored if
             `formatted` is False.
         
-        hide_subreactions : bool, default True
-            Hide subreactions?
-        
         show : bool, default False
             Show the table of reactions? Ignored if not run in a Jupyter
             notebook.
@@ -5394,99 +5465,34 @@ class Speciation(object):
         
         df = copy.copy(self.affinity_energy_reactions_table)
         
-        if simplify:
-            main_rxn_names = df.loc[[ind for ind in df.index if "_sub" not in ind[-4:]]].index
-            df = df.iloc[[i-1 for i in range(0, len(df.index)) if "_sub" not in df.index[i][-4:]]]
-            
-            self.affinity_energy_formatted_reactions = copy.copy(df.iloc[:, 0:1])
-            
-            reactions = []
-            for irow in range(0, df.shape[0]):
-                redox_pair = df.loc[df.index[irow], "redox_pairs"]
+        reactions = []
+        for irow in range(0, df.shape[0]):
+            redox_pair = df.loc[self.affinity_energy_reactions_table.index[irow], "redox_pairs"]
 
-                oxidant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], "Oxidant_1"]
-                oxidant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], "Oxidant_2"]
-                oxidant_3 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[0]], "Oxidant_3"]
-                reductant_1 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], "Reductant_1"]
-                reductant_2 = self.half_cell_reactions.loc[self.half_cell_reactions.index[redox_pair[1]], "Reductant_2"]
+            oxidant = redox_pair[0]
+            reductant = redox_pair[1]
 
-                oxidants = [ox for ox in [oxidant_1, oxidant_2, oxidant_3] if str(ox) != 'nan']
-                reductants = [rd for rd in [reductant_1, reductant_2] if str(rd) != 'nan']
-                
-                if len(oxidants) > 1:
-                    oxidant_sigma_needed = True
-                else:
-                    oxidant_sigma_needed = False
-                if len(reductants) > 1:
-                    reductant_sigma_needed = True
-                else:
-                    reductant_sigma_needed = False
-                    
-                rxn_row = df.iloc[irow, 2:]
-                rxn = rxn_row[rxn_row.notna()]
-                coeffs = copy.copy(rxn[::2]).tolist()
-                names = copy.copy(rxn[1::2]).tolist()
-                
-                if oxidant_sigma_needed or reductant_sigma_needed:
+            rxn_row = df.iloc[irow, 2:]
+            rxn = rxn_row[rxn_row.notna()]
+            coeffs = copy.copy(rxn[::2]).tolist()
+            names = copy.copy(rxn[1::2]).tolist()
+            react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
+            react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
+            react_grid = react_grid.astype({'coeff': 'float'})
 
-                    reactant_names = [names[i] for i in range(0, len(names)) if float(coeffs[i]) < 0]
-                    for sp in reactant_names:
-                        
-                        if sp in oxidants and oxidant_sigma_needed:
-                            i = names.index(sp)
-                            names[i] = u"\u03A3"+sp
-                        if sp in reductants and reductant_sigma_needed:
-                            if u"\u03A3"+sp not in names:
-                                i = names.index(sp)
-                                names[i] = u"\u03A3"+sp
-                    
-                react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
-                react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
-                react_grid = react_grid.astype({'coeff': 'float'})
-
-                reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-                if formatted:
-                    reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                    products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-                reaction = reactants + " = " + products
-                reactions.append(reaction)
-
-            self.affinity_energy_formatted_reactions["reaction"] = reactions[1:] + reactions[:1] # because reactions got rotated with respect to reaction names, rotate the other way
-            self.affinity_energy_formatted_reactions.index = main_rxn_names
-            
-        else:
-            reactions = []
-            for irow in range(0, df.shape[0]):
-                redox_pair = df.loc[self.affinity_energy_reactions_table.index[irow], "redox_pairs"]
-
-                oxidant = redox_pair[0]
-                reductant = redox_pair[1]
-
-                rxn_row = df.iloc[irow, 2:]
-                rxn = rxn_row[rxn_row.notna()]
-                coeffs = copy.copy(rxn[::2]).tolist()
-                names = copy.copy(rxn[1::2]).tolist()
-                react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
-                react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
-                react_grid = react_grid.astype({'coeff': 'float'})
-
-                reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-                if formatted:
-                    reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                    products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-                reaction = reactants + " = " + products
-                reactions.append(reaction)
-        
-            self.affinity_energy_formatted_reactions["reaction"] = reactions
+            reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+            products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+            if formatted:
+                reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+                products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+            reaction = reactants + " = " + products
+            reactions.append(reaction)
+    
+        self.affinity_energy_formatted_reactions["reaction"] = reactions
         
 
         df_out = copy.copy(self.affinity_energy_formatted_reactions)
 
-        if hide_subreactions and not simplify:
-            df_out = self.affinity_energy_formatted_reactions.loc[[ind for ind in self.affinity_energy_formatted_reactions.index if "_sub" not in ind[-4:]]]
-        
         if _isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
@@ -5553,8 +5559,8 @@ class Speciation(object):
 
             #print(idx)
             
-            oxidant = self.half_cell_reactions["Oxidant_1"].iloc[idx]
-            reductant = self.half_cell_reactions["Reductant_1"].iloc[idx]
+            oxidant = self.half_cell_reactions["Oxidant"].iloc[idx]
+            reductant = self.half_cell_reactions["Reductant"].iloc[idx]
 
             if oxidant == "O2" and reductant == "H2O":
                 half_reaction_dict[idx] = {'O2': -1.0, 'e-': -4.0, 'H+': -4.0, 'H2O': 2.0}
@@ -5639,7 +5645,6 @@ class Speciation(object):
             if len(common_elem_electron_dict.keys()) > 1:
                 # TODO: figure out what to do if there is more than one common element that
                 # participates in electron transfer...
-
                 pass
             
             if isinstance(ox_dissrxn, str):
@@ -5729,13 +5734,38 @@ class Speciation(object):
             # print("lcm multiplied")
             # print(half_reaction_dict_1)
             # print(half_reaction_dict_2)
-            
+
             # sum the half reaction dicts to write the full balanced redox reaction
             full_rxn_dict = {k: half_reaction_dict_1.get(k, 0) + half_reaction_dict_2.get(k, 0) for k in set(half_reaction_dict_1) | set(half_reaction_dict_2)}
+
+            # sum H+ and OH- to make H2O, and modify the full rxn dict appropriately
+            if "OH-" in list(full_rxn_dict.keys()) and "H+" in list(full_rxn_dict.keys()):
+                if ((full_rxn_dict["H+"]== full_rxn_dict["OH-"]) & (full_rxn_dict["H+"]==0)) or (full_rxn_dict["H+"]*full_rxn_dict["OH-"]>0):
+                # check if the coefficients of OH- and H+ have the same sign
+
+                    water_dict = {}
+                    
+                    if abs(full_rxn_dict["H+"]) == abs(full_rxn_dict["OH-"]):
+                        water_dict = {"H2O": full_rxn_dict["H+"]}
+            
+                    elif abs(full_rxn_dict["H+"]) > abs(full_rxn_dict["OH-"]):
+                        water_dict = {"H2O": full_rxn_dict["OH-"],
+                                      "H+":full_rxn_dict["H+"] - full_rxn_dict["OH-"]}
+                    else:
+                        water_dict = {"H2O": full_rxn_dict["H+"],
+                                      "OH-":full_rxn_dict["OH-"] - full_rxn_dict["H+"]}
+                        
+                    del full_rxn_dict["H+"]
+                    del full_rxn_dict["OH-"]
+        
+                    # sum the full_rxn_dict and the water_dict to ensure OH- and H+ make H2O
+                    full_rxn_dict = {k: full_rxn_dict.get(k, 0) + water_dict.get(k, 0) for k in set(full_rxn_dict) | set(water_dict)}
+
+            
             for k in list(full_rxn_dict.keys()):
                 if full_rxn_dict[k] == 0:
                     del full_rxn_dict[k]
-
+            
             # divide all coefficients by their greatest common divisor
             argv = [int(c) for c in list(full_rxn_dict.values())]
 
@@ -5744,9 +5774,6 @@ class Speciation(object):
             
             coeff_gcd = math.gcd(*argv)
             full_rxn_dict = {k:full_rxn_dict[k]/coeff_gcd for k in full_rxn_dict.keys()}
-
-
-            
             
             # print("full_rxn_dict")
             # print(full_rxn_dict)
@@ -5758,10 +5785,6 @@ class Speciation(object):
             # print("e_transferred")
             # print(e_transferred)
 
-
-            print("need a special step here where H+ and OH- are summed into H2O")
-
-            
             reaction_dict[str(pair[0])+"_"+str(pair[1])] = full_rxn_dict
             reaction_dict[str(pair[1])+"_"+str(pair[0])] = {k:-v for k,v in zip(full_rxn_dict.keys(), full_rxn_dict.values())}
 
@@ -6009,7 +6032,8 @@ class Speciation(object):
                     
                     if isinstance(reactant_dict, dict):
                         if s in list(reactant_dict.keys()):
-                            s_molal_dict[s] = list(self.aq_distribution_molal[reactant_dict[s]].sum(axis=1, numeric_only=True))
+                            col_subset = [col for col in reactant_dict[s] if col in self.aq_distribution_molal.columns]
+                            s_molal_dict[s] = list(self.aq_distribution_molal[col_subset].sum(axis=1, numeric_only=True))
                         else:
                             s_molal_dict[s] = list(self.aq_distribution_molal[s])
                     else:
