@@ -19,7 +19,6 @@ isolate_block <- function(str, begin_str, end_str){
 
 mine_3o <- function(this_file,
                     this_pressure,
-                    rxn_table,
                     get_aq_dist=T,
                     get_mass_contribution=T,
                     get_mineral_sat=T,
@@ -29,10 +28,6 @@ mine_3o <- function(this_file,
                     get_fugacity=T,
                     get_basis_totals=T,
                     get_solid_solutions=T,
-                    get_affinity_energy=T,
-                    negative_energy_supplies=F,
-                    not_limiting=c("H+", "OH-", "H2O"),
-                    mineral_reactant_energy_supplies=F,
                     mass_contribution_other=T,
                     verbose=1){
     
@@ -480,279 +475,6 @@ mine_3o <- function(this_file,
     sample_3o[["basis_totals"]] <- df
 
   }
-
-  ### begin energy mining
-  if(get_affinity_energy){
-      
-    this_temp <- as.numeric(sample_3o[["temperature"]])
-    this_logact_H2O <- as.numeric(sample_3o[["logact_H2O"]])
-    this_H2O_log_molality <- as.numeric(sample_3o[["H2O_log_molality"]])
-
-    df <- sample_3o[["aq_distribution"]]
-      
-    # get a list of mineral names in CHNOSZ
-    CHNOSZ_cr_names <- unlist(thermo()$OBIGT %>% filter(state == "cr") %>% select(name))
-
-    # clear any molal values upon moving to this sample
-    remaining_react_molal_with_product_molal <- c()
-    other_reactants_and_prod_names <- c()
-    other_reactants_and_prod <- c()
-    
-    # create a dataframe for storing results
-    df_rxn <- data.frame(rxn = character(0),
-                         affinity = numeric(0),
-                         energy_supply = numeric(0),
-                         mol_rxn = numeric(0),
-                         electrons= numeric(0),
-                         reaction = character(0),
-                         limiting = character(0),
-                         stringsAsFactors = FALSE)
-    
-    rxn_counter <- 0
-    for(rxn in rxn_table){
-      rxn_counter <- rxn_counter+1
-        
-      rxn_split <- unlist(strsplit(rxn, "\t"))
-      rxn_name  <- rxn_split[1]
-      electrons <- as.numeric(rxn_split[2])
-      full_rxn  <- rxn_split[3:length(rxn_split)]
-      if(length(full_rxn) %% 2 != 0){
-        stop(paste("Error: Number of reaction coefficients and species do not match in reaction", rxn_name))
-      }
-
-      stoichs <- as.numeric(full_rxn[c(TRUE, FALSE)])
-      species_EQ3 <- full_rxn[c(FALSE, TRUE)]
-#       species_CHNOSZ <- gsub(",AQ", "", species_EQ3) # this won't work for mineral names, gases, etc.!
-#       species_CHNOSZ <- gsub("METHANE", "CH4", species_CHNOSZ) # temporary fix for methane
-#       species_CHNOSZ <- gsub("SULFUR", "S", species_CHNOSZ) # temporary fix for sulfur
-#       species_CHNOSZ <- gsub("Ca(CO3)", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
-#       species_CHNOSZ <- gsub("Ca(CO3),AQ", "CaCO3", species_CHNOSZ) # temporary fix for calcium carbonate
-
-      species_CHNOSZ <- species_EQ3 # assuming no differences between EQ3 and CHNOSZ naming
-        
-      # handle minerals
-      for(species in species_CHNOSZ){
-        if(species %in% CHNOSZ_cr_names){
-          #species_CHNOSZ <- gsub(species, lowercase_species, species_CHNOSZ)
-          # add the mineral to master_df and master_df_mol dataframes assuming an
-          # activity of 1 (log activity 0)
-          df[species, "log_activity"] <- 0
-          not_limiting <- c(not_limiting, species)
-        }
-      }
-
-      ### calculate Q using EQ3-speciated activities
-      # get speciated activities from master_df
-      activities <- c()
-      molalities <- c()
-        
-      for(species in species_EQ3){
-          
-        if(species %in% rownames(df)){
-            
-          activities <- c(activities, 10^as.numeric(df[species, "log_activity"]))
-
-          if(!grepl("sub$", rxn_name)){
-            molalities <- c(molalities, as.numeric(df[species, "molality"]))
-          } else {
-            molalities <- c(molalities, remaining_react_molal_with_product_molal[species])
-          }
-            
-        } else {
-            
-          activities <- c(activities, NA)
-          molalities <- c(molalities, NA)
-        }
-      }
-        
-      if(!(NA %in% activities) & !is.null(molalities) & !is.null(activities)){
-          
-        names(activities) <- species_EQ3
-        names(molalities) <- species_EQ3
-
-        if(grepl("sub$", rxn_name)){
-          other_reactants_and_prod_names <- setdiff(names(remaining_react_molal_with_product_molal), names(molalities))
-          other_reactants_and_prod <- remaining_react_molal_with_product_molal[other_reactants_and_prod_names]
-        }
-
-        # calculate Q
-        reactant_stoich <- stoichs[which(stoichs < 0)]
-        reactant_activities <- activities[which(stoichs < 0)]
-        reactant_molalities <- molalities[which(stoichs < 0)]
-        product_stoich <- stoichs[which(stoichs > 0)]
-        product_activities <- activities[which(stoichs > 0)]
-        product_molalities <- molalities[which(stoichs > 0)]
-        this_logQ <- sum(abs(product_stoich)*log10(product_activities)) - sum(abs(reactant_stoich)*log10(reactant_activities))
-
-
-          
-        if(!is.na(this_logQ)){
-            
-          ### calculate K using subcrt() function in CHNOSZ
-          this_logK <- suppressMessages(subcrt(species=species_CHNOSZ,
-                                               coeff=stoichs,
-                                               #state=phase,
-                                               T=this_temp,
-                                               P=this_pressure)$out$logK)
-        }else{
-          this_logK <- NA
-        }
-          
-        ### calculate affinity, A
-        affinity_per_mol_rxn <- 0.008314*(this_temp+273.15)*2.302585*(this_logK-this_logQ) # in kJ/mol, A=RT*ln(K/Q)=RT*2.302585*(logK-logQ)
-        affinity_per_mol_e <- ((affinity_per_mol_rxn*1000)/4.184)/electrons # in cal/mol e-
-
-        ### calculate activity of limiting reactant
-        reactant_names <- species_EQ3[which(stoichs < 0)]
-        product_names <- species_EQ3[which(stoichs > 0)]
-        not_lim_index <- which(reactant_names %in% not_limiting)
-
-        names(reactant_molalities) <- reactant_names
-
-        blank_row <- data.frame(rxn=rxn_name,
-                                affinity=affinity_per_mol_e,
-                                energy_supply=NA,
-                                mol_rxn=1,
-                                electrons=electrons,
-                                reaction=paste(full_rxn,collapse=" "),
-                                limiting=NA,
-                                stringsAsFactors=FALSE)
-          
-        if(length(not_lim_index) == 0){
-          molality_div_stoich <- reactant_molalities/abs(reactant_stoich)
-        }else if((!mineral_reactant_energy_supplies) && any(reactant_names %in% CHNOSZ_cr_names)){
-          # if calculating energy supplies from mineral reactants is disallowed and there is a mineral reactant
-          # then append NAs and continue...
-          df_rxn <- rbind(df_rxn, blank_row)
-          next
-            
-        }else if(all(reactant_names %in% not_limiting)){
-            
-          # if there are no limiting reactants (e.g., reactants are all minerals)
-          # then append NAs and continue...
-          df_rxn <- rbind(df_rxn, blank_row)
-          next
-            
-        }else{
-          molality_div_stoich <- reactant_molalities[-not_lim_index]/abs(reactant_stoich[-not_lim_index])
-        }
-        limiting_reactant <- min(molality_div_stoich)
-          
-        which_limiting <- which(reactant_molalities/abs(reactant_stoich) == limiting_reactant)
-
-        # create a string of all limiting reactants
-        limiting_reactants <- paste(reactant_names[which_limiting], collapse=" ")
-
-        ### If there is more than one limiting reactant, pick the first one.
-        # Prevents warnings when calculating reactant molalities when the limiting
-        # reactant runs out. The math should work out the same regardless of which limiting
-        # reactant is chosen.
-        which_limiting <- which_limiting[1]
-          
-        # calculate moles of rxn before limiting reactant runs out
-        mol_rxn <- reactant_molalities[which_limiting] / abs(reactant_stoich[which_limiting])
-          
-        # calculate reactant molalities that remain when the limiting reactant runs out
-        remaining_reactant_molalities <- reactant_molalities - abs(reactant_stoich) * mol_rxn
-        
-        # if 'nonlimiting' species are specified by user, restore their molalities back to their original values.
-        if(length(not_lim_index) > 0){
-          remaining_reactant_molalities[not_lim_index] <- reactant_molalities[not_lim_index]
-        }
-
-        remaining_react_molal_with_product_molal <- c(remaining_reactant_molalities, product_molalities)
-        names(remaining_react_molal_with_product_molal) <- c(reactant_names, product_names)
-
-        # attach molalities of other reactants and products that are in the "mother" reaction
-        if(grepl("sub$", rxn_name)){
-          remaining_react_molal_with_product_molal <- c(remaining_react_molal_with_product_molal, other_reactants_and_prod)
-        }
-
-        ### calculate 'energy' in kJ/kg H2O by multiplying affinity (kJ/mol) by activity (mol/kg) of limiting reactant
-        this_energy <- affinity_per_mol_rxn * limiting_reactant
-        
-        if(!negative_energy_supplies && affinity_per_mol_rxn <= 0){
-          this_energy <- 0
-        }
-
-      } else { # if there is an NA in one of the activities
-        affinity_per_mol_rxn <- NA
-        affinity_per_mol_e <- NA
-        this_energy <- NA
-        mol_rxn <- NA
-        limiting_reactants <- NA
-      }
-
-      # unit conversion
-      energy_supply <- (this_energy*1000)/4.184 # in cal/kg
-        
-      # append results
-      df_rxn <- rbind(df_rxn, data.frame(row.names=rxn_counter,
-                                         rxn=rxn_name,
-                                         affinity=affinity_per_mol_e,
-                                         energy_supply=energy_supply,
-                                         mol_rxn=mol_rxn,
-                                         electrons=electrons,
-                                         reaction=paste(full_rxn,collapse=" "),
-                                         limiting=limiting_reactants,
-                                         stringsAsFactors=FALSE))
-    } # end rxn loop
-      
-    rownames(df_rxn) <- df_rxn$rxn
-    df_rxn$rxn <- NULL
-
-    # create a dataframe for storing results
-    df_rxn_sum <- data.frame(affinity = numeric(0),
-                         energy_supply = numeric(0),
-                         electrons = numeric(0),
-                         reaction = character(0),
-                         stringsAsFactors = FALSE)
-      
-    ### sum reaction clusters (a reaction and its subreactions)
-    if(sum(grepl("_sub$", rownames(df_rxn))) > 0){
-      # perform this chunk of code if "_sub" rxns are present
-      rxn_list_sub <- c() # initialize vector of sub-reaction names
-      df_rxn[, "mol_rxn_perc"] <- NA # add a new column to df_rxn to store percent mol rxn
-      
-      for(rxn in c(rownames(df_rxn), "final_energy")){
-        # loop through columns (plus a dummy "final_energy" column)
-          
-        if(grepl("_sub", rxn)){
-          # if the rxn represents a sub-reaction in the cluster, add column name to vector
-          rxn_list_sub <- c(rxn_list_sub, rxn)
-          
-        } else {
-          # if the rxn does not represent a sub-reaction...
-          if(rxn != "final_energy"){
-            reaction <- df_rxn[rxn, "reaction"]
-          }
-          
-          if(length(rxn_list_sub) != 0){
-            # sum the previous reaction cluster and append to dataframe
-            rxn_sum_sub_E <- colSums(df_rxn[rxn_list_sub, "energy_supply", drop=FALSE])
-            rxn_sum_sub_mol <- colSums(df_rxn[rxn_list_sub, "mol_rxn", drop=FALSE])
-            rxn_clust_sub_A <- df_rxn[rxn_list_sub, , drop=FALSE] %>% mutate(A_weighted=affinity*(mol_rxn/rxn_sum_sub_mol))
-            rxn_clust_sub_mol_perc <- df_rxn[rxn_list_sub, , drop=FALSE] %>% mutate(mol_perc=round(100*(mol_rxn/rxn_sum_sub_mol), 1))
-            df_rxn[rxn_list_sub, "mol_rxn_perc"] <- rxn_clust_sub_mol_perc[, "mol_perc"]
-            rxn_sum_sub_A <- colSums(rxn_clust_sub_A[, "A_weighted", drop=FALSE])
-            rxn_sum_row <- data.frame(row.names=rxn_name, "affinity"=rxn_sum_sub_A, "energy_supply"=rxn_sum_sub_E, electrons=electrons, reaction=reaction)
-            df_rxn_sum <- rbind(df_rxn_sum, rxn_sum_row)
-          }
-        
-          # re-initialize vector for new reaction or reaction cluster
-          rxn_name <- rxn
-          rxn_list_sub <- c(rxn)
-        
-        }
-      }
-    }else{
-      df_rxn_sum <- df_rxn
-    }
-      
-    # append affinity and energy results to this sample's data
-    sample_3o[["affinity_energy_raw"]] <- df_rxn
-    sample_3o[["affinity_energy"]] <- df_rxn_sum
-  } # end calculation of affinity and energy supply
                              
   setwd("../")
                              
@@ -836,7 +558,7 @@ create_report_df <- function(data, category, out_type){
 compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
                            redox_type, get_aq_dist, get_mineral_sat, get_redox,
                            get_charge_balance, get_ion_activity_ratios, get_fugacity,
-                           get_basis_totals, get_affinity_energy, input_processed_df,
+                           get_basis_totals, input_processed_df,
                            df_input_processed_names){
     
   report_list <- list()
@@ -893,19 +615,6 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
     report <- report %>% inner_join(sc, by=c("Sample"="sample"))
   }
     
-  if(get_affinity_energy){
-    affinity <- create_report_df(data=data, category='affinity_energy', out_type=1)
-    names(affinity)[2:length(names(affinity))] <- paste0(names(affinity)[2:length(names(affinity))], "_affinity")
-    report_list[["divs"]][["affinity"]] <- names(affinity)[2:length(affinity)] # start at 2 to exclude "sample" column
-    energy <- create_report_df(data=data, category='affinity_energy', out_type=2)
-    names(energy)[2:length(names(energy))] <- paste0(names(energy)[2:length(names(energy))], "_energy")
-    report_list[["divs"]][["energy"]] <- names(energy)[2:length(energy)] # start at 2 to exclude "sample" column
-    report <- report %>%
-      inner_join(affinity, by=c("Sample"="sample")) %>%
-      inner_join(energy, by=c("Sample"="sample"))
-  
-  }
-    
   rownames(report) <- report$Sample
   report$Sample <- NULL
 
@@ -918,7 +627,6 @@ compile_report <- function(data, csv_filename, aq_dist_type, mineral_sat_type,
 
 ### main
 main_3o_mine <- function(files_3o,
-                         rxn_filename,
                          get_aq_dist,
                          get_mass_contribution,
                          get_mineral_sat,
@@ -928,11 +636,6 @@ main_3o_mine <- function(files_3o,
                          get_fugacity,
                          get_basis_totals,
                          get_solid_solutions,
-                         get_affinity_energy,
-                         negative_energy_supplies,
-                         mineral_reactant_energy_supplies,
-                         load_rxn_file,
-                         not_limiting,
                          mass_contribution_other,
                          csv_filename,
                          aq_dist_type,
@@ -959,22 +662,6 @@ main_3o_mine <- function(files_3o,
       thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
       mod.OBIGT(custom_obigt, replace=TRUE) # produces a message
     })
-  }else{
-    if(get_affinity_energy && verbose > 0){
-      # default to using OBIGT in CHNOSZ
-      # this happens if redox reactions are generated with a CSV but a data0 or data1 file is used in the speciation
-      writeLines("  Warning: a WORM-style CSV thermodynamic database was not provided for the speciation calculation. Attempting to use the OBIGT thermodynamic database in the CHNOSZ package to calculate redox reaction affinity and energy supplies...")
-    }
-  }
-
-  rxn_table <- NULL
-  if(get_affinity_energy){
-    if(load_rxn_file){
-      # read table of reactions
-      rxn_table <- readLines(rxn_filename)
-    }else{
-      rxn_table <- strsplit(rxn_filename, "\n")[[1]]
-    }
   }
 
   # instantiate an empty object to store data from all 3o files
@@ -992,7 +679,6 @@ main_3o_mine <- function(files_3o,
     # add this sample's aqueous data to list of all sample data
     sample_3o <- mine_3o(file,
                          this_pressure=input_pressures[file],
-                         rxn_table=rxn_table,
                          get_aq_dist=get_aq_dist,
                          get_mass_contribution=get_mass_contribution,
                          get_mineral_sat=get_mineral_sat,
@@ -1002,10 +688,6 @@ main_3o_mine <- function(files_3o,
                          get_fugacity=get_fugacity,
                          get_basis_totals=get_basis_totals,
                          get_solid_solutions=get_solid_solutions,
-                         get_affinity_energy=get_affinity_energy,
-                         negative_energy_supplies=negative_energy_supplies,
-                         not_limiting=not_limiting,
-                         mineral_reactant_energy_supplies=mineral_reactant_energy_supplies,
                          mass_contribution_other=mass_contribution_other,
                          verbose=verbose)
       
@@ -1047,7 +729,6 @@ main_3o_mine <- function(files_3o,
                                   get_ion_activity_ratios,
                                   get_fugacity,
                                   get_basis_totals,
-                                  get_affinity_energy,
                                   df_input_processed,
                                   df_input_processed_names)
     
