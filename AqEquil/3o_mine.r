@@ -646,23 +646,9 @@ main_3o_mine <- function(files_3o,
                          batch_3o_filename,
                          df_input_processed,
                          df_input_processed_names,
-                         custom_obigt,
-                         water_model,
-                         fixed_species,
                          verbose){
     
   start_time <- Sys.time()
-
-  water(water_model)
-
-  # allow user to add their custom data as an OBIGT
-  if(!is.null(custom_obigt)){
-    custom_obigt <- custom_obigt[, c("name", "abbrv", "formula", "state", "ref1", "ref2", "date", "E_units", "G", "H", "S", "Cp", "V", "a1.a", "a2.b", "a3.c", "a4.d", "c1.e", "c2.f", "omega.lambda", "z.T")]
-    suppressMessages({
-      thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
-      mod.OBIGT(custom_obigt, replace=TRUE) # produces a message
-    })
-  }
 
   # instantiate an empty object to store data from all 3o files
   batch_3o <- list()

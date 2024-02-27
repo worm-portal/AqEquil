@@ -2419,9 +2419,6 @@ class AqEquil(object):
             #   df_input_processed in the line above. Some kind of check.names
             #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
-            custom_obigt=custom_obigt,
-            water_model=water_model,
-            fixed_species=_convert_to_RVector(FIXED_SPECIES),
             verbose=self.verbose,
         )
 
@@ -3451,7 +3448,8 @@ class AqEquil(object):
         ro.r(r_create_data0)
         
         # assemble data0 file
-        data0_file_lines = ro.r.create_data0(thermo_df=ro.conversion.py2rpy(thermo_df),
+        data0_file_lines = ro.r.create_data0(
+                          thermo_df=ro.conversion.py2rpy(thermo_df),
                           solid_solution_df=solid_solution_df,
                           db=db,
                           water_model=water_model,
@@ -3460,7 +3458,8 @@ class AqEquil(object):
                           basis_pref=out_list.rx2("basis_pref"),
                           exceed_Ttr=exceed_Ttr,
                           fixed_species=_convert_to_RVector(FIXED_SPECIES),
-                          verbose=self.verbose)
+                          verbose=self.verbose,
+                          )
         
         self._print_captured_r_output()
         
@@ -4533,16 +4532,22 @@ class Speciation(object):
         self.err_handler = Error_Handler(clean=hide_traceback)
         
         self.reactions_for_plotting = None # stores formatted reactions for plotting results of affinity and energy supply calculations
+        self.apply_redox_columns = None # stores a list of column names for output from apply_redox_reactions()
+
+        # stores a dictionary of speciation groups (e.g., "CO2", "HCO3-", "CO3-2"...)
+        self.speciation_group_dict = None
+        self.speciation_group_dict_unpacked = None
+        
         for k in args:
             setattr(self, k, args[k])
+        
 
     def __getitem__(self, item):
          return getattr(self, item)
 
-
-    def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
-                                    custom_grouping_file=None):
-
+    
+    def __make_speciation_group_dict(self, custom_grouping_file):
+        
         if isinstance(custom_grouping_file, str):
             with open(custom_grouping_file) as file:
                 lines = [line.rstrip() for line in file]
@@ -4567,6 +4572,19 @@ class Speciation(object):
             for sp in grouped_sp_dict[key]:
                 grouped_sp_dict_unpacked[sp] = grouped_sp_dict[key]
 
+        self.speciation_group_dict = grouped_sp_dict
+        self.speciation_group_dict_unpacked = grouped_sp_dict_unpacked
+
+    
+    def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
+                                    negative_energy_supplies=False,
+                                    custom_grouping_file=None,
+                                    append_report=True):
+        
+        
+        self.__make_speciation_group_dict(custom_grouping_file)
+        
+
         y_name_list = []
         val_list_list = []
         result_dict = {}
@@ -4579,7 +4597,8 @@ class Speciation(object):
         max_count = len(list(self.affinity_energy_reactions_table.index))
         f = IntProgress(min=0, max=max_count) # instantiate the bar
         display(f) # display the bar
-        
+
+        df_rxn_list = []
         for i,rxn in enumerate(list(self.affinity_energy_reactions_table.index)):
         
             coeff_list = list(self.affinity_energy_reactions_table[coeff_colnames].loc[rxn])
@@ -4637,33 +4656,26 @@ class Speciation(object):
                     # limiting to None so that CO2 will be limiting when applicable.
                     limiting_input = None
             
-            y_name, val_list, lr_name_list = self.calculate_energy(
+            df_rxn = self.calculate_energy(
                             species=species_list,
                             stoich=coeff_list,
                             divisor=divisor,
-                            reactant_dict=grouped_sp_dict_unpacked,
+                            per_electron = True,
                             y_type=y_type,
                             y_units=y_units,
                             limiting=limiting_input,
                             raise_nonlimiting_exception=False,
+                            rxn_name=rxn,
+                            append_report=append_report,
+                            negative_energy_supplies=negative_energy_supplies,
                             )
-                
-            result_dict[rxn+" "+y_name] = val_list
-            result_lim_dict[rxn+" limiting reactant"] = lr_name_list
-            f.value += 1 # tick the progress bar
 
-        # create a df of results
-        df = pd.DataFrame(result_dict)
-        df.index = list(self.sample_data.keys())
+            df_rxn_list.append(df_rxn)
+            f.value += 1 # tick the counter
 
-        # create a df of limiting reactants for energy supplies
-        if len(list(result_lim_dict.values())[0])>0:
-            df_lim = pd.DataFrame(result_lim_dict)
-            df_lim.index = list(self.sample_data.keys())
-        else:
-            df_lim = pd.DataFrame() # empty dataframe
-        
-        return df, df_lim
+        df = pd.concat(df_rxn_list, axis=1)
+
+        return df
     
 
     def show_redox_reactions(self, formatted=True,
@@ -4802,6 +4814,7 @@ class Speciation(object):
         self.idx_list = idx_list
 
         half_reaction_dict = {}
+        bad_idx_list = []
         for idx in idx_list:
 
             #print(idx)
@@ -4815,9 +4828,25 @@ class Speciation(object):
             elif oxidant == "H2O" and reductant == "H2":
                 half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2': 1.0, 'OH-': 2.0}
                 continue
-                
-            
+
+            db_sp_names = list(self.thermo.thermo_db["name"])
+            if oxidant not in db_sp_names or reductant not in db_sp_names:
+                if oxidant not in db_sp_names:
+                    problem_sp = oxidant
+                else:
+                    problem_sp = reductant
+                if self.verbose > 0:
+                    print("The species '"+str(problem_sp)+"' found in half cell reaction",
+                          self.half_cell_reactions.iloc[idx][0], "( index", idx, ")",
+                          "was not found in the thermodynamic database",
+                          "used by the speciation. Check whether this species has",
+                          "been excluded from the thermodynamic database prior to",
+                          "the speciation step. Skipping this half reaction...")
+                bad_idx_list.append(idx)
+                continue
+
             # comparing common elements
+            
             ox_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==oxidant].values[0])
             ox_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
             ox_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
@@ -4950,7 +4979,8 @@ class Speciation(object):
         #print(half_reaction_dict)
 
         # find all possible combinations of idx pairs (but not reverse rxns to save time)
-        redox_pair_list = [list(p) for p in list(itertools.combinations(idx_list, 2))]
+        good_idx_list = [idx for idx in idx_list if idx not in bad_idx_list]
+        redox_pair_list = [list(p) for p in list(itertools.combinations(good_idx_list, 2))]
 
         self.redox_pair_list = redox_pair_list
 
@@ -5169,12 +5199,22 @@ class Speciation(object):
 
     
     def calculate_energy(self, species, stoich,
-                    divisor=1, reactant_dict=None,
+                    divisor=1, custom_grouping_file=None,
+                    per_electron=False, rxn_name="custom reaction",
+                    negative_energy_supplies=False,
                     x_type="logxi", y_type="A", y_units="kcal", 
                     limiting=None, charge_sign_at_end=False,
-                    df_out=False, print_logK_messages=False,
+                    simple_df_output=False,
+                    append_report=True,
+                    print_logK_messages=False,
                     raise_nonlimiting_exception=True):
 
+        # check that y_type is recognized
+        if y_type not in ["logK", "logQ", "G", "A", "E"]:
+            self.err_handler.raise_exception("Valid options for y_type include "
+                    "'logK', 'logQ', 'G' (Gibbs free energy), 'A' "
+                    "(chemical affinity), and 'E' (energy suppy.")
+        
         # check that a thermodynamic CSV is being used
         if not isinstance(self.thermo.csv_db, pd.DataFrame):
             self.err_handler.raise_exception("The plot_energy() function requires "
@@ -5204,6 +5244,15 @@ class Speciation(object):
                     
         missing_composition = check_balance(formulas, stoich)
 
+        if y_type == "E":
+            if isinstance(self.speciation_group_dict_unpacked, dict):
+                reactant_dict = self.speciation_group_dict_unpacked
+            else:
+                self.__make_speciation_group_dict(custom_grouping_file)
+                reactant_dict = self.speciation_group_dict_unpacked
+        else:
+            reactant_dict = None
+        
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
         for i,sample in enumerate(self.sample_data.keys()):
@@ -5260,7 +5309,7 @@ class Speciation(object):
             no_limiting_reactants = True
 
         
-        if limiting != None:
+        if limiting != None and y_type == "E":
 
             # check that the limiting reactant is in the thermodynamic database
             if limiting not in list(self.thermo.csv_db["name"]):
@@ -5318,6 +5367,18 @@ class Speciation(object):
                 # liq and cr species
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
                 s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+
+        if y_type in ["logK", "logQ"]:
+            y_type_plain = copy.copy(y_type)
+        elif y_type == "A":
+            y_type_plain = "affinity"
+        elif y_type == "G":
+            y_type_plain = "gibbs free energy"
+        elif y_type == "E":
+            y_type_plain = "energy supply"
+        else:
+            # this shouldn't happen and will be caught by the y_type check above
+            pass
         
         if y_type not in ["logK", "logQ"]:
             if y_units in ["cal", "kcal"]:
@@ -5375,17 +5436,21 @@ class Speciation(object):
                     y_list.append(G/divisor_i)
                     ylab_out="ΔG, {}/mol".format(y_units)
                     y_units_out = y_units+"/mol"
+                    if per_electron:
+                        y_units_out = y_units_out+" e-"
                 elif y_type=="A":
                     y_list.append(round(A/divisor_i, 4))
                     ylab_out="A, {}/mol".format(y_units)
                     y_units_out = y_units+"/mol"
+                    if per_electron:
+                        y_units_out = y_units_out+" e-"
                 elif y_type=="E":
 
                     y_units_out = y_units+"/kg fluid"
                     ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
 
                     if no_limiting_reactants:
-                        df_y_name = y_type+", "+y_units_out
+                        df_y_name = y_type_plain+", "+y_units_out
                         y_list.append(float('NaN'))
                         lr_name_list.append("None")
                         continue
@@ -5409,7 +5474,6 @@ class Speciation(object):
                         for k,v in zip(lrc_dict.keys(), lrc_dict.values()):
                             if v == lr_val:
                                 lr_list.append(str(k))
-            
                     else:
                         lrc_dict = {}
                         lr_list = [limiting]
@@ -5433,10 +5497,55 @@ class Speciation(object):
                         y_list.append(E/divisor_i)
                     else:
                         y_list.append(float('NaN'))
+                        lr_name_list.append(float('NaN'))
 
-                df_y_name = y_type+", "+y_units_out
+                df_y_name = y_type_plain+", "+y_units_out
+        
+        if not negative_energy_supplies and y_type == "E":
+            for i,v in enumerate(y_list):
+                if v < 0:
+                    y_list[i] = 0.0
 
-        return df_y_name, y_list, lr_name_list
+        if y_type == "E":
+            df_out = pd.DataFrame({df_y_name:y_list,
+                                   "limiting reactant":lr_name_list},
+                                   index=self.misc_params.index)
+        else:
+            df_out = pd.DataFrame({df_y_name:y_list},
+                                   index=self.misc_params.index)
+
+        if not simple_df_output:
+            
+            if y_type in ["logK", "logQ"]:
+                headers = [rxn_name+" "+y_type]
+                subheaders = [y_type]
+            
+            elif y_type in ["A", "G"]:
+                hs = df_out.columns[0].strip().split(", ")
+                headers = [rxn_name+" "+hs[0]]
+                subheaders = [hs[1]]
+                
+            else:
+                # energy supplies have an extra 'limiting reactant' column to deal with
+                hs = [h.strip().split(", ") for h in df_out.columns]
+                hs = [[""]+h if len(h) == 1 else h for h in hs]
+                hs = [[rxn_name+" "+h[0], h[1]] for h in hs]
+                hs = [hs[0], [hs[1][0]+"limiting reactant", hs[1][1]]]
+                headers = [hs[0][0], hs[1][0]]
+                subheaders = [hs[0][1], hs[1][1]]
+                
+            multicolumns = pd.MultiIndex.from_arrays(
+                [headers, subheaders], names=['Sample', ''])
+            df_out.columns = multicolumns
+
+
+        if append_report and not simple_df_output:
+            col_order = [c[0] for c in self.report.columns] + headers # get order of columns in report and affinity/energy df
+            col_order = list(collections.OrderedDict.fromkeys(col_order)) # remove duplicates
+            self.report = df_out.combine_first(self.report) # update the report with affinity/energy results
+            self.report = self.report.reindex(level=0, columns=col_order) # restore column order
+
+        return df_out
 
     
     @staticmethod
@@ -5534,7 +5643,8 @@ class Speciation(object):
             "eq/kg.H2O" : ("charge", "eq/kg"),
             "logfO2" : ("", ""),
             "cal/mol e-" : ("affinity", "cal/mol e-"),
-            "cal/kg.H2O" : ("energy supply", "cal/kg H2O"),
+            "cal/kg.H2O" : ("energy supply", "cal/kg fluid"), # deprecated
+            "cal/kg fluid" : ("energy supply", "cal/kg fluid"),
             "Log ion-H+ activity ratio" : ("Log ion-H+ activity ratio", ""),
             "log_fugacity" : ("log fugacity", "log(bar)"),
             "fugacity" : ("fugacity", "bar"),
