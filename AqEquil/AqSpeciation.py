@@ -4541,14 +4541,21 @@ class Speciation(object):
                 for s in lim_species_group_list:
                     if s in reactants:
                         if self.verbose > 0:
-                            l = stoich + species
-                            l[::2] = stoich
-                            l[1::2] = species
-                            l = [str(v) for v in l]
                             print("The specified limiting reactant", str(limiting),
                                   "has been switched to", str(s), "because the latter",
                                   "appears as a reactant in the reaction:")
-                            print(" ".join(l))
+                            if _isnotebook():
+                                _ = self.format_reaction(coeffs=stoich,
+                                   names=species,
+                                   formatted=True,
+                                   charge_sign_at_end=True,
+                                   show=True)
+                            else:
+                                l = stoich + species
+                                l[::2] = stoich
+                                l[1::2] = species
+                                l = [str(v) for v in l]
+                                print(" ".join(l))
                         limiting = s
                         break
                             
@@ -4683,16 +4690,13 @@ class Speciation(object):
             rxn = rxn_row[rxn_row.notna()]
             coeffs = copy.copy(rxn[::2]).tolist()
             names = copy.copy(rxn[1::2]).tolist()
-            react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
-            react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
-            react_grid = react_grid.astype({'coeff': 'float'})
 
-            reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-            products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-            if formatted:
-                reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-                products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
-            reaction = reactants + " = " + products
+            reaction = self.format_reaction(coeffs=coeffs,
+                                            names=names,
+                                            formatted=formatted,
+                                            charge_sign_at_end=charge_sign_at_end,
+                                            show=False)
+            
             reactions.append(reaction)
     
         self.redox_formatted_reactions["reaction"] = reactions
@@ -4705,10 +4709,26 @@ class Speciation(object):
         
         return df_out
 
+    
+    @staticmethod
+    def format_reaction(coeffs, names, formatted=True,
+                        charge_sign_at_end=True, show=True):
+        
+        react_grid = pd.DataFrame({"coeff":coeffs, "name":names})
+        react_grid["coeff"] = pd.to_numeric(react_grid["coeff"])
+        react_grid = react_grid.astype({'coeff': 'float'})
 
+        reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+        products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+        if formatted:
+            reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+            products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+        reaction = reactants + " = " + products
 
-
-
+        if _isnotebook() and show:
+            display(HTML(reaction))
+        
+        return reaction
 
     
     def make_redox_reactions(self,
@@ -5083,12 +5103,20 @@ class Speciation(object):
         # # sort rows by ascending redox pairs
         # self.redox_reactions_table = self.redox_reactions_table.sort_values('redox_pairs', key=lambda col: col.map(lambda x: [x[0], x[1]]))
 
-        self.show_redox_reactions(formatted=formatted,
-                                  charge_sign_at_end=charge_sign_at_end,
-                                  show=show)
+        if isinstance(self.reactions_for_plotting, pd.DataFrame):
+            self.reactions_for_plotting = self.show_redox_reactions(
+                    formatted=formatted,
+                    charge_sign_at_end=charge_sign_at_end,
+                    show=show).combine_first(self.reactions_for_plotting)
+        else:
+            self.reactions_for_plotting = self.show_redox_reactions(
+                    formatted=formatted,
+                    charge_sign_at_end=charge_sign_at_end,
+                    show=show)
+
     
     
-    @ staticmethod
+    @staticmethod
     def _create_sp_dict(sout):
         coeffs = list(sout["coeff"])
         species = list(sout["name"])
@@ -5354,7 +5382,12 @@ class Speciation(object):
                 r_div = 4.184
             elif y_units in ["J", "kJ"]:
                 r_div = 1
+            else:
+                self.err_handler.raise_exception("The specified y_unit '"+y_units+"' "
+                        "is not recognized. Try 'cal', 'kcal', 'J', or 'kJ'.")
             R = 8.314/r_div  # gas constant, unit = [cal/mol/K]
+
+
 
         if "k" in y_units:
             k_div = 1000
@@ -5520,6 +5553,25 @@ class Speciation(object):
                 self.report_category_dict[y_type_plain] = self.report_category_dict[y_type_plain]+headers
                 self.report_category_dict[y_type_plain]= list(collections.OrderedDict.fromkeys(self.report_category_dict[y_type_plain]))
 
+        # create a formatted reaction to add to self.reactions_for_plotting
+        # so that it can be invoked in a plot
+        formatted_rxn = reaction = self.format_reaction(
+                                            coeffs=stoich,
+                                            names=species,
+                                            formatted=True,
+                                            charge_sign_at_end=True,
+                                            show=False)
+        
+        calc_energy_df = pd.DataFrame({"reaction_name":[rxn_name],
+                                       "redox_pairs":[float('NaN')],
+                                       "reaction":[formatted_rxn],
+                                      }).set_index("reaction_name")
+        
+        if isinstance(self.reactions_for_plotting, pd.DataFrame):
+            self.reactions_for_plotting = calc_energy_df.combine_first(self.reactions_for_plotting)
+        else:
+            self.reactions_for_plotting = calc_energy_df
+
         if simple_df_output:
             return df_out_simple # simple dataframe
         else:
@@ -5615,14 +5667,23 @@ class Speciation(object):
             "activity" : ("activity", ""),
             "log_gamma" : ("log gamma", ""),
             "gamma" : ("gamma", ""),
-            "affinity_kcal" : ("affinity", "kcal/mol"),
             "%" : ("", "%"),
             "Eh_volts" : ("Eh", "volts"),
             "eq/kg.H2O" : ("charge", "eq/kg"),
             "logfO2" : ("", ""),
             "cal/mol e-" : ("affinity", "cal/mol e-"),
+            "kcal/mol e-" : ("affinity", "kcal/mol e-"),
+            "J/mol e-" : ("affinity", "J/mol e-"),
+            "kJ/mol e-" : ("affinity", "kJ/mol e-"),
+            "cal/mol" : ("affinity", "cal/mol"),
+            "kcal/mol" : ("affinity", "kcal/mol"),
+            "J/mol" : ("affinity", "J/mol"),
+            "kJ/mol" : ("affinity", "kJ/mol"),
             "cal/kg.H2O" : ("energy supply", "cal/kg fluid"), # deprecated
             "cal/kg fluid" : ("energy supply", "cal/kg fluid"),
+            "kcal/kg fluid" : ("energy supply", "kcal/kg fluid"),
+            "J/kg fluid" : ("energy supply", "J/kg fluid"),
+            "kJ/kg fluid" : ("energy supply", "kJ/kg fluid"),
             "Log ion-H+ activity ratio" : ("Log ion-H+ activity ratio", ""),
             "log_fugacity" : ("log fugacity", "log(bar)"),
             "fugacity" : ("fugacity", "bar"),
@@ -6019,14 +6080,7 @@ class Speciation(object):
         
         df['y_variable'] = df['y_variable'].apply(chemlabel)
 
-        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.redox_formatted_reactions, pd.DataFrame):
-            
-            # get formatted reactions to display
-            if not isinstance(self.reactions_for_plotting, pd.DataFrame):
-
-                self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
-                                                                       charge_sign_at_end=False,
-                                                                       show=False, simplify=True)
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
 
             y_find = [yi.replace(" energy supply", "").replace(" affinity", "") for yi in y]
             
@@ -6322,17 +6376,13 @@ class Speciation(object):
         else:
             dict_species_color = {}
 
-        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.redox_formatted_reactions, pd.DataFrame):
-            
-            # get formatted reactions to display
-            self.reactions_for_plotting = self.show_redox_reactions(formatted=True,
-                                                                    charge_sign_at_end=charge_sign_at_end,
-                                                                    show=False)
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
             y_find = [yi.replace(" energy supply", "").replace(" affinity", "") for yi in y]
             y_find = [yi for yi in y_find if "limiting reactant" not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
+
             rxn_dict = {rxn_name:rxn for rxn_name,rxn in zip(y, rxns)}
 
             if len(y) == 1:
@@ -6368,7 +6418,7 @@ class Speciation(object):
                              custom_data=['name', 'formatted_rxn', 'y_variable_original'],
                              template="simple_white")
             
-        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.redox_formatted_reactions, pd.DataFrame):
+        if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             if rxns_as_labels:
                 newnames = {y:r for y,r in zip(list(df["y_variable"]), list(df["formatted_rxn"]))}
                 fig.for_each_trace(lambda t: t.update(name = newnames[t.name],
