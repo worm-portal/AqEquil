@@ -4479,7 +4479,8 @@ class Speciation(object):
         self.redox_reactions_table = None
         
         # stores a dictionary of speciation groups (e.g., "CO2", "HCO3-", "CO3-2"...)
-        self.speciation_group_dict = None
+        self.custom_grouping_filepath = None
+        self.reactant_dict_scalar = None
         self.speciation_group_dict_unpacked = None
         
         for k in args:
@@ -4495,10 +4496,10 @@ class Speciation(object):
          return getattr(self, item)
 
     
-    def __make_speciation_group_dict(self, custom_grouping_file):
-        
-        if isinstance(custom_grouping_file, str):
-            with open(custom_grouping_file) as file:
+    def __make_speciation_group_dict(self):
+
+        if isinstance(self.custom_grouping_filepath, str):
+            with open(self.custom_grouping_filepath) as file:
                 lines = [line.rstrip() for line in file]
         else:
             stream = pkg_resources.resource_stream(__name__, "speciation_groups_WORM.txt")
@@ -4506,7 +4507,36 @@ class Speciation(object):
                 content = s.read().decode()
             content = content.split("\n")
             lines = [line.rstrip() for line in content]
+
+        lines = [l for l in lines if l != ""] # remove blank lines
+
         
+        # Creates a dictionary with this format:
+        #
+        # {...
+        #  "sulfides 1": ["H2S", "HS-"],
+        #  "sulfides 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  "sulfides 3": ["Pb(HS)3-"],
+        #  "ferrous iron 1": [...],
+        #  ...
+        # }
+        #
+        # Used by calculate_energy() to calculate concentrations of limiting reactants.
+        reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
+        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
+
+
+        # Creates a dictionary with this format:
+        # {...
+        #  "H2S": ["H2S", "HS-"],
+        #  "HS-": ["H2S", "HS-"],
+        #  "Pb(HS)2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  "Ag(HS)2-": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  "Au(HS)2-": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  ...
+        # }
+        #
+        # Used to switch a user-specified limiting reactant to one within the same scalar group.
         speciation_group_dict = {}
         for i,line in enumerate(lines):
             line = line.strip().split(":")
@@ -4521,7 +4551,6 @@ class Speciation(object):
             for sp in speciation_group_dict[key]:
                 speciation_group_dict_unpacked[sp] = speciation_group_dict[key]
 
-        self.speciation_group_dict = speciation_group_dict
         self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
 
 
@@ -4571,13 +4600,13 @@ class Speciation(object):
     
     def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
                                     negative_energy_supplies=False,
-                                    custom_grouping_file=None,
+                                    custom_grouping_filepath=None,
                                     append_report=True):
         
+        self.custom_grouping_filepath = custom_grouping_filepath
         
-        self.__make_speciation_group_dict(custom_grouping_file)
+        self.__make_speciation_group_dict()
         
-
         y_name_list = []
         val_list_list = []
         result_dict = {}
@@ -5189,9 +5218,47 @@ class Speciation(object):
         return out_dict
 
 
-    
+    def __match_grouped_species(self, s):
+        """
+        Match whether a species is in a speciation group, and get a list of relevant groups and their scalars.
+        
+        e.g.,
+
+        self.reactant_dict_scalar = {...
+                                     "sulfides 1": ["H2S", "HS-"],
+                                     "sulfides 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+                                     "sulfides 3": ["Pb(HS)3-"],
+                                     "ferrous iron 1": [...],
+                                     ...
+                                     }
+        If `s` = "Ag(HS)2-"
+        then `scalars` = [1, 2, 3]
+        and `groups` = ["sulfides 1", "sulfides 2", "sulfides 3"]
+        
+        """
+        scalars = []
+        groups = []
+        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):
+            if s in grp_list:
+                s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be "sulfates 1"
+                s_key_split = s_key.split(" ")
+                s_key_grp = " ".join(s_key_split[:-1])
+                possible_scalars = [k.split(s_key_grp)[-1].strip() for k in list(self.reactant_dict_scalar.keys()) if s_key_grp in k]
+                for k in possible_scalars:
+                    try:
+                        float(k) # test whether the scalar is a number. If so, append.
+                        scalars.append(k)
+                    except:
+                        continue
+                groups = [s_key_grp+" "+str(s) for s in scalars]
+                break
+        scalars = [float(s) for s in scalars]
+        groups = [self.reactant_dict_scalar[g] for g in groups]
+        return scalars, groups
+
+
     def calculate_energy(self, species, stoich,
-                    divisor=1, custom_grouping_file=None,
+                    divisor=1, custom_grouping_filepath=None,
                     per_electron=False, rxn_name="custom reaction",
                     negative_energy_supplies=False,
                     y_type="A", y_units="kcal", 
@@ -5220,6 +5287,10 @@ class Speciation(object):
                 self.err_handler.raise_exception("The length of the divisor is "
                     "not equal to the number of samples.")
 
+        # set the custom grouping filepath
+        if isinstance(custom_grouping_filepath, str):
+            self.custom_grouping_filepath = custom_grouping_filepath
+        
         # check that the reaction is balanced
         formulas = []
         for s in species:
@@ -5237,13 +5308,8 @@ class Speciation(object):
         missing_composition = check_balance(formulas, stoich)
 
         if y_type == "E":
-            if isinstance(self.speciation_group_dict_unpacked, dict):
-                reactant_dict = self.speciation_group_dict_unpacked
-            else:
-                self.__make_speciation_group_dict(custom_grouping_file)
-                reactant_dict = self.speciation_group_dict_unpacked
-        else:
-            reactant_dict = None
+            if not isinstance(self.reactant_dict_scalar, dict):
+                self.__make_speciation_group_dict()
         
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
@@ -5346,10 +5412,21 @@ class Speciation(object):
                 if s in self.aq_distribution_logact.columns:
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
-                    if isinstance(reactant_dict, dict):
-                        if s in list(reactant_dict.keys()):
-                            col_subset = [col for col in reactant_dict[s] if col in self.aq_distribution_molal.columns]
-                            s_molal_dict[s] = list(self.aq_distribution_molal[col_subset].sum(axis=1, numeric_only=True))
+                    if isinstance(self.reactant_dict_scalar, dict):
+
+                        # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
+                        scalars, groups = self.__match_grouped_species(s)
+                        
+                        if len(scalars) > 0:
+                            total_summed_scaled = [0]*len(self.aq_distribution_molal.columns)
+                            
+                            for i,scalar in enumerate(scalars):
+                                col_subset = [col for col in groups[i] if col in self.aq_distribution_molal.columns]
+                                scaled_df = self.aq_distribution_molal[col_subset].apply(lambda x: x*scalar)
+                                summed_scaled = list(scaled_df.sum(axis=1, numeric_only=True))
+                                total_summed_scaled = [ii+iii for ii,iii in zip(total_summed_scaled, summed_scaled)]
+                                s_molal_dict[s] = total_summed_scaled
+
                         else:
                             s_molal_dict[s] = list(self.aq_distribution_molal[s])
                     else:

@@ -1,7 +1,29 @@
-sulfides: H2S HS- Pb(HS)2 Pb(HS)3- Ag(HS)2- Au(HS)2-
-sulfates: SO4-2 HSO4- Pd(SO4)2-2 Pd(SO4)3-4 Pt(SO4)2-2 Pt(SO4)3-4 Rh(SO4)2- Rh(SO4)2-2 Rh(SO4)3-3 Rh(SO4)3-4 Ru(SO4)2- Ru(SO4)2-2 Ru(SO4)3-3 Ru(SO4)3-4 PdSO4 RhSO4 RhSO4+ RuSO4 RuSO4+ HSO4- CeSO4+ PrSO4+ NdSO4+ SmSO4+ EuSO4+ GdSO4+ TbSO4+ DySO4+ HoSO4+ ErSO4+ TmSO4+ YbSO4+ LuSO4+ MgSO4 NaSO4- KSO4- CaSO4 KHSO4 MnSO4 PtSO4 AmSO4+ Am(SO4)2-
-carbonates: HCO3- CO2 CO3-2 CaCO3 NaCO3- MgCO3 SrCO3 BaCO3 LaHCO3+2 CeHCO3+2 PrHCO3+2 NdHCO3+2 SmHCO3+2 EuHCO3+2 GdHCO3+2 TbHCO3+2 DyHCO3+2 HoHCO3+2 ErHCO3+2 TmHCO3+2 YbHCO3+2 LuHCO3+2 BaHCO3+ CaHCO3+ MgHCO3+ SrHCO3+ Am(HCO3)+2 LaCO3+ CeCO3+ PrCO3+ NdCO3+ SmCO3+ EuCO3+ GdCO3+ TbCO3+ DyCO3+ HoCO3+ ErCO3+ TmCO3+ YbCO3+ LuCO3+ Ag(CO3)- Ag(CO3)2-3
-formates: formic-acid formate Am(For)+2 Am(For)2+ Ba(For)+ Ba(For)2 Ca(For)+ Ca(For)2 Cd(For)+ Cd(For)2 Co(For)+ Co(For)2 Cu(For)+ Cu(For)2 Eu(For)+ Eu(For)+2 Eu(For)2 Eu(For)2+ Fe(For)+ Fe(For)2 Gd(For)+2 Gd(For)2+ K(For) K(For)2- La(For)+2 La(For)2+ Mg(For)+ Mg(For)2 Mn(For)+ Mn(For)2 Na(For) Na(For)2- Ni(For)+ Ni(For)2 Pb(For)+ Pb(For)2 Sr(For)+ Sr(For)2 U(For)+2 U(For)2+ Yb(For)+2 Yb(For)2+ Zn(For)+ Zn(For)2
-acetates: acetic-acid acetate Ag(Ac) Ag(Ac)2- Al(Ac)+2 Al(Ac)2+ Al(Ac)3 Am(Ac)+2 Am(Ac)2+ Am(Ac)3 Au(Ac) Au(Ac)2- Ba(Ac)+ Ba(Ac)2 Be(Ac)+ Be(Ac)2 Bi(Ac)+2 Bi(Ac)2+ Bi(Ac)3 Ca(Ac)+ Ca(Ac)2 Cd(Ac)+ Cd(Ac)2 Cd(Ac)3- Ce(Ac)+2 Ce(Ac)2+ Ce(Ac)3 Co(Ac)+ Co(Ac)2 Co(Ac)3- Cs(Ac) Cs(Ac)2- Cu(Ac) Cu(Ac)+ Cu(Ac)2 Cu(Ac)2- Cu(Ac)3- Dy(Ac)+2 Dy(Ac)2+ Dy(Ac)3 Er(Ac)+2 Er(Ac)2+ Er(Ac)3 Eu(Ac)+2 Eu(Ac)2+ Eu(Ac)3 Fe(Ac)+ Fe(Ac)2 Gd(Ac)+2 Gd(Ac)2+ Gd(Ac)3 Hg(Ac)+ Hg(Ac)2 Hg(Ac)3- Ho(Ac)+2 Ho(Ac)2+ Ho(Ac)3 K(Ac) K(Ac)2- La(Ac)+2 La(Ac)2+ La(Ac)3 Li(Ac) Li(Ac)2- Lu(Ac)+2 Lu(Ac)2+ Lu(Ac)3 Mg(Ac)+ Mg(Ac)2 Mn(Ac)+ Mn(Ac)2 Mn(Ac)3- NH4(Ac) NH4(Ac)2- Na(Ac) Na(Ac)2- Nd(Ac)+2 Nd(Ac)2+ Nd(Ac)3 Ni(Ac)+ Ni(Ac)2 Ni(Ac)3- Pb(Ac)+ Pb(Ac)2 Pb(Ac)3- Pr(Ac)+2 Pr(Ac)2+ Pr(Ac)3 Ra(Ac)+ Ra(Ac)2 Rb(Ac) Rb(Ac)2- Sc(Ac)+2 Sc(Ac)2+ Sc(Ac)3 Sm(Ac)+2 Sm(Ac)2+ Sm(Ac)3 Sr(Ac)+ Sr(Ac)2 Tb(Ac)+2 Tb(Ac)2+ Tb(Ac)3 Tl(Ac) Tl(Ac)2- Tm(Ac)+2 Tm(Ac)2+ Tm(Ac)3 U(Ac)+2 U(Ac)2+ U(Ac)3 UO2(Ac)+ UO2(Ac)2 UO2(Ac)3- Y(Ac)+2 Y(Ac)2+ Y(Ac)3 Yb(Ac)+2 Yb(Ac)2+ Yb(Ac)3 Zn(Ac)+ Zn(Ac)2 Zn(Ac)3-
-ammonia: NH3 NH4+ NH4(Ac) NH4(Ac)2- NH4(Mal)--
-ferrous iron: Fe+2 HFeO2-
+sulfides 1: H2S HS-
+
+sulfides 2: Pb(HS)2 Ag(HS)2- Au(HS)2-
+
+sulfides 3: Pb(HS)3-
+
+sulfates 1: SO4-2 HSO4- PdSO4 RhSO4 RhSO4+ RuSO4 RuSO4+ CeSO4+ PrSO4+ NdSO4+ SmSO4+ EuSO4+ GdSO4+ TbSO4+ DySO4+ HoSO4+ ErSO4+ TmSO4+ YbSO4+ LuSO4+ MgSO4 NaSO4- KSO4- CaSO4 KHSO4 MnSO4 PtSO4 AmSO4+
+
+sulfates 2: Pd(SO4)2-2 Pt(SO4)2-2 Rh(SO4)2- Rh(SO4)2-2 Ru(SO4)2- Ru(SO4)2-2 Am(SO4)2-
+
+sulfates 3: Pd(SO4)3-4 Pt(SO4)3-4 Rh(SO4)3-3 Rh(SO4)3-4 Ru(SO4)3-3 Ru(SO4)3-4
+
+carbonates 1: HCO3- CO2 CO3-2 CaCO3 NaCO3- MgCO3 SrCO3 BaCO3 LaHCO3+2 CeHCO3+2 PrHCO3+2 NdHCO3+2 SmHCO3+2 EuHCO3+2 GdHCO3+2 TbHCO3+2 DyHCO3+2 HoHCO3+2 ErHCO3+2 TmHCO3+2 YbHCO3+2 LuHCO3+2 BaHCO3+ CaHCO3+ MgHCO3+ SrHCO3+ Am(HCO3)+2 LaCO3+ CeCO3+ PrCO3+ NdCO3+ SmCO3+ EuCO3+ GdCO3+ TbCO3+ DyCO3+ HoCO3+ ErCO3+ TmCO3+ YbCO3+ LuCO3+ Ag(CO3)-
+
+carbonates 2: Ag(CO3)2-3
+
+formates 1: formic-acid formate Am(For)+2 Ba(For)+ Ca(For)+ Cd(For)+ Co(For)+ Cu(For)+ Eu(For)+ Fe(For)+ Fe(For)2 Gd(For)+2 K(For) La(For)+2 Mg(For)+ Mn(For)+ Na(For) Ni(For)+ Pb(For)+ Sr(For)+ U(For)+2 Yb(For)+2 Zn(For)+
+
+formates 2: Am(For)2+ Ba(For)2 Ca(For)2 Cd(For)2 Co(For)2 Cu(For)2 Eu(For)+2 Eu(For)2 Eu(For)2+ Gd(For)2+ K(For)2- La(For)2+ Mg(For)2 Mn(For)2 Na(For)2- Ni(For)2 Pb(For)2 Sr(For)2 U(For)2+ Yb(For)2+ Zn(For)2
+
+acetates 1: acetic-acid acetate Ag(Ac) Al(Ac)+2 Am(Ac)+2 Au(Ac) Ba(Ac)+ Be(Ac)+ Bi(Ac)+2 Ca(Ac)+ Cd(Ac)+ Ce(Ac)+2 Co(Ac)+ Cs(Ac) Cu(Ac) Cu(Ac)+ Dy(Ac)+2 Er(Ac)+2 Eu(Ac)+2 Fe(Ac)+ Gd(Ac)+2 Gd(Ac)3 Hg(Ac)+ Ho(Ac)+2 K(Ac) La(Ac)+2 Li(Ac) Lu(Ac)+2 Mg(Ac)+ Mn(Ac)+ NH4(Ac) Na(Ac) Nd(Ac)+2 Ni(Ac)+ Pb(Ac)+ Pr(Ac)+2 Ra(Ac)+ Rb(Ac) Sc(Ac)+2 Sm(Ac)+2 Sr(Ac)+ Tb(Ac)+2 Tl(Ac) Tm(Ac)+2 U(Ac)+2 UO2(Ac)+ Y(Ac)+2 Yb(Ac)+2 Zn(Ac)+
+
+acetates 2: Ag(Ac)2- Al(Ac)2+ Am(Ac)2+ Au(Ac)2- Ba(Ac)2 Be(Ac)2 Bi(Ac)2+ Ca(Ac)2 Cd(Ac)2 Ce(Ac)2+ Co(Ac)2 Cs(Ac)2- Cu(Ac)2 Cu(Ac)2- Dy(Ac)2+ Er(Ac)2+ Eu(Ac)2+ Fe(Ac)2 Gd(Ac)2+ Hg(Ac)2 Ho(Ac)2+ K(Ac)2- La(Ac)2+ Li(Ac)2- Lu(Ac)2+ Mg(Ac)2 Mn(Ac)2 NH4(Ac)2- Na(Ac)2- Nd(Ac)2+ Ni(Ac)2 Pb(Ac)2 Pr(Ac)2+ Ra(Ac)2 Rb(Ac)2- Sc(Ac)2+ Sm(Ac)2+ Sr(Ac)2 Tb(Ac)2+ Tl(Ac)2- Tm(Ac)2+ U(Ac)2+ UO2(Ac)2 Y(Ac)2+ Yb(Ac)2+ Zn(Ac)2
+
+acetates 3: Al(Ac)3 Am(Ac)3 Bi(Ac)3 Cd(Ac)3- Ce(Ac)3 Co(Ac)3- Cu(Ac)3- Dy(Ac)3 Eu(Ac)3 Hg(Ac)3- Ho(Ac)3 La(Ac)3 Lu(Ac)3 Mn(Ac)3- Er(Ac)3 Nd(Ac)3 Ni(Ac)3- Pb(Ac)3- Pr(Ac)3 Sc(Ac)3 Sm(Ac)3 Tb(Ac)3 Tm(Ac)3 U(Ac)3 UO2(Ac)3- Y(Ac)3 Yb(Ac)3 Zn(Ac)3-
+
+ammonia 1: NH3 NH4+ NH4(Ac) NH4(Ac)2- NH4(Mal)-
+
+ferrous iron 1: Fe+2 HFeO2-
