@@ -258,8 +258,7 @@ write_3i_file <- function(df,
                           warned_about_redox_column,
                           activity_model,
                           verbose){
-    
-    
+
   # Set water model --------------------------------------------------------------                          
   suppressMessages(water(water_model))
     
@@ -277,7 +276,7 @@ write_3i_file <- function(df,
 
   this_redox_flag <- redox_flag
   assigned <- FALSE
-
+ 
   # use gaseous O2 in aqueous species block
   if(redox_flag == -3){
     redox_col_index <- grep("O2(g)", names(df), fixed = T, value = T)
@@ -473,11 +472,15 @@ write_3i_file <- function(df,
     }
   }
 
+  
+    
   # specify aux species redox couple
   if(redox_flag == 1){
-    redox_col_index <- grep(redox_aux, names(df), fixed = T, value = T)
+
+    redox_col_index <- grep(paste0(redox_aux, "_"), names(df), fixed = T, value = T)
     redox_col_index <- redox_col_index[substring(redox_col_index, 1, nchar(redox_aux)) == redox_aux]
-    if(length(redox_col_index) > 0){
+      
+    if(length(redox_col_index) == 1){
       if(!is.na(df[row, redox_col_index])){
         this_redox_value <- sprintf("%.4E", df[row, redox_col_index])
         this_redox_unit <- paste(redox_aux, "aux. sp.")
@@ -491,6 +494,17 @@ write_3i_file <- function(df,
         this_redox_unit <- paste0("Log fO2 (log bars) [default = ", default_logfO2, "]")
         assigned <- TRUE
       }
+    } else if (length(redox_col_index) > 1){
+          if(!warned_about_redox_column){
+            vprint(paste("Warning: multiple matches for a", redox_aux, "column found:", paste(redox_col_index, collapse=" "), ". Resorting to using",
+                          "Log fO2 (log bars) with a value of ", default_logfO2),
+                    verbose=verbose)
+            warned_about_redox_column <- TRUE
+          }
+      this_redox_flag <- 0
+      this_redox_value <- sprintf("%.4E", default_logfO2)
+      this_redox_unit <- paste0("Log fO2 (log bars) [default = ", default_logfO2, "]")
+      assigned <- TRUE
     } else {
           if(!warned_about_redox_column){
             vprint(paste("Warning: no", redox_aux, "column found. Resorting to using",
@@ -504,13 +518,13 @@ write_3i_file <- function(df,
       assigned <- TRUE
     }
   }
-
+    
   # append redox values
   df[row, "redox_flag"] <- this_redox_flag
   df[row, "redox_value"] <- this_redox_value
   df[row, "redox_unit"] <- this_redox_unit
     
-    
+
     
   if(charge_balance_on == "none"){
     eq3.cb_block <- paste("\n|Electrical balancing option (iebal3):                                         |",

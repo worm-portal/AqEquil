@@ -2214,7 +2214,7 @@ class AqEquil(object):
             
             temp_degC = list(input_processed_list.rx2("temp_degC"))[sample_row_index]
             pressure_bar = list(input_processed_list.rx2("pressure_bar"))[sample_row_index]
-            
+
             df = self.df_input_processed.iloc[[sample_row_index]] # double brackets to keep as df row instead of series
             
             samplename = str(df.index[0])
