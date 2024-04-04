@@ -2021,10 +2021,14 @@ class AqEquil(object):
                         self.err_handler.raise_exception("Error: could not locate " + str(db_solid_solution))
                 else:
                     db_solid_solution_csv_name = db_solid_solution.split("/")[-1].lower()
-            
-                    # Download from URL and decode as UTF-8 text.
-                    with urlopen(db_solid_solution) as webpage:
-                        content = webpage.read().decode()
+
+                    try:
+                        # Download from URL and decode as UTF-8 text.
+                        with urlopen(db_solid_solution) as webpage:
+                            content = webpage.read().decode()
+                    except:
+                        self.err_handler.raise_exception("The webpage "+str(db_solid_solution)+" cannot"
+                                " be reached at this time.")
                         
                     # Save to CSV file.
                     with open(db_solid_solution_csv_name, 'w') as output:
@@ -2567,7 +2571,8 @@ class AqEquil(object):
 
         out_dict = {'sample_data': {},
                     'report': df_join,
-                    'input': df_input, 'report_divs': report_divs}
+                    'input': df_input,
+                    'report_divs': report_divs}
         
         if get_mass_contribution:
             out_dict['mass_contribution'] = mass_contribution
@@ -3465,6 +3470,7 @@ class AqEquil(object):
             solid_solutions = self.AqEquil_instance.solid_solutions
             self.exclude_category = self.AqEquil_instance.exclude_category
             self.water_model = self.AqEquil_instance.water_model
+            self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
             download_csv_files = self.AqEquil_instance.download_csv_files
@@ -3557,7 +3563,7 @@ class AqEquil(object):
 
             # elements must be loaded if thermo_db_type is a CSV
             if self.elements != None:
-                self._load_elements(elements, source="file")
+                self._load_elements(self.elements, source="file")
             if not self.element_active and self.thermo_db_type=="CSV":
                 self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
 
@@ -3790,9 +3796,13 @@ class AqEquil(object):
 
             filename = url.split("/")[-1].lower()
 
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(url) as webpage:
-                content = webpage.read().decode()
+            try:
+                # Download from URL and decode as UTF-8 text.
+                with urlopen(url) as webpage:
+                    content = webpage.read().decode()
+            except:
+                self.err_handler.raise_exception("The webpage "+str(url)+" cannot"
+                        " be reached at this time.")
 
             if download_csv_files:
                 if self.verbose > 0:
@@ -3810,9 +3820,13 @@ class AqEquil(object):
 
             filename = url.split("/")[-1].lower()
 
-            # Download from URL and decode as UTF-8 text.
-            with urlopen(url) as webpage:
-                txt_content = webpage.read().decode()
+            try:
+                # Download from URL and decode as UTF-8 text.
+                with urlopen(url) as webpage:
+                    txt_content = webpage.read().decode()
+            except:
+                self.err_handler.raise_exception("The webpage "+str(url)+" cannot"
+                        " be reached at this time.")
 
             if self.verbose > 0:
                 print("Downloading", filename, "from", url)
@@ -4486,10 +4500,11 @@ class Speciation(object):
         for k in args:
             setattr(self, k, args[k])
 
-        # create a dict of report categories and their child columns
-        self.report_category_dict = {}
-        for cat in [str(s) for s in list(self.report_divs.names)]:
-            self.report_category_dict[cat] = list(self.report_divs.rx2(cat))
+        if 'report_divs' in list(self.__dict__.keys()):
+            # create a dict of report categories and their child columns
+            self.report_category_dict = {}
+            for cat in [str(s) for s in list(self.report_divs.names)]:
+                self.report_category_dict[cat] = list(self.report_divs.rx2(cat))
         
 
     def __getitem__(self, item):
@@ -4859,7 +4874,7 @@ class Speciation(object):
                 continue
 
             # comparing common elements
-            
+            # requires "formula" and not "formula_modded" columns of thermo_db
             ox_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==oxidant].values[0])
             ox_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
             ox_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
@@ -4978,10 +4993,12 @@ class Speciation(object):
             ox_coeff = unpacked_dict["ox_coeff"]
             red_coeff = unpacked_dict["red_coeff"]
 
-            #print(basis_candidates+["H2O", "e-", "H+"])
+            # print("BASIS CANDIDATES")
+            # print(basis_candidates+["H2O", "e-", "H+"])
             
             pyCHNOSZ.basis(basis_candidates+["H2O", "e-", "H+"],
                            messages=False)
+            
             sout = pyCHNOSZ.subcrt(species=[oxidant, reductant, "e-"],
                                    coeff=[ox_coeff, red_coeff, e_coeff],
                                    property="logK", T=25,
@@ -4989,7 +5006,8 @@ class Speciation(object):
             
             half_reaction_dict[idx] = self._create_sp_dict(sout)
 
-        #print(half_reaction_dict)
+        # print("HALF REACTION DICT")
+        # print(half_reaction_dict)
 
         # find all possible combinations of idx pairs (but not reverse rxns to save time)
         good_idx_list = [idx for idx in idx_list if idx not in bad_idx_list]
@@ -5418,7 +5436,7 @@ class Speciation(object):
                         scalars, groups = self.__match_grouped_species(s)
                         
                         if len(scalars) > 0:
-                            total_summed_scaled = [0]*len(self.aq_distribution_molal.columns)
+                            total_summed_scaled = [0]*self.aq_distribution_molal.shape[0]
                             
                             for i,scalar in enumerate(scalars):
                                 col_subset = [col for col in groups[i] if col in self.aq_distribution_molal.columns]
@@ -5432,8 +5450,8 @@ class Speciation(object):
                     else:
                         s_molal_dict[s] = list(self.aq_distribution_molal[s])
                 else:
-                    s_logact_dict[s] = [0]*self.aq_distribution_logact.shape[0]
-                    s_molal_dict[s] = [0]*self.aq_distribution_logact.shape[0]
+                    s_logact_dict[s] = [float('NaN')]*self.aq_distribution_logact.shape[0]
+                    s_molal_dict[s] = [float('NaN')]*self.aq_distribution_logact.shape[0]
                     # self.err_handler.raise_exception("The species "+str(s)+" is "
                     #         "not among the distribution of aqueous species in "
                     #         "this calculation.")
@@ -5496,8 +5514,19 @@ class Speciation(object):
                 y_list.append(round(logK/divisor_i, 4))
                 df_y_name = "logK"
                 continue
-                
 
+            # print("")
+            # print("stoich")
+            # print([st for st in stoich])
+            # print("species")
+            # print([sp for sp in species])
+            # print("logact")
+            # print([s_logact_dict[sp][i] for sp in species])
+            # print("result")
+            # print(sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)]))
+            
+
+            
             logQ = sum([st*s_logact_dict[sp][i] for st,sp in zip(stoich,species)])
 
             if y_type == "logQ":
@@ -6159,7 +6188,7 @@ class Speciation(object):
 
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
 
-            y_find = [yi.replace(" energy supply", "").replace(" affinity", "") for yi in y]
+            y_find = [yi.replace(" energy supply", "").replace(" affinity", "").replace(" Gibbs free energy", "") for yi in y]
             
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
             
@@ -6455,7 +6484,7 @@ class Speciation(object):
 
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
-            y_find = [yi.replace(" energy supply", "").replace(" affinity", "") for yi in y]
+            y_find = [yi.replace(" energy supply", "").replace(" affinity", "").replace(" Gibbs free energy", "") for yi in y]
             y_find = [yi for yi in y_find if "limiting reactant" not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()

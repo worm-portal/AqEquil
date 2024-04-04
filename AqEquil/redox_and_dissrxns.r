@@ -483,6 +483,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
                  ". These species will be excluded from the speciation...")
     print(msg)
       
+  }else{
+    problem_sp <- c()
   }
                             
   simplest_basis <- c()
@@ -1289,9 +1291,23 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   }
 #   print(tail(thermo_df))
 
+
+  # restore thermo()
+  to_mod_OBIGT <- thermo_df[c("name", "abbrv", "formula",
+                              "state", "ref1", "ref2", "date",
+                              "E_units", "G", "H", "S", "Cp",
+                              "V", "a1.a", "a2.b", "a3.c",
+                              "a4.d", "c1.e", "c2.f",
+                              "omega.lambda", "z.T")]
+                                  
+  suppressMessages({
+    thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
+    mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
+  })
+                                  
   thermo_df[is.na(thermo_df)]=''
                                   
   out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
-                                  
+
   return(out_list)
 }
