@@ -769,7 +769,7 @@ class AqEquil(object):
                  download_csv_files=False,
                  exclude_organics=False,
                  exclude_category=None,
-                 suppress_redox=[],
+                 suppress_redox=None,
                  input_template="none",
                  water_model="SUPCRT92",
                  exceed_Ttr=True,
@@ -782,6 +782,9 @@ class AqEquil(object):
         self.df_input_processed = None
         self.water_model = water_model
 
+        if not isinstance(suppress_redox, list):
+            suppress_redox = []
+        
         half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
         
@@ -2099,11 +2102,13 @@ class AqEquil(object):
             if os.path.exists(data0_path) and os.path.isfile(data0_path):
                 with open(data0_path) as data0:
                     data0_lines = data0.readlines()
+                    data0_lines = [line.rstrip()+"\n" for line in data0_lines]
                     start_index = [i+1 for i, s in enumerate(data0_lines) if s == 'temperatures\n']
                     if activity_model == 'davies' or activity_model == 'b-dot':
                         end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel a (adh)\n']
                     elif activity_model == 'pitzer':
                         end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel aphi\n']
+                        
                     db_grids_unformatted = [i.split("pressures")[0] for i in data0_lines[start_index[0]:end_index[0]]]
                     db_grids = [" ".join(i.split()) for i in db_grids_unformatted if i != '']
                     grid_temps = db_grids[0] + " " + db_grids[1]
@@ -3715,7 +3720,7 @@ class AqEquil(object):
             elif isinstance(db, str):
                 if len(db) == 3:
                     # e.g., "wrm"
-    
+
                     self.data0_lettercode = db
                     self.dynamic_db = False
                     
@@ -3731,7 +3736,7 @@ class AqEquil(object):
                             self.data1["all_samples"] = data1_file.read()
     
                     elif os.path.exists("data0." + db) and os.path.isfile("data0." + db):
-    
+                        
                         if self.verbose > 0:
                             print("data1." + db + " was not found in the EQ36DA directory "
                                   "but a data0."+db+" was found in the current working "
@@ -4344,7 +4349,7 @@ class AqEquil(object):
         def _suppress_redox_and_generate_dissrxns(self,
                                                   suppress_redox,
                                                   exceed_Ttr=True):
-
+            
             thermo_df = self.thermo_db
             
             suppress_redox = _convert_to_RVector(suppress_redox)
@@ -4437,7 +4442,7 @@ def compare(*args):
     ----------
     An object of class `Speciation`.
     """
-    
+
     if all(["mass_contribution" in a.__dict__.keys() for a in args]):
         allow_mass_contribution = True
         mass_contribution_breaks = []
@@ -4447,17 +4452,36 @@ def compare(*args):
     for i,sp in enumerate(args):
         if i == 0:
             sp_total = copy.deepcopy(sp)
-            sp_total.sample_data = None
+            sp_total.sample_data_combined = {}
+            sp_total.sample_data_combined[i] = sp_total.sample_data
+            sp_total.sample_data = {}
             if allow_mass_contribution:
                 mass_contribution_breaks.append(0)
         else:
             sp_i = copy.deepcopy(sp)
+            sp_total.sample_data_combined[i] = sp_i.sample_data
             if allow_mass_contribution:
                 mass_contribution_breaks.append(sp_total.report.shape[0])
             sp_total.report = pd.concat([sp_total.report, sp_i.report], axis=0, sort=False)
         
 
     sp_total.report.index = sp_total.report.index + ("_"+sp_total.report.groupby(level=0).cumcount().astype(str)).replace('_0','')
+
+    # restore sample data and rename samples if necessary
+    for i in sp_total.sample_data_combined.keys():
+        for sample in sp_total.sample_data_combined[i].keys():
+            if sample not in sp_total.sample_data.keys():
+                sp_total.sample_data[sample] = sp_total.sample_data_combined[i][sample]
+            else:
+                prev_sample_name = copy.deepcopy(sample)
+                ii = 0
+                while sample in sp_total.sample_data.keys():
+                    ii+=1
+                    sample = prev_sample_name+"_"+str(ii)
+                    if sample not in sp_total.sample_data.keys():
+                        sp_total.sample_data[sample] = sp_total.sample_data_combined[i][prev_sample_name]
+                        break
+                    
     
     if allow_mass_contribution:
         mass_contribution_breaks.append(len(sp_total.report.index))
@@ -4486,8 +4510,7 @@ def compare(*args):
             print("Mass contributions cannot be compared between these speciations "
                   "because one or more calculations lack mass contribution data.")
         sp_total.plot_mass_contribution = no_mass_contrib_message
-                
-    
+
     return sp_total
 
 
@@ -5328,15 +5351,128 @@ class Speciation(object):
 
 
     def calculate_energy(self, species, stoich,
-                    divisor=1, custom_grouping_filepath=None,
-                    per_electron=False, rxn_name="custom reaction",
+                    divisor=1, per_electron=False,
+                    rxn_name="custom reaction",
                     negative_energy_supplies=False,
                     y_type="A", y_units="kcal", 
                     limiting=None, charge_sign_at_end=False,
+                    as_written=False,
                     simple_df_output=False,
                     append_report=True,
+                    custom_grouping_filepath=None,
                     print_logK_messages=False,
                     raise_nonlimiting_exception=True):
+
+        """
+        Calculate Gibbs free energy, logK, logQ, chemical affinity, or energy
+        supply for a user-defined reaction across all samples in a speciation.
+        
+        Parameters
+        ----------
+        species : list of str
+            List of species in the reaction
+            
+        stoich : list of numeric
+            List of stoichiometric reaction coefficients (reactants are negative)
+
+        divisor : numeric, default 1, or list of numeric
+            If a single numeric value is provided, divide all calculated values
+            (Gibbs free energies, affinities, etc.) by that value. Synergizes
+            with the parameter `per_electron` when normalizing calculated values
+            to a per electron basis. See `per_electron` for more information.
+
+        per_electron : bool, default False
+            If False, values calculated by this function will be treated as
+            'per mole of reaction'. If set to True, then the calculation will
+            assume that `divisor` is normalizing calculated values to a per
+            electron basis. For example, sulfide oxidation to sulfate has the
+            following reaction: [2 O2 + H2S = SO4-2 + 2 H+]. The oxidation state
+            of sulfur changes from S-2 in sulfide to S+6 in sulfate, a
+            difference of 8 electrons. If you use `calculate_energy` to
+            calculate the Gibbs free energy per mole of electrons transferred,
+            you would set `divisor` to 8 and `per_electron` to True.
+
+        rxn_name : str, default "custom reaction"
+            Name for the reaction, e.g., "sulfide oxidation to sulfate".
+
+        negative_energy_supplies : bool, default False
+            Report negative energy supplies? If False, negative energy supplies
+            are reported as 0. If True, negative energy supplies are
+            reported. A 'negative energy supply' represents the energy cost of
+            depleting the limiting reactant of a reaction. This metric is not
+            always helpful when examing energy supply results, so this option is
+            set to False by default.
+
+        y_type : str, default "A"
+            The variable to plot on the y-axis. Can be either 'A' (for chemical
+            affinity), 'G' (for Gibbs free energy, ΔG), 'logK' (for the log
+            of the equilibrium constant), 'logQ' (for the log of the reaction
+            quotient), or 'E' for energy supply.
+
+        y_units : str, default "kcal"
+            The unit that energy will be reported in (per mol for G and A, or
+            per kg fluid for energy supply, or unitless for logK and logQ).
+            Can be 'kcal', 'cal', 'J', or 'kJ'.
+
+        limiting : str, optional
+            Name of the species to act as the limiting reactant when calculating
+            energy supply. If this parameter is left undefined, then a
+            limiting reactant will be chosen automatically based on
+            concentration and stoichiometry. This parameter is ignored unless
+            `y_type` is set to 'E' (energy supply).
+
+        charge_sign_at_end : bool, default False
+            Display charge with sign after the number (e.g. SO4 2-)?
+
+        as_written : bool, default False
+            If `as_written` is False, then built-in speciation groups
+            will be used to calculate limiting reactants. For example, if CaCO3
+            is a reactant, then the code tests whether the limiting reactant is
+            the sum of CaCO3, CO2, HCO3-, CO3-2, NaCO3-... everything in the
+            carbonate speciation group. If `as_written` is True, then speciation
+            groups will not be used; only the species defined as reactants
+            will be used to test whether a reactant is limiting
+            (e.g., just CaCO3). This parameter is ignored unless `y_type` is set
+            to 'E' (energy supply).
+
+        simple_df_output : bool, default False
+            By default, the dataframe returned by this function is multiindexed;
+            i.e., there is a header column, a subheader defining the units,
+            and then columns of values. If `simple_df_output` is set to True,
+            then the dataframe returned will not be multiindexed; there will
+            only be one column header that includes units.
+
+        append_report : bool, default True
+            Add or update calculated values to the speciation object's report
+            dataframe?
+
+        custom_grouping_filepath : str, optional
+            Filepath for a TXT file containing customized speciation groups. Use
+            to override the built-in speciation group file.
+
+        print_logK_messages : bool, default False
+            Print additional messages related to calculating logK values for
+            each sample?
+
+        raise_nonlimiting_exception : bool, default True
+            This parameter can be ignored in almost all cases. Raise an
+            exception when there are no available limiting reactants?
+            The purpose of this parameter is toggle off error message
+            interruptions when this function is called by
+            `apply_redox_reactions`, which can test many different reactions at
+            once, some of which do not have valid limiting reactants and would
+            otherwise be interrupted by errors.
+        
+            
+        Returns
+        ----------
+        Pandas dataframe
+            Returns a multiindexed dataframe of samples and calculated results.
+            If `append_report` is True, then the report attribute of the
+            speciation object will be appended/updated. If `simple_df_output` is
+            set to True, then the dataframe will not be multiindexed.
+            
+        """
 
         # check that y_type is recognized
         if y_type not in ["logK", "logQ", "G", "A", "E"]:
@@ -5486,6 +5622,16 @@ class Speciation(object):
 
                         # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                         scalars, groups = self.__match_grouped_species(s)
+                        
+                        if as_written:
+                            # if energy supplies are to be calculated as written
+                            # with no grouping or limiting reactant switching,
+                            # then use the current species and its scalar
+                            for i, sc in enumerate(scalars):
+                                if s in groups[i]:
+                                    scalars = [sc]
+                                    groups = [[s]]
+                                    break
                         
                         if len(scalars) > 0:
                             total_summed_scaled = [0]*self.aq_distribution_molal.shape[0]
@@ -6317,7 +6463,8 @@ class Speciation(object):
             fig.show(config=config)
 
         
-    def scatterplot(self, x="pH", y="Temperature", title=None, plot_zero=True,
+    def scatterplot(self, x="pH", y="Temperature", title=None,
+                    log_x=False, log_y=False, plot_zero=True,
                     rxns_as_labels=True, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     fill_alpha=0.7, point_size=10,
@@ -6337,6 +6484,9 @@ class Speciation(object):
 
         title : str, optional
             Title of the plot.
+
+        log_x, log_y : bool, default False
+            Display the x_axis or y_axis in log scale?
 
         plot_zero : bool, default True
             Plot zero values? Additionally, include series with all NaN (blank)
@@ -6517,7 +6667,6 @@ class Speciation(object):
             df = df.dropna(subset=['y_value'])
             df = df[df.y_value != 0]
 
-
         if isinstance(colormap, str):
             # get colors
             colors = _get_colors(colormap, len(y), alpha=fill_alpha)
@@ -6531,6 +6680,10 @@ class Speciation(object):
             
             # html format color dict key names
             dict_species_color = {chemlabel(k, charge_sign_at_end=charge_sign_at_end):v for k,v in dict_species_color.items()}
+        elif isinstance(colormap, list):
+            colors = colormap
+            dict_species_color = {sp:color for sp,color in zip(y, colors)}
+        
         else:
             dict_species_color = {}
 
@@ -6555,9 +6708,15 @@ class Speciation(object):
         
         if ylab != None:
             ylabel=ylab
+
+        if "log" in xlabel and log_x and xlabel != "pH":
+            log_x = False
+        if "log" in ylabel and log_y and ylabel != "pH":
+            log_y = False
         
         if lineplot:
             fig = px.line(df, x=x, y="y_value", color="y_variable",
+                             log_x=log_x, log_y=log_y,
                              hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
                              width=plot_width*ppi, height=plot_height*ppi,
                              labels={x: xlabel,  "y_value": ylabel},
@@ -6567,6 +6726,7 @@ class Speciation(object):
                              template="simple_white")
         else:
             fig = px.scatter(df, x=x, y="y_value", color="y_variable",
+                             log_x=log_x, log_y=log_y,
                              hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
                              width=plot_width*ppi, height=plot_height*ppi,
                              labels={x: xlabel,  "y_value": ylabel},
@@ -7132,6 +7292,11 @@ class Speciation(object):
         """
         
         sample_data = getattr(self, "sample_data")
+
+        if sample not in sample_data.keys():
+            self.err_handler.raise_exception(("The sample '"+str(sample)+"'"
+                    " was not found amongst samples with mass transfer"
+                    " results: "+str(list(sample_data.keys()))))
         
         if "mass_transfer" in list(sample_data[sample].keys()):
             if sample_data[sample]["mass_transfer"] != None:

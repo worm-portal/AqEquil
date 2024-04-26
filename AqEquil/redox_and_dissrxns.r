@@ -224,6 +224,7 @@ subcrt_bal <- function(ispecies, coeff){
     
   # the mass balance; should be zero for a balanced reaction
   mss <- makeup(ispecies, coeff, sum=TRUE)
+
   # take out very small numbers
   mss[abs(mss) < 1e-7] <- 0
   # report and try to fix any non-zero mass balance
@@ -1002,6 +1003,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   suppressMessages({
     thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
     mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
+    basis(delete=TRUE)
   })
                                    
   # begin handling basis preferences
@@ -1065,22 +1067,25 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     # reaction includes another aux basis species
     #    E.g., remove H2S (aux) if its dissociation reaction includes HS- (aux) 
     reject <- c()
-    for(i in 1:length(aux_pref)){
-      auxd <- strsplit(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "dissrxn"], " ")[[1]]
-      auxd <- auxd[3:length(auxd)]
-      for(a in aux_pref){
-        if(a %in% auxd){
-          reject <- c(reject, i)
+    if(length(aux_pref) > 0){
+      for(i in 1:length(aux_pref)){
+        auxd <- strsplit(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "dissrxn"], " ")[[1]]
+        auxd <- auxd[3:length(auxd)]
+        for(a in aux_pref){
+          if(a %in% auxd){
+            reject <- c(reject, i)
+          }
         }
       }
     }
-      
-    reject <- unique(reject)
-      
-    aux_pref <- aux_pref[-reject]
-    aux_pref_names <- aux_pref_names[-reject]
-     
+
+    if(length(reject)>0){
+      reject <- unique(reject)
+      aux_pref <- aux_pref[-reject]
+      aux_pref_names <- aux_pref_names[-reject]
+    }
     names(aux_pref) <- aux_pref_names
+      
   }else{
     aux_pref <- list()
     aux_pref_names <- c()
@@ -1141,6 +1146,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
       dissrxn_coefs <- dissrxn[c(TRUE, FALSE)] # get coeffs of reactants and products
       dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
+        
       tryCatch({
         subcrt_bal(dissrxn_ispecies, dissrxn_coefs)
       }, error=function(e){

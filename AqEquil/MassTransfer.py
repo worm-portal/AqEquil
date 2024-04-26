@@ -2471,6 +2471,166 @@ class Mass_Transfer:
         else:
             return fig
 
+
+    def plot_mineral_saturation(self, solid_solutions=False, plot_minerals=None,
+                                      x_type="logxi", y_type="affinity", log_y=True,
+                                      df_out=False, markers=False, title=None,
+                                      plot_width=4, plot_height=3, ppi=122, ylim=None,
+                                      show_legend=True, save_as=None, save_format=None,
+                                      save_scale=1):
+        
+        """
+        Generate a line plot of the saturation indices of minerals or solid
+        solutions as a function of the log of the extent of reaction (log Xi) or
+        some other variable.
+        
+        Parameters
+        ----------
+        plot_minerals : list, optional
+            List of minerals to plot. Useful for isolating one or more
+            minerals.
+            
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
+            
+        y_type : str, default 'affinity'
+            The variable to plot on the y-axis. Can be either 'affinity'
+            or 'logQ/K'.
+            
+        df_out : bool, default False
+            Should a dataframe of values also be returned? For example, if
+            `y_type` is set to 'volume', should a table of mineral volumes be
+            returned?
+            
+        markers : bool, default True
+            Add circular markers to lines to indicate calculation steps?
+
+        title : str, optional
+            Used to customize the title of the plot.
+            
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
+            
+        show_legend : bool, default True
+            Show the legend?
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+            
+        df : a Pandas dataframe
+            A dataframe is only returned if `df_out` is set to True (it is
+            set to False by default).
+        
+        """
+        
+        xlab, xvar = self.__get_xlab_xvar(x_type)
+
+        if not isinstance(title, str):
+            title = "Saturation indices of "
+        
+        if not solid_solutions:
+            if y_type == "affinity":
+                df = pd.concat([self.saturation_states_pure_solids_affinity,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "affinity, kcal/mol"
+            else:
+                df = pd.concat([self.saturation_states_pure_solids_log_Q_over_K,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "logQ/K"
+            
+            title = title + "minerals"
+        else:
+            if y_type == "affinity":
+                df = pd.concat([self.saturation_states_solid_solutions_affinity,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "affinity, kcal/mol"
+            else:
+                df = pd.concat([self.saturation_states_solid_solutions_log_Q_over_K,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "logQ/K"
+            title = title + "solid solutions"
+            
+        plot_columns = [col for col in df.columns if col not in list(self.misc_params.columns)]
+
+        if isinstance(plot_minerals, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+            plot_columns = plot_columns_temp
+        
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
+        df.columns = list(self.misc_params.columns)+["variable", "value"]
+        
+        df = df[df["variable"] != "None"]
+
+        df["Xi"] = pd.to_numeric(df["Xi"])
+
+        df["value"] = pd.to_numeric(df["value"])
+        df["value"] = df["value"].fillna(0)
+
+        with np.errstate(divide='ignore'):
+            df['log Xi'] = np.log10(df['Xi'])
+
+        fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
+                      width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
+                      labels=dict(value=ylab, x=xlab), render_mode='svg',
+                      )
+        
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          legend_title=None,
+                          showlegend=show_legend)
+        
+        if isinstance(title, str):
+            fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+        
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+        
+        return fig
+
+
+
+
+
+
+
+    
+
     
     def plot_aqueous_species(self, plot_basis=False, plot_species=None,
                              x_type="logxi", y_type="log activity",
@@ -3615,6 +3775,13 @@ class Mixing_Fluid:
         if isinstance(speciation, Speciation):
             
             self.sample_name = sample_name
+
+            if not sample_name in speciation.sample_data.keys():
+                
+                self.err_handler.raise_exception(("The sample '"+str(sample_name)+"'"
+                        " was not found amongst the samples in this speciation"
+                        " calculation: "+str(list(speciation.sample_data.keys()))))
+                
             self.speciation_sample_data = speciation.sample_data[sample_name]
             self.T = self.speciation_sample_data["temperature"]
             self.mass_ratio = mass_ratio
