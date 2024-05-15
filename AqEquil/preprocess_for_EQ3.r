@@ -159,18 +159,26 @@ preprocess <- function(input_filename,
     ### interpolate pressure
       
     f1 <- function(T) {
-      return(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)
+      sum = 0
+      for(i in 1:length(poly_coeffs_1)){
+        sum = sum + poly_coeffs_1[i]*T^(i-1)
+      }
+      return(sum)
     }
       
     f2 <- function(T) {
-      return(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3 + poly_coeffs_2[5]*T^4)
+      sum = 0
+      for(i in 1:length(poly_coeffs_2)){
+        sum = sum + poly_coeffs_2[i]*T^(i-1)
+      }
+      return(sum)
     }
-
+      
     pressure_bar <- c()
     for(T in temp_degC){
-      if(grid_temps[1] <= T && T <= grid_temps[4]){
+      if(grid_temps[1] <= T && T <= grid_temps[length(poly_coeffs_1)-1]){ # todo: check if this length(poly_coeffs_1) is correct... should be "4" for grid length of 8
         pressure_bar <- c(pressure_bar, f1(T))
-      }else if (grid_temps[4] <= T && T <= grid_temps[8]){
+      }else if (grid_temps[length(poly_coeffs_1)-1] <= T && T <= grid_temps[length(grid_temps)]){ # todo: check if this length(poly_coeffs_1) is correct... should be "4" for grid length of 8
         pressure_bar <- c(pressure_bar, f2(T))
       }else{
         stop(paste0("Error: one or more temperatures in this sample set is outside of the temperature range of this thermodynamic dataset (", grid_temps[1], " to ", grid_temps[8], " C)."))

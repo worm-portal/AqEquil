@@ -1,5 +1,9 @@
 data0.min
 minimal working data0 file
+*Standard data grid parameters:
+*   NO. OF TEMPERATURE RANGES =  2
+*   NO. OF POINTS IN RANGE 1  = 5
+*   NO. OF POINTS IN RANGE 2  = 4
 +--------------------------------------------------------------------           
 data0 parameters                                                                
 +--------------------------------------------------------------------           

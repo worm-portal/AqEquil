@@ -1444,10 +1444,19 @@ class AqEquil(object):
 #         print("R COEFFS")
 #         print(poly_coeffs_1)
 #         print(poly_coeffs_2)
+
+        if (len(xvals) % 2) == 0:
+            # if xvals has an even length
+            n_mid1 = math.floor(len(xvals)/2)-1
+            n_mid2 = n_mid1+1
+        else:
+            # if xvals has an odd length
+            n_mid1 = math.floor(len(xvals)/2)
+            n_mid2 = n_mid1+1
         
         
-        f1_x = np.linspace(xvals[0], xvals[3], num=res)
-        f2_x = np.linspace(xvals[3], xvals[7], num=res)
+        f1_x = np.linspace(xvals[0], xvals[n_mid1], num=res)
+        f2_x = np.linspace(xvals[n_mid1], xvals[len(xvals)-1], num=res)
         f1_y = [self.__f(x, poly_coeffs_1) for x in f1_x]
         f2_y = [self.__f(x, poly_coeffs_2) for x in f2_x]
 
@@ -1487,12 +1496,12 @@ class AqEquil(object):
 
     
     def _interpolate_logK(self, T, logK_grid, T_grid, logK_extrapolate="none"):
-        
+
         logK_grid_trunc = [t for t in logK_grid if not math.isnan(t)]
         grid_len = len(logK_grid_trunc)
         logK_grid = logK_grid_trunc
         T_grid = T_grid[0:grid_len]
-        
+
         if logK_extrapolate=="none" and (T > max(T_grid) or T < min(T_grid)):
             return np.nan, "no fit"
         elif logK_extrapolate=="no fit":
@@ -2739,8 +2748,7 @@ class AqEquil(object):
     def __fill_data0(self, thermo_df, data0_file_lines, grid_temps, grid_press, db,
                    water_model, activity_model, P1, plot_poly_fit, logK_extrapolate,
                    dynamic_db, verbose):
-        
-        
+
         self._capture_r_output()
         
         r_check_TP_grid = pkg_resources.resource_string(
@@ -2760,7 +2768,7 @@ class AqEquil(object):
         grid_temps = list(list_tp.rx2("grid_temps"))
         grid_press = list(list_tp.rx2("grid_press"))
         
-        if plot_poly_fit and len(grid_temps) == 8:
+        if plot_poly_fit and len(grid_temps) >= 8:
             self.__plot_TP_grid_polyfit(xvals=grid_temps,
                                         yvals=grid_press,
                                         poly_coeffs_1=list(list_tp.rx2("poly_coeffs_1")),
@@ -2777,7 +2785,7 @@ class AqEquil(object):
         dissrxn_logK_dict = {'name': out_dfs[0]["name"],
                              'logK_0': out_dfs[0]["dissrxn_logK_0"]}
         
-        if len(grid_temps) == 8:
+        if len(grid_temps) >= 8:
             for i in range(1, len(grid_temps)):
                 dissrxn_logK_dict['logK_'+str(i)] = out_dfs[i]["dissrxn_logK_"+str(i)]
                 
@@ -2847,7 +2855,7 @@ class AqEquil(object):
             name = dissrxn_logK.iloc[idx, dissrxn_logK.columns.get_loc('name')]
 
             # format the logK reaction block of this species' data0 entry
-            logK_grid = list(dissrxn_logK.iloc[idx, 1:9])
+            logK_grid = list(dissrxn_logK.iloc[idx, 1:len(dissrxn_logK)+1])
             
             if not dynamic_db:
                 if name not in self.logK_models.keys() and name not in free_logK_names:
@@ -2857,6 +2865,7 @@ class AqEquil(object):
                                   "logK_extrapolate":logK_extrapolate,
                                   "type":"calculated logK values",
                                   }
+
             elif dynamic_db:
                 if name not in self.logK_models.keys() and name not in free_logK_names:
                     self.logK_models[name] = {"logK_grid":[logK_grid[0]],
@@ -2883,10 +2892,10 @@ class AqEquil(object):
                 logK_val = self.__s_d(logK_grid[i], 4)
                 
                 # conditional formatting based on position
-                if (i+1) == 1 or (i+1) % 5 == 0: # first entry of a line
+                if (i+1) == 1 or (i+1) % 7 == 0: # first entry of a line
                     max_length = 11
                     end_char = ""
-                elif (i+1) % 4 == 0 and (i+1) != len(logK_grid): # last entry of a line
+                elif (i+1) % 6 == 0 and (i+1) != len(logK_grid): # last entry of a line
                     max_length = 6
                     end_char = "\n"
                 else:
@@ -2925,7 +2934,6 @@ class AqEquil(object):
         with open("data0."+db, 'w') as f:
             for item in data0_file_lines:
                 f.write("%s" % item)
-
                 
     def plot_logK_fit(self, name, plot_out=False, res=200, internal=True, logK_extrapolate=None, T_vals=[]):
         """
@@ -2966,7 +2974,6 @@ class AqEquil(object):
             Returned if `plot_out` is True.
 
         """
-        
         if internal and len(self.logK_models.keys()) > 0:
             # use internally calculated logK models already stored...
             if name not in self.logK_models.keys():
@@ -3005,7 +3012,6 @@ class AqEquil(object):
             
             if not isinstance(logK_extrapolate, str):
                 logK_extrapolate = self.thermo.logK_extrapolate
-            
         
         if not isinstance(logK_extrapolate, str):
             logK_extrapolate = self.logK_models[name]["logK_extrapolate"]
@@ -3020,6 +3026,12 @@ class AqEquil(object):
         T_grid = [t for t in T_grid if not pd.isna(t)]
         P_grid = [p for p in P_grid if not pd.isna(p)]
         logK_grid = [k for k in logK_grid if not pd.isna(k)]
+
+        if len(logK_grid) == 0 or len(T_grid) == 0 or len(P_grid) == 0:
+            self.err_handler.raise_exception("This species has no valid logK "
+                    "values, temperature values, or pressure values. It is "
+                    "possible that this is a strict basis species with no "
+                    "dissociation reaction for which to calculate logK values.")
         
         fig = px.scatter(x=T_grid, y=logK_grid)
         
@@ -3311,11 +3323,11 @@ class AqEquil(object):
             if self.verbose >= 1:
                 print("Creating data0.{}...".format(db), flush=True)
         
-        if len(grid_temps) not in [1, 8]:
-            self.err_handler.raise_exception("'grid_temps' must have either one or eight values.")
-        if isinstance(grid_press, list):
-            if len(grid_press) not in [1, 8]:
-                self.err_handler.raise_exception("'grid_press' must have either one or eight values.")
+        # if len(grid_temps) not in [1, 8]:
+        #     self.err_handler.raise_exception("'grid_temps' must have either one or eight values.")
+        # if isinstance(grid_press, list):
+        #     if len(grid_press) not in [1, 8]:
+        #         self.err_handler.raise_exception("'grid_press' must have either one or eight values.")
         
         if sum([T >= 10000 for T in grid_temps]):
             self.err_handler.raise_exception("Grid temperatures must be below 10k °C.")
@@ -4580,6 +4592,9 @@ class Speciation(object):
             self.report_category_dict = {}
             for cat in [str(s) for s in list(self.report_divs.names)]:
                 self.report_category_dict[cat] = list(self.report_divs.rx2(cat))
+
+        if 'verbose' not in list(self.__dict__.keys()):
+            self.verbose = 1
         
 
     def __getitem__(self, item):
@@ -4689,9 +4704,81 @@ class Speciation(object):
 
     
     def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
+                                    grams_minerals=0,
                                     negative_energy_supplies=False,
                                     custom_grouping_filepath=None,
                                     append_report=True):
+
+        """
+        Calculate chemical affinities, energy supplies, and more in samples
+        using the redox reactions generated by the function
+        `make_redox_reactions`.
+
+        Parameters
+        ----------
+        grams_minerals : float or dict, default 0
+            Number of grams belonging to each mineral reactant when calculating
+            the limiting reactant during an energy supply calculation. This
+            parameter is only used when `y_type="E"`.
+            For example, in the reaction
+            4 goethite + 4 iron + 3 O2 = 4 magnetite + 2 H2O
+            setting `grams_minerals = 0.001` would mean 0.001 grams of goethite
+            is reacting with 0.001 grams of iron. If it is desirable to specify
+            individual masses for each mineral reactant, then a dictionary can
+            be provided. For example:
+            `grams_minerals={"goethite": 0.001, "iron": 0.1},`
+
+        negative_energy_supplies : bool, default False
+            Report negative energy supplies? If False, negative energy supplies
+            are reported as 0. If True, negative energy supplies are
+            reported. A 'negative energy supply' represents the energy cost of
+            depleting the limiting reactant of a reaction. This metric is not
+            always helpful when examing energy supply results, so this option is
+            set to False by default.
+
+        y_type : str, default "A"
+            The variable to plot on the y-axis. Can be either 'A' (for chemical
+            affinity), 'G' (for Gibbs free energy, ΔG), 'logK' (for the log
+            of the equilibrium constant), 'logQ' (for the log of the reaction
+            quotient), or 'E' for energy supply.
+
+        y_units : str, default "kcal"
+            The unit that energy will be reported in (per mol for G and A, or
+            per kg fluid for energy supply, or unitless for logK and logQ).
+            Can be 'kcal', 'cal', 'J', or 'kJ'.
+
+        limiting : str, optional
+            Name of the species to act as the limiting reactant when calculating
+            energy supply. If this parameter is left undefined, then a
+            limiting reactant will be chosen automatically based on
+            concentration and stoichiometry. This parameter is ignored unless
+            `y_type` is set to 'E' (energy supply).
+
+        append_report : bool, default True
+            Add or update calculated values to the speciation object's report
+            dataframe?
+
+        custom_grouping_filepath : str, optional
+            Filepath for a TXT file containing customized speciation groups. Use
+            to override the built-in speciation group file.
+
+        raise_nonlimiting_exception : bool, default True
+            This parameter can be ignored in almost all cases. Raise an
+            exception when there are no available limiting reactants?
+            The purpose of this parameter is toggle off error message
+            interruptions when this function is called by
+            `apply_redox_reactions`, which can test many different reactions at
+            once, some of which do not have valid limiting reactants and would
+            otherwise be interrupted by errors.
+        
+            
+        Returns
+        ----------
+        Pandas dataframe
+            Returns a multiindexed dataframe of samples and calculated results.
+            If `append_report` is True, then the report attribute of the
+            speciation object will be appended/updated.
+        """
         
         self.custom_grouping_filepath = custom_grouping_filepath
         
@@ -4746,7 +4833,8 @@ class Speciation(object):
                             species=species_list,
                             stoich=coeff_list,
                             divisor=divisor,
-                            per_electron = True,
+                            per_electron=True,
+                            grams_minerals=grams_minerals,
                             y_type=y_type,
                             y_units=y_units,
                             limiting=limiting_input,
@@ -5352,6 +5440,7 @@ class Speciation(object):
 
     def calculate_energy(self, species, stoich,
                     divisor=1, per_electron=False,
+                    grams_minerals=0,
                     rxn_name="custom reaction",
                     negative_energy_supplies=False,
                     y_type="A", y_units="kcal", 
@@ -5391,6 +5480,18 @@ class Speciation(object):
             difference of 8 electrons. If you use `calculate_energy` to
             calculate the Gibbs free energy per mole of electrons transferred,
             you would set `divisor` to 8 and `per_electron` to True.
+
+        grams_minerals : float or dict, default 0
+            Number of grams belonging to each mineral reactant when calculating
+            the limiting reactant during an energy supply calculation. This
+            parameter is only used when `y_type="E"`.
+            For example, in the reaction
+            4 goethite + 4 iron + 3 O2 = 4 magnetite + 2 H2O
+            setting `grams_minerals = 0.001` would mean 0.001 grams of goethite
+            is reacting with 0.001 grams of iron. If it is desirable to specify
+            individual masses for each mineral reactant, then a dictionary can
+            be provided. For example:
+            `grams_minerals={"goethite": 0.001, "iron": 0.1},`
 
         rxn_name : str, default "custom reaction"
             Name for the reaction, e.g., "sulfide oxidation to sulfate".
@@ -5558,7 +5659,7 @@ class Speciation(object):
         invalid_limiting_reactants = []
         for r in reactants:
             if r not in ["H2O", "H+", "OH-"]:
-                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq":
+                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq" and not isinstance(grams_minerals, (pd.DataFrame, float, int)):
                     invalid_limiting_reactants.append(r)
             else:
                 invalid_limiting_reactants.append(r)
@@ -5656,7 +5757,24 @@ class Speciation(object):
             else:
                 # liq and cr species
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+                
+                sp_formula = list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["formula"])[0]
+                sp_mass = pyCHNOSZ.mass(sp_formula)
+                
+                if isinstance(grams_minerals, (pd.DataFrame, float, int)):
+                    if isinstance(grams_minerals, pd.DataFrame):
+                        if s in grams_minerals.columns:
+                            sp_grams_list = list(grams_minerals[s])
+                            s_molal_dict[s] = [sp_grams/sp_mass for sp_grams in sp_grams_list]
+                        else:
+                            s_molal_dict[s] = [0]*len(self.misc_params["Temp(C)"])
+                    else:
+                        sp_grams = grams_minerals
+                        sp_moles = sp_grams/sp_mass
+                        s_molal_dict[s] = [sp_moles]*len(self.misc_params["Temp(C)"])
+                else:
+                    s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+                
 
         if y_type in ["logK", "logQ"]:
             y_type_plain = copy.copy(y_type)
@@ -5767,9 +5885,13 @@ class Speciation(object):
                             # identify valid limiting reactants and record concentrations
                             # 1. negative coefficient (reactant)
                             # 2. can't be OH-, H+, H2O
-                            # 3. can't be cr or liq
-                            if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
-                                lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
+                            # 3. can't be cr or liq if grams_minerals == None
+                            if not isinstance(grams_minerals, (pd.DataFrame, float, int)):
+                                if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
+                                    lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
+                            else:
+                                if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"]:
+                                    lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
                     
                     if not isinstance(limiting, str):
                         lr_name = min(lrc_dict, key=lrc_dict.get)
