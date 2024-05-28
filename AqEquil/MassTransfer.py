@@ -471,8 +471,9 @@ class Mass_Transfer:
         
         self.moles_product_minerals_and_solid_solutions = self.__get_moles_product_minerals(include_solid_solutions=True)
         self.moles_product_minerals = self.__get_moles_product_minerals(include_solid_solutions=False) # relies on self.solid_solution_names
-        
+
         self.solid_solution_x_dict = self.__get_solid_solution_product_phases(unit="x") # relies on self.solid_solution_names
+        self.moles_solid_solutions = self.moles_product_minerals_and_solid_solutions.loc[:, ["Xi"] + list(self.solid_solution_x_dict.keys())]
         self.solid_solution_log_x_dict = self.__get_solid_solution_product_phases(unit="log x") # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log lambda") # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit="log activity") # relies on self.solid_solution_names
@@ -522,13 +523,15 @@ class Mass_Transfer:
                 p_vals.append(p)
             elif "NBS pH scale " in line and recording:
                 splitstrings = line.strip().split(" ")
-                multival = [float(v) for v in splitstrings if v not in ['', 'NBS', 'pH', 'scale']]
+                multival = [v for v in splitstrings if v not in ['', 'NBS', 'pH', 'scale']]
+                multival = [float(v) if v != "********" else float('nan') for v in multival]
                 pH_vals.append(multival[0])
                 Eh_vals.append(multival[1])
                 pe_vals.append(multival[2])
             elif "Mesmer pH (pmH) scale " in line and recording:
                 splitstrings = line.strip().split(" ")
-                pmH = [float(v) for v in splitstrings if v not in ['', 'Mesmer', 'pH', '(pmH)', 'scale']][0]
+                pmH = [v for v in splitstrings if v not in ['', 'Mesmer', 'pH', '(pmH)', 'scale']]
+                pmH = [float(v) if v != "********" else float('nan') for v in pmH][0]
                 pmH_vals.append(pmH)
             elif "  Log oxygen fugacity=" in line and recording:
                 splitstrings = line.strip().split(" ")
@@ -2216,8 +2219,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, solid_solutions=True,
-                              x_type="logxi", y_type="mole",
+                              plot_minerals=None, x_type="logxi", y_type="mole",
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -2236,9 +2238,6 @@ class Mass_Transfer:
         plot_minerals : list, optional
             List of minerals to plot. Useful for isolating one or more
             minerals.
-            
-        solid_solutions : bool, default True
-            Show solid solutions?
             
         x_type : str, default "logxi"
             Variable to appear on the x-axis. Can be "logxi", "xi",
@@ -2307,10 +2306,10 @@ class Mass_Transfer:
         
         if show_reactant_minerals:
             df = pd.concat([self.moles_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
-            title = "{} of reactant and product minerals"
+            title = "{}{} of reactant and product minerals"
         else:
             df = pd.concat([self.moles_product_minerals, self.misc_params[self.misc_params.columns[1:]]], axis=1)
-            title = "{} of product minerals"
+            title = "{}{} of product minerals"
             
         if log_y:
             log_text = "log "
@@ -2324,15 +2323,23 @@ class Mass_Transfer:
             
         if y_type == "mole":
             ylab = "{}moles".format(log_text)
-            title = title.format(log_text, "Moles")
+            title = title.format(log_text, "moles")
         elif y_type == "mass": # not yet supported
             y_lab = "{}grams".format(log_text)
-            title = title.format(log_text, "Masses")
+            title = title.format(log_text, "masses")
             self.err_handler.raise_exception("Plotting mineral masses is not yet "
                     "supported.")
         elif y_type == "volume":
+
+            if not isinstance(self.df, pd.DataFrame):
+                self.err_handler.raise_exception("Plotting mineral volume "
+                        "requires a WORM-formatted CSV thermodynamic database. "
+                        "You may be seeing this message because your speciation "
+                        "used a data0-type thermodynamic database (e.g., 'wrm'), "
+                        "which does not contain mineral volume data.")
+            
             ylab = "{}cm<sup>3</sup>".format(log_text)
-            title = title.format("Volumes")
+            title = title.format(log_text, "volumes")
             temps = df["Temp(C)"]
             
             minerals = [col for col in df.columns if col not in list(self.misc_params.columns)]
@@ -2464,6 +2471,166 @@ class Mass_Transfer:
         else:
             return fig
 
+
+    def plot_mineral_saturation(self, solid_solutions=False, plot_minerals=None,
+                                      x_type="logxi", y_type="affinity", log_y=True,
+                                      df_out=False, markers=False, title=None,
+                                      plot_width=4, plot_height=3, ppi=122, ylim=None,
+                                      show_legend=True, save_as=None, save_format=None,
+                                      save_scale=1):
+        
+        """
+        Generate a line plot of the saturation indices of minerals or solid
+        solutions as a function of the log of the extent of reaction (log Xi) or
+        some other variable.
+        
+        Parameters
+        ----------
+        plot_minerals : list, optional
+            List of minerals to plot. Useful for isolating one or more
+            minerals.
+            
+        x_type : str, default "logxi"
+            Variable to appear on the x-axis. Can be "logxi", "xi",
+            "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
+            "aw".
+            
+        y_type : str, default 'affinity'
+            The variable to plot on the y-axis. Can be either 'affinity'
+            or 'logQ/K'.
+            
+        df_out : bool, default False
+            Should a dataframe of values also be returned? For example, if
+            `y_type` is set to 'volume', should a table of mineral volumes be
+            returned?
+            
+        markers : bool, default True
+            Add circular markers to lines to indicate calculation steps?
+
+        title : str, optional
+            Used to customize the title of the plot.
+            
+        plot_width, plot_height : numeric, default 4 by 3
+            Width and height of the plot, in inches. Size of interactive plots
+            is also determined by pixels per inch, set by the parameter `ppi`.
+            
+        ppi : numeric, default 122
+            Pixels per inch. Along with `plot_width` and `plot_height`,
+            determines the size of interactive plots.
+            
+        ylim : list of two numeric values, optional
+            Minimum and maximum value of the y-axis.
+            
+        show_legend : bool, default True
+            Show the legend?
+            
+        save_as : str, optional
+            Provide a filename to save this figure. Filetype of saved figure is
+            determined by `save_format`.
+            Note: interactive plots can be saved by clicking the 'Download plot'
+            button in the plot's toolbar.
+
+        save_format : str, default "png"
+            Desired format of saved or downloaded figure. Can be 'png', 'jpg',
+            'jpeg', 'webp', 'svg', 'pdf', 'eps', 'json', or 'html'. If 'html',
+            an interactive plot will be saved. Only 'png', 'svg', 'jpeg',
+            and 'webp' can be downloaded with the 'download as' button in the
+            toolbar of an interactive plot.
+
+        save_scale : numeric, default 1
+            Multiply title/legend/axis/canvas sizes by this factor when saving
+            the figure.
+            
+        Returns
+        -------
+        fig : Plotly figure object
+            A line plot.
+            
+        df : a Pandas dataframe
+            A dataframe is only returned if `df_out` is set to True (it is
+            set to False by default).
+        
+        """
+        
+        xlab, xvar = self.__get_xlab_xvar(x_type)
+
+        if not isinstance(title, str):
+            title = "Saturation indices of "
+        
+        if not solid_solutions:
+            if y_type == "affinity":
+                df = pd.concat([self.saturation_states_pure_solids_affinity,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "affinity, kcal/mol"
+            else:
+                df = pd.concat([self.saturation_states_pure_solids_log_Q_over_K,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "logQ/K"
+            
+            title = title + "minerals"
+        else:
+            if y_type == "affinity":
+                df = pd.concat([self.saturation_states_solid_solutions_affinity,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "affinity, kcal/mol"
+            else:
+                df = pd.concat([self.saturation_states_solid_solutions_log_Q_over_K,
+                                self.misc_params[self.misc_params.columns[1:]]], axis=1)
+                ylab = "logQ/K"
+            title = title + "solid solutions"
+            
+        plot_columns = [col for col in df.columns if col not in list(self.misc_params.columns)]
+
+        if isinstance(plot_minerals, list):
+            plot_columns_temp = [col for col in plot_columns if col in plot_minerals]
+            plot_columns = plot_columns_temp
+        
+        df = pd.melt(df, id_vars=list(self.misc_params.columns), value_vars=plot_columns)
+        df.columns = list(self.misc_params.columns)+["variable", "value"]
+        
+        df = df[df["variable"] != "None"]
+
+        df["Xi"] = pd.to_numeric(df["Xi"])
+
+        df["value"] = pd.to_numeric(df["value"])
+        df["value"] = df["value"].fillna(0)
+
+        with np.errstate(divide='ignore'):
+            df['log Xi'] = np.log10(df['Xi'])
+
+        fig = px.line(df, x=xvar, y="value", color='variable', template="simple_white",
+                      width=plot_width*ppi,  height=plot_height*ppi, markers=markers,
+                      labels=dict(value=ylab, x=xlab), render_mode='svg',
+                      )
+        
+
+        fig.update_layout(xaxis_title=xlab,
+                          yaxis_title=ylab,
+                          legend_title=None,
+                          showlegend=show_legend)
+        
+        if isinstance(title, str):
+            fig.update_layout(title={'text':title, 'x':0.5, 'xanchor':'center'})
+        
+        if isinstance(ylim, list):
+            fig.update_layout(yaxis_range=ylim)
+        
+        if isinstance(save_as, str):
+            dummy_sp = Speciation({})
+            save_as, save_format = dummy_sp._save_figure(fig,
+                    save_as, save_format, save_scale,
+                    plot_width, plot_height, ppi)
+        
+        return fig
+
+
+
+
+
+
+
+    
+
     
     def plot_aqueous_species(self, plot_basis=False, plot_species=None,
                              x_type="logxi", y_type="log activity",
@@ -2557,6 +2724,10 @@ class Mass_Transfer:
             elif y_type == "log molality":
                 df = pd.concat([self.aq_distribution_logmolal, self.misc_params[self.misc_params.columns[1:]]], axis=1)
                 ylab = "log molality"
+            else:
+                self.err_handler.raise_exception("The chosen 'y_type' parameter "
+                    "is not recognized. 'y_type' can be 'log activity', "
+                    "'molality', or 'log molality'")
             title = "Solute species"
             
         plot_columns = [col for col in df.columns]
@@ -3559,21 +3730,61 @@ class Mixing_Fluid:
     def __init__(self,
                  speciation,
                  sample_name,
-                 mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
                  molar_volume=1,
+                 mass_ratio=1,
                  hide_traceback=True,
                 ):
 
+        """
+        Class used to define the fluid to be mixed with other fluids in
+        `Prepare_Reaction`.
+
+        Parameters
+        ----------
+        speciation : object of class Speciation
+            The speciation object containing the fluid to be mixed.
+
+        sample_name : str
+            The name of the fluid sample that will be mixed with all other
+            speciated fluids.
+
+        amount_remaining : float, default 1
+            Number of moles of the fluid to be mixed with all others.
+
+        amount_destroyed : float, default 0
+            Number of moles of the mixing fluid that has been destroyed.
+
+        molar_volume : float, default 1
+            Molar volume of the mixing fluid, in moles/cm3.
+
+        mass_ratio : float, default 1
+            Ratio of mass of the mixing fluid to all other fluids.
+
+        hide_traceback : bool, default True
+            Hide traceback message when encountering errors handled by this
+            class? When True, error messages handled by this class will be short
+            and to the point.
+            
+        """
+        
         self.err_handler = Error_Handler(clean=hide_traceback)
-    
+
         # Prepare a special reactant to be used in a mixing calculation.
         if isinstance(speciation, Speciation):
             
             self.sample_name = sample_name
+
+            if not sample_name in speciation.sample_data.keys():
+                
+                self.err_handler.raise_exception(("The sample '"+str(sample_name)+"'"
+                        " was not found amongst the samples in this speciation"
+                        " calculation: "+str(list(speciation.sample_data.keys()))))
+                
             self.speciation_sample_data = speciation.sample_data[sample_name]
             self.T = self.speciation_sample_data["temperature"]
+            self.mass_ratio = mass_ratio
             
             elemental_composition_lines = []
             capture = False
@@ -4333,7 +4544,7 @@ class Prepare_Reaction:
                     t_value_2 = float(reactant.T) # temp of fluid 2
                     self.t_value_2=t_value_2
                 if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
+                    t_value_3 = reactant.mass_ratio # mass ratio factor
                     self.t_value_3=t_value_3
                 
         if n_mixing_fluid_reactants == 0:

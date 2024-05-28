@@ -38,11 +38,11 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
   grid_temps_original <- grid_temps
   if(length(grid_temps) == 1){
     grid_temps <- grid_temps + 10*(0:7) # only the first T value is valid, but this is needed for EQ3
-    grid_press <- rep(grid_press, 8)
+    grid_press <- rep(grid_press, length(grid_temps))
   }
     
   # calculate debye huckel a and b parameters for the grid
-  if(length(grid_temps_original) == 8){
+  if(length(grid_temps_original) >= 8){
     A_DH_grid <- unlist(water("A_DH", T=273.15+grid_temps, P=grid_press))
     B_DH_grid <- unlist(water("B_DH", T=273.15+grid_temps, P=grid_press)*10^-8)
   }else if(length(grid_temps_original) == 1){
@@ -87,7 +87,7 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
 
   # Calculate the "log k for eh reaction" grid.
   # From eq. 9 in EQPT user manual (version 7.0) by Daveler and Wolery:
-  if(length(grid_temps_original) == 8){
+  if(length(grid_temps_original) >= 8){
     logK_Eh_vals <- subcrt(c("H2O", "O2", "e-", "H+"),
                            c(-2, 1, 4, 4),
                            c("liq", "gas", "aq", "aq"),
@@ -115,8 +115,18 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
   bdotgrid <- c("     ")
   logkgrid <- c("     ")
   Aphi_DHgrid <- c("     ")
-  for(i in 1:8){
-      if(i == 5){
+  for(i in 1:length(grid_temps)){
+
+      tempgrid <- c(tempgrid, paste0(paste(rep(" ", 10-nchar(grid_temps_f[i])), collapse=""), grid_temps_f[i]))
+      presgrid <- c(presgrid, paste0(paste(rep(" ", 10-nchar(grid_press_f[i])), collapse=""), grid_press_f[i]))
+      A_DHgrid <- c(A_DHgrid, paste0(paste(rep(" ", 10-nchar(A_DH_grid_f[i])), collapse=""), A_DH_grid_f[i]))
+      B_DHgrid <- c(B_DHgrid, paste0(paste(rep(" ", 10-nchar(B_DH_grid_f[i])), collapse=""), B_DH_grid_f[i]))
+      bdotgrid <- c(bdotgrid, paste0(paste(rep(" ", 10-nchar(bdot_grid_f[i])), collapse=""), bdot_grid_f[i]))
+      logkgrid <- c(logkgrid, paste0(paste(rep(" ", 10-nchar(logk_grid_f[i])), collapse=""), logk_grid_f[i]))
+      if(activity_model == "pitzer"){
+        Aphi_DHgrid <- c(Aphi_DHgrid, paste0(paste(rep(" ", 10-nchar(Aphi_DH_grid_f[i])), collapse=""), Aphi_DH_grid_f[i]))
+      }
+      if(i%%6 == 0){
           tempgrid <- c(tempgrid, "\n     ")
           presgrid <- c(presgrid, "\n     ")
           A_DHgrid <- c(A_DHgrid, "\n     ")
@@ -127,16 +137,6 @@ fill_data0_head <- function(data0_template, db, grid_temps, grid_press,
             Aphi_DHgrid <- c(Aphi_DHgrid, "\n     ")
           }
       }
-      tempgrid <- c(tempgrid, paste0(paste(rep(" ", 10-nchar(grid_temps_f[i])), collapse=""), grid_temps_f[i]))
-      presgrid <- c(presgrid, paste0(paste(rep(" ", 10-nchar(grid_press_f[i])), collapse=""), grid_press_f[i]))
-      A_DHgrid <- c(A_DHgrid, paste0(paste(rep(" ", 10-nchar(A_DH_grid_f[i])), collapse=""), A_DH_grid_f[i]))
-      B_DHgrid <- c(B_DHgrid, paste0(paste(rep(" ", 10-nchar(B_DH_grid_f[i])), collapse=""), B_DH_grid_f[i]))
-      bdotgrid <- c(bdotgrid, paste0(paste(rep(" ", 10-nchar(bdot_grid_f[i])), collapse=""), bdot_grid_f[i]))
-      logkgrid <- c(logkgrid, paste0(paste(rep(" ", 10-nchar(logk_grid_f[i])), collapse=""), logk_grid_f[i]))
-      if(activity_model == "pitzer"){
-        Aphi_DHgrid <- c(Aphi_DHgrid, paste0(paste(rep(" ", 10-nchar(Aphi_DH_grid_f[i])), collapse=""), Aphi_DH_grid_f[i]))
-      }
-
   }
   tempgrid <- paste(tempgrid, collapse="")
   presgrid <- paste(presgrid, collapse="")

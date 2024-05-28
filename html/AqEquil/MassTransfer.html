@@ -499,8 +499,9 @@ class Mass_Transfer:
         
         self.moles_product_minerals_and_solid_solutions = self.__get_moles_product_minerals(include_solid_solutions=True)
         self.moles_product_minerals = self.__get_moles_product_minerals(include_solid_solutions=False) # relies on self.solid_solution_names
-        
+
         self.solid_solution_x_dict = self.__get_solid_solution_product_phases(unit=&#34;x&#34;) # relies on self.solid_solution_names
+        self.moles_solid_solutions = self.moles_product_minerals_and_solid_solutions.loc[:, [&#34;Xi&#34;] + list(self.solid_solution_x_dict.keys())]
         self.solid_solution_log_x_dict = self.__get_solid_solution_product_phases(unit=&#34;log x&#34;) # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit=&#34;log lambda&#34;) # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit=&#34;log activity&#34;) # relies on self.solid_solution_names
@@ -550,13 +551,15 @@ class Mass_Transfer:
                 p_vals.append(p)
             elif &#34;NBS pH scale &#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
-                multival = [float(v) for v in splitstrings if v not in [&#39;&#39;, &#39;NBS&#39;, &#39;pH&#39;, &#39;scale&#39;]]
+                multival = [v for v in splitstrings if v not in [&#39;&#39;, &#39;NBS&#39;, &#39;pH&#39;, &#39;scale&#39;]]
+                multival = [float(v) if v != &#34;********&#34; else float(&#39;nan&#39;) for v in multival]
                 pH_vals.append(multival[0])
                 Eh_vals.append(multival[1])
                 pe_vals.append(multival[2])
             elif &#34;Mesmer pH (pmH) scale &#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
-                pmH = [float(v) for v in splitstrings if v not in [&#39;&#39;, &#39;Mesmer&#39;, &#39;pH&#39;, &#39;(pmH)&#39;, &#39;scale&#39;]][0]
+                pmH = [v for v in splitstrings if v not in [&#39;&#39;, &#39;Mesmer&#39;, &#39;pH&#39;, &#39;(pmH)&#39;, &#39;scale&#39;]]
+                pmH = [float(v) if v != &#34;********&#34; else float(&#39;nan&#39;) for v in pmH][0]
                 pmH_vals.append(pmH)
             elif &#34;  Log oxygen fugacity=&#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
@@ -2244,8 +2247,7 @@ class Mass_Transfer:
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, solid_solutions=True,
-                              x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
+                              plot_minerals=None, x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -2264,9 +2266,6 @@ class Mass_Transfer:
         plot_minerals : list, optional
             List of minerals to plot. Useful for isolating one or more
             minerals.
-            
-        solid_solutions : bool, default True
-            Show solid solutions?
             
         x_type : str, default &#34;logxi&#34;
             Variable to appear on the x-axis. Can be &#34;logxi&#34;, &#34;xi&#34;,
@@ -3587,21 +3586,54 @@ class Mixing_Fluid:
     def __init__(self,
                  speciation,
                  sample_name,
-                 mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
                  molar_volume=1,
+                 mass_ratio=1,
                  hide_traceback=True,
                 ):
 
+        &#34;&#34;&#34;
+        Class used to define the fluid to be mixed with other fluids in
+        `Prepare_Reaction`.
+
+        Parameters
+        ----------
+        speciation : object of class Speciation
+            The speciation object containing the fluid to be mixed.
+
+        sample_name : str
+            The name of the fluid sample that will be mixed with all other
+            speciated fluids.
+
+        amount_remaining : float, default 1
+            Number of moles of the fluid to be mixed with all others.
+
+        amount_destroyed : float, default 0
+            Number of moles of the mixing fluid that has been destroyed.
+
+        molar_volume : float, default 1
+            Molar volume of the mixing fluid, in moles/cm3.
+
+        mass_ratio : float, default 1
+            Ratio of mass of the mixing fluid to all other fluids.
+
+        hide_traceback : bool, default True
+            Hide traceback message when encountering errors handled by this
+            class? When True, error messages handled by this class will be short
+            and to the point.
+            
+        &#34;&#34;&#34;
+        
         self.err_handler = Error_Handler(clean=hide_traceback)
-    
+
         # Prepare a special reactant to be used in a mixing calculation.
         if isinstance(speciation, Speciation):
             
             self.sample_name = sample_name
             self.speciation_sample_data = speciation.sample_data[sample_name]
             self.T = self.speciation_sample_data[&#34;temperature&#34;]
+            self.mass_ratio = mass_ratio
             
             elemental_composition_lines = []
             capture = False
@@ -4361,7 +4393,7 @@ class Prepare_Reaction:
                     t_value_2 = float(reactant.T) # temp of fluid 2
                     self.t_value_2=t_value_2
                 if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
+                    t_value_3 = reactant.mass_ratio # mass ratio factor
                     self.t_value_3=t_value_3
                 
         if n_mixing_fluid_reactants == 0:
@@ -5300,8 +5332,9 @@ the point.</dd>
         
         self.moles_product_minerals_and_solid_solutions = self.__get_moles_product_minerals(include_solid_solutions=True)
         self.moles_product_minerals = self.__get_moles_product_minerals(include_solid_solutions=False) # relies on self.solid_solution_names
-        
+
         self.solid_solution_x_dict = self.__get_solid_solution_product_phases(unit=&#34;x&#34;) # relies on self.solid_solution_names
+        self.moles_solid_solutions = self.moles_product_minerals_and_solid_solutions.loc[:, [&#34;Xi&#34;] + list(self.solid_solution_x_dict.keys())]
         self.solid_solution_log_x_dict = self.__get_solid_solution_product_phases(unit=&#34;log x&#34;) # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit=&#34;log lambda&#34;) # relies on self.solid_solution_names
         self.solid_solution_log_lambda_dict = self.__get_solid_solution_product_phases(unit=&#34;log activity&#34;) # relies on self.solid_solution_names
@@ -5351,13 +5384,15 @@ the point.</dd>
                 p_vals.append(p)
             elif &#34;NBS pH scale &#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
-                multival = [float(v) for v in splitstrings if v not in [&#39;&#39;, &#39;NBS&#39;, &#39;pH&#39;, &#39;scale&#39;]]
+                multival = [v for v in splitstrings if v not in [&#39;&#39;, &#39;NBS&#39;, &#39;pH&#39;, &#39;scale&#39;]]
+                multival = [float(v) if v != &#34;********&#34; else float(&#39;nan&#39;) for v in multival]
                 pH_vals.append(multival[0])
                 Eh_vals.append(multival[1])
                 pe_vals.append(multival[2])
             elif &#34;Mesmer pH (pmH) scale &#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
-                pmH = [float(v) for v in splitstrings if v not in [&#39;&#39;, &#39;Mesmer&#39;, &#39;pH&#39;, &#39;(pmH)&#39;, &#39;scale&#39;]][0]
+                pmH = [v for v in splitstrings if v not in [&#39;&#39;, &#39;Mesmer&#39;, &#39;pH&#39;, &#39;(pmH)&#39;, &#39;scale&#39;]]
+                pmH = [float(v) if v != &#34;********&#34; else float(&#39;nan&#39;) for v in pmH][0]
                 pmH_vals.append(pmH)
             elif &#34;  Log oxygen fugacity=&#34; in line and recording:
                 splitstrings = line.strip().split(&#34; &#34;)
@@ -7045,8 +7080,7 @@ the point.</dd>
     
     
     def plot_product_minerals(self, show_reactant_minerals=False,
-                              plot_minerals=None, solid_solutions=True,
-                              x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
+                              plot_minerals=None, x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
                               log_y=True, df_out=False, markers=False,
                               plot_width=4, plot_height=3, ppi=122, ylim=None,
                               show_legend=True, save_as=None, save_format=None,
@@ -7065,9 +7099,6 @@ the point.</dd>
         plot_minerals : list, optional
             List of minerals to plot. Useful for isolating one or more
             minerals.
-            
-        solid_solutions : bool, default True
-            Show solid solutions?
             
         x_type : str, default &#34;logxi&#34;
             Variable to appear on the x-axis. Can be &#34;logxi&#34;, &#34;xi&#34;,
@@ -9420,7 +9451,7 @@ the figure.</dd>
 </details>
 </dd>
 <dt id="AqEquil.MassTransfer.Mass_Transfer.plot_product_minerals"><code class="name flex">
-<span>def <span class="ident">plot_product_minerals</span></span>(<span>self, show_reactant_minerals=False, plot_minerals=None, solid_solutions=True, x_type='logxi', y_type='mole', log_y=True, df_out=False, markers=False, plot_width=4, plot_height=3, ppi=122, ylim=None, show_legend=True, save_as=None, save_format=None, save_scale=1)</span>
+<span>def <span class="ident">plot_product_minerals</span></span>(<span>self, show_reactant_minerals=False, plot_minerals=None, x_type='logxi', y_type='mole', log_y=True, df_out=False, markers=False, plot_width=4, plot_height=3, ppi=122, ylim=None, show_legend=True, save_as=None, save_format=None, save_scale=1)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Generate a line plot of the log moles of product minerals as a
@@ -9433,8 +9464,6 @@ variable.</p>
 <dt><strong><code>plot_minerals</code></strong> :&ensp;<code>list</code>, optional</dt>
 <dd>List of minerals to plot. Useful for isolating one or more
 minerals.</dd>
-<dt><strong><code>solid_solutions</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
-<dd>Show solid solutions?</dd>
 <dt><strong><code>x_type</code></strong> :&ensp;<code>str</code>, default <code>"logxi"</code></dt>
 <dd>Variable to appear on the x-axis. Can be "logxi", "xi",
 "temperature", "pressure", "pH", "pmH", "logfO2", "Eh", "pe", or
@@ -9489,8 +9518,7 @@ set to False by default).</dd>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def plot_product_minerals(self, show_reactant_minerals=False,
-                          plot_minerals=None, solid_solutions=True,
-                          x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
+                          plot_minerals=None, x_type=&#34;logxi&#34;, y_type=&#34;mole&#34;,
                           log_y=True, df_out=False, markers=False,
                           plot_width=4, plot_height=3, ppi=122, ylim=None,
                           show_legend=True, save_as=None, save_format=None,
@@ -9509,9 +9537,6 @@ set to False by default).</dd>
     plot_minerals : list, optional
         List of minerals to plot. Useful for isolating one or more
         minerals.
-        
-    solid_solutions : bool, default True
-        Show solid solutions?
         
     x_type : str, default &#34;logxi&#34;
         Variable to appear on the x-axis. Can be &#34;logxi&#34;, &#34;xi&#34;,
@@ -10294,10 +10319,31 @@ the Mass_Transfer class.</p></div>
 </dd>
 <dt id="AqEquil.MassTransfer.Mixing_Fluid"><code class="flex name class">
 <span>class <span class="ident">Mixing_Fluid</span></span>
-<span>(</span><span>speciation, sample_name, mass_ratio=1, amount_remaining=1, amount_destroyed=0, molar_volume=1, hide_traceback=True)</span>
+<span>(</span><span>speciation, sample_name, amount_remaining=1, amount_destroyed=0, molar_volume=1, mass_ratio=1, hide_traceback=True)</span>
 </code></dt>
 <dd>
-<div class="desc"></div>
+<div class="desc"><p>Class used to define the fluid to be mixed with other fluids in
+<code><a title="AqEquil.MassTransfer.Prepare_Reaction" href="#AqEquil.MassTransfer.Prepare_Reaction">Prepare_Reaction</a></code>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>speciation</code></strong> :&ensp;<code>object</code> of <code>class Speciation</code></dt>
+<dd>The speciation object containing the fluid to be mixed.</dd>
+<dt><strong><code>sample_name</code></strong> :&ensp;<code>str</code></dt>
+<dd>The name of the fluid sample that will be mixed with all other
+speciated fluids.</dd>
+<dt><strong><code>amount_remaining</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
+<dd>Number of moles of the fluid to be mixed with all others.</dd>
+<dt><strong><code>amount_destroyed</code></strong> :&ensp;<code>float</code>, default <code>0</code></dt>
+<dd>Number of moles of the mixing fluid that has been destroyed.</dd>
+<dt><strong><code>molar_volume</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
+<dd>Molar volume of the mixing fluid, in moles/cm3.</dd>
+<dt><strong><code>mass_ratio</code></strong> :&ensp;<code>float</code>, default <code>1</code></dt>
+<dd>Ratio of mass of the mixing fluid to all other fluids.</dd>
+<dt><strong><code>hide_traceback</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
+<dd>Hide traceback message when encountering errors handled by this
+class? When True, error messages handled by this class will be short
+and to the point.</dd>
+</dl></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -10306,21 +10352,54 @@ the Mass_Transfer class.</p></div>
     def __init__(self,
                  speciation,
                  sample_name,
-                 mass_ratio=1,
                  amount_remaining=1,
                  amount_destroyed=0,
                  molar_volume=1,
+                 mass_ratio=1,
                  hide_traceback=True,
                 ):
 
+        &#34;&#34;&#34;
+        Class used to define the fluid to be mixed with other fluids in
+        `Prepare_Reaction`.
+
+        Parameters
+        ----------
+        speciation : object of class Speciation
+            The speciation object containing the fluid to be mixed.
+
+        sample_name : str
+            The name of the fluid sample that will be mixed with all other
+            speciated fluids.
+
+        amount_remaining : float, default 1
+            Number of moles of the fluid to be mixed with all others.
+
+        amount_destroyed : float, default 0
+            Number of moles of the mixing fluid that has been destroyed.
+
+        molar_volume : float, default 1
+            Molar volume of the mixing fluid, in moles/cm3.
+
+        mass_ratio : float, default 1
+            Ratio of mass of the mixing fluid to all other fluids.
+
+        hide_traceback : bool, default True
+            Hide traceback message when encountering errors handled by this
+            class? When True, error messages handled by this class will be short
+            and to the point.
+            
+        &#34;&#34;&#34;
+        
         self.err_handler = Error_Handler(clean=hide_traceback)
-    
+
         # Prepare a special reactant to be used in a mixing calculation.
         if isinstance(speciation, Speciation):
             
             self.sample_name = sample_name
             self.speciation_sample_data = speciation.sample_data[sample_name]
             self.T = self.speciation_sample_data[&#34;temperature&#34;]
+            self.mass_ratio = mass_ratio
             
             elemental_composition_lines = []
             capture = False
@@ -10971,7 +11050,7 @@ the point.</dd>
                     t_value_2 = float(reactant.T) # temp of fluid 2
                     self.t_value_2=t_value_2
                 if t_value_3 == None:
-                    t_value_3 = 1 # mass ratio factor
+                    t_value_3 = reactant.mass_ratio # mass ratio factor
                     self.t_value_3=t_value_3
                 
         if n_mixing_fluid_reactants == 0:

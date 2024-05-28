@@ -40,26 +40,56 @@ check_TP_grid <- function(grid_temps, grid_press, P1, water_model="SUPCRT92", ch
   grid_press <- as.numeric(grid_press)
     
   # check TP polynomial
-  if(length(grid_temps) == 8){
+  if(length(grid_temps) >= 8){
+
+    if(length(grid_temps)%% 2 == 0){
+      # even-length TP grid
+      n_mid1 = floor(length(grid_temps)/2)+1
+      n_mid2 = n_mid1-1
+    }else{
+      # odd-length TP grid
+      n_mid1 = floor(length(grid_temps)/2)+1
+      n_mid2 = n_mid1-1
+    }
+      
     # third order polynomial for the first T-P range
-    poly_coeffs_1 <- lm(grid_press[1:4] ~ poly(grid_temps[1:4], 3, raw=T))$coefficients # don't touch raw=T!
+    poly_coeffs_1 <- lm(grid_press[1:n_mid1] ~ poly(grid_temps[1:n_mid1], length(grid_temps[1:n_mid1])-1, raw=T))$coefficients # don't touch raw=T!
 
     # fourth order polynomial for the second T-P range
-    poly_coeffs_2 <- lm(grid_press[4:8] ~ poly(grid_temps[4:8], 4, raw=T))$coefficients # don't touch raw=T!
-      
-    for(T in grid_temps[1:4]){
-      if(is.na(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)){
+    poly_coeffs_2 <- lm(grid_press[n_mid1:length(grid_temps)] ~ poly(grid_temps[n_mid1:length(grid_temps)], length(grid_temps[n_mid1:length(grid_temps)])-1, raw=T))$coefficients # don't touch raw=T!
+
+    for(T in grid_temps[1:n_mid2]){
+        test_sum_1 = 0
+        for(i in 1:(length(poly_coeffs_1))){
+          test_sum_1 = test_sum_1 + poly_coeffs_1[i]*T**(i-1)
+        }
+        if(is.na(test_sum_1)){
+          stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+                       for the first half of the values of the temperature grid: [", paste(grid_temps[1:n_mid2], collapse=", "), "]."))
+        }
+        test_sum_2 = 0
+        for(i in 1:(length(poly_coeffs_1))){
+          test_sum_2 = test_sum_2 + poly_coeffs_2[i]*T**(i-1)
+        }
+        if(is.na(test_sum_1)){
+        stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+                     for the last half of the values of the temperature grid: [", paste(grid_temps[n_mid2:length(grid_temps)], collapse=", "), "]."))
+        }
+    }
+
+    # for(T in grid_temps[1:4]){
+    #   if(is.na(poly_coeffs_1[1] + poly_coeffs_1[2]*T + poly_coeffs_1[3]*T^2 + poly_coeffs_1[4]*T^3)){
           
-        stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
-                     for the first four values of the temperature grid: [", paste(grid_temps[1:4], collapse=", "), "]."))
-      }
-    }
-    for(T in grid_temps[4:8]){
-      if(is.na(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3)){
-        stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
-                     for the last five values of the temperature grid: [", paste(grid_temps[4:8], collapse=", "), "]."))
-      }
-    }
+    #     stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+    #                  for the first four values of the temperature grid: [", paste(grid_temps[1:4], collapse=", "), "]."))
+    #   }
+    # }
+    # for(T in grid_temps[4:8]){
+    #   if(is.na(poly_coeffs_2[1] + poly_coeffs_2[2]*T + poly_coeffs_2[3]*T^2 + poly_coeffs_2[4]*T^3)){
+    #     stop(paste0("Error: Could not compute the coefficients of an interpolating polynomial
+    #                  for the last five values of the temperature grid: [", paste(grid_temps[4:8], collapse=", "), "]."))
+    #   }
+    # }
   }else{
     poly_coeffs_1 <- 'None'
     poly_coeffs_2 <- 'None'

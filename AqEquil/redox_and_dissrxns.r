@@ -224,6 +224,7 @@ subcrt_bal <- function(ispecies, coeff){
     
   # the mass balance; should be zero for a balanced reaction
   mss <- makeup(ispecies, coeff, sum=TRUE)
+
   # take out very small numbers
   mss[abs(mss) < 1e-7] <- 0
   # report and try to fix any non-zero mass balance
@@ -356,13 +357,15 @@ match_basis_comp <- function(sp_elems, elem){
 get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c(),
                         HOZ_balancers=c("H+", "O2", "H2O"),
                         thermo_df=NULL, verbose=2){
+
+
     
   if(length(sp_name) > 1 & length(unique(sp_name)) == 1){
     sp_name = unique(sp_name)
   }
     
   names(sp_name) <- sp_name
-
+    
   if(length(sp_name) > 0){
     # get a vector of elements that make up the (non-basis) species
     basis_elem <- (function (x) setdiff(names(unlist(makeup(x))), c("H", "O", "Z"))) (thermo_df[, "formula_modded"])             
@@ -481,6 +484,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
                  ". These species will be excluded from the speciation...")
     print(msg)
       
+  }else{
+    problem_sp <- c()
   }
                             
   simplest_basis <- c()
@@ -542,9 +547,10 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
 
       basis(c(unlist(simplest_basis), "H+")) # TODO: this may fail depending on the strict basis species within thermo_df
       out <- subcrt(c(sp), c(-1))
-        
+
       coeffs <- out$reaction$coeff
       names <- out$reaction$name
+      names[names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
         
       for(i in 1:length(coeffs)){
         if(i == 1){
@@ -667,7 +673,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
           # this element in the non-basis species, just pick the first one, thus the [1].
           # Maybe there is a better way to decide but I'm going with this for now.
           chosen_basis_name <- names(which.min(abs(basis_ave_ox_states-sp_ox_elem["Z"])))[1]
-          
+            
           n_elem_in_basis <- sp_formula_makeup[[chosen_basis_name]][elem]
             
           names(sp_num_elem) <- chosen_basis_name
@@ -696,6 +702,22 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
   isp <- suppressMessages(info(c(sp, basis_to_include)))
 
   autobalance <- subcrt_bal(isp, c(-1, coeffs_to_include))
+
+  # find least common denominator (LCD) between species that is dissociating and its
+  # basis species, then multiply coefficients so that none are below 1.0
+  # e.g., coefficients c(-1.0000000, 0.5000000, 0.1666667, 1.0000000, -1.0000000)
+  # have an LCD of 6, so the new coefficients will be:
+  # c(-6.0000000, 3.0000000, 1.0000000, 6.0000000, -6.0000000)
+  # TODO: there may be instances where this doesn't work? So far tests seem ok.
+  if(any(abs(autobalance$newcoeff)<1)){
+    fracs = autobalance$newcoeff
+    lcd = max(fracs[1]/-fracs)
+    coeffs = fracs*lcd
+    coeffs = round(as.numeric(coeffs), 4)
+    names(coeffs) = names(autobalance$newcoeff)
+    autobalance$newcoeff = coeffs
+  }
+        
   spec_names <- thermo()$OBIGT[autobalance$newspecies, "name"]
     
   spec_names[spec_names == "water"] <- "H2O" # prevent CHNOSZ from renaming 'H2O' (name req. by EQ3) to 'water'
@@ -821,7 +843,16 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     for(idx in 1:nrow(thermo_df)){
 
       species_name <- thermo_df[idx, "name"]
-        
+      sp_formula <- thermo_df[thermo_df[, "name"] == species_name, "formula"]
+      sp_formula_ox <- thermo_df[thermo_df[, "name"] == species_name, "formula_ox"]
+
+      # the species has no value for 'formula_ox' (the [1] is to have a single value to test vs nan in the case of mineral polymorphs)
+      if(sp_formula_ox[1] == "nan"){
+        thermo_df[thermo_df[, "name"] == species_name, "formula_modded"] <- sp_formula
+        thermo_df[thermo_df[, "name"] == species_name, "formula_ox_modded"] <- sp_formula_ox
+        next
+      }
+
       # get makeup and charge of this species
       this_makeup <- makeup(thermo_df[idx, "formula"])
         
@@ -830,14 +861,13 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       if(is.na(charge)){
         charge <- 0
       }
-        
+
+
       # for each element in this species, see if it matches an entry in redox_elem_states
       this_formula <- c()
       for(elem in elems){
-        
+
         if(elem %in% names(redox_elem_states)){
-            
-          sp_formula_ox <- thermo_df[thermo_df[, "name"] == species_name, "formula_ox"]
 
           # get oxidation state info
           formula_ox <- strsplit(sp_formula_ox, " ")
@@ -915,8 +945,11 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         
       modified_formula <- c()
       previous_elems <- c()
+
       for(name in names(this_formula)){
+
         elem <- names(which(sapply(lapply(redox_elem_states, FUN=names), FUN=function(x) name %in% x)))
+
         if(!identical(elem, character(0))){
           modified_formula[redox_elem_states[[elem]][name]] <- this_formula[name]
         }else{
@@ -930,6 +963,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
         }
         previous_elems <- c(previous_elems, elem)
       }
+
                                    
       formula_vec <- c(rbind(names(modified_formula), modified_formula))
       formula <- paste(formula_vec[formula_vec!="1"], collapse="")
@@ -969,6 +1003,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   suppressMessages({
     thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
     mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
+    basis(delete=TRUE)
   })
                                    
   # begin handling basis preferences
@@ -1032,22 +1067,25 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     # reaction includes another aux basis species
     #    E.g., remove H2S (aux) if its dissociation reaction includes HS- (aux) 
     reject <- c()
-    for(i in 1:length(aux_pref)){
-      auxd <- strsplit(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "dissrxn"], " ")[[1]]
-      auxd <- auxd[3:length(auxd)]
-      for(a in aux_pref){
-        if(a %in% auxd){
-          reject <- c(reject, i)
+    if(length(aux_pref) > 0){
+      for(i in 1:length(aux_pref)){
+        auxd <- strsplit(thermo_df[thermo_df[, "name"]==aux_pref[[i]], "dissrxn"], " ")[[1]]
+        auxd <- auxd[3:length(auxd)]
+        for(a in aux_pref){
+          if(a %in% auxd){
+            reject <- c(reject, i)
+          }
         }
       }
     }
-      
-    reject <- unique(reject)
-      
-    aux_pref <- aux_pref[-reject]
-    aux_pref_names <- aux_pref_names[-reject]
-     
+
+    if(length(reject)>0){
+      reject <- unique(reject)
+      aux_pref <- aux_pref[-reject]
+      aux_pref_names <- aux_pref_names[-reject]
+    }
     names(aux_pref) <- aux_pref_names
+      
   }else{
     aux_pref <- list()
     aux_pref_names <- c()
@@ -1108,6 +1146,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
       dissrxn_coefs <- dissrxn[c(TRUE, FALSE)] # get coeffs of reactants and products
       dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
+        
       tryCatch({
         subcrt_bal(dissrxn_ispecies, dissrxn_coefs)
       }, error=function(e){
@@ -1221,12 +1260,12 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
-
+  # Produce a warning message about which dissrxns were (re)generated and what they are.
   if("thermo_df_modified" %in% names(dissrxns)){
     thermo_df <- dissrxns[["thermo_df_modified"]]
   }
                                    
-  # Produce a warning message about which dissrxns were (re)generated and what they are.
+  
   if(nrow(df_needs_dissrxns) > 0){
 
     names <- df_needs_dissrxns[["name"]]
@@ -1239,6 +1278,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
     nonbasis_names <- unique(nonbasis_names)
     basis_names <- names(basis_idx)[basis_idx]
+
     vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
                     
     if(!identical(basis_names, character(0))){
@@ -1257,9 +1297,23 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
   }
 #   print(tail(thermo_df))
 
+
+  # restore thermo()
+  to_mod_OBIGT <- thermo_df[c("name", "abbrv", "formula",
+                              "state", "ref1", "ref2", "date",
+                              "E_units", "G", "H", "S", "Cp",
+                              "V", "a1.a", "a2.b", "a3.c",
+                              "a4.d", "c1.e", "c2.f",
+                              "omega.lambda", "z.T")]
+                                  
+  suppressMessages({
+    thermo(OBIGT=thermo()$OBIGT[unique(info(fixed_species)), ]) # replaces the default OBIGT database with user-supplied database
+    mod.OBIGT(to_mod_OBIGT, replace=TRUE) # produces a message
+  })
+                                  
   thermo_df[is.na(thermo_df)]=''
                                   
   out_list = list("thermo_df"=thermo_df, "dissrxns"=dissrxns, "basis_pref"=basis_pref)
-                                  
+
   return(out_list)
 }
