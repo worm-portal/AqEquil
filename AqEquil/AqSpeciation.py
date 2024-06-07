@@ -23,6 +23,8 @@ import collections
 import dill
 import math
 import itertools
+from fractions import Fraction
+import functools
 
 from ipywidgets import IntProgress
 from IPython.display import display
@@ -5007,7 +5009,7 @@ class Speciation(object):
         half_reaction_dict = {}
         bad_idx_list = []
         for idx in idx_list:
-
+        
             #print(idx)
             
             oxidant = self.half_cell_reactions["Oxidant"].iloc[idx]
@@ -5035,7 +5037,7 @@ class Speciation(object):
                           "the speciation step. Skipping this half reaction...")
                 bad_idx_list.append(idx)
                 continue
-
+            
             # comparing common elements
             # requires "formula" and not "formula_modded" columns of thermo_db
             ox_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==oxidant].values[0])
@@ -5176,15 +5178,66 @@ class Speciation(object):
         good_idx_list = [idx for idx in idx_list if idx not in bad_idx_list]
         redox_pair_list = [list(p) for p in list(itertools.combinations(good_idx_list, 2))]
 
+
+        # Weed out redox pairs that would have the same
+        # electron-donating/accepting species as a product and reactant. E.g.
+        # 'CO2': -1.0, 'CH4': 1.0, 'e-': -8.0, 'H2O': 2.0, 'H+': -8.0
+        # 'CO': -1.0, 'CH4': 1.0, 'e-': -6.0, 'H2O': 1.0, 'H+': -6.0
+        # In this example, CH4 would be both a product and reactant in the resulting
+        # full redox reaction. Get rid of these pairs because they cause erroneous
+        # calculation of electrons transferred when half reactions are summed.
+        bad_redox_pair_index_list = []
+        for i,p in enumerate(redox_pair_list):
+            half_rxn_idx_1 = p[0]
+            half_rxn_idx_2 = p[1]
+
+            reactant_1 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_1].keys(), half_reaction_dict[half_rxn_idx_1].values()) if v<0]
+            reactant_2 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_2].keys(), half_reaction_dict[half_rxn_idx_2].values()) if v<0]
+            product_1 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_1].keys(), half_reaction_dict[half_rxn_idx_1].values()) if v>0]
+            product_2 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_2].keys(), half_reaction_dict[half_rxn_idx_2].values()) if v>0]
+            reactant_1 = [r for r in reactant_1 if r not in ["H2O", "H+", "e-"]]
+            reactant_2 = [r for r in reactant_2 if r not in ["H2O", "H+", "e-"]]
+            product_1 = [r for r in product_1 if r not in ["H2O", "H+", "e-"]]
+            product_2 = [r for r in product_2 if r not in ["H2O", "H+", "e-"]]
+            if len([ii for ii in reactant_1 if ii in reactant_2]) != 0:
+                bad_redox_pair_index_list.append(i)
+            if len([ii for ii in product_1 if ii in product_2]) != 0:
+                bad_redox_pair_index_list.append(i)
+        
+        redox_pair_list = [i for j, i in enumerate(redox_pair_list) if j not in bad_redox_pair_index_list]
+        
+        if len(redox_pair_list) == 0:
+            if self.verbose > 0:
+                msg = ("No valid redox reactions could be made with these half reactions. "
+                       "This is likely because a species appears as both an oxidant and a "
+                       "reductant in the full redox reaction. For example, "
+                       "combining the half reactions 'CO2 to CH4' and 'CO to CH4' "
+                       "would produce a full redox reaction with CH4 as both a product "
+                       "and a reactant. If you would like to model a "
+                       "comproportionation or disproportionation reaction, be sure "
+                       "to select half reactions that do not share reactants and products. "
+                       "For example, 'CO2 to CO' and 'CO to CH4' is a valid combination that "
+                       "would represent the comproportionation or disproportionation of CO in "
+                       "the forward and backward redox reactions.")
+                print(msg)
+            return
+        
         self.redox_pair_list = redox_pair_list
 
         # create 'reaction_dict': a dictionary of reactions keyed by their idx pairs
         reaction_dict = {}
         e_dict = {}
         for pair in redox_pair_list:
-            half_reaction_dict_1 = half_reaction_dict[pair[0]]
-            half_reaction_dict_2 = half_reaction_dict[pair[1]]
 
+            # print("Pair:", str(pair))
+            
+            half_reaction_dict_1 = copy.deepcopy(half_reaction_dict[pair[0]])
+            half_reaction_dict_2 = copy.deepcopy(half_reaction_dict[pair[1]])
+
+            # print("half reactions")
+            # print(half_reaction_dict_1)
+            # print(half_reaction_dict_2)
+            
             # find the lowest common multiple of e-
             # ensure e- is an integer value or else lcm() won't work
             assert int(half_reaction_dict_1["e-"]) == half_reaction_dict_1["e-"]
@@ -5192,7 +5245,7 @@ class Speciation(object):
 
             # find lowest common multiple (lcm) of the electrons in the two half reactions
             e_lcm = math.lcm(int(half_reaction_dict_1["e-"]), int(half_reaction_dict_2["e-"]))
-
+            
             # use the lcm to multiply half reaction coefficients to get the
             # same number of electrons transferred in each half reaction
             mult_1 = abs(e_lcm/half_reaction_dict_1["e-"])
@@ -5236,23 +5289,22 @@ class Speciation(object):
             for k in list(full_rxn_dict.keys()):
                 if full_rxn_dict[k] == 0:
                     del full_rxn_dict[k]
-            
-            # divide all coefficients by their greatest common divisor
-            argv = [int(c) for c in list(full_rxn_dict.values())]
 
-            # all coefficients must be integers for math.gcd to work
-            assert argv == list(full_rxn_dict.values())
-            
-            coeff_gcd = math.gcd(*argv)
-            full_rxn_dict = {k:full_rxn_dict[k]/coeff_gcd for k in full_rxn_dict.keys()}
-            
-            # print("full_rxn_dict")
+            # print("full_rxn_dict before")
             # print(full_rxn_dict)
+            
+            # multiply all coefficients by their least common multiple
+            denoms = [Fraction(x).limit_denominator().denominator for x in list(full_rxn_dict.values())]
+            coeff_lcm = functools.reduce(lambda a,b: a*b//math.gcd(a,b), denoms)
+            full_rxn_dict = {k:full_rxn_dict[k]*coeff_lcm for k in full_rxn_dict.keys()}
 
-            e_transferred = half_reaction_dict_1["e-"]/coeff_gcd
+            # print("full_rxn_dict after")
+            # print(full_rxn_dict)
+            
+            e_transferred = half_reaction_dict_1["e-"]*coeff_lcm
             e_dict[str(pair[0])+"_"+str(pair[1])] = abs(e_transferred)
             e_dict[str(pair[1])+"_"+str(pair[0])] = abs(e_transferred)
-            
+
             # print("e_transferred")
             # print(e_transferred)
 
