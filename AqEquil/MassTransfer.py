@@ -1510,11 +1510,11 @@ class Mass_Transfer:
     @staticmethod
     def __get_xy_labs(plot_basis_x, plot_basis_y):
         try:
-            xlab = ratlab(plot_basis_x)
+            xlab = pyCHNOSZ.ratlab(plot_basis_x)
         except:
             xlab = "log a"+chemlabel(plot_basis_x)
         try:
-            ylab = ratlab(plot_basis_y)
+            ylab = pyCHNOSZ.ratlab(plot_basis_y)
         except:
             ylab = "log a"+chemlabel(plot_basis_y)
 
