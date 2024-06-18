@@ -6637,7 +6637,7 @@ class Speciation(object):
             fig.show(config=config)
 
         
-    def scatterplot(self, x="pH", y="Temperature", title=None,
+    def scatterplot(self, x="pH", y="Temperature", samples=None, title=None,
                     log_x=False, log_y=False, plot_zero=True,
                     rxns_as_labels=True, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
@@ -6655,6 +6655,10 @@ class Speciation(object):
             Names of the variables to plot against each other. Valid variables
             are columns in the speciation report. `y` can be a list of
             of variable names for a multi-series scatterplot.
+
+        samples : list, optional
+            List of samples to plot. By default, all samples in the speciation
+            are plotted at once.
 
         title : str, optional
             Title of the plot.
@@ -6683,6 +6687,12 @@ class Speciation(object):
         
         point_size : numeric, default 10
             Size of scatterpoints.
+
+        ylab : str, optional
+            Custom label for the y-axis.
+        
+        lineplot : bool, default False
+            Display a line plot instead of a scatterplot?
         
         colormap : str, default "WORM"
             Name of the colormap to color the plotted data. Accepts "WORM",
@@ -6887,8 +6897,12 @@ class Speciation(object):
             log_x = False
         if "log" in ylabel and log_y and ylabel != "pH":
             log_y = False
+
+        if isinstance(samples, list):
+            df = df.loc[df['name'].isin(samples)]
         
         if lineplot:
+            df = df.sort_values(x).reset_index(drop=True)
             fig = px.line(df, x=x, y="y_value", color="y_variable",
                              log_x=log_x, log_y=log_y,
                              hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
