@@ -6642,7 +6642,7 @@ class Speciation(object):
                     rxns_as_labels=True, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     fill_alpha=0.7, point_size=10,
-                    ylab=None, lineplot=False,
+                    ylab=None, lineplot=False, linemarkers=True,
                     colormap="WORM", save_as=None, save_format=None,
                     save_scale=1, interactive=True, plot_out=False):
         
@@ -6693,6 +6693,9 @@ class Speciation(object):
         
         lineplot : bool, default False
             Display a line plot instead of a scatterplot?
+
+        linemarkers : bool, default True
+            If `lineplot=True`, also plot markers?
         
         colormap : str, default "WORM"
             Name of the colormap to color the plotted data. Accepts "WORM",
@@ -6911,7 +6914,7 @@ class Speciation(object):
                              category_orders={"species": y},
                              color_discrete_map=dict_species_color,
                              custom_data=['name', 'formatted_rxn', 'y_variable_original'],
-                             template="simple_white")
+                             template="simple_white", markers=linemarkers)
         else:
             fig = px.scatter(df, x=x, y="y_value", color="y_variable",
                              log_x=log_x, log_y=log_y,
