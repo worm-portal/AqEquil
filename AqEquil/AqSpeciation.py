@@ -111,7 +111,8 @@ def load(filename, messages=True, hide_traceback=True):
     
     if os.path.getsize(filename) > 0:
         with open(filename, 'rb') as handle:
-            speciation = dill.load(handle)
+            #speciation = dill.load(handle)
+            speciation = pd.compat.pickle_compat.load(handle) 
             if messages:
                 print("Loaded '{}'".format(filename))
             return speciation
@@ -4050,8 +4051,11 @@ class AqEquil(object):
                 for i,sp in enumerate(self.logK_S_db["name"]):
                     
                     logK_25C = float(self.logK_S_db["logK_25"][i])
-                    
-                    IS_ref = float(self.logK_S_db["logK_25_IS"][i])
+
+                    if "logK_25_IS" in self.logK_S_db.columns:
+                        IS_ref = float(self.logK_S_db["logK_25_IS"][i])
+                    else:
+                        IS_ref = 0
                     
                     T_list = self.logK_S_db["T_vals"][i].split(" ")
                     T_list = [float(T) for T in T_list]
