@@ -139,7 +139,8 @@ def load(filename, messages=True, hide_traceback=True):
     
     if os.path.getsize(filename) &gt; 0:
         with open(filename, &#39;rb&#39;) as handle:
-            speciation = dill.load(handle)
+            #speciation = dill.load(handle)
+            speciation = pd.compat.pickle_compat.load(handle) 
             if messages:
                 print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
             return speciation
@@ -661,6 +662,7 @@ class AqEquil(object):
     db : str, default &#34;WORM&#34;
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        
         - &#34;WORM&#34; will load the default WORM thermodynamic database,
         solid solution database, and logK database. These files are retrieved
         from https://github.com/worm-portal/WORM-db to ensure they are
@@ -770,10 +772,10 @@ class AqEquil(object):
     
     Attributes
     ----------
-    eq36da : str
+    eq36da : str, defaults to path given by the environment variable EQ36DA
         Path to directory where data1 files are stored.
         
-    eq36co : str
+    eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
         
     df_input_processed : pd.DataFrame
@@ -788,8 +790,8 @@ class AqEquil(object):
     &#34;&#34;&#34;
 
     def __init__(self,
-                 eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                 eq36co=os.environ.get(&#39;EQ36CO&#39;),
+                 eq36da=None,
+                 eq36co=None,
                  db=&#34;WORM&#34;,
                  elements=None,
                  solid_solutions=None,
@@ -806,6 +808,11 @@ class AqEquil(object):
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
+
+        if not isinstance(str, eq36da):
+            eq36da = os.environ.get(&#39;EQ36DA&#39;)
+        if not isinstance(str, eq36co):
+            eq36co = os.environ.get(&#39;EQ36CO&#39;)
         
         self.eq36da = eq36da
         self.eq36co = eq36co
@@ -1746,6 +1753,7 @@ class AqEquil(object):
         db : str, default &#34;wrm&#34;
             Determines which thermodynamic database is used in the speciation
             calculation. There are several options available:
+            
             - Three letter file extension for the desired data1 database, e.g.,
             &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
             &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
@@ -1767,6 +1775,7 @@ class AqEquil(object):
             URL of a CSV hosted online). Determines which thermodynamic database
             is used for idealized solid solutions in the speciation calculation.
             There are two options:
+            
             - The name of a CSV file containing solid solution parameters
             located in the current working directory, e.g.,
             &#34;wrm_solid_solutions.csv&#34;
@@ -1837,12 +1846,14 @@ class AqEquil(object):
             [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
             The first element of each interior list is the name of a species.
             The second element is an option to alter the species, and can be:
+            
             - Suppress : suppress the formation of the species. (See also:
             `suppress`).
             - Replace : replace the species&#39; log K value with a desired value.
             - AugmentLogK : augment the value of the species&#39; log K.
             - AugmentG : augment the Gibbs free energy of the species by a
             desired value, in kcal/mol.
+            
             The third element is a numeric value corresponding to the chosen
             option. A third element is not required for Suppress.
             
@@ -1968,6 +1979,7 @@ class AqEquil(object):
             
             - Example of `db_args` where organics are excluded and redox is
             suppressed for Fe and S:
+            
             db_args = {
                &#34;exclude_category&#34;:{&#34;category_1&#34;:[&#34;organic_aq&#34;]},
                &#34;suppress_redox&#34;:[&#34;Fe&#34;, &#34;S&#34;],
@@ -4078,8 +4090,11 @@ class AqEquil(object):
                 for i,sp in enumerate(self.logK_S_db[&#34;name&#34;]):
                     
                     logK_25C = float(self.logK_S_db[&#34;logK_25&#34;][i])
-                    
-                    IS_ref = float(self.logK_S_db[&#34;logK_25_IS&#34;][i])
+
+                    if &#34;logK_25_IS&#34; in self.logK_S_db.columns:
+                        IS_ref = float(self.logK_S_db[&#34;logK_25_IS&#34;][i])
+                    else:
+                        IS_ref = 0
                     
                     T_list = self.logK_S_db[&#34;T_vals&#34;][i].split(&#34; &#34;)
                     T_list = [float(T) for T in T_list]
@@ -7917,7 +7932,8 @@ the point.</dd>
     
     if os.path.getsize(filename) &gt; 0:
         with open(filename, &#39;rb&#39;) as handle:
-            speciation = dill.load(handle)
+            #speciation = dill.load(handle)
+            speciation = pd.compat.pickle_compat.load(handle) 
             if messages:
                 print(&#34;Loaded &#39;{}&#39;&#34;.format(filename))
             return speciation
@@ -7933,7 +7949,7 @@ the point.</dd>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da='/repos/WORM-db', eq36co='/usr/local/bin', db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_organics=False, exclude_category=None, suppress_redox=None, input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
+<span>(</span><span>eq36da=None, eq36co=None, db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_organics=False, exclude_category=None, suppress_redox=None, input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -7945,27 +7961,31 @@ existing or custom thermodynamic datasets.</p>
 <dt><strong><code>eq36co</code></strong> :&ensp;<code>str, defaults to path given by the environment variable EQ36CO</code></dt>
 <dd>Path to directory where EQ3 executables are stored.</dd>
 <dt><strong><code>db</code></strong> :&ensp;<code>str</code>, default <code>"WORM"</code></dt>
-<dd>Determines which thermodynamic database is used in the speciation
-calculation. There are several options available:
-- "WORM" will load the default WORM thermodynamic database,
+<dd>
+<p>Determines which thermodynamic database is used in the speciation
+calculation. There are several options available:</p>
+<ul>
+<li>"WORM" will load the default WORM thermodynamic database,
 solid solution database, and logK database. These files are retrieved
 from <a href="https://github.com/worm-portal/WORM-db">https://github.com/worm-portal/WORM-db</a> to ensure they are
-up-to-date.
-- Three letter file extension for the desired data1 database, e.g.,
+up-to-date.</li>
+<li>Three letter file extension for the desired data1 database, e.g.,
 "wrm". This will use a data1 file with this file extension, e.g.,
 "data1.wrm" located in the path stored in the 'EQ36DA' environment
-variable used by EQ3NR.
-- The name of a data0 file located in the current working directory,
+variable used by EQ3NR.</li>
+<li>The name of a data0 file located in the current working directory,
 e.g., "data0.wrm". This data0 file will be compiled by EQPT
-automatically during the speciation calculation.
-- The name of a CSV file containing thermodynamic data located in
+automatically during the speciation calculation.</li>
+<li>The name of a CSV file containing thermodynamic data located in
 the current working directory, e.g., "wrm_data.csv". The CSV file
 will be used to generate a data0 file for each sample (using
-additional arguments from <code>db_args</code> if desired).
-- The URL of a data0 file, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-- The URL of a CSV file containing thermodynamic data, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</dd>
+additional arguments from <code>db_args</code> if desired).</li>
+<li>The URL of a data0 file, e.g.,
+"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"</li>
+<li>The URL of a CSV file containing thermodynamic data, e.g.,
+"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</li>
+</ul>
+</dd>
 <dt><strong><code>solid_solutions</code></strong> :&ensp;<code>str</code></dt>
 <dd>Filepath of a CSV file containing parameters for solid solutions, e.g.,
 "my_solid_solutions.csv". If <code>db</code> is set to "WORM" and <code>solid_solutions</code>
@@ -8042,9 +8062,9 @@ the point.</dd>
 </dl>
 <h2 id="attributes">Attributes</h2>
 <dl>
-<dt><strong><code>eq36da</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>eq36da</code></strong> :&ensp;<code>str, defaults to path given by the environment variable EQ36DA</code></dt>
 <dd>Path to directory where data1 files are stored.</dd>
-<dt><strong><code>eq36co</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>eq36co</code></strong> :&ensp;<code>str, defaults to path given by the environment variable EQ36CO</code></dt>
 <dd>Path to directory where EQ3 executables are stored.</dd>
 <dt><strong><code>df_input_processed</code></strong> :&ensp;<code>pd.DataFrame</code></dt>
 <dd>Pandas dataframe containing user-supplied sample chemistry data that has
@@ -8075,6 +8095,7 @@ values during speciation.</dd>
     db : str, default &#34;WORM&#34;
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        
         - &#34;WORM&#34; will load the default WORM thermodynamic database,
         solid solution database, and logK database. These files are retrieved
         from https://github.com/worm-portal/WORM-db to ensure they are
@@ -8184,10 +8205,10 @@ values during speciation.</dd>
     
     Attributes
     ----------
-    eq36da : str
+    eq36da : str, defaults to path given by the environment variable EQ36DA
         Path to directory where data1 files are stored.
         
-    eq36co : str
+    eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
         
     df_input_processed : pd.DataFrame
@@ -8202,8 +8223,8 @@ values during speciation.</dd>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 eq36da=os.environ.get(&#39;EQ36DA&#39;),
-                 eq36co=os.environ.get(&#39;EQ36CO&#39;),
+                 eq36da=None,
+                 eq36co=None,
                  db=&#34;WORM&#34;,
                  elements=None,
                  solid_solutions=None,
@@ -8220,6 +8241,11 @@ values during speciation.</dd>
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
+
+        if not isinstance(str, eq36da):
+            eq36da = os.environ.get(&#39;EQ36DA&#39;)
+        if not isinstance(str, eq36co):
+            eq36co = os.environ.get(&#39;EQ36CO&#39;)
         
         self.eq36da = eq36da
         self.eq36co = eq36co
@@ -9160,6 +9186,7 @@ values during speciation.</dd>
         db : str, default &#34;wrm&#34;
             Determines which thermodynamic database is used in the speciation
             calculation. There are several options available:
+            
             - Three letter file extension for the desired data1 database, e.g.,
             &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
             &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
@@ -9181,6 +9208,7 @@ values during speciation.</dd>
             URL of a CSV hosted online). Determines which thermodynamic database
             is used for idealized solid solutions in the speciation calculation.
             There are two options:
+            
             - The name of a CSV file containing solid solution parameters
             located in the current working directory, e.g.,
             &#34;wrm_solid_solutions.csv&#34;
@@ -9251,12 +9279,14 @@ values during speciation.</dd>
             [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
             The first element of each interior list is the name of a species.
             The second element is an option to alter the species, and can be:
+            
             - Suppress : suppress the formation of the species. (See also:
             `suppress`).
             - Replace : replace the species&#39; log K value with a desired value.
             - AugmentLogK : augment the value of the species&#39; log K.
             - AugmentG : augment the Gibbs free energy of the species by a
             desired value, in kcal/mol.
+            
             The third element is a numeric value corresponding to the chosen
             option. A third element is not required for Suppress.
             
@@ -9382,6 +9412,7 @@ values during speciation.</dd>
             
             - Example of `db_args` where organics are excluded and redox is
             suppressed for Fe and S:
+            
             db_args = {
                &#34;exclude_category&#34;:{&#34;category_1&#34;:[&#34;organic_aq&#34;]},
                &#34;suppress_redox&#34;:[&#34;Fe&#34;, &#34;S&#34;],
@@ -11492,8 +11523,11 @@ values during speciation.</dd>
                 for i,sp in enumerate(self.logK_S_db[&#34;name&#34;]):
                     
                     logK_25C = float(self.logK_S_db[&#34;logK_25&#34;][i])
-                    
-                    IS_ref = float(self.logK_S_db[&#34;logK_25_IS&#34;][i])
+
+                    if &#34;logK_25_IS&#34; in self.logK_S_db.columns:
+                        IS_ref = float(self.logK_S_db[&#34;logK_25_IS&#34;][i])
+                    else:
+                        IS_ref = 0
                     
                     T_list = self.logK_S_db[&#34;T_vals&#34;][i].split(&#34; &#34;)
                     T_list = [float(T) for T in T_list]
@@ -12758,33 +12792,41 @@ duplicate sample names.</li>
 </ul>
 </dd>
 <dt><strong><code>db</code></strong> :&ensp;<code>str</code>, default <code>"wrm"</code></dt>
-<dd>Determines which thermodynamic database is used in the speciation
-calculation. There are several options available:
-- Three letter file extension for the desired data1 database, e.g.,
+<dd>
+<p>Determines which thermodynamic database is used in the speciation
+calculation. There are several options available:</p>
+<ul>
+<li>Three letter file extension for the desired data1 database, e.g.,
 "wrm". This will use a data1 file with this file extension, e.g.,
 "data1.wrm" located in the path stored in the 'EQ36DA' environment
-variable used by EQ3NR.
-- The name of a data0 file located in the current working directory,
+variable used by EQ3NR.</li>
+<li>The name of a data0 file located in the current working directory,
 e.g., "data0.wrm". This data0 file will be compiled by EQPT
-automatically during the speciation calculation.
-- The name of a CSV file containing thermodynamic data located in
+automatically during the speciation calculation.</li>
+<li>The name of a CSV file containing thermodynamic data located in
 the current working directory, e.g., "wrm_data.csv". The CSV file
 will be used to generate a data0 file for each sample (using
-additional arguments from <code>db_args</code> if desired).
-- The URL of a data0 file, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-- The URL of a CSV file containing thermodynamic data, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</dd>
+additional arguments from <code>db_args</code> if desired).</li>
+<li>The URL of a data0 file, e.g.,
+"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"</li>
+<li>The URL of a CSV file containing thermodynamic data, e.g.,
+"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</li>
+</ul>
+</dd>
 <dt><strong><code>db_solid_solution</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>Used only if <code>db</code> points to a thermodynamic data CSV file (or the
+<dd>
+<p>Used only if <code>db</code> points to a thermodynamic data CSV file (or the
 URL of a CSV hosted online). Determines which thermodynamic database
 is used for idealized solid solutions in the speciation calculation.
-There are two options:
-- The name of a CSV file containing solid solution parameters
+There are two options:</p>
+<ul>
+<li>The name of a CSV file containing solid solution parameters
 located in the current working directory, e.g.,
-"wrm_solid_solutions.csv"
-- The URL of a CSV file containing solid solution parameters, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"</dd>
+"wrm_solid_solutions.csv"</li>
+<li>The URL of a CSV file containing solid solution parameters, e.g.,
+"https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"</li>
+</ul>
+</dd>
 <dt><strong><code>db_logK</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>The name of the CSV file containing species with dissociation
 constants but no other properties or parameters. Used only if <code>db</code>
@@ -12839,18 +12881,22 @@ containing sample metatadata, such as "Year" and "Location".</dd>
 <dd>Names of chemical species that will be prevented from forming in the
 speciation calculation.</dd>
 <dt><strong><code>alter_options</code></strong> :&ensp;<code>list</code>, default <code>[]</code></dt>
-<dd>A list of lists, e.g.,
+<dd>
+<p>A list of lists, e.g.,
 [["CaOH+", "Suppress"], ["CaCl+", "AugmentLogK", -1]]
 The first element of each interior list is the name of a species.
-The second element is an option to alter the species, and can be:
-- Suppress : suppress the formation of the species. (See also:
-<code>suppress</code>).
-- Replace : replace the species' log K value with a desired value.
-- AugmentLogK : augment the value of the species' log K.
-- AugmentG : augment the Gibbs free energy of the species by a
-desired value, in kcal/mol.
-The third element is a numeric value corresponding to the chosen
-option. A third element is not required for Suppress.</dd>
+The second element is an option to alter the species, and can be:</p>
+<ul>
+<li>Suppress : suppress the formation of the species. (See also:
+<code>suppress</code>).</li>
+<li>Replace : replace the species' log K value with a desired value.</li>
+<li>AugmentLogK : augment the value of the species' log K.</li>
+<li>AugmentG : augment the Gibbs free energy of the species by a
+desired value, in kcal/mol.</li>
+</ul>
+<p>The third element is a numeric value corresponding to the chosen
+option. A third element is not required for Suppress.</p>
+</dd>
 <dt><strong><code>charge_balance_on</code></strong> :&ensp;<code>str</code>, default <code>"none"</code></dt>
 <dd>If "none", will not balance electrical charge between cations and
 anions in the speciation calculation. If a name of a species is
@@ -12946,12 +12992,12 @@ is already ready for a speciation calculation). Options for
 <code>create_data0</code> for more information about what options are possible.</p>
 <ul>
 <li>Example of <code>db_args</code> where organics are excluded and redox is
-suppressed for Fe and S:
-db_args = {
+suppressed for Fe and S:</li>
+</ul>
+<p>db_args = {
 "exclude_category":{"category_1":["organic_aq"]},
 "suppress_redox":["Fe", "S"],
-}</li>
-</ul>
+}</p>
 </dd>
 </dl>
 <h2 id="returns">Returns</h2>
@@ -13057,6 +13103,7 @@ db_args = {
     db : str, default &#34;wrm&#34;
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        
         - Three letter file extension for the desired data1 database, e.g.,
         &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
         &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
@@ -13078,6 +13125,7 @@ db_args = {
         URL of a CSV hosted online). Determines which thermodynamic database
         is used for idealized solid solutions in the speciation calculation.
         There are two options:
+        
         - The name of a CSV file containing solid solution parameters
         located in the current working directory, e.g.,
         &#34;wrm_solid_solutions.csv&#34;
@@ -13148,12 +13196,14 @@ db_args = {
         [[&#34;CaOH+&#34;, &#34;Suppress&#34;], [&#34;CaCl+&#34;, &#34;AugmentLogK&#34;, -1]]
         The first element of each interior list is the name of a species.
         The second element is an option to alter the species, and can be:
+        
         - Suppress : suppress the formation of the species. (See also:
         `suppress`).
         - Replace : replace the species&#39; log K value with a desired value.
         - AugmentLogK : augment the value of the species&#39; log K.
         - AugmentG : augment the Gibbs free energy of the species by a
         desired value, in kcal/mol.
+        
         The third element is a numeric value corresponding to the chosen
         option. A third element is not required for Suppress.
         
@@ -13279,6 +13329,7 @@ db_args = {
         
         - Example of `db_args` where organics are excluded and redox is
         suppressed for Fe and S:
+        
         db_args = {
            &#34;exclude_category&#34;:{&#34;category_1&#34;:[&#34;organic_aq&#34;]},
            &#34;suppress_redox&#34;:[&#34;Fe&#34;, &#34;S&#34;],

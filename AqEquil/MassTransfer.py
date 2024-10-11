@@ -95,8 +95,8 @@ def react(speciation,
           hide_traceback=True,
           data1_override=None,
           format_element_names=True,
-          eq36da=os.environ.get('EQ36DA'),
-          eq36co=os.environ.get('EQ36CO'),
+          eq36da=None,
+          eq36co=None,
           verbose=1,
          ):
     
@@ -156,8 +156,11 @@ def react(speciation,
         parameter to False if you are supplying your own data0 file containing
         custom pseudoelements that do not follow the convention used by AqEquil.
     
-    eq36da=os.environ.get('EQ36DA'),
-    eq36co=os.environ.get('EQ36CO'),
+    eq36da : str, defaults to path given by the environment variable EQ36DA
+        Path to directory where data1 files are stored. 
+        
+    eq36co : str, defaults to path given by the environment variable EQ36CO
+        Path to directory where EQ3 executables are stored.
 
     Returns
     ----------
@@ -166,6 +169,11 @@ def react(speciation,
     speciation) or an unmodified speciation object (if a data0 or data1 file
     was used during speciation).
     """
+
+    if not isinstance(eq36da, str):
+        eq36da = os.environ.get('EQ36DA')
+    if not isinstance(eq36co, str):
+        eq36co = os.environ.get('EQ36CO')
     
     prev_wd = os.getcwd()
     ae = AqEquil(load_thermo=False, eq36co=eq36co, eq36da=eq36da, verbose=verbose)
@@ -3931,7 +3939,8 @@ class Reactant:
             Name of the reactant.
 
         reactant_type : str, default "Pure mineral"
-            Reactant type. Valid types include
+            Reactant type. Valid types include:
+            
             - Pure mineral
             - Solid solution
             - Special reactant
@@ -3940,7 +3949,8 @@ class Reactant:
             - Generic ion exchanger
 
         reactant_status : str, default "Reacting"
-            Status of the reactant. Valid statuses include
+            Status of the reactant. Valid statuses include:
+            
             - Reacting
             - Saturated, reacting
             - Exhausted
@@ -3954,13 +3964,15 @@ class Reactant:
 
         surface_area_option : int, default 0
             Option for reactant surface area. Valid options include:
+            
             - 0, for Constant surface area (in cm2)
             - 1, for Constant specific surface area (in cm2/g). Surface area
             changes in proportion to the reactant mass.
             - 2, for n**2/3 growth law- current surface area (in cm2)
 
         surface_area_value : float, default 0
-            Value assigned to choice of surface area option.
+            The value assigned to choice of surface area option according to:
+            
             - If `surface_area_option` is 0, value is in cm2.
             - If `surface_area_option` is 1, value is in cm2/g.
             - If `surface_area_option` is 2, value is in cm2.
@@ -3969,7 +3981,8 @@ class Reactant:
             Value assigned to surface area factor.
 
         f_rate_law : str, default "Relative rate equation"
-            Type of forward rate law. Valid types include
+            Type of forward rate law. Valid types include:
+            
             - Use backward rate law
             - Relative rate equation
             The TST rate equation is not yet supported.
@@ -3977,12 +3990,14 @@ class Reactant:
         f_eq1, f_eq2, f_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the forward rate law defined for `f_rate_law`.
             If `f_rate_law` is "Relative rate equation", then:
+            
             - f_eq1 is dXi(n)/dXi (mol/mol)
             - f_eq2 is d2Xi(n)/dXi2 (mol/mol2)
             - f_eq3 is d3Xi(n)/dXi3 (mol/mol3)
 
         b_rate_law : str, default "Partial equilibrium"
-            Type of backward rate law. Valid types include
+            Type of backward rate law. Valid types include:
+            
             - Use forward rate law
             - Partial equilibrium
             - Relative rate equation
@@ -3991,6 +4006,7 @@ class Reactant:
         b_eq1, b_eq2, b_eq3 : float, default 1, 0, 0, respectively
             Coefficients of the backward rate law defined for `b_rate_law`.
             If `b_rate_law` is "Relative rate equation", then:
+            
             - the value of b_eq1 represents dXi(n)/dXi (mol/mol)
             - the value of b_eq2 represents d2Xi(n)/dXi2 (mol/mol2)
             - the value of b_eq3 represents d3Xi(n)/dXi3 (mol/mol3)
@@ -4245,108 +4261,114 @@ class Prepare_Reaction:
 
         Parameters
         ----------
-         reactants : list
-             List of reactants defined by the 'Reactant' class. Can be an empty
-             list if no reactants are desired.
+        reactants : list
+            List of reactants defined by the 'Reactant' class. Can be an empty
+            list if no reactants are desired.
              
-         gases : list, default []
-             List of gases defined by the 'Gas' class. Can be an empty
-             list if no gases are desired.
+        gases : list, default []
+            List of gases defined by the 'Gas' class. Can be an empty
+            list if no gases are desired.
          
-         t_option : int, default 0
-             Desired option for handling temperature of the reaction. Valid
-             choices include:
-             - 0 for constant temperature
-             - 1 for linear tracking in Xi
-             - 2 for linear tracking in time
-             Fluid mixing tracking is not yet supported.
+        t_option : int, default 0
+            Desired option for handling temperature of the reaction. Valid
+            choices include:
+            
+            - 0 for constant temperature
+            - 1 for linear tracking in Xi
+            - 2 for linear tracking in time
+            
+            Fluid mixing tracking is not yet supported.
          
-         t_value_1, t_value_2, t_value_3 P: default None, 0, 0, respectively
-             By default, the temperature of samples in the speciation
-             calculation will be used, so the user does not need to specify
-             temperature values here. However, if a user wishes, temperature
-             values can be defined here that will be applied to all samples in
-             the speciation. Note that doing so may result in incongruous
-             results. That said, the values specified here depend on which
-             option is selected for `t_option`:
-             - If 't_option' is 0, then t_value_1 is the value of the constant
-             temperature (in degrees C), and t_value_2 and t_value_3 are ignored.
-             - If 't_option' is 1, then t_value_1 is the base value
-             temperature (in degrees C), t_value_2 is the derivative, and
-             t_value_3 is ignored.
-             - If 't_option' is 2, then t_value_1 is the base value
-             temperature (in degrees C), t_value_2 is the derivative, and
-             t_value_3 is ignored.
+        t_value_1, t_value_2, t_value_3 : default None, 0, 0, respectively
+            By default, the temperature of samples in the speciation
+            calculation will be used, so the user does not need to specify
+            temperature values here. However, if a user wishes, temperature
+            values can be defined here that will be applied to all samples in
+            the speciation. Note that doing so may result in incongruous
+            results. That said, the values specified here depend on which
+            option is selected for `t_option`:
+            
+            - If 't_option' is 0, then t_value_1 is the value of the constant
+            temperature (in degrees C), and t_value_2 and t_value_3 are ignored.
+            - If 't_option' is 1, then t_value_1 is the base value
+            temperature (in degrees C), t_value_2 is the derivative, and
+            t_value_3 is ignored.
+            - If 't_option' is 2, then t_value_1 is the base value
+            temperature (in degrees C), t_value_2 is the derivative, and
+            t_value_3 is ignored.
          
-         p_option : int, default 0
-             Desired option for handling pressure of the reaction. Valid
-             choices include:
-             - 0 to follow the data file reference pressure curve
-             - 1 to follow the 1.013-bar/steam-saturation curve
-             - 2 for constant pressure
-             - 3 for linear tracking in Xi
-             - 4 for linear tracking in time
+        p_option : int, default 0
+            Desired option for handling pressure of the reaction. Valid
+            choices include:
+            
+            - 0 to follow the data file reference pressure curve
+            - 1 to follow the 1.013-bar/steam-saturation curve
+            - 2 for constant pressure
+            - 3 for linear tracking in Xi
+            - 4 for linear tracking in time
+        
+        p_value_1, p_value_2 : float default None, 0
+            Values assigned to desired `p_option`.
+            
+            - If `p_option` is 0 or 1, p_value_1 and p_value_2 are ignored.
+            - If `p_option` is 2, p_value_1 represents a constant pressure,
+            in bars, and p_value_2 is ignored.
+            - If `p_option` is 3 or 4, p_value_1 represents the base pressure
+            value, in bars, and p_value_2 is the derivative.
          
-         p_value_1, p_value_2 : float default None, 0
-             Values assigned to desired `p_option`.
-             - If `p_option` is 0 or 1, p_value_1 and p_value_2 are ignored.
-             - If `p_option` is 2, p_value_1 represents a constant pressure,
-             in bars, and p_value_2 is ignored.
-             - If `p_option` is 3 or 4, p_value_1 represents the base pressure
-             value, in bars, and p_value_2 is the derivative.
+        xi_range : list of two float, default [0, 1]
+            A list containing the starting and maximum value of Xi,
+            respectively.
          
-         xi_range : list of two float, default [0, 1]
-             A list containing the starting and maximum value of Xi,
-             respectively.
+        time_range : list of two float, default [0, 1e38]
+            A list containing the starting and maximum time, respectively.
          
-         time_range : list of two float, default [0, 1e38]
-             A list containing the starting and maximum time, respectively.
+        pH_range : list of two float, default [-1e38, 1e38]
+            A list containing the minimum and maximum values of pH.
          
-         pH_range : list of two float, default [-1e38, 1e38]
-             A list containing the minimum and maximum values of pH.
+        Eh_range : list of two float, default [-1e38, 1e38]
+            A list containing the minimum and maximum values of Eh.
          
-         Eh_range : list of two float, default [-1e38, 1e38]
-             A list containing the minimum and maximum values of Eh.
+        fO2_range : list of two float, default [-1e38, 1e38]
+            A list containing the minimum and maximum values of the fugacity
+            of oxygen, fO2.
          
-         fO2_range : list of two float, default [-1e38, 1e38]
-             A list containing the minimum and maximum values of the fugacity
-             of oxygen, fO2.
+        aw_range : list of two float, default [-1e38, 1e38]
+            A list containing the minimum and maximum values of water activity.
          
-         aw_range : list of two float, default [-1e38, 1e38]
-             A list containing the minimum and maximum values of water activity.
+        max_n_steps : int, default 900
+            Maximum number of steps of Xi allowed.
          
-         max_n_steps : int, default 900
-             Maximum number of steps of Xi allowed.
+        xi_print_int : int, default 1
+            Xi print interval.
          
-         xi_print_int : int, default 1
-             Xi print interval.
+        log_xi_print_int : int, default 1
+            Log Xi print interval.
          
-         log_xi_print_int : int, default 1
-             Log Xi print interval.
+        time_print_int : int, default 1e38
+            Time print interval.
          
-         time_print_int : int, default 1e38
-             Time print interval.
+        log_time_print_int : int, default 1e38
+            Log time print interval.
          
-         log_time_print_int : int, default 1e38
-             Log time print interval.
+        pH_print_interval : int, default 1e38
+            pH print interval.
          
-         pH_print_interval : int, default 1e38
-             pH print interval.
+        Eh_print_interval : int, default 1e38
+            Eh (v) print interval.
          
-         Eh_print_interval : int, default 1e38
-             Eh (v) print interval.
+        logfO2_print_interval : int, default 1e38
+            Log fO2 print interval.
          
-         logfO2_print_interval : int, default 1e38
-             Log fO2 print interval.
+        aw_print_interval : int, default 1e38
+            Activity of water (aw) print interval.
          
-         aw_print_interval : int, default 1e38
-             Activity of water (aw) print interval.
-         
-         n_steps_print_interval : int, default 100
-             Steps print interval.
+        n_steps_print_interval : int, default 100
+            Steps print interval.
 
         physical_system_model : str, default "closed"
             Selection for the physical system model. Valid options include:
+            
             - "closed"
             - "titration"
             - "fluid-centered flow-through open"
@@ -4358,6 +4380,7 @@ class Prepare_Reaction:
          
         phase_boundary_search : int, default 0
             Selection for phase boundary searches. Valid options include:
+            
             - 0 to search for phase boundaries and constrain the step size to
             match.
             - 1 to search for phase boundaries and print their locations.
@@ -4390,12 +4413,14 @@ class Prepare_Reaction:
         
         calc_mode_selection : int, default 0
             Calculational mode selection. Valid options include:
+            
             - 0 for normal path tracing
             - 1 for economy mode (if permissible)
             - 2 for super economy mode (if permissible)
         
         ODE_corrector_mode : int, default 0
             ODE integrator corrector mode selection. Valid options include:
+            
             - 0 to allow stiff and simple correctors
             - 1 to allow only simple corrector
             - 2 to allow only stiff corrector
@@ -4407,6 +4432,7 @@ class Prepare_Reaction:
         
         write_tab : int, default -1
             Option to write a TAB file. Valid options include:
+            
             - -1 do not write a TAB file (default)
             - 0 write a TAB file
             - 1 write a TAB file prepending TABX file data from a previous run
@@ -4415,42 +4441,42 @@ class Prepare_Reaction:
             If True, will write an EQ6 input file with Fluid 1 set up for
             fluid mixing. If False, a normal EQ6 pickup file will be written.
          
-         max_finite_difference_order : int, default 6
-             Maximum finite-difference order (numerical parameter).
+        max_finite_difference_order : int, default 6
+            Maximum finite-difference order (numerical parameter).
          
-         beta_convergence_tolerance : float, default 0
-             Beta convergence tolerance (numerical parameter).
+        beta_convergence_tolerance : float, default 0
+            Beta convergence tolerance (numerical parameter).
          
-         del_convergence_tolerance : float, default 0
-             Delta convergence tolerance (numerical parameter).
+        del_convergence_tolerance : float, default 0
+            Delta convergence tolerance (numerical parameter).
          
-         max_n_NR_iter : int, default 500
-             Maximum number of N-R iterations (numerical parameter).
+        max_n_NR_iter : int, default 500
+            Maximum number of N-R iterations (numerical parameter).
          
-         search_find_convergeance_tolerance : float, default 0
-             Search/find convergence tolerance (numerical parameter).
+        search_find_convergeance_tolerance : float, default 0
+            Search/find convergence tolerance (numerical parameter).
          
-         saturation_tolerance : float, default 0
-             Saturation tolerance (numerical parameter).
+        saturation_tolerance : float, default 0
+            Saturation tolerance (numerical parameter).
          
-         max_n_phase_assemblage_tries : int, default 0
-             Maximum number of phase assemblage tries (numerical parameter).
+        max_n_phase_assemblage_tries : int, default 0
+            Maximum number of phase assemblage tries (numerical parameter).
          
-         zero_order_step_size : int, default 0
-             Zero order step size in Xi (numerical parameter).
+        zero_order_step_size : int, default 0
+            Zero order step size in Xi (numerical parameter).
          
-         max_interval_in_xi_between_PRS_transfers : int, default 0
-             Maximum interval in Xi between PRS transfers (numerical parameter).
+        max_interval_in_xi_between_PRS_transfers : int, default 0
+            Maximum interval in Xi between PRS transfers (numerical parameter).
          
-         filename : str, default None
-             Filename where the results of `Prepare_Reaction` will be written.
-             This is equivalent to the top half of an EQ3/6 6i file. If None,
-             no file will be written.
+        filename : str, default None
+            Filename where the results of `Prepare_Reaction` will be written.
+            This is equivalent to the top half of an EQ3/6 6i file. If None,
+            no file will be written.
              
         hide_traceback : bool, default True
-            Hide traceback message when encountering errors handled by this class?
-            When True, error messages handled by this class will be short and to
-            the point.
+            Hide traceback message when encountering errors handled by this
+            class? When True, error messages handled by this class will be short
+            and to the point.
 
         """
         

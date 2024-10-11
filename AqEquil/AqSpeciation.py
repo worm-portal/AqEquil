@@ -634,6 +634,7 @@ class AqEquil(object):
     db : str, default "WORM"
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        
         - "WORM" will load the default WORM thermodynamic database,
         solid solution database, and logK database. These files are retrieved
         from https://github.com/worm-portal/WORM-db to ensure they are
@@ -743,10 +744,10 @@ class AqEquil(object):
     
     Attributes
     ----------
-    eq36da : str
+    eq36da : str, defaults to path given by the environment variable EQ36DA
         Path to directory where data1 files are stored.
         
-    eq36co : str
+    eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
         
     df_input_processed : pd.DataFrame
@@ -761,8 +762,8 @@ class AqEquil(object):
     """
 
     def __init__(self,
-                 eq36da=os.environ.get('EQ36DA'),
-                 eq36co=os.environ.get('EQ36CO'),
+                 eq36da=None,
+                 eq36co=None,
                  db="WORM",
                  elements=None,
                  solid_solutions=None,
@@ -779,6 +780,11 @@ class AqEquil(object):
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
+
+        if not isinstance(eq36da, str):
+            eq36da = os.environ.get('EQ36DA')
+        if not isinstance(eq36co, str):
+            eq36co = os.environ.get('EQ36CO')
         
         self.eq36da = eq36da
         self.eq36co = eq36co
@@ -1657,13 +1663,8 @@ class AqEquil(object):
                  get_fugacity=True,
                  get_basis_totals=True,
                  get_solid_solutions=True,
-                 get_affinity_energy=False, # deprecated
-                 negative_energy_supplies=False, # deprecated
                  mineral_reactant_energy_supplies=False,
-                 rxn_filename=None, # deprecated
-                 not_limiting=["H+", "OH-", "H2O"], # deprecated
                  get_charge_balance=True,
-                 custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  db_args={}):
@@ -1716,41 +1717,14 @@ class AqEquil(object):
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : str, default "wrm"
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - Three letter file extension for the desired data1 database, e.g.,
-            "wrm". This will use a data1 file with this file extension, e.g.,
-            "data1.wrm" located in the path stored in the 'EQ36DA' environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., "data0.wrm". This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., "wrm_data.csv". The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
+        db : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_solid_solution : str, optional
-            Used only if `db` points to a thermodynamic data CSV file (or the
-            URL of a CSV hosted online). Determines which thermodynamic database
-            is used for idealized solid solutions in the speciation calculation.
-            There are two options:
-            - The name of a CSV file containing solid solution parameters
-            located in the current working directory, e.g.,
-            "wrm_solid_solutions.csv"
-            - The URL of a CSV file containing solid solution parameters, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
+        db_solid_solution : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_logK : str, optional
-            The name of the CSV file containing species with dissociation
-            constants but no other properties or parameters. Used only if `db`
-            points to a thermodynamic data CSV file (or the URL of a CSV hosted
-            online).
+        db_logK : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
         activity_model : str, default "b-dot"
             Activity model to use for speciation. Can be either "b-dot",
@@ -1810,12 +1784,14 @@ class AqEquil(object):
             [["CaOH+", "Suppress"], ["CaCl+", "AugmentLogK", -1]]
             The first element of each interior list is the name of a species.
             The second element is an option to alter the species, and can be:
+            
             - Suppress : suppress the formation of the species. (See also:
             `suppress`).
             - Replace : replace the species' log K value with a desired value.
             - AugmentLogK : augment the value of the species' log K.
             - AugmentG : augment the Gibbs free energy of the species by a
             desired value, in kcal/mol.
+            
             The third element is a numeric value corresponding to the chosen
             option. A third element is not required for Suppress.
             
@@ -1896,13 +1872,6 @@ class AqEquil(object):
         get_solid_solutions : bool, default True
             Permit the calculation of solid solutions and include them in the
             speciation report?
-        
-        get_affinity_energy : bool, default False
-            Deprecated; affinities and energy supplies are now calculated after
-            speciation.
-        
-        negative_energy_supplies : bool, default False
-            Deprecated.
 
         mineral_reactant_energy_supplies : bool, default False
             Report energy supplies for reactions with mineral reactants? This
@@ -1914,10 +1883,7 @@ class AqEquil(object):
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
             and energy supplies. Ignored if `get_affinity_energy` is False.
-        
-        not_limiting : list, default ["H+", "OH-", "H2O"]
-            Deprecated.
-        
+
         get_charge_balance : bool, default True
             Calculate charge balance and ionic strength?
         
@@ -1941,6 +1907,7 @@ class AqEquil(object):
             
             - Example of `db_args` where organics are excluded and redox is
             suppressed for Fe and S:
+            
             db_args = {
                "exclude_category":{"category_1":["organic_aq"]},
                "suppress_redox":["Fe", "S"],
@@ -1955,12 +1922,11 @@ class AqEquil(object):
         """
 
         # deprecated!
-        if get_affinity_energy:
-            self.err_handler.raise_exception("Deprecation error: affinity and "
-                    "energy supply calculations are now handled after speciation "
-                    "using the speciation.apply_redox_reactions(...) or "
-                    "speciation.calculate_energy(...) functions.")
-
+        if db is not None or db_solid_solution is not None or db_logK is not None:
+            self.err_handler.raise_exception("The parameters db, db_solid_solution, and db_logK "
+                "are deprecated in the speciate() function. Databases are now loaded during "
+                "the AqEquil.AqEquil(...) step.")
+        
         self.batch_T = []
         self.batch_P = []
         
@@ -1977,7 +1943,6 @@ class AqEquil(object):
             
         dynamic_db = self.thermo.dynamic_db
         data0_lettercode = self.thermo.data0_lettercode # needs to be this way
-        
         
         if (self.thermo.thermo_db_type == "data0" or self.thermo.thermo_db_type == "data1") and len(db_args) > 0:
             if self.verbose > 0:
@@ -2018,7 +1983,7 @@ class AqEquil(object):
         else:
             self.err_handler.raise_exception("Unrecognized redox flag. Valid options are 'O2(g)'"
                                              ", 'pe', 'Eh', 'logfO2', 'redox aux'")
-            
+
         # handle batch_3o naming
         if batch_3o_filename != None:
             if ".rds" in batch_3o_filename[-4:]:
@@ -2027,11 +1992,11 @@ class AqEquil(object):
                 batch_3o_filename = "batch_3o_{}.rds".format(data0_lettercode)
         else:
             batch_3o_filename = ro.r("NULL")
-        
+
         # reset logK_models whenever speciate() is called
         # (prevents errors when speciations are run back-to-back)
         self.logK_models = {}
-        
+
         # dynamic data0 creation per sample
         if dynamic_db:
             db_args["fill_data0"] = False
@@ -2429,12 +2394,6 @@ class AqEquil(object):
             get_solid_solutions=get_solid_solutions,
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-            # New rpy2 py2rpy2 conversion might not need the workaround below.
-            # The old note regarding deprecated pandas2ri is shown below...
-            # OLD NOTE:
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
             verbose=self.verbose,
         )
@@ -3471,24 +3430,6 @@ class AqEquil(object):
 
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
-            
-
-    def make_redox_reactions(self, *args, **kwargs):
-        """
-        Deprecated
-        """
-        self.err_handler.raise_exception("Deprecation error: make_redox_reactions "
-                "now belongs to the Speciation class. Perform a speciation and then "
-                "use: speciation.make_redox_reactions(...)")
-
-    def show_redox_reactions(self, *args, **kwargs):
-        """
-        Deprecated
-        """
-        self.err_handler.raise_exception("Deprecation error: show_redox_reactions "
-                "now belongs to the Speciation class. Perform a speciation and then "
-                "use: speciation.show_redox_reactions(...)")
-
 
     
     class Thermodata(object):
@@ -4048,7 +3989,10 @@ class AqEquil(object):
             self.logK_S_db = self._exclude_category(df=self.logK_S_db, df_name=self.logK_S_db_filename)
 
             if self.logK_S_active:
+                
                 for i,sp in enumerate(self.logK_S_db["name"]):
+
+                    i = self.logK_S_db.index[i]
                     
                     logK_25C = float(self.logK_S_db["logK_25"][i])
 
@@ -4093,9 +4037,9 @@ class AqEquil(object):
                         elif self.thermo_db["name"].isin([ligand_name]).any():
                             ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["z.T"])[0])
                         else:
-                            # todo: elif ligand_name in logK database names, get charge from there...
-                            # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
+                            self.err_handler.raise_exception("The ligand '"+ligand_name+"' was not found in the "
+                                    "currently loaded databases. Is this ligand present in the database? Was this "
+                                    "ligand excluded (e.g., exclude_organics=True)?")
                     
                         dissrxn = self.logK_S_db["dissrxn"][i].split(" ")
                         n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
@@ -6214,6 +6158,8 @@ class Speciation(object):
         
         if isinstance(col, str):
             col = [col]
+
+        col = list(dict.fromkeys(col)) # remove duplicate search terms while preserving order
         
         df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
@@ -6329,9 +6275,9 @@ class Speciation(object):
         
         df = pd.DataFrame(mineral_data)
 
-        fig = px.bar(df, x=df.index, y="affinity",
+        fig = px.bar(df, x=df.index, y=mineral_sat_type,
             height=plot_height*ppi, width=plot_width*ppi,
-            labels={'affinity': ylabel}, template="simple_white")
+            labels={mineral_sat_type: ylabel}, template="simple_white")
         
         fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}",
                           marker_color=color_list)
@@ -6851,7 +6797,13 @@ class Speciation(object):
         df = self.lookup([x]+y).copy() # TODO: is this where the "can't find name" message comes from?
         df.loc[:, "name"] = df.index
         df.columns = df.columns.get_level_values(0)
-        df = pd.melt(df, id_vars=["name", x], value_vars=y)
+        
+        if x in y:
+            df[str(x)+"_copy"] = df[str(x)]
+            df = df.melt(id_vars=["name", str(x)+"_copy"], value_vars=y).rename(columns={str(x)+'_copy': str(x)})
+        else:
+            df = pd.melt(df, id_vars=["name", x], value_vars=y)
+            
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
 
         if not plot_zero:
