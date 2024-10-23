@@ -60,7 +60,7 @@ pentanoates 2: Ba(Pent)2 Ca(Pent)2 Cd(Pent)2 Co(Pent)2 Cu(Pent)2 Eu(Pent)2+ Fe(P
 
 hexanoates 1: n-hexanoic-acid n-hexanoate
 
-heptanocates 1: n-heptanoic-acid n-heptanoate
+heptanoates 1: n-heptanoic-acid n-heptanoate
 
 octanoates 1: n-octanoic-acid n-octanoates
 

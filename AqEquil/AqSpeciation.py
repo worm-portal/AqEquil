@@ -772,6 +772,7 @@ class AqEquil(object):
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_organics=False,
+                 exclude_organics_except=None,
                  exclude_category=None,
                  suppress_redox=None,
                  input_template="none",
@@ -820,18 +821,41 @@ class AqEquil(object):
 
             if exclude_category is None:
                 exclude_category = dict()
+
+            if isinstance(exclude_organics_except, str):
+                exclude_organics_except = [exclude_organics_except]
             
-            if exclude_organics:
+            if exclude_organics and not isinstance(exclude_organics_except, list):
                 if not isinstance(exclude_category.get("category_1"), list):
                     exclude_category["category_1"] = ["organic_aq", "organic_cr"]
                 else:
-                    print("category_1 exists in 'exclude_category' dict.")
                     if "organic_aq" not in exclude_category["category_1"]:
                         exclude_category["category_1"] = exclude_category["category_1"].append("organic_aq")
                     if "organic_cr" not in exclude_category["category_1"]:
                         exclude_category["category_1"] = exclude_category["category_1"].append("organic_cr")
-            
+            elif isinstance(exclude_organics_except, list):
+                # exclude all organics except what is specified by the user in exclude_organics_except
+                # and species in associated speciation group
+                
+                sp = Speciation({})
+                sp._make_speciation_group_dict()
+                reactant_dict_scalar = copy.copy(sp.reactant_dict_scalar)
+                sp_dict_unpacked = copy.copy(sp.speciation_group_dict_unpacked)
+                sp_dict_groups = copy.copy(sp.sp_dict_groups)
+                self.reactant_dict_scalar = reactant_dict_scalar
+                self.sp_dict_unpacked = sp_dict_unpacked
+                self.sp_dict_groups = sp_dict_groups
+                del sp
+
+                exclude_organics_except_orig = copy.copy(exclude_organics_except)
+                for org in exclude_organics_except_orig:
+                    for group in self.sp_dict_groups:
+                        if org in self.sp_dict_groups[group]:
+                            exclude_organics_except += self.sp_dict_groups[group]
+                exclude_organics_except = list(set(exclude_organics_except))
+
             self.exclude_category = exclude_category
+            self.exclude_organics_except = exclude_organics_except
             self.logK = logK
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
@@ -1088,13 +1112,14 @@ class AqEquil(object):
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure', 'Eh', 'pe']+FIXED_SPECIES:
-                    err_species_not_in_db = ("The species '{}'".format(species) + " "
-                        "was not found in {}".format(data_path) + ". "
-                        "If the column contains data that should not be "
-                        "included in the speciation calculation, add the "
-                        "column name to the 'exclude' argument. Try "
-                        "help(AqEquil.AqEquil.speciate) "
-                        "for more information about 'exclude'.")
+                    err_species_not_in_db = ("The column '{}'".format(species) + " in the input file "
+                        "was not found in the currently loaded chemical species from {}".format(data_path) + ". "
+                        "If the column '"+format(species)+"' contains data that should not be "
+                        "included in the speciation calculation (such as sample metadata), add the "
+                        "column name to the 'exclude' parameter. Otherwise, the "
+                        "species might not be loaded because it is not in the thermodynamic database, "
+                        "or it was excluded via the 'exclude_category', 'exclude_organics', or 'exclude_organics_except' "
+                        "parameters when the database was loaded.")
                     err_list.append(err_species_not_in_db)
                 elif species == 'pH':
                     err_species_pH = ("Please rename the 'pH' column in "
@@ -3448,6 +3473,7 @@ class AqEquil(object):
             self.elements = self.AqEquil_instance.elements
             solid_solutions = self.AqEquil_instance.solid_solutions
             self.exclude_category = self.AqEquil_instance.exclude_category
+            self.exclude_organics_except = self.AqEquil_instance.exclude_organics_except
             self.water_model = self.AqEquil_instance.water_model
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
@@ -4232,13 +4258,29 @@ class AqEquil(object):
             Exclude entries from a df based on values in columns.
             e.g., {"category_1":["organic_aq", "organic_cr"]}
             """
+
+            if isinstance(self.exclude_organics_except, list):
+                organics_to_exclude = []
+                for i,name in enumerate(df["name"]):
+                    if df["category_1"].iloc[i] in ["organic_aq", "organic_cr"] and name not in self.exclude_organics_except:
+                        organics_to_exclude.append(name)
+
+                if not isinstance(self.exclude_category.get("name"), list) or "name" not in list(self.exclude_category.keys()):
+                    self.exclude_category["name"] = organics_to_exclude
+                else:
+                    self.exclude_category["name"] += organics_to_exclude
+                    self.exclude_category["name"] = list(set(self.exclude_category["name"]))
+
             
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) > 0:
                 for key in exclude_keys:
                     if self.verbose > 0:
-                        print("Excluding", str(self.exclude_category[key]), "from column", str(key), "in", df_name)
-                        
+                        if len(self.exclude_category[key]) <= 10:
+                            print("Excluding", str(self.exclude_category[key]), "from column '" + str(key) + "'in", df_name)
+                        else:
+                            print("Excluding", len(self.exclude_category[key]), "different chemical species from column '" + str(key) + "' in", df_name)
+                    
                     if isinstance(self.exclude_category[key], list):
                         
                         idx = list(df[df[key].isin(self.exclude_category[key])].index)
@@ -4551,7 +4593,7 @@ class Speciation(object):
          return getattr(self, item)
 
     
-    def __make_speciation_group_dict(self):
+    def _make_speciation_group_dict(self):
 
         if isinstance(self.custom_grouping_filepath, str):
             with open(self.custom_grouping_filepath) as file:
@@ -4593,6 +4635,7 @@ class Speciation(object):
         #
         # Used to switch a user-specified limiting reactant to one within the same scalar group.
         speciation_group_dict = {}
+        speciation_group_dict_all_like_categories = {}
         for i,line in enumerate(lines):
             line = line.strip().split(":")
             assert len(line) == 2 # will fail if : in species names
@@ -4608,6 +4651,39 @@ class Speciation(object):
 
         self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
 
+        # Creates a dictionary with this format:
+        # {...
+        #  "sulfates": 'sulfates': ['SO4-2','HSO4-','PdSO4','RhSO4', ..., 'Ru(SO4)3-4'],
+        #  "formates": ['formic-acid', 'formate', 'Am(For)+2', ..., 'Zn(For)2'],
+        #  ...
+        # }
+        # Used when the user wants to exclude all organics except for acetate (e.g.)
+        # and all species in the acetate speciation group
+        group_categories = []
+        for group_name in self.reactant_dict_scalar.keys():
+            group_name_no_number = group_name.split(" ")
+            group_name_no_number = " ".join(group_name_no_number[:-1])
+            group_categories.append(group_name_no_number)
+        group_categories = list(set(group_categories))
+        
+        # assert that no group is a substring of another group
+        # in the speciation group 
+        for g1 in group_categories:
+            for g2 in group_categories:
+                if g1 != g2 and g1 in g2:
+                    self.err_handler.raise_exception("The group '" + g1 + "' is "
+                            "a substring of group '" + g2 + "' in the speciation "
+                            "grouping reference. Rename the group(s) so this does not happen.")
+
+        sp_dict_groups = {}
+        for g1 in group_categories:
+            for g2 in self.reactant_dict_scalar.keys():
+                if g1 in g2:
+                    if g1 not in sp_dict_groups.keys():
+                        sp_dict_groups[g1] = self.reactant_dict_scalar[g2]
+                    else:
+                        sp_dict_groups[g1] += self.reactant_dict_scalar[g2]
+        self.sp_dict_groups = sp_dict_groups
 
 
     def __switch_limiting(self, limiting, stoich, species, lenient=False):
@@ -4732,7 +4808,7 @@ class Speciation(object):
         
         self.custom_grouping_filepath = custom_grouping_filepath
         
-        self.__make_speciation_group_dict()
+        self._make_speciation_group_dict()
         
         y_name_list = []
         val_list_list = []
@@ -5616,7 +5692,7 @@ class Speciation(object):
 
         if y_type == "E":
             if not isinstance(self.reactant_dict_scalar, dict):
-                self.__make_speciation_group_dict()
+                self._make_speciation_group_dict()
         
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
@@ -5779,7 +5855,10 @@ class Speciation(object):
         if y_type in ["logK", "logQ"]:
             y_type_plain = copy.copy(y_type)
         elif y_type == "A":
-            y_type_plain = "affinity"
+            if per_electron:
+                y_type_plain = "affinity per mole e-"
+            else:
+                y_type_plain = "affinity per mole rxn"
         elif y_type == "G":
             y_type_plain = "Gibbs free energy"
         elif y_type == "E":
@@ -6832,7 +6911,7 @@ class Speciation(object):
 
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
-            y_find = [yi.replace(" energy supply", "").replace(" affinity", "").replace(" Gibbs free energy", "") for yi in y]
+            y_find = [yi.replace(" energy supply", "").replace(" affinity per mole rxn", "").replace(" affinity per mole e-", "").replace(" Gibbs free energy", "") for yi in y]
             y_find = [yi for yi in y_find if "limiting reactant" not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
