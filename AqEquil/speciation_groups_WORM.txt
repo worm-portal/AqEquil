@@ -1,73 +1,524 @@
-sulfides 1: H2S HS-
+acetate 1: acetic-acid acetate Ag(Ac) Al(Ac)+2 Am(Ac)+2 Au(Ac) Ba(Ac)+ Be(Ac)+ Bi(Ac)+2 Ca(Ac)+ Cd(Ac)+ Ce(Ac)+2 Co(Ac)+ Cs(Ac) Cu(Ac) Cu(Ac)+ Dy(Ac)+2 Er(Ac)+2 Eu(Ac)+2 Fe(Ac)+ Gd(Ac)+2 Gd(Ac)3 Hg(Ac)+ Ho(Ac)+2 K(Ac) La(Ac)+2 Li(Ac) Lu(Ac)+2 Mg(Ac)+ Mn(Ac)+ NH4(Ac) Na(Ac) Nd(Ac)+2 Ni(Ac)+ Pb(Ac)+ Pr(Ac)+2 Ra(Ac)+ Rb(Ac) Sc(Ac)+2 Sm(Ac)+2 Sr(Ac)+ Tb(Ac)+2 Tl(Ac) Tm(Ac)+2 U(Ac)+2 UO2(Ac)+ Y(Ac)+2 Yb(Ac)+2 Zn(Ac)+
 
-sulfides 2: Pb(HS)2 Ag(HS)2- Au(HS)2-
+acetate 2: Ag(Ac)2- Al(Ac)2+ Am(Ac)2+ Au(Ac)2- Ba(Ac)2 Be(Ac)2 Bi(Ac)2+ Ca(Ac)2 Cd(Ac)2 Ce(Ac)2+ Co(Ac)2 Cs(Ac)2- Cu(Ac)2 Cu(Ac)2- Dy(Ac)2+ Er(Ac)2+ Eu(Ac)2+ Fe(Ac)2 Gd(Ac)2+ Hg(Ac)2 Ho(Ac)2+ K(Ac)2- La(Ac)2+ Li(Ac)2- Lu(Ac)2+ Mg(Ac)2 Mn(Ac)2 NH4(Ac)2- Na(Ac)2- Nd(Ac)2+ Ni(Ac)2 Pb(Ac)2 Pr(Ac)2+ Ra(Ac)2 Rb(Ac)2- Sc(Ac)2+ Sm(Ac)2+ Sr(Ac)2 Tb(Ac)2+ Tl(Ac)2- Tm(Ac)2+ U(Ac)2+ UO2(Ac)2 Y(Ac)2+ Yb(Ac)2+ Zn(Ac)2
 
-sulfides 3: Pb(HS)3-
-
-sulfates 1: SO4-2 HSO4- PdSO4 RhSO4 RhSO4+ RuSO4 RuSO4+ CeSO4+ PrSO4+ NdSO4+ SmSO4+ EuSO4+ GdSO4+ TbSO4+ DySO4+ HoSO4+ ErSO4+ TmSO4+ YbSO4+ LuSO4+ MgSO4 NaSO4- KSO4- CaSO4 KHSO4 MnSO4 PtSO4 AmSO4+
-
-sulfates 2: Pd(SO4)2-2 Pt(SO4)2-2 Rh(SO4)2- Rh(SO4)2-2 Ru(SO4)2- Ru(SO4)2-2 Am(SO4)2-
-
-sulfates 3: Pd(SO4)3-4 Pt(SO4)3-4 Rh(SO4)3-3 Rh(SO4)3-4 Ru(SO4)3-3 Ru(SO4)3-4
-
-carbonates 1: HCO3- CO2 CO3-2 CaCO3 NaCO3- MgCO3 SrCO3 BaCO3 LaHCO3+2 CeHCO3+2 PrHCO3+2 NdHCO3+2 SmHCO3+2 EuHCO3+2 GdHCO3+2 TbHCO3+2 DyHCO3+2 HoHCO3+2 ErHCO3+2 TmHCO3+2 YbHCO3+2 LuHCO3+2 BaHCO3+ CaHCO3+ MgHCO3+ SrHCO3+ Am(HCO3)+2 LaCO3+ CeCO3+ PrCO3+ NdCO3+ SmCO3+ EuCO3+ GdCO3+ TbCO3+ DyCO3+ HoCO3+ ErCO3+ TmCO3+ YbCO3+ LuCO3+ Ag(CO3)-
-
-carbonates 2: Ag(CO3)2-3
-
-formates 1: formic-acid formate Am(For)+2 Ba(For)+ Ca(For)+ Cd(For)+ Co(For)+ Cu(For)+ Eu(For)+ Fe(For)+ Fe(For)2 Gd(For)+2 K(For) La(For)+2 Mg(For)+ Mn(For)+ Na(For) Ni(For)+ Pb(For)+ Sr(For)+ U(For)+2 Yb(For)+2 Zn(For)+
-
-formates 2: Am(For)2+ Ba(For)2 Ca(For)2 Cd(For)2 Co(For)2 Cu(For)2 Eu(For)+2 Eu(For)2 Eu(For)2+ Gd(For)2+ K(For)2- La(For)2+ Mg(For)2 Mn(For)2 Na(For)2- Ni(For)2 Pb(For)2 Sr(For)2 U(For)2+ Yb(For)2+ Zn(For)2
-
-acetates 1: acetic-acid acetate Ag(Ac) Al(Ac)+2 Am(Ac)+2 Au(Ac) Ba(Ac)+ Be(Ac)+ Bi(Ac)+2 Ca(Ac)+ Cd(Ac)+ Ce(Ac)+2 Co(Ac)+ Cs(Ac) Cu(Ac) Cu(Ac)+ Dy(Ac)+2 Er(Ac)+2 Eu(Ac)+2 Fe(Ac)+ Gd(Ac)+2 Gd(Ac)3 Hg(Ac)+ Ho(Ac)+2 K(Ac) La(Ac)+2 Li(Ac) Lu(Ac)+2 Mg(Ac)+ Mn(Ac)+ NH4(Ac) Na(Ac) Nd(Ac)+2 Ni(Ac)+ Pb(Ac)+ Pr(Ac)+2 Ra(Ac)+ Rb(Ac) Sc(Ac)+2 Sm(Ac)+2 Sr(Ac)+ Tb(Ac)+2 Tl(Ac) Tm(Ac)+2 U(Ac)+2 UO2(Ac)+ Y(Ac)+2 Yb(Ac)+2 Zn(Ac)+
-
-acetates 2: Ag(Ac)2- Al(Ac)2+ Am(Ac)2+ Au(Ac)2- Ba(Ac)2 Be(Ac)2 Bi(Ac)2+ Ca(Ac)2 Cd(Ac)2 Ce(Ac)2+ Co(Ac)2 Cs(Ac)2- Cu(Ac)2 Cu(Ac)2- Dy(Ac)2+ Er(Ac)2+ Eu(Ac)2+ Fe(Ac)2 Gd(Ac)2+ Hg(Ac)2 Ho(Ac)2+ K(Ac)2- La(Ac)2+ Li(Ac)2- Lu(Ac)2+ Mg(Ac)2 Mn(Ac)2 NH4(Ac)2- Na(Ac)2- Nd(Ac)2+ Ni(Ac)2 Pb(Ac)2 Pr(Ac)2+ Ra(Ac)2 Rb(Ac)2- Sc(Ac)2+ Sm(Ac)2+ Sr(Ac)2 Tb(Ac)2+ Tl(Ac)2- Tm(Ac)2+ U(Ac)2+ UO2(Ac)2 Y(Ac)2+ Yb(Ac)2+ Zn(Ac)2
-
-acetates 3: Al(Ac)3 Am(Ac)3 Bi(Ac)3 Cd(Ac)3- Ce(Ac)3 Co(Ac)3- Cu(Ac)3- Dy(Ac)3 Eu(Ac)3 Hg(Ac)3- Ho(Ac)3 La(Ac)3 Lu(Ac)3 Mn(Ac)3- Er(Ac)3 Nd(Ac)3 Ni(Ac)3- Pb(Ac)3- Pr(Ac)3 Sc(Ac)3 Sm(Ac)3 Tb(Ac)3 Tm(Ac)3 U(Ac)3 UO2(Ac)3- Y(Ac)3 Yb(Ac)3 Zn(Ac)3-
+acetate 3: Al(Ac)3 Am(Ac)3 Bi(Ac)3 Cd(Ac)3- Ce(Ac)3 Co(Ac)3- Cu(Ac)3- Dy(Ac)3 Eu(Ac)3 Hg(Ac)3- Ho(Ac)3 La(Ac)3 Lu(Ac)3 Mn(Ac)3- Er(Ac)3 Nd(Ac)3 Ni(Ac)3- Pb(Ac)3- Pr(Ac)3 Sc(Ac)3 Sm(Ac)3 Tb(Ac)3 Tm(Ac)3 U(Ac)3 UO2(Ac)3- Y(Ac)3 Yb(Ac)3 Zn(Ac)3-
 
 ammonia 1: NH3 NH4+ NH4(Ac) NH4(Ac)2- NH4(Mal)-
 
-ferrous iron 1: Fe+2 HFeO2- FeCl+ FeCl2 FeF+ FeOH+ FeO Fe(Ac)+ Fe(Ac)2 Fe(Mal) Fe(Succ) Fe(Glut) Fe(Adip) Fe(Prop)+ Fe(Prop)2 Fe(But)+ Fe(But)2 Fe(Pent)+ Fe(Pent)2 Fe(For)+ Fe(For)2 Fe(Glyc)+ Fe(Glyc)2 Fe(Lac)+ Fe(Lac)2 
+sulfide 1: H2S HS-
 
-ferric iron 1: Fe+3 FeF+2 FeOH+2 FeO+ HFeO2 FeO2- Fe(Mal)+ Fe(Succ)+ Fe(Glut)+ FeCl+2
+sulfide 2: Pb(HS)2 Ag(HS)2- Au(HS)2-
 
-nitrites 1: NO2- HNO2 AmNO2+2
+sulfide 3: Pb(HS)3-
 
-nitrates 1: NO3- HNO3 LaNO3+2 CeNO3+2 PrNO3+2 NdNO3+2 SmNO3+2 EuNO3+2 GdNO3+2 TbNO3+2 DyNO3+2 HoNO3+2 ErNO3+2 TmNO3+2 YbNO3+2 LuNO3+2 AgNO3 AmNO3+2
+sulfate 1: SO4-2 HSO4- PdSO4 RhSO4 RhSO4+ RuSO4 RuSO4+ CeSO4+ PrSO4+ NdSO4+ SmSO4+ EuSO4+ GdSO4+ TbSO4+ DySO4+ HoSO4+ ErSO4+ TmSO4+ YbSO4+ LuSO4+ MgSO4 NaSO4- KSO4- CaSO4 KHSO4 MnSO4 PtSO4 AmSO4+
 
-nitrites 2: Am(NO3)2+
+sulfate 2: Pd(SO4)2-2 Pt(SO4)2-2 Rh(SO4)2- Rh(SO4)2-2 Ru(SO4)2- Ru(SO4)2-2 Am(SO4)2-
 
-succinates 1: succinic-acid H-succinate succinate-2 Ba(Succ) Be(Succ) Ca(Succ) Cd(Succ) Co(Succ) Cr(Succ) Cu(Succ) Er(Succ)+ Fe(Succ) Fe(Succ)+ K(Succ)- Li(Succ)- Mg(Succ) Mn(Succ) Na(Succ)- Ni(Succ) Pb(Succ) Sc(Succ)+ Sm(Succ)+ Sr(Succ) Th(Succ)+2 U(Succ)+2 UO2(Succ) Zn(Succ)
+sulfate 3: Pd(SO4)3-4 Pt(SO4)3-4 Rh(SO4)3-3 Rh(SO4)3-4 Ru(SO4)3-3 Ru(SO4)3-4
 
-malonates 1: malonic-acid H-malonate malonate-2 Al(Mal)+ Ba(Mal) Be(Mal) Ca(Mal) Cd(Mal) Ce(Mal)+ Co(Mal) Cr(Mal) Cs(Mal)- Cu(Mal) Dy(Mal)+ Er(Mal)+ Eu(Mal)+ Fe(Mal) Fe(Mal)+ Gd(Mal)+ Ho(Mal)+ In(Mal)+ K(Mal)- La(Mal)+ Li(Mal)- Lu(Mal)+ Mg(Mal) Mn(Mal) NH4(Mal)- Na(Mal)- Nd(Mal)+ Ni(Mal) Pb(Mal) Pr(Mal)+ Sc(Mal)+ Sm(Mal)+ Sr(Mal) Tb(Mal)+ Th(Mal)+2 Tm(Mal)+ UO2(Mal) Y(Mal)+ Yb(Mal)+ Zn(Mal)
+carbonate 1: HCO3- CO2 CO3-2 CaCO3 NaCO3- MgCO3 SrCO3 BaCO3 LaHCO3+2 CeHCO3+2 PrHCO3+2 NdHCO3+2 SmHCO3+2 EuHCO3+2 GdHCO3+2 TbHCO3+2 DyHCO3+2 HoHCO3+2 ErHCO3+2 TmHCO3+2 YbHCO3+2 LuHCO3+2 BaHCO3+ CaHCO3+ MgHCO3+ SrHCO3+ Am(HCO3)+2 LaCO3+ CeCO3+ PrCO3+ NdCO3+ SmCO3+ EuCO3+ GdCO3+ TbCO3+ DyCO3+ HoCO3+ ErCO3+ TmCO3+ YbCO3+ LuCO3+ Ag(CO3)-
 
-glutarates 1: glutaric-acid H-glutarate glutarate-2 Ba(Glut) Ca(Glut) Cd(Glut) Co(Glut) Cr(Glut) Cu(Glut) Er(Glut)+ Fe(Glut) Fe(Glut)+ K(Glut)- La(Glut)+ Li(Glut)- Mg(Glut) Mn(Glut) Na(Glut)- Ni(Glut) Pb(Glut) Sc(Glut)+ Sm(Glut)+ Sr(Glut) Th(Glut)+2 UO2(Glut) Y(Glut)+ Zn(Glut)
+carbonate 2: Ag(CO3)2-3
 
-adipates 1: adipic-acid H-adipate adipate-2 Ba(Adip) Ca(Adip) Cd(Adip) Co(Adip) Cr(Adip) Cu(Adip) Fe(Adip) K(Adip)- La(Adip)+ Li(Adip)- Mg(Adip) Mn(Adip) Na(Adip)- Ni(Adip) Pb(Adip) Sc(Adip)+ Sr(Adip) Th(Adip)+2 U(Adip)+2 UO2(Adip) Zn(Adip)
+formate 1: formic-acid formate Am(For)+2 Ba(For)+ Ca(For)+ Cd(For)+ Co(For)+ Cu(For)+ Eu(For)+ Fe(For)+ Fe(For)2 Gd(For)+2 K(For) La(For)+2 Mg(For)+ Mn(For)+ Na(For) Ni(For)+ Pb(For)+ Sr(For)+ U(For)+2 Yb(For)+2 Zn(For)+
 
-pimelates 1: pimelic-acid H-pimelate pimelate-2 UO2(Pime)
+formate 2: Am(For)2+ Ba(For)2 Ca(For)2 Cd(For)2 Co(For)2 Cu(For)2 Eu(For)+2 Eu(For)2 Eu(For)2+ Gd(For)2+ K(For)2- La(For)2+ Mg(For)2 Mn(For)2 Na(For)2- Ni(For)2 Pb(For)2 Sr(For)2 U(For)2+ Yb(For)2+ Zn(For)2
 
-propanoates 1: propanoic-acid propanoate Am(Prop)+2 Ba(Prop)+ Ca(Prop)+ Cd(Prop)+ Co(Prop)+ Cu(Prop)+ Eu(Prop)+ Eu(Prop)+2 Fe(Prop)+ Gd(Prop)+2 K(Prop) La(Prop)+2 Mg(Prop)+ Mn(Prop)+ Na(Prop) Ni(Prop)+ Pb(Prop)+ Sr(Prop)+ U(Prop)+2 Yb(Prop)+2 Zn(Prop)+
+iron(II) 1: Fe+2 HFeO2- FeCl+ FeCl2 FeF+ FeOH+ FeO Fe(Ac)+ Fe(Ac)2 Fe(Mal) Fe(Succ) Fe(Glut) Fe(Adip) Fe(Prop)+ Fe(Prop)2 Fe(But)+ Fe(But)2 Fe(Pent)+ Fe(Pent)2 Fe(For)+ Fe(For)2 Fe(Glyc)+ Fe(Glyc)2 Fe(Lac)+ Fe(Lac)2 
 
-propanoates 2: Am(Prop)2+ Ba(Prop)2 Ca(Prop)2 Cd(Prop)2 Co(Prop)2 Cu(Prop)2 Eu(Prop)2 Fe(Prop)2 Gd(Prop)2+ K(Prop)2- La(Prop)2+ Mg(Prop)2 Mn(Prop)2 Na(Prop)2- Ni(Prop)2 Pb(Prop)2 Sr(Prop)2 U(Prop)2+ Yb(Prop)2+ Zn(Prop)2 Eu(Prop)2+
+iron(III) 1: Fe+3 FeF+2 FeOH+2 FeO+ HFeO2 FeO2- Fe(Mal)+ Fe(Succ)+ Fe(Glut)+ FeCl+2
 
-butanoates 1: n-butanoic-acid n-butanoate Am(But)+2 Ba(But)+ Ca(But)+ Cd(But)+ Co(But)+ Cu(But)+ Eu(But)+ Eu(But)+2 Fe(But)+ Gd(But)+2 K(But) La(But)+2 Mg(But)+ Mn(But)+ Na(But) Ni(But)+ Pb(But)+ Sr(But)+ U(But)+2 Yb(But)+2 Zn(But)+
+nitrite 1: NO2- HNO2 AmNO2+2
 
-butanoates 2: Am(But)2+ Ba(But)2 Ca(But)2 Cd(But)2 Co(But)2 Cu(But)2 Eu(But)2 Fe(But)2 Gd(But)2+ Eu(But)2+ K(But)2- La(But)2+ Mg(But)2 Mn(But)2 Na(But)2- Ni(But)2 Pb(But)2 Sr(But)2 U(But)2+ Yb(But)2+ Zn(But)2
+nitrate 1: NO3- HNO3 LaNO3+2 CeNO3+2 PrNO3+2 NdNO3+2 SmNO3+2 EuNO3+2 GdNO3+2 TbNO3+2 DyNO3+2 HoNO3+2 ErNO3+2 TmNO3+2 YbNO3+2 LuNO3+2 AgNO3 AmNO3+2
 
-pentanoates 1: n-pentanoic-acid n-pentanoate Ba(Pent)+ Ca(Pent)+ Cd(Pent)+ Co(Pent)+ Cu(Pent)+ Eu(Pent)+ Eu(Pent)+2 Fe(Pent)+ Gd(Pent)+2 K(Pent) La(Pent)+2 Mg(Pent)+ Mn(Pent)+ Na(Pent) Ni(Pent)+ Pb(Pent)+ Sr(Pent)+ U(Pent)+2 Yb(Pent)+2 Zn(Pent)+
+nitrite 2: Am(NO3)2+
 
-pentanoates 2: Ba(Pent)2 Ca(Pent)2 Cd(Pent)2 Co(Pent)2 Cu(Pent)2 Eu(Pent)2+ Fe(Pent)2 Gd(Pent)2+ K(Pent)2- La(Pent)2+ Mg(Pent)2 Mn(Pent)2 Na(Pent)2- Ni(Pent)2 Pb(Pent)2 Sr(Pent)2 Yb(Pent)2+ Zn(Pent)2
+succinate 1: succinic-acid H-succinate succinate-2 Ba(Succ) Be(Succ) Ca(Succ) Cd(Succ) Co(Succ) Cr(Succ) Cu(Succ) Er(Succ)+ Fe(Succ) Fe(Succ)+ K(Succ)- Li(Succ)- Mg(Succ) Mn(Succ) Na(Succ)- Ni(Succ) Pb(Succ) Sc(Succ)+ Sm(Succ)+ Sr(Succ) Th(Succ)+2 U(Succ)+2 UO2(Succ) Zn(Succ)
 
-hexanoates 1: n-hexanoic-acid n-hexanoate
+malonate 1: malonic-acid H-malonate malonate-2 Al(Mal)+ Ba(Mal) Be(Mal) Ca(Mal) Cd(Mal) Ce(Mal)+ Co(Mal) Cr(Mal) Cs(Mal)- Cu(Mal) Dy(Mal)+ Er(Mal)+ Eu(Mal)+ Fe(Mal) Fe(Mal)+ Gd(Mal)+ Ho(Mal)+ In(Mal)+ K(Mal)- La(Mal)+ Li(Mal)- Lu(Mal)+ Mg(Mal) Mn(Mal) NH4(Mal)- Na(Mal)- Nd(Mal)+ Ni(Mal) Pb(Mal) Pr(Mal)+ Sc(Mal)+ Sm(Mal)+ Sr(Mal) Tb(Mal)+ Th(Mal)+2 Tm(Mal)+ UO2(Mal) Y(Mal)+ Yb(Mal)+ Zn(Mal)
 
-heptanoates 1: n-heptanoic-acid n-heptanoate
+glutarate 1: glutaric-acid H-glutarate glutarate-2 Ba(Glut) Ca(Glut) Cd(Glut) Co(Glut) Cr(Glut) Cu(Glut) Er(Glut)+ Fe(Glut) Fe(Glut)+ K(Glut)- La(Glut)+ Li(Glut)- Mg(Glut) Mn(Glut) Na(Glut)- Ni(Glut) Pb(Glut) Sc(Glut)+ Sm(Glut)+ Sr(Glut) Th(Glut)+2 UO2(Glut) Y(Glut)+ Zn(Glut)
 
-octanoates 1: n-octanoic-acid n-octanoates
+adipate 1: adipic-acid H-adipate adipate-2 Ba(Adip) Ca(Adip) Cd(Adip) Co(Adip) Cr(Adip) Cu(Adip) Fe(Adip) K(Adip)- La(Adip)+ Li(Adip)- Mg(Adip) Mn(Adip) Na(Adip)- Ni(Adip) Pb(Adip) Sc(Adip)+ Sr(Adip) Th(Adip)+2 U(Adip)+2 UO2(Adip) Zn(Adip)
 
-glycolates 1: glycolic-acid glycolate Am(Glyc)+2 Ba(Glyc)+ Ca(Glyc)+ Cd(Glyc)+ Co(Glyc)+ Cu(Glyc)+ Eu(Glyc)+ Fe(Glyc)+ K(Glyc) Li(Glyc) Mg(Glyc)+ Mn(Glyc)+ Na(Glyc) Ni(Glyc)+ Pb(Glyc)+ Sr(Glyc)+ Zn(Glyc)+
+pimelate 1: pimelic-acid H-pimelate pimelate-2 UO2(Pime)
 
-glycolates 2: Am(Glyc)2+ Ba(Glyc)2 Ca(Glyc)2 Cd(Glyc)2 Co(Glyc)2 Cu(Glyc)2 Eu(Glyc)2 Fe(Glyc)2 K(Glyc)2- Mg(Glyc)2 Mn(Glyc)2 Na(Glyc)2- Ni(Glyc)2 Pb(Glyc)2 Sr(Glyc)2 Zn(Glyc)2
+propanoate 1: propanoic-acid propanoate Am(Prop)+2 Ba(Prop)+ Ca(Prop)+ Cd(Prop)+ Co(Prop)+ Cu(Prop)+ Eu(Prop)+ Eu(Prop)+2 Fe(Prop)+ Gd(Prop)+2 K(Prop) La(Prop)+2 Mg(Prop)+ Mn(Prop)+ Na(Prop) Ni(Prop)+ Pb(Prop)+ Sr(Prop)+ U(Prop)+2 Yb(Prop)+2 Zn(Prop)+
 
-lactates 1: lactic-acid lactate Am(Lac)+2 Ba(Lac)+ Ca(Lac)+ Cd(Lac)+ Co(Lac)+ Cu(Lac)+ Eu(Lac)+ Fe(Lac)+ K(Lac) La(Lac)+2 Li(Lac) Lu(Lac)+2 Mg(Lac)+ Mn(Lac)+ Na(Lac) Ni(Lac)+ Pb(Lac)+ Sr(Lac)+ Zn(Lac)+
+propanoate 2: Am(Prop)2+ Ba(Prop)2 Ca(Prop)2 Cd(Prop)2 Co(Prop)2 Cu(Prop)2 Eu(Prop)2 Fe(Prop)2 Gd(Prop)2+ K(Prop)2- La(Prop)2+ Mg(Prop)2 Mn(Prop)2 Na(Prop)2- Ni(Prop)2 Pb(Prop)2 Sr(Prop)2 U(Prop)2+ Yb(Prop)2+ Zn(Prop)2 Eu(Prop)2+
 
-lactates 2: Am(Lac)2+ Ba(Lac)2 Ca(Lac)2 Cd(Lac)2 Co(Lac)2 Cu(Lac)2 Eu(Lac)2 Fe(Lac)2 K(Lac)2- Mg(Lac)2 Mn(Lac)2 Na(Lac)2- Ni(Lac)2 Pb(Lac)2 Sr(Lac)2 Zn(Lac)2
+butanoate 1: n-butanoic-acid n-butanoate Am(But)+2 Ba(But)+ Ca(But)+ Cd(But)+ Co(But)+ Cu(But)+ Eu(But)+ Eu(But)+2 Fe(But)+ Gd(But)+2 K(But) La(But)+2 Mg(But)+ Mn(But)+ Na(But) Ni(But)+ Pb(But)+ Sr(But)+ U(But)+2 Yb(But)+2 Zn(But)+
+
+butanoate 2: Am(But)2+ Ba(But)2 Ca(But)2 Cd(But)2 Co(But)2 Cu(But)2 Eu(But)2 Fe(But)2 Gd(But)2+ Eu(But)2+ K(But)2- La(But)2+ Mg(But)2 Mn(But)2 Na(But)2- Ni(But)2 Pb(But)2 Sr(But)2 U(But)2+ Yb(But)2+ Zn(But)2
+
+pentanoate 1: n-pentanoic-acid n-pentanoate Ba(Pent)+ Ca(Pent)+ Cd(Pent)+ Co(Pent)+ Cu(Pent)+ Eu(Pent)+ Eu(Pent)+2 Fe(Pent)+ Gd(Pent)+2 K(Pent) La(Pent)+2 Mg(Pent)+ Mn(Pent)+ Na(Pent) Ni(Pent)+ Pb(Pent)+ Sr(Pent)+ U(Pent)+2 Yb(Pent)+2 Zn(Pent)+
+
+pentanoate 2: Ba(Pent)2 Ca(Pent)2 Cd(Pent)2 Co(Pent)2 Cu(Pent)2 Eu(Pent)2+ Fe(Pent)2 Gd(Pent)2+ K(Pent)2- La(Pent)2+ Mg(Pent)2 Mn(Pent)2 Na(Pent)2- Ni(Pent)2 Pb(Pent)2 Sr(Pent)2 Yb(Pent)2+ Zn(Pent)2
+
+hexanoate 1: n-hexanoic-acid n-hexanoate
+
+heptanoate 1: n-heptanoic-acid n-heptanoate
+
+octanoate 1: n-octanoic-acid n-octanoates
+
+glycolate 1: glycolic-acid glycolate Am(Glyc)+2 Ba(Glyc)+ Ca(Glyc)+ Cd(Glyc)+ Co(Glyc)+ Cu(Glyc)+ Eu(Glyc)+ Fe(Glyc)+ K(Glyc) Li(Glyc) Mg(Glyc)+ Mn(Glyc)+ Na(Glyc) Ni(Glyc)+ Pb(Glyc)+ Sr(Glyc)+ Zn(Glyc)+
+
+glycolate 2: Am(Glyc)2+ Ba(Glyc)2 Ca(Glyc)2 Cd(Glyc)2 Co(Glyc)2 Cu(Glyc)2 Eu(Glyc)2 Fe(Glyc)2 K(Glyc)2- Mg(Glyc)2 Mn(Glyc)2 Na(Glyc)2- Ni(Glyc)2 Pb(Glyc)2 Sr(Glyc)2 Zn(Glyc)2
+
+lactate 1: lactic-acid lactate Am(Lac)+2 Ba(Lac)+ Ca(Lac)+ Cd(Lac)+ Co(Lac)+ Cu(Lac)+ Eu(Lac)+ Fe(Lac)+ K(Lac) La(Lac)+2 Li(Lac) Lu(Lac)+2 Mg(Lac)+ Mn(Lac)+ Na(Lac) Ni(Lac)+ Pb(Lac)+ Sr(Lac)+ Zn(Lac)+
+
+lactate 2: Am(Lac)2+ Ba(Lac)2 Ca(Lac)2 Cd(Lac)2 Co(Lac)2 Cu(Lac)2 Eu(Lac)2 Fe(Lac)2 K(Lac)2- Mg(Lac)2 Mn(Lac)2 Na(Lac)2- Ni(Lac)2 Pb(Lac)2 Sr(Lac)2 Zn(Lac)2
+
+aluminum 1: Al+3 AlOH+2 AlO2- AlO+ HAlO2 Al(Ac)+2 Al(Ac)2+ Al(Ac)3 Al(Mal)+
+
+americium 1: Am+3 AmOH+2 AmO+ HAmO2 AmF+2 AmF2+ AmF3 AmF4- AmCl+2 AmCl2+ AmCl3 AmCl4- AmNO3+2 Am(NO3)2+ AmNO2+2 AmH2PO4+2 AmSCN+2 Am(SCN)2+ Am(SCN)3 Am(HCO3)+2 Am(ClO4)+2 AmCO3+ Am(CO3)2- AmSO4+ Am(SO4)2- Am(Ac)+2 Am(Ac)2+ Am(Ac)3 Am(Prop)+2 Am(Prop)2+ Am(But)+2 Am(But)2+ Am(For)+2 Am(For)2+ Am(Glyc)+2 Am(Glyc)2+ Am(Lac)+2 Am(Lac)2+
+
+arsenic(III) 1: H2AsO3- AsO2- HAsO2
+
+arsenic(V) 1: H2AsO4- HAsO4-2 AsO4-3 H3AsO4
+
+barium 1: Ba+2 BaCO3 BaF+ BaCl+ BaOH+ BaHCO3+ Ba(Ac)+ Ba(Ac)2 Ba(Mal) Ba(Succ) Ba(Glut) Ba(Adip) Ba(Prop)+ Ba(Prop)2 Ba(But)+ Ba(But)2 Ba(Pent)+ Ba(Pent)2 Ba(For)+ Ba(For)2 Ba(Glyc)+ Ba(Glyc)2 Ba(Lac)+ Ba(Lac)2
+
+beryllium 1: Be+2 BeOH+ BeO HBeO2- BeO2-2 BeCl+ BeCl2 BeF+ BeF2 BeF3- BeF4-2 Be(Ac)+ Be(Ac)2 Be(Mal) Be(Succ)
+
+bismuth 1: Bi+3 BiOH+2 BiO+ HBiO2 BiO2- Bi(Ac)+2 Bi(Ac)2+ Bi(Ac)3
+
+calcium 1: Ca+2 CaF+ CaSO4 CaCO3 CaCl CaCl2 CaHSiO3+ CaOH+ CaHCO3+ Ca(Ac)+ Ca(Ac)2 Ca(Mal) Ca(Succ) Ca(Glut) Ca(Adip) Ca(Prop)+ Ca(Prop)2 Ca(But)+ Ca(But)2 Ca(Pent)+ Ca(Pent)2 Ca(For)+ Ca(For)2 Ca(Glyc)+ Ca(Glyc)2 Ca(Lac)+ Ca(Lac)2
+
+cadmium 1: Cd+2 CdOH+ CdO HCdO2- CdO2-2 CdCl+ CdCl2 CdCl3- CdCl4-2 CdF+ CdF2 Cd(Ac)+ Cd(Ac)2 Cd(Ac)3- Cd(Mal) Cd(Succ) Cd(Glut) Cd(Adip) Cd(Prop)+ Cd(Prop)2 Cd(But)+ Cd(But)2 Cd(Pent)+ Cd(Pent)2 Cd(For)+ Cd(For)2 Cd(Glyc)+ Cd(Glyc)2 Cd(Lac)+ Cd(Lac)2
+
+cerium(II) 1: Ce+2
+
+cerium(III) 1: Ce+3 CeBr+2 CeCl+2 CeCl2+ CeCl3 CeCl4- CeF+2 CeF2+ CeF3 CeF4- CeOH+2 CeO+ CeO2H CeO2- CeNO3+2 CeHCO3+2 CeH2PO4+2 CeCO3+ CeSO4+ CeClO4+2 CeIO3+2 Ce(Ac)+2 Ce(Ac)2+ Ce(Ac)3 Ce(Mal)+ 
+
+cerium(IV) 1: Ce+4
+
+cobalt(II) 1: Co+2 CoOH+ CoO HCoO2- CoO2-2 CoCl+ CoF+ Co(Ac)+ Co(Ac)2 Co(Ac)3- Co(Mal) Co(Succ) Co(Glut) Co(Adip) Co(Prop)+ Co(Prop)2 Co(But)+ Co(But)2 Co(Pent)+ Co(Pent)2 Co(For)+ Co(For)2 Co(Glyc)+ Co(Glyc)2 Co(Lac)+ Co(Lac)2
+
+cobalt(III) 1: Co+3 CoOH+2
+
+cesium(I) 1: Cs+ CsCl CsBr CsI CsOH Cs(Ac) Cs(Ac)2- Cs(Mal)-
+
+copper(I) 1: Cu+ CuCl CuCl2- CuCl3-2 Cu(Ac)
+
+copper(II) 1: Cu+2 CuOH+ CuO HCuO2- CuO2-2 CuCl+ CuCl2 CuCl3- CuCl4-2 CuF+ Cu(Ac)+ Cu(Ac)2 Cu(Ac)2- Cu(Ac)3- Cu(Mal) Cu(Succ) Cu(Glut) Cu(Adip) Cu(Prop)+ Cu(Prop)2 Cu(But)+ Cu(But)2 Cu(Pent)+ Cu(Pent)2 Cu(For)+ Cu(For)2 Cu(Glyc)+ Cu(Glyc)2 Cu(Lac)+ Cu(Lac)2
+
+dysprosium(II) 1: Dy+2
+
+dysprosium(III) 1: Dy+3 DyCl+2 DyCl2+ DyCl3 DyCl4- DyF+2 DyF2+ DyF3 DyF4- DyOH+2 DyO+ DyO2H DyO2- DyNO3+2 DyHCO3+2 DyH2PO4+2 DyCO3+ DySO4+ Dy(Ac)+2 Dy(Ac)2+ Dy(Ac)3 Dy(Mal)+
+
+dysprosium(IV) 1: Dy+4
+
+erbium(II) 1: Er+2 
+
+erbium(III) 1: Er+3 ErCl+2 ErCl2+ ErCl3 ErCl4- ErF+2 ErF2+ ErF3 ErF4- ErOH+2 ErO+ ErO2H ErO2- ErNO3+2 ErHCO3+2 ErH2PO4+2 ErCO3+ ErSO4+ Er(Ac)+2 Er(Ac)2+ Er(Ac)3 Er(Mal)+ Er(Succ)+ Er(Glut)+
+
+erbium(IV) 1: Er+4
+
+europium(II) 1: Eu+2 EuF+ EuF2 EuF3- EuF4-2 EuCl+ EuCl2 EuCl3- EuCl4-2 Eu(Prop)+ Eu(Prop)2 Eu(But)+ Eu(But)2 Eu(Pent)+ Eu(For)+ Eu(For)2 Eu(Glyc)+ Eu(Glyc)2 Eu(Lac)+ Eu(Lac)2
+
+europium(III) 1: Eu+3 EuCl+2 EuCl2+ EuCl3 EuCl4- EuF+2 EuF2+ EuF3 EuF4- EuOH+2 EuO+ EuO2H EuO2- EuNO3+2 EuHCO3+2 EuH2PO4+2 EuCO3+ EuSO4+ Eu(Ac)+2 Eu(Ac)2+ Eu(Ac)3 Eu(Mal)+ Eu(Succ)+ Eu(Glut)+ Eu(Prop)+2 Eu(Prop)2+ Eu(But)+2 Eu(But)2+ Eu(Pent)+2 Eu(Pent)2+ Eu(For)+2 Eu(For)2+
+
+europium(IV) 1: Eu+4
+
+gadolinium(II) 1: Gd+2
+
+gadolinium(III) 1: Gd+3 GdCl+2 GdCl2+ GdCl3 GdCl4- GdF+2 GdF2+ GdF3 GdF4- GdOH+2 GdO+ GdO2H GdO2- GdNO3+2 GdHCO3+2 GdH2PO4+2 GdCO3+ GdSO4+ Gd(Ac)+2 Gd(Ac)2+ Gd(Ac)3 Gd(Mal)+ Gd(Prop)+2 Gd(Prop)2+ Gd(But)+2 Gd(But)2+ Gd(Pent)+2 Gd(Pent)2+ Gd(For)+2 Gd(For)2+ 
+
+gadolinium(IV) 1: Gd+4
+
+mercury(I) 2: Hg2+2
+
+mercury(II) 1: Hg+2 HgOH+ HgO HHgO2- Hg(Ac)+ Hg(Ac)2 Hg(Ac)3- HgCl+ HgCl2 HgCl3- HgCl4-2 HgF+
+
+holmium(II) 1: Ho+2
+
+holmium(III) 1: Ho+3 HoCl+2 HoCl2+ HoCl3 HoCl4- HoF+2 HoF2+ HoF3 HoF4- HoOH+2 HoO+ HoO2H HoO2- HoNO3+2 HoHCO3+2 HoH2PO4+2 HoCO3+ HoSO4+ Ho(Ac)+2 Ho(Ac)2+ Ho(Ac)3 Ho(Mal)+
+
+holmium(IV) 1: Ho+4
+
+potassium 1: K+ KSO4- KCl KBr KI KHSO4 KOH K(Ac) K(Ac)2- K(Mal)- K(Succ)- K(Glut)- K(Adip)- K(Prop) K(Prop)2- K(But) K(But)2- K(Pent) K(Pent)2- K(For) K(For)2- K(Glyc) K(Glyc)2- K(Lac) K(Lac)2- 
+
+lanthanum(II) 1: La+2
+
+lanthanum(III) 1: La+3 LaCl+2 LaCl2+ LaCl3 LaCl4- LaF+2 LaF2+ LaF3 LaF4- LaOH+2 LaO+ LaO2H LaO2- LaNO3+2 LaHCO3+2 LaH2PO4+2 LaCO3+ LaSO4+ La(Ac)+2 La(Ac)2+ La(Ac)3 La(Mal)+ La(Glut)+ La(Adip)+ La(Prop)+2 La(Prop)2+ La(But)+2 La(But)2+ La(Pent)+2 La(Pent)2+ La(For)+2 La(For)2+ La(Lac)+2
+
+lithium 1: Li+ LiCl LiOH Li(Ac) Li(Ac)2- Li(Mal)- Li(Succ)- Li(Glut)- Li(Adip)- Li(Glyc) Li(Lac)
+
+lutetium(III) 1: Lu+3 LuCl+2 LuCl2+ LuCl3 LuCl4- LuF+2 LuF2+ LuF3 LuF4- LuOH+2 LuO+ LuO2H LuO2- LuNO3+2 LuHCO3+2 LuH2PO4+2 LuCO3+ LuSO4+ Lu(Ac)+2 Lu(Ac)2+ Lu(Ac)3 Lu(Mal)+ Lu(Lac)+2
+
+lutetium(IV) 1: Lu+4
+
+sodium 1: Na+ NaSO4- NaCl- NaF NaBr NaI NaHSiO3 NaOH Na(Ac) Na(Ac)2- Na(Mal)- Na(Succ)- Na(Glut)- Na(Adip)- Na(Prop) Na(Prop)2- Na(But) Na(But)2- Na(Pent) Na(Pent)2- Na(For) Na(For)2- Na(Glyc) Na(Glyc)2- Na(Lac) Na(Lac)2- 
+
+neodymium(II) 1: Nd+2
+
+neodymium(III) 1: Nd+3 NdCl+2 NdCl2+ NdCl3 NdCl4- NdF+2 NdF2+ NdF3 NdF4- NdOH+2 NdO+ NdO2H NdO2- NdNO3+2 NdHCO3+2 NdH2PO4+2 NdCO3+ NdSO4+ Nd(Ac)+2 Nd(Ac)2+ Nd(Ac)3 Nd(Mal)+
+
+neodymium(IV) 1: Nd+4
+
+nickel(II) 1: Ni+2 NiCl+ NiOH+ NiO HNiO2- NiO2-2 NiF+ Ni(Ac)+ Ni(Ac)2 Ni(Ac)3- Ni(Mal) Ni(Succ) Ni(Glut) Ni(Adip) Ni(Prop)+ Ni(Prop)2 Ni(But)+ Ni(But)2 Ni(Pent)+ Ni(Pent)2 Ni(For)+ Ni(For)2 Ni(Glyc)+ Ni(Glyc)2 Ni(Lac)+ Ni(Lac)2
+
+lead(II) 1: Pb+2 PbCl+ PbCl2 PbCl3- PbCl4-2 PbOH+ PbO HPbO2- PbF+ PbF2 Pb(HS)2 Pb(HS)3- Pb(Ac)+ Pb(Ac)2 Pb(Ac)3- Pb(Mal) Pb(Succ) Pb(Glut) Pb(Adip) Pb(Prop)+ Pb(Prop)2 Pb(But)+ Pb(But)2 Pb(Pent)+ Pb(Pent)2 Pb(For)+ Pb(For)2 Pb(Glyc)+ Pb(Glyc)2 Pb(Lac)+ Pb(Lac)2 PbHPO4 PbH2PO4+ PbPO4- PbCrO4 PbSe PbSeO3 PbSeO4
+
+chromium(II) 1: Cr+2 Cr(Mal) Cr(Succ) Cr(Glut) Cr(Adip)
+
+chromium(III) 1: Cr+3 CrOH+2 CrO+ HCrO2 CrO2-
+
+chromium(VI) 1: CrO4-2 HCrO4-
+
+chromium(VI) 2: Cr2O7-2
+
+indium(III) 1: In+3 InOH+2 InO+ HInO2 InO2- In(Mal)+ InCl+2 InF+2
+
+manganese(II) 1: Mn+2 MnCl+ MnSO4 MnOH+ MnO HMnO2- MnO2-2 MnF+ Mn(Ac)+ Mn(Ac)2 Mn(Ac)3- Mn(Mal) Mn(Succ) Mn(Glut) Mn(Adip) Mn(Prop)+ Mn(Prop)2 Mn(But)+ Mn(But)2 Mn(Pent)+ Mn(Pent)2 Mn(For)+ Mn(For)2 Mn(Glyc)+ Mn(Glyc)2 Mn(Lac)+ Mn(Lac)2
+
+manganese(III) 1: Mn+3
+
+manganese(VI) 1: MnO4-2
+
+manganese(VII) 1: MnO4-
+
+Praseodymium(II) 1: Pr+2 
+
+Praseodymium(III) 1: Pr+3 PrCl+2 PrCl2+ PrCl3 PrCl4- PrF+2 PrF2+ PrF3 PrF4- PrOH+2 PrO+ PrO2H PrO2- PrNO3+2 PrHCO3+2 PrH2PO4+2 PrCO3+ PrSO4+ Pr(Ac)+2 Pr(Ac)2+ Pr(Ac)3 Pr(Mal)+
+
+praseodymium(IV) 1: Pr+4
+
+radium(II) 1: Ra+2 Ra(Ac)+ Ra(Ac)2
+
+rubidium(I) 1: Rb+ RbCl RbF RbBr RbI RbOH Rb(Ac) Rb(Ac)2-
+
+scandium(III) 1: Sc+3 ScOH+2 ScO+ HScO2 ScO2- Sc(Ac)+2 Sc(Ac)2+ Sc(Ac)3 Sc(Mal)+ Sc(Succ)+ Sc(Glut)+ Sc(Adip)+
+
+samarium(II) 1: Sm+2
+
+samarium(III) 1: Sm+3 SmCl+2 SmCl2+ SmCl3 SmCl4- SmF+2 SmF2+ SmF3 SmF4- SmOH+2 SmO+ SmO2H SmO2- SmNO3+2 SmHCO3+2 SmH2PO4+2 SmCO3+ SmSO4+ Sm(Ac)+2 Sm(Ac)2+ Sm(Ac)3 Sm(Mal)+ Sm(Succ)+ Sm(Glut)+
+
+samarium(IV) 1: Sm+4
+
+strontium(II) 1: Sr+2 SrCO3 SrF+ SrCl+ SrOH+ SrHCO3+ Sr(Ac)+ Sr(Ac)2 Sr(Mal) Sr(Succ) Sr(Glut) Sr(Adip) Sr(Prop)+ Sr(Prop)2 Sr(But)+ Sr(But)2 Sr(Pent)+ Sr(Pent)2 Sr(For)+ Sr(For)2 Sr(Glyc)+ Sr(Glyc)2 Sr(Lac)+ Sr(Lac)2
+
+terbium(II) 1: Tb+2
+
+terbium(III) 1: Tb+3 TbCl+2 TbCl2+ TbCl3 TbCl4- TbF+2 TbF2+ TbF3 TbF4- TbOH+2 TbO+ TbO2H TbO2- TbNO3+2 TbHCO3+2 TbH2PO4+2 TbCO3+ TbSO4+ Tb(Ac)+2 Tb(Ac)2+ Tb(Ac)3 Tb(Mal)+
+
+terbium(IV) 1: Tb+4
+
+thorium(IV) 1: Th+4 Th(Mal)+2 Th(Succ)+2 Th(Glut)+2 Th(Adip)+2
+
+
+tellurium(I) 1: Tl+ TlOH Tl(Ac) Tl(Ac)2- TlCl TlF
+
+tellurium(III) 1: Tl+3 TlOH+2 TlO+ HTlO2 TlO2- TlCl+2
+
+thulium(II) 1: Tm+2
+
+thulium(III) 1: Tm+3 TmCl+2 TmCl2+ TmCl3 TmCl4- TmF+2 TmF2+ TmF3 TmF4- TmOH+2 TmO+ TmO2H TmO2- TmNO3+2 TmHCO3+2 TmH2PO4+2 TmCO3+ TmSO4+ Tm(Ac)+2 Tm(Ac)2+ Tm(Ac)3 Tm(Mal)+
+
+thulium(IV) 1: Tm+4
+
+uranium(III) 1: U+3 UOH+2 UO+ HUO2 UO2- U(Ac)+2 U(Ac)2+ U(Ac)3 U(Prop)+2 U(Prop)2+ U(But)+2 U(But)2+ U(Pent)+2 U(For)+2 U(For)2+
+
+uranium(IV) 1: U+4 UOH+3 UO+2 HUO2+ UO2 HUO3- U(Succ)+2 U(Adip)+2
+
+uranyl(V) 1: UO2+ UO2OH UO3-
+
+uranyl(VI) 1: UO2+2 UO2OH+ UO3 HUO4- UO4-2 UO2(Ac)+ UO2(Ac)2 UO2(Ac)3- UO2(Mal) UO2(Succ) UO2(Glut) UO2(Adip) UO2(Pime)
+
+ytterbium(II) 1: Yb+2
+
+ytterbium(III) 1: Yb+3 YbCl+2 YbCl2+ YbCl3 YbCl4- YbF+2 YbF2+ YbF3 YbF4- YbOH+2 YbO+ YbO2H YbO2- YbNO3+2 YbHCO3+2 YbH2PO4+2 YbCO3+ YbSO4+ Yb(Ac)+2 Yb(Ac)2+ Yb(Ac)3 Yb(Mal)+ Yb(Prop)+2 Yb(Prop)2+ Yb(But)+2 Yb(But)2+ Yb(Pent)+2 Yb(Pent)2+ Yb(For)+2 Yb(For)2+
+
+ytterbium(IV) 1: Yb+4
+
+yttrium(III) 1: Y+3 YOH+2 YO+ HYO2 YO2- Y(Ac)+2 Y(Ac)2+ Y(Ac)3 Y(Mal)+ Y(Glut)+
+
+gold(I) 1: Au+ Au(Ac) Au(Ac)2- Au(HS)2- AuCl AuCl2- AuCl3-2
+
+gold(III) 1: Au+3
+
+magnesium 1: Mg+2 MgSO4 MgCl+ MgF+ MgCO3 MgHSiO3 MgOH+ MgHCO3+ Mg(Ac)+ Mg(Ac)2 Mg(Mal) Mg(Succ) Mg(Glut) Mg(Adip) Mg(Prop)+ Mg(Prop)2 Mg(But)+ Mg(But)2 Mg(Pent)+ Mg(Pent)2 Mg(For)+ Mg(For)2 Mg(Glyc)+ Mg(Glyc)2 Mg(Lac)+ Mg(Lac)2 MgAMP MgADP- MgHADP MgATP-2 MgHATP- MgH2ATP
+
+magnesium 2: Mg2ADP+ Mg2ATP
+
+zinc 1: Zn+2 ZnOH+ ZnO HZnO2- ZnO2-2 ZnCl+ ZnCl2 ZnCl3- ZnF+ Zn(Ac)+ Zn(Ac)2 Zn(Ac)3- Zn(Mal) Zn(Succ) Zn(Glut) Zn(Adip) Zn(Prop)+ Zn(Prop)2 Zn(But)+ Zn(But)2 Zn(Pent)+ Zn(Pent)2 Zn(For)+ Zn(For)2 Zn(Glyc)+ Zn(Glyc)2 Zn(Lac)+ Zn(Lac)2
+
+AMP 1: AMP-2 HAMP- H2AMP MgAMP
+
+dAMP 1: dAMP-2 dHAMP- dH2AMP
+
+ADP 1: ADP-3 HADP-2 H2ADP- H3ADP MgADP- MgHADP Mg2ADP+
+
+dADP 1: dADP-3 dHADP-2 dH2ADP- dH3ADP
+
+ATP 1: ATP-4 HATP-3 H2ATP-2 H3ATP- H4ATP MgATP-2 MgHATP- MgH2ATP Mg2ATP
+
+dATP 1: dATP-4 dHATP-3 dH2ATP-2 dH3ATP- dH4ATP
+
+CMP 1: CMP-2 HCMP- H2CMP
+
+dCMP 1: dCMP-2 dHCMP- dH2CMP
+
+CDP 1: CDP-3 HCDP-2 H2CDP- H3CDP
+
+dCDP 1: dCDP-3 dHCDP-2 dH2CDP- dH3CDP
+
+CTP 1: CTP-4 HCTP-3 H2CTP-2 H3CTP- H4CTP
+
+dCTP 1: dCTP-4 dHCTP-3 dH2CTP-2 dH3CTP- dH4CTP
+
+GMP 1: GMP-2 HGMP- H2GMP
+
+dGMP 1: dGMP-2 dHGMP- dH2GMP
+
+GDP 1: GDP-3 HGDP-2 H2GDP- H3GDP
+
+dGDP 1: dGDP-3 dHGDP-2 dH2GDP- dH3GDP
+
+TMP 1: TMP-2 HTMP- H2TMP
+
+dTMP 1: dTMP-2 dHTMP- dH2TMP
+
+TDP 1: TDP-3 HTDP-2 H2TDP- H3TDP
+
+dTDP 1: dTDP-3 dHTDP-2 dH2TDP- dH3TDP
+
+TTP 1: TTP-4 HTTP-3 H2TTP-2 H3TTP- H4TTP
+
+dTTP 1: dTTP-4 dHTTP-3 dH2TTP-2 dH3TTP- dH4TTP
+
+UMP 1: UMP-2 HUMP- H2UMP
+
+dUMP 1: dUMP-2 dHUMP- dH2UMP
+
+UDP 1: UDP-3 HUDP-2 H2UDP- H3UDP
+
+dUDP 1: dUDP-3 dHUDP-2 dH2UDP- dH3UDP
+
+UTP 1: UTP-4 HUTP-3 H2UTP-2 H3UTP- H4UTP
+
+dUTP 1: dUTP-4 dHUTP-3 dH2UTP-2 dH3UTP- dH4UTP
+
+NicMP(red) 1: H2NicMP(red) HNicMP(red)- NicMP(red)-2
+
+NicMP(ox) 1: H2NicMP(ox)+ HNicMP(ox) NicMP(ox)-
+
+NAD(red) 1: H2NAD(red) HNAD(red)- NAD(red)-2
+
+NAD(ox) 1: H2NAD(ox)+ HNAD(ox) NAD(ox)-
+
+R5P 1: ribose-5-phosphate ribose-5-phosphate-1 ribose-5-phosphate-2
+
+NADP(red) 1: H4NADP(red) H3NADP(red)- H2NADP(red)-2 HNADP(red)-3 NADP(red)-4
+
+NADP(ox) 1: H4NADP(ox)+ H3NADP(ox) H2NADP(ox)- HNADP(ox)-2 NADP(ox)-3
+
+cis-aconitate 1: cis-aconitic-acid H2-cis-aconitate H-cis-aconitate-2 cis-aconitate-3
+
+isocitrate 1: isocitric-acid H2-isocitrate H-isocitrate-2 isocitrate-3
+
+a-ketoglutarate 1: a-ketoglutaric-acid H-a-ketoglutarate a-ketoglutarate-2
+
+oxaloacetate 1: oxaloacetic-acid H-oxaloacetate oxaloacetate-2
+
+arginine 1: arginine argininium argininate
+
+asparagine 1: asparagine asparaginium asparaginate
+
+aspartate 1: aspartate aspartinium aspartate-2 aspartic-acid
+
+cysteine 1: cysteine cysteinate cysteinium cysteinate-2
+
+glutamate 1: glutamate glutamic-acid+1 glutamic-acid glutamate-2
+
+glutamine 1: glutamine glutaminium glutaminate
+
+glycine 1: glycinium glycinate glycine
+
+histidine 1: histidine histidinium histidinate histidinium+2
+
+isoleucine 1: isoleucine isoleucinium isoleucinate
+
+leucine 1: leucine leucinium leucinate
+
+lysine 1: lysine lysinium lysinate
+
+methionine 1: methionine methioninium methionate
+
+phenylalanine 1: phenylalanine phenylalaninium phenylalanate
+
+proline 1: proline prolinium prolinate
+
+serine 1: serine serinium serinate
+
+threonine 1: threonine threoninium threonate
+
+tryptophan 1: tryptophan tryptophanium tryptophanate
+
+tyrosine 1: tyrosine tyrosinate tyrosinium tyrosinate-2
+
+valine 1: valine valinium valinate
+
+fumarate 1: fumaric-acid H-fumarate fumarate-2
+
+malate 1: malic-acid H-malate malate-2
+
+pyruvate 1: pyruvic-acid pyruvate
+
+citrate 1: citric-acid H2-citrate H-citrate-2 citrate-3
+
+glycolate 1: glycolic-acid glycolate
+
+oxalate 1: oxalic-acid H-oxalate oxalate-2
+
+malonate 1: malonic-acid H-malonate malonate-2
+
+succinate 1: succinic-acid H-succinate succinate-2
+
+glutarate 1: glutaric-acid H-glutarate glutarate-2
+
+adipate 1: adipic-acid H-adipate adipate-2
+
+pimelate 1: pimelic-acid H-pimelate pimelate-2
+
+suberate 1: suberic-acid H-suberate sebacate-2
+
+azelate 1: azelaic-acid H-azelate azelate-2
+
+sebacate 1: sebacic-acid H-sebacate sebacate-2
+
+lactate 1: lactic-acid lactate
+
+chloride 1: Cl- NaCl CeCl+2 LaCl+2 PrCl+2 NdCl+2 SmCl+2 EuCl+2 EuCl+ GdCl+2 TbCl+2 DyCl+2 HoCl+2 ErCl+2 TmCl+2 YbCl+2 LuCl+2 PbCl+ NiCl+ FeCl+ MgCl+ LiCl KCl RbCl CsCl CaCl+ SrCl+ BaCl+ MnCl+ AgCl ZnCl+ HCl AmCl+2 CuCl CuCl+ CoCl+ CdCl+ BeCl+ AuCl FeCl+2 HgCl+ InCl+2 PdCl+ PtCl+ RhCl+ RhCl+2 RuCl+ RuCl+2 TlCl TlCl+2
+
+chloride 2: LaCl2+ CeCl2+ PrCl2+ NdCl2+ SmCl2+ EuCl2+ EuCl2 GdCl2+ TbCl2+ DyCl2+ HoCl2+ ErCl2+ TmCl2+ YbCl2+ LuCl2+ PbCl2 CaCl2 FeCl2 AgCl2- ZnCl2 AmCl2+ CuCl2- CuCl2 CdCl2 BeCl2 AuCl2- HgCl2 PdCl2 PtCl2 RhCl2 RhCl2+ RuCl2 RuCl2+
+
+chloride 3: LaCl3 CeCl3 PrCl3 NdCl3 SmCl3 EuCl3 EuCl3- GdCl3 TbCl3 DyCl3 HoCl3 ErCl3 TmCl3 YbCl3 LuCl3 PbCl3- AgCl3-2 ZnCl3- AmCl3 CuCl3-2 CuCl3- CdCl3- AuCl3-2 HgCl3- PdCl3- PtCl3- RhCl3 RhCl3- RuCl3 RuCl3-
+
+chloride 4: LaCl4- CeCl4- PrCl4- NdCl4- SmCl4- EuCl4- EuCl4-2 GdCl4- TbCl4- DyCl4- HoCl4- ErCl4- TmCl4- YbCl4- LuCl4- PbCl4-2 AgCl4-3 AmCl4- CuCl4-2 CdCl4-2 HgCl4-2 PdCl4-2 PtCl4-2 RhCl4- RhCl4-2 RuCl4- RuCl4-2
+
+chloride 5: RuCl5-2
+
+chloride 6: RuCl6-3
+
+hypochlorite 1: ClO- HClO
+
+chlorite 1: ClO2- HClO2
+
+chlorate 1: ClO3-
+
+perchlorate 1: ClO4- Am(ClO4)+2 CeClO4+2
+
+fluoride 1: F- HF LaF+2 CeF+2 PrF+2 NdF+2 SmF+2 EuF+2 EuF+ GdF+2 TbF+2 DyF+2 HoF+2 ErF+2 TmF+2 YbF+2 LuF+2 MgF+ CaF+ NaF RbF SrF+ BaF+ FeF+ FeF+2 AmF+2 CuF+ CoF+ NiF+ MnF+ ZnF+ CdF+ PbF+ BeF+ AgF HgF+ TlF InF+2
+
+fluoride 2: HF2- LaF2+ CeF2+ PrF2+ NdF2+ SmF2+ EuF2+ EuF2 GdF2+ TbF2+ DyF2+ HoF2+ ErF2+ TmF2+ YbF2+ LuF2+ AmF2+ CdF2 PbF2 BeF2
+
+fluoride 3: LaF3 CeF3 PrF3 NdF3 SmF3 EuF3 EuF3- GdF3 TbF3 DyF3 HoF3 ErF3 TmF3 YbF3 LuF3 AmF3 BeF3-
+
+fluoride 4: BF4- LaF4- CeF4- PrF4- NdF4- SmF4- EuF4- EuF4-2 GdF4- TbF4- DyF4- HoF4- ErF4- TmF4- YbF4- LuF4- AmF4- BeF4-2
+
+fluoride 6: SiF6-2
+
+iodite 1: IO- HIO
+
+iodate 1: IO3- HIO3
+
+periodate 1: IO4-
+
+triiodide 1: I3-
+
+iodide 1: I- NaI KI RbI CsI
+
+silicate 1: SiO2 HSiO3- NaHSiO3 MgHSiO3+ CaHSiO3+
+
+phosphate 1: H2PO4- HPO4-2 H3PO4 LaH2PO4+2 CeH2PO4+2 PrH2PO4+2 NdH2PO4+2 SmH2PO4+2 EuH2PO4+2 GdH2PO4+2 TbH2PO4+2 DyH2PO4+2 HoH2PO4+2 ErH2PO4+2 TmH2PO4+2 YbH2PO4+2 LuH2PO4+2 PO4-3 AmH2PO4+2
+
+diphosphate 1: P2O7-4 HP2O7-3 H2P2O7-2 H3P2O7- H4P2O7
+
+phosphite 1: HPO3-2 H2PO3- H3PO3
+
+PO2 anion 1: H2PO2- H3PO2
+
+diazenediolate 1: N2O2-2 HN2O2- H2N2O2
+
+hydrazinium 1: N2H5+ N2H6+2
+
+hydrogen peroxide 1: HO2-H2O2
+
+sulfite ion 1: SO3-2 HSO3-
+
+peroxymonosulfate 1: HSO5-
+
+thiosulfate 1: H2S2O3 HS2O3- S2O3-2
+
+dithionite 1: S2O4-2 HS2O4- H2S2O4
+
+disulfite 1: S2O5-2
+
+dithionate 1: S2O6-2
+
+trithionate 1: S3O6-2
+
+tetrathionate 1: S4O6-2
+
+pentathionate 1: S5O6-2
+
+antimony oxide anion 1: SbO2- HSbO2
+
+selanide 1: HSe-
+
+selenocyanate 1: SeCN-
+
+cyanide 1: CN- HCN
+
+cyanate 1: OCN-
+
+thiocyanate 1: SCN- AmSCN+2
+
+thiocyanate 2: Am(SCN)2+
+
+thiocyanate 3: Am(SCN)3
+
+diazenediolate 1: N2O2-2 HN2O2- H2N2O2
+
+hypobromite 1: BrO- HBrO
+
+bromate 1: BrO3-
+
+tribromide 1: Br3-
+
+perbromate 1: BrO4-
+
+vanadate 1: VO4- HVO4- H2VO4 H3VO4
+
+vanadium(II) 1: V+2
+
+vanadium(III) 1: V+3
+
+oxido(dioxo)niobium 1: NbO3- HNbO3
+
+tin 1: Sn+2 SnOH+ HSnO2- SnO
+
+bromide 1: Br- CeBr+2 NaBr KBr RbBr CsBr
+
+molybdate 1: HMoO4- MoO4-2
+
+platinum(II) 1: Pt+2 PtSO4 PtO Pt(SO4)2-2 Pt(SO4)3-4 PtCl+ PtCl2 PtCl3- PtCl4-2 PtOH+
+
+palladium(II) 1: Pd+2 PdO Pd(SO4)2-2 Pd(SO4)3-4 PdCl+ PdCl2 PdCl3- PdCl4-2 PdSO4 PdOH+
+
+ruthenium(II) 1: Ru+2 RuOH+ RuO RuOH+2 RuO+ Ru(SO4)2-2 Ru(SO4)3-4 RuCl+ RuCl2 RuCl3- RuCl4-2 RuSO4
+
+ruthenium(III) 1: Ru+3 Ru(SO4)2- Ru(SO4)2- Ru(SO4)3-3 RuCl+2 RuCl2+ RuCl3 RuCl4- RuCl5-2 RuCl6-3 RuSO4+
+
+rhodium(II) 1: Rh+2 RhOH+ RhO Rh(SO4)2-2 Rh(SO4)3-4 RhCl+ RhCl2 RhCl3- RhCl4-2 RhSO4
+
+rhodium(III) 1: Rh+3 RhOH+2 RhO+ Rh(SO4)2- Rh(SO4)3-3 RhCl+2 RhCl2+ RhCl3 RhCl4- RhSO4+
+
+silver(I) 1: Ag+ Ag(CO3)- Ag(CO3)2-3 AgCl4-3 AgNO3 AgO- AgOH AgCl AgCl2- AgCl3-2 Ag(Ac) Ag(Ac)2- Ag(HS)2- AgF
+
+silver(II) 1: Ag+2

@@ -839,9 +839,9 @@ class AqEquil(object):
                 
                 sp = Speciation({})
                 sp._make_speciation_group_dict()
-                reactant_dict_scalar = copy.copy(sp.reactant_dict_scalar)
-                sp_dict_unpacked = copy.copy(sp.speciation_group_dict_unpacked)
-                sp_dict_groups = copy.copy(sp.sp_dict_groups)
+                reactant_dict_scalar = copy.deepcopy(sp.reactant_dict_scalar)
+                sp_dict_unpacked = copy.deepcopy(sp.speciation_group_dict_unpacked)
+                sp_dict_groups = copy.deepcopy(sp.sp_dict_groups)
                 self.reactant_dict_scalar = reactant_dict_scalar
                 self.sp_dict_unpacked = sp_dict_unpacked
                 self.sp_dict_groups = sp_dict_groups
@@ -1119,7 +1119,9 @@ class AqEquil(object):
                         "column name to the 'exclude' parameter. Otherwise, the "
                         "species might not be loaded because it is not in the thermodynamic database, "
                         "or it was excluded via the 'exclude_category', 'exclude_organics', or 'exclude_organics_except' "
-                        "parameters when the database was loaded.")
+                        "parameters when the database was loaded. Species may also be excluded when "
+                        "element redox states are isolated with the parameter 'suppress_redox' and "
+                        "appropriate basis species cannot be found to represent them.")
                     err_list.append(err_species_not_in_db)
                 elif species == 'pH':
                     err_species_pH = ("Please rename the 'pH' column in "
@@ -4607,21 +4609,34 @@ class Speciation(object):
 
         lines = [l for l in lines if l != ""] # remove blank lines
 
-        
         # Creates a dictionary with this format:
         #
         # {...
-        #  "sulfides 1": ["H2S", "HS-"],
-        #  "sulfides 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  "sulfides 3": ["Pb(HS)3-"],
-        #  "ferrous iron 1": [...],
+        #  "sulfide 1": ["H2S", "HS-"],
+        #  "sulfide 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  "sulfide 3": ["Pb(HS)3-"],
+        #  "iron(II) 1": [...],
         #  ...
         # }
         #
         # Used by calculate_energy() to calculate concentrations of limiting reactants.
-        reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
-        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
+        try:
+            reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
+        except:
+            bad_line_indices = []
+            bad_lines = []
+            for i,l in enumerate(lines):
+                if ":" not in l:
+                    bad_line_indices.append(i)
+                    bad_lines.append(l)
 
+            bad_line_indices = [i+1 for i in bad_line_indices]
+            self.err_handler.raise_exception("Line(s) in the speciation group file do not contain a colon ':'. Fix the formatting on line(s):\n"+str(bad_line_indices)+"\nLines to blame:\n"+str(bad_lines))
+
+
+
+        
+        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
 
         # Creates a dictionary with this format:
         # {...
@@ -4653,8 +4668,8 @@ class Speciation(object):
 
         # Creates a dictionary with this format:
         # {...
-        #  "sulfates": 'sulfates': ['SO4-2','HSO4-','PdSO4','RhSO4', ..., 'Ru(SO4)3-4'],
-        #  "formates": ['formic-acid', 'formate', 'Am(For)+2', ..., 'Zn(For)2'],
+        #  "sulfate": ['SO4-2','HSO4-','PdSO4','RhSO4', ..., 'Ru(SO4)3-4'],
+        #  "formate": ['formic-acid', 'formate', 'Am(For)+2', ..., 'Zn(For)2'],
         #  ...
         # }
         # Used when the user wants to exclude all organics except for acetate (e.g.)
@@ -4665,24 +4680,17 @@ class Speciation(object):
             group_name_no_number = " ".join(group_name_no_number[:-1])
             group_categories.append(group_name_no_number)
         group_categories = list(set(group_categories))
-        
-        # assert that no group is a substring of another group
-        # in the speciation group 
-        for g1 in group_categories:
-            for g2 in group_categories:
-                if g1 != g2 and g1 in g2:
-                    self.err_handler.raise_exception("The group '" + g1 + "' is "
-                            "a substring of group '" + g2 + "' in the speciation "
-                            "grouping reference. Rename the group(s) so this does not happen.")
 
         sp_dict_groups = {}
         for g1 in group_categories:
-            for g2 in self.reactant_dict_scalar.keys():
-                if g1 in g2:
+            for i,g2 in enumerate(self.reactant_dict_scalar.keys()):
+                g2_cat_name = g2.split(" ")
+                g2_cat_name = " ".join(g2_cat_name[:-1])
+                if g1 == g2_cat_name:
                     if g1 not in sp_dict_groups.keys():
-                        sp_dict_groups[g1] = self.reactant_dict_scalar[g2]
+                        sp_dict_groups[g1] = copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
                     else:
-                        sp_dict_groups[g1] += self.reactant_dict_scalar[g2]
+                        sp_dict_groups[g1] += copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
         self.sp_dict_groups = sp_dict_groups
 
 
@@ -4815,6 +4823,12 @@ class Speciation(object):
         result_dict = {}
         result_lim_dict = {}
 
+        if not isinstance(self.redox_reactions_table, pd.DataFrame):
+            self.err_handler.raise_exception("Redox reactions cannot be applied "
+                "because they have not yet been generated. Generate redox "
+                "reactions with the function make_redox_reactions() and then "
+                "try again.")
+        
         coeff_colnames = [c for c in list(self.redox_reactions_table.columns) if "coeff_" in c]
         species_colnames = [c for c in list(self.redox_reactions_table.columns) if "species_" in c]
 
@@ -5006,6 +5020,31 @@ class Speciation(object):
         # reset all redox variables stored in the AqEquil class
         self.redox_reactions_table = None
         self.redox_formatted_reactions = None
+
+        if isinstance(idx_list, str):
+            if idx_list == "all":
+                pass
+            else:
+                self.err_handler.raise_exception("The parameter idx_list must "
+                        "either be a list of indices corresponding to desired "
+                        "half reactions in the half_cell_reactions table, or "
+                        "'all' for all half reaction combinations.")
+        elif isinstance(idx_list, list):
+            if len(idx_list) == 0:
+                self.err_handler.raise_exception("The list of desired half "
+                        "reactions is empty. Please define the indices of at "
+                        "least two half reactions to combine into a full redox "
+                        "reaction. These indices correspond to rows in the "
+                        "half_cell_reactions table.")
+            if len(idx_list) == 1:
+                self.err_handler.raise_exception("Only one half reaction index "
+                        "was provided. At least two must be provided in order "
+                        "to create a full redox reaction.")
+        else:
+            self.err_handler.raise_exception("The parameter idx_list must "
+                    "either be a list of indices corresponding to desired "
+                    "half reactions in the half_cell_reactions table, or "
+                    "'all' for all half reaction combinations.")
         
         if self.verbose > 1:
             print("Generating redox reactions...")
@@ -5495,7 +5534,8 @@ class Speciation(object):
         """
         scalars = []
         groups = []
-        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):
+        
+        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):            
             if s in grp_list:
                 s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be "sulfates 1"
                 s_key_split = s_key.split(" ")
@@ -5509,9 +5549,19 @@ class Speciation(object):
                         continue
                 groups = [s_key_grp+" "+str(s) for s in scalars]
                 break
+                
         scalars = [float(s) for s in scalars]
-        groups = [self.reactant_dict_scalar[g] for g in groups]
-        return scalars, groups
+
+        # prevent duplicate groups and scalars from appearing
+        scalars_final = []
+        groups_final = []
+        for i,group in enumerate(groups):
+            if group not in groups_final:
+                scalars_final.append(scalars[i])
+                groups_final.append(groups[i])
+
+        groups_final = [self.reactant_dict_scalar[g] for g in groups_final]
+        return scalars_final, groups_final
 
 
     def calculate_energy(self, species, stoich,
@@ -5792,14 +5842,16 @@ class Speciation(object):
                 s_logact_dict[s] = [v for v in list(self.aq_distribution_logact["H2O"])]
                 s_molal_dict[s] = [float("NaN")]*len(self.aq_distribution_logact["H2O"])
             elif list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
+
                 if s in self.aq_distribution_logact.columns:
+
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
                     if isinstance(self.reactant_dict_scalar, dict):
 
                         # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                         scalars, groups = self.__match_grouped_species(s)
-                        
+
                         if as_written:
                             # if energy supplies are to be calculated as written
                             # with no grouping or limiting reactant switching,
@@ -5850,7 +5902,6 @@ class Speciation(object):
                         s_molal_dict[s] = [sp_moles]*len(self.misc_params["Temp(C)"])
                 else:
                     s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
-                
 
         if y_type in ["logK", "logQ"]:
             y_type_plain = copy.copy(y_type)
@@ -6982,6 +7033,9 @@ class Speciation(object):
                           yaxis={'exponentformat':'power'})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
+
+        fig.update_xaxes(exponentformat = 'E')
+        fig.update_yaxes(exponentformat = 'E')
             
         save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
