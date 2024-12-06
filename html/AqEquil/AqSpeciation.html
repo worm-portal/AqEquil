@@ -800,6 +800,7 @@ class AqEquil(object):
                  logK_extrapolate=&#34;none&#34;,
                  download_csv_files=False,
                  exclude_organics=False,
+                 exclude_organics_except=None,
                  exclude_category=None,
                  suppress_redox=None,
                  input_template=&#34;none&#34;,
@@ -809,9 +810,9 @@ class AqEquil(object):
                  load_thermo=True,
                  hide_traceback=True):
 
-        if not isinstance(str, eq36da):
+        if not isinstance(eq36da, str):
             eq36da = os.environ.get(&#39;EQ36DA&#39;)
-        if not isinstance(str, eq36co):
+        if not isinstance(eq36co, str):
             eq36co = os.environ.get(&#39;EQ36CO&#39;)
         
         self.eq36da = eq36da
@@ -824,6 +825,7 @@ class AqEquil(object):
         
         half_rxn_data = pkg_resources.resource_stream(__name__, &#34;half_cell_reactions.csv&#34;)
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
+        self._half_cell_reactions_originalcopy = copy.deepcopy(self.half_cell_reactions)
         
         self.verbose = verbose
         self.hide_traceback = hide_traceback
@@ -848,18 +850,41 @@ class AqEquil(object):
 
             if exclude_category is None:
                 exclude_category = dict()
+
+            if isinstance(exclude_organics_except, str):
+                exclude_organics_except = [exclude_organics_except]
             
-            if exclude_organics:
+            if exclude_organics and not isinstance(exclude_organics_except, list):
                 if not isinstance(exclude_category.get(&#34;category_1&#34;), list):
                     exclude_category[&#34;category_1&#34;] = [&#34;organic_aq&#34;, &#34;organic_cr&#34;]
                 else:
-                    print(&#34;category_1 exists in &#39;exclude_category&#39; dict.&#34;)
                     if &#34;organic_aq&#34; not in exclude_category[&#34;category_1&#34;]:
                         exclude_category[&#34;category_1&#34;] = exclude_category[&#34;category_1&#34;].append(&#34;organic_aq&#34;)
                     if &#34;organic_cr&#34; not in exclude_category[&#34;category_1&#34;]:
                         exclude_category[&#34;category_1&#34;] = exclude_category[&#34;category_1&#34;].append(&#34;organic_cr&#34;)
-            
+            elif isinstance(exclude_organics_except, list):
+                # exclude all organics except what is specified by the user in exclude_organics_except
+                # and species in associated speciation group
+                
+                sp = Speciation({})
+                sp._make_speciation_group_dict()
+                reactant_dict_scalar = copy.deepcopy(sp.reactant_dict_scalar)
+                sp_dict_unpacked = copy.deepcopy(sp.speciation_group_dict_unpacked)
+                sp_dict_groups = copy.deepcopy(sp.sp_dict_groups)
+                self.reactant_dict_scalar = reactant_dict_scalar
+                self.sp_dict_unpacked = sp_dict_unpacked
+                self.sp_dict_groups = sp_dict_groups
+                del sp
+
+                exclude_organics_except_orig = copy.copy(exclude_organics_except)
+                for org in exclude_organics_except_orig:
+                    for group in self.sp_dict_groups:
+                        if org in self.sp_dict_groups[group]:
+                            exclude_organics_except += self.sp_dict_groups[group]
+                exclude_organics_except = list(set(exclude_organics_except))
+
             self.exclude_category = exclude_category
+            self.exclude_organics_except = exclude_organics_except
             self.logK = logK
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
@@ -1116,13 +1141,16 @@ class AqEquil(object):
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;, &#39;Eh&#39;, &#39;pe&#39;]+FIXED_SPECIES:
-                    err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
-                        &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
-                        &#34;If the column contains data that should not be &#34;
-                        &#34;included in the speciation calculation, add the &#34;
-                        &#34;column name to the &#39;exclude&#39; argument. Try &#34;
-                        &#34;help(AqEquil.AqEquil.speciate) &#34;
-                        &#34;for more information about &#39;exclude&#39;.&#34;)
+                    err_species_not_in_db = (&#34;The column &#39;{}&#39;&#34;.format(species) + &#34; in the input file &#34;
+                        &#34;was not found in the currently loaded chemical species from {}&#34;.format(data_path) + &#34;. &#34;
+                        &#34;If the column &#39;&#34;+format(species)+&#34;&#39; contains data that should not be &#34;
+                        &#34;included in the speciation calculation (such as sample metadata), add the &#34;
+                        &#34;column name to the &#39;exclude&#39; parameter. Otherwise, the &#34;
+                        &#34;species might not be loaded because it is not in the thermodynamic database, &#34;
+                        &#34;or it was excluded via the &#39;exclude_category&#39;, &#39;exclude_organics&#39;, or &#39;exclude_organics_except&#39; &#34;
+                        &#34;parameters when the database was loaded. Species may also be excluded when &#34;
+                        &#34;element redox states are isolated with the parameter &#39;suppress_redox&#39; and &#34;
+                        &#34;appropriate basis species cannot be found to represent them.&#34;)
                     err_list.append(err_species_not_in_db)
                 elif species == &#39;pH&#39;:
                     err_species_pH = (&#34;Please rename the &#39;pH&#39; column in &#34;
@@ -1691,13 +1719,8 @@ class AqEquil(object):
                  get_fugacity=True,
                  get_basis_totals=True,
                  get_solid_solutions=True,
-                 get_affinity_energy=False, # deprecated
-                 negative_energy_supplies=False, # deprecated
                  mineral_reactant_energy_supplies=False,
-                 rxn_filename=None, # deprecated
-                 not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;], # deprecated
                  get_charge_balance=True,
-                 custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  db_args={}):
@@ -1750,43 +1773,14 @@ class AqEquil(object):
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : str, default &#34;wrm&#34;
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            
-            - Three letter file extension for the desired data1 database, e.g.,
-            &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-            &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+        db : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_solid_solution : str, optional
-            Used only if `db` points to a thermodynamic data CSV file (or the
-            URL of a CSV hosted online). Determines which thermodynamic database
-            is used for idealized solid solutions in the speciation calculation.
-            There are two options:
-            
-            - The name of a CSV file containing solid solution parameters
-            located in the current working directory, e.g.,
-            &#34;wrm_solid_solutions.csv&#34;
-            - The URL of a CSV file containing solid solution parameters, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+        db_solid_solution : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_logK : str, optional
-            The name of the CSV file containing species with dissociation
-            constants but no other properties or parameters. Used only if `db`
-            points to a thermodynamic data CSV file (or the URL of a CSV hosted
-            online).
+        db_logK : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
         activity_model : str, default &#34;b-dot&#34;
             Activity model to use for speciation. Can be either &#34;b-dot&#34;,
@@ -1934,13 +1928,6 @@ class AqEquil(object):
         get_solid_solutions : bool, default True
             Permit the calculation of solid solutions and include them in the
             speciation report?
-        
-        get_affinity_energy : bool, default False
-            Deprecated; affinities and energy supplies are now calculated after
-            speciation.
-        
-        negative_energy_supplies : bool, default False
-            Deprecated.
 
         mineral_reactant_energy_supplies : bool, default False
             Report energy supplies for reactions with mineral reactants? This
@@ -1952,10 +1939,7 @@ class AqEquil(object):
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
             and energy supplies. Ignored if `get_affinity_energy` is False.
-        
-        not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
-            Deprecated.
-        
+
         get_charge_balance : bool, default True
             Calculate charge balance and ionic strength?
         
@@ -1994,12 +1978,11 @@ class AqEquil(object):
         &#34;&#34;&#34;
 
         # deprecated!
-        if get_affinity_energy:
-            self.err_handler.raise_exception(&#34;Deprecation error: affinity and &#34;
-                    &#34;energy supply calculations are now handled after speciation &#34;
-                    &#34;using the speciation.apply_redox_reactions(...) or &#34;
-                    &#34;speciation.calculate_energy(...) functions.&#34;)
-
+        if db is not None or db_solid_solution is not None or db_logK is not None:
+            self.err_handler.raise_exception(&#34;The parameters db, db_solid_solution, and db_logK &#34;
+                &#34;are deprecated in the speciate() function. Databases are now loaded during &#34;
+                &#34;the AqEquil.AqEquil(...) step.&#34;)
+        
         self.batch_T = []
         self.batch_P = []
         
@@ -2016,7 +1999,6 @@ class AqEquil(object):
             
         dynamic_db = self.thermo.dynamic_db
         data0_lettercode = self.thermo.data0_lettercode # needs to be this way
-        
         
         if (self.thermo.thermo_db_type == &#34;data0&#34; or self.thermo.thermo_db_type == &#34;data1&#34;) and len(db_args) &gt; 0:
             if self.verbose &gt; 0:
@@ -2057,7 +2039,7 @@ class AqEquil(object):
         else:
             self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                                              &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
-            
+
         # handle batch_3o naming
         if batch_3o_filename != None:
             if &#34;.rds&#34; in batch_3o_filename[-4:]:
@@ -2066,11 +2048,11 @@ class AqEquil(object):
                 batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(data0_lettercode)
         else:
             batch_3o_filename = ro.r(&#34;NULL&#34;)
-        
+
         # reset logK_models whenever speciate() is called
         # (prevents errors when speciations are run back-to-back)
         self.logK_models = {}
-        
+
         # dynamic data0 creation per sample
         if dynamic_db:
             db_args[&#34;fill_data0&#34;] = False
@@ -2468,12 +2450,6 @@ class AqEquil(object):
             get_solid_solutions=get_solid_solutions,
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-            # New rpy2 py2rpy2 conversion might not need the workaround below.
-            # The old note regarding deprecated pandas2ri is shown below...
-            # OLD NOTE:
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
             verbose=self.verbose,
         )
@@ -2743,6 +2719,7 @@ class AqEquil(object):
         speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
         speciation.half_cell_reactions = self.half_cell_reactions
+        speciation._half_cell_reactions_originalcopy = self._half_cell_reactions_originalcopy
         
         if report_filename != None:
             if &#34;.csv&#34; in report_filename[-4:]:
@@ -3510,24 +3487,6 @@ class AqEquil(object):
 
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))
-            
-
-    def make_redox_reactions(self, *args, **kwargs):
-        &#34;&#34;&#34;
-        Deprecated
-        &#34;&#34;&#34;
-        self.err_handler.raise_exception(&#34;Deprecation error: make_redox_reactions &#34;
-                &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-                &#34;use: speciation.make_redox_reactions(...)&#34;)
-
-    def show_redox_reactions(self, *args, **kwargs):
-        &#34;&#34;&#34;
-        Deprecated
-        &#34;&#34;&#34;
-        self.err_handler.raise_exception(&#34;Deprecation error: show_redox_reactions &#34;
-                &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-                &#34;use: speciation.show_redox_reactions(...)&#34;)
-
 
     
     class Thermodata(object):
@@ -3546,6 +3505,7 @@ class AqEquil(object):
             self.elements = self.AqEquil_instance.elements
             solid_solutions = self.AqEquil_instance.solid_solutions
             self.exclude_category = self.AqEquil_instance.exclude_category
+            self.exclude_organics_except = self.AqEquil_instance.exclude_organics_except
             self.water_model = self.AqEquil_instance.water_model
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
@@ -4087,7 +4047,10 @@ class AqEquil(object):
             self.logK_S_db = self._exclude_category(df=self.logK_S_db, df_name=self.logK_S_db_filename)
 
             if self.logK_S_active:
+                
                 for i,sp in enumerate(self.logK_S_db[&#34;name&#34;]):
+
+                    i = self.logK_S_db.index[i]
                     
                     logK_25C = float(self.logK_S_db[&#34;logK_25&#34;][i])
 
@@ -4132,9 +4095,9 @@ class AqEquil(object):
                         elif self.thermo_db[&#34;name&#34;].isin([ligand_name]).any():
                             ligand_charge = float(list(self.thermo_db[self.thermo_db[&#34;name&#34;] == ligand_name][&#34;z.T&#34;])[0])
                         else:
-                            # todo: elif ligand_name in logK database names, get charge from there...
-                            # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
+                            self.err_handler.raise_exception(&#34;The ligand &#39;&#34;+ligand_name+&#34;&#39; was not found in the &#34;
+                                    &#34;currently loaded databases. Is this ligand present in the database? Was this &#34;
+                                    &#34;ligand excluded (e.g., exclude_organics=True)?&#34;)
                     
                         dissrxn = self.logK_S_db[&#34;dissrxn&#34;][i].split(&#34; &#34;)
                         n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
@@ -4327,13 +4290,29 @@ class AqEquil(object):
             Exclude entries from a df based on values in columns.
             e.g., {&#34;category_1&#34;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}
             &#34;&#34;&#34;
+
+            if isinstance(self.exclude_organics_except, list):
+                organics_to_exclude = []
+                for i,name in enumerate(df[&#34;name&#34;]):
+                    if df[&#34;category_1&#34;].iloc[i] in [&#34;organic_aq&#34;, &#34;organic_cr&#34;] and name not in self.exclude_organics_except:
+                        organics_to_exclude.append(name)
+
+                if not isinstance(self.exclude_category.get(&#34;name&#34;), list) or &#34;name&#34; not in list(self.exclude_category.keys()):
+                    self.exclude_category[&#34;name&#34;] = organics_to_exclude
+                else:
+                    self.exclude_category[&#34;name&#34;] += organics_to_exclude
+                    self.exclude_category[&#34;name&#34;] = list(set(self.exclude_category[&#34;name&#34;]))
+
             
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) &gt; 0:
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
-                        print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
-                        
+                        if len(self.exclude_category[key]) &lt;= 10:
+                            print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column &#39;&#34; + str(key) + &#34;&#39;in&#34;, df_name)
+                        else:
+                            print(&#34;Excluding&#34;, len(self.exclude_category[key]), &#34;different chemical species from column &#39;&#34; + str(key) + &#34;&#39; in&#34;, df_name)
+                    
                     if isinstance(self.exclude_category[key], list):
                         
                         idx = list(df[df[key].isin(self.exclude_category[key])].index)
@@ -4646,7 +4625,7 @@ class Speciation(object):
          return getattr(self, item)
 
     
-    def __make_speciation_group_dict(self):
+    def _make_speciation_group_dict(self):
 
         if isinstance(self.custom_grouping_filepath, str):
             with open(self.custom_grouping_filepath) as file:
@@ -4660,21 +4639,32 @@ class Speciation(object):
 
         lines = [l for l in lines if l != &#34;&#34;] # remove blank lines
 
-        
         # Creates a dictionary with this format:
         #
         # {...
-        #  &#34;sulfides 1&#34;: [&#34;H2S&#34;, &#34;HS-&#34;],
-        #  &#34;sulfides 2&#34;: [&#34;Pb(HS)2&#34;, &#34;Ag(HS)2-&#34;, &#34;Au(HS)2-&#34;],
-        #  &#34;sulfides 3&#34;: [&#34;Pb(HS)3-&#34;],
-        #  &#34;ferrous iron 1&#34;: [...],
+        #  &#34;sulfide 1&#34;: [&#34;H2S&#34;, &#34;HS-&#34;],
+        #  &#34;sulfide 2&#34;: [&#34;Pb(HS)2&#34;, &#34;Ag(HS)2-&#34;, &#34;Au(HS)2-&#34;],
+        #  &#34;sulfide 3&#34;: [&#34;Pb(HS)3-&#34;],
+        #  &#34;iron(II) 1&#34;: [...],
         #  ...
         # }
         #
         # Used by calculate_energy() to calculate concentrations of limiting reactants.
-        reactant_dict_scalar = {l.split(&#34;:&#34;)[0]:l.split(&#34;:&#34;)[1].strip() for l in lines}
-        self.reactant_dict_scalar = {k:v.split(&#34; &#34;) for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
+        try:
+            reactant_dict_scalar = {l.split(&#34;:&#34;)[0]:l.split(&#34;:&#34;)[1].strip() for l in lines}
+        except:
+            bad_line_indices = []
+            bad_lines = []
+            for i,l in enumerate(lines):
+                if &#34;:&#34; not in l:
+                    bad_line_indices.append(i)
+                    bad_lines.append(l)
 
+            bad_line_indices = [i+1 for i in bad_line_indices]
+            self.err_handler.raise_exception(&#34;Line(s) in the speciation group file do not contain a colon &#39;:&#39;. Fix the formatting on line(s):\n&#34;+str(bad_line_indices)+&#34;\nLines to blame:\n&#34;+str(bad_lines))
+
+
+        self.reactant_dict_scalar = {k:v.split(&#34; &#34;) for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
 
         # Creates a dictionary with this format:
         # {...
@@ -4688,6 +4678,7 @@ class Speciation(object):
         #
         # Used to switch a user-specified limiting reactant to one within the same scalar group.
         speciation_group_dict = {}
+        speciation_group_dict_all_like_categories = {}
         for i,line in enumerate(lines):
             line = line.strip().split(&#34;:&#34;)
             assert len(line) == 2 # will fail if : in species names
@@ -4703,6 +4694,32 @@ class Speciation(object):
 
         self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
 
+        # Creates a dictionary with this format:
+        # {...
+        #  &#34;sulfate&#34;: [&#39;SO4-2&#39;,&#39;HSO4-&#39;,&#39;PdSO4&#39;,&#39;RhSO4&#39;, ..., &#39;Ru(SO4)3-4&#39;],
+        #  &#34;formate&#34;: [&#39;formic-acid&#39;, &#39;formate&#39;, &#39;Am(For)+2&#39;, ..., &#39;Zn(For)2&#39;],
+        #  ...
+        # }
+        # Used when the user wants to exclude all organics except for acetate (e.g.)
+        # and all species in the acetate speciation group
+        group_categories = []
+        for group_name in self.reactant_dict_scalar.keys():
+            group_name_no_number = group_name.split(&#34; &#34;)
+            group_name_no_number = &#34; &#34;.join(group_name_no_number[:-1])
+            group_categories.append(group_name_no_number)
+        group_categories = list(set(group_categories))
+
+        sp_dict_groups = {}
+        for g1 in group_categories:
+            for i,g2 in enumerate(self.reactant_dict_scalar.keys()):
+                g2_cat_name = g2.split(&#34; &#34;)
+                g2_cat_name = &#34; &#34;.join(g2_cat_name[:-1])
+                if g1 == g2_cat_name:
+                    if g1 not in sp_dict_groups.keys():
+                        sp_dict_groups[g1] = copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+                    else:
+                        sp_dict_groups[g1] += copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+        self.sp_dict_groups = sp_dict_groups
 
 
     def __switch_limiting(self, limiting, stoich, species, lenient=False):
@@ -4746,6 +4763,106 @@ class Speciation(object):
                 limiting = None
                 
         return limiting
+
+
+    def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
+        &#34;&#34;&#34;
+        Add a new half reaction to the bottom of the table of available half
+        reactions that can be combined using `make_redox_reactions`.
+
+        Parameters
+        ----------
+        oxidant, reductant : str
+            Names of the oxidant and reductant as they appear in the
+            thermodynamic database. It does not matter what speciated form of an
+            oxidant or reductant is chosen. For example, choosing &#34;acetate&#34; as
+            the oxidant is the same as choosing &#34;acetic-acid&#34; because they
+            belong to the same speciation group.
+        
+        redox_couple : str, optional
+            Desired name of the half reaction. This name is arbitrary and can be
+            anything you&#39;d like. If no name is provided, a name will be
+            automatically generated based on the oxidant and reductant.
+
+        Result
+        ----------
+        Appends a new row to the half_cell_reactions table.
+        &#34;&#34;&#34;
+
+        if not isinstance(self.thermo.thermo_db, pd.DataFrame):
+            # check to see if user is using a thermodynamic database CSV
+            if self.verbose &gt; 0:
+                print(&#34;Did not add a new half reaction because a WORM-style thermodynamic database CSV is not available &#34;
+                      &#34;to check the validity of the user-supplied oxidant and reductant or perform energy calculations. Perhaps you &#34;
+                      &#34;are getting this message because you are using a calibrated database or data0 file (e.g. db=&#39;wrm&#39; in AqEquil() ) &#34;
+                      &#34;instead of a more complete CSV database (e.g. db=&#39;WORM&#39; or db=&#39;wrm_data.csv&#39; in AqEquil() ).&#34;)
+            return
+        else:
+            # check to see if the oxidant and reductant are actually in the thermodynamic database
+            if oxidant in list(self.thermo.thermo_db[&#34;name&#34;]) and reductant in list(self.thermo.thermo_db[&#34;name&#34;]):
+                pass
+            else:
+                if oxidant not in list(self.thermo.thermo_db[&#34;name&#34;]):
+                    if self.verbose &gt; 0:
+                        print(&#34;Did not add a new half reaction because the oxidant &#39;&#34;+str(oxidant)+&#34;&#39; &#34;
+                              &#34;was not found amongst the currently loaded chemical species.&#34;)
+                else:
+                    print(&#34;Did not add a new half reaction because the reductant &#39;&#34;+str(reductant)+&#34;&#39; &#34;
+                          &#34;was not found amongst the currently loaded chemical species.&#34;)
+                return
+                
+        # check to see if this half reaction already exists
+        add_new_row = True
+        dup_index = None
+        for i in self.half_cell_reactions.index:
+            if self.half_cell_reactions.iloc[i][&#34;Oxidant&#34;] == oxidant and self.half_cell_reactions.iloc[i][&#34;Reductant&#34;] == reductant:
+                add_new_row = False
+                dup_index = i
+                break
+
+        if add_new_row:
+
+            if not isinstance(redox_couple, str):
+                redox_couple = str(oxidant) + &#34; to &#34; + str(reductant)
+            
+            new_row = [redox_couple, oxidant, reductant]
+            self.half_cell_reactions.loc[len(self.half_cell_reactions.index)] = new_row
+            if self.verbose &gt; 0:
+                print(&#34;Added new half reaction to half_cell_reactions.&#34;)
+        else:
+            if self.verbose &gt; 0:
+                print(&#34;A row with this oxidant and reductant already exists with index&#34;, i)
+    
+
+    def delete_half_reaction(self, index):
+        &#34;&#34;&#34;
+        Delete a half reaction from the half_cell_reactions table. Useful for
+        removing unwanted or mistaken half reactions. This will reset the
+        indices in the table to prevent a gap from the deleted row.
+
+        Parameters
+        ----------
+        index : int or list of int
+            Index or list of indices of the row in the half_cell_reactions table
+            to be deleted.
+        &#34;&#34;&#34;
+        if not isinstance(index, list):
+            index = [index]
+        self.half_cell_reactions.drop(index, inplace=True)
+        self.half_cell_reactions.reset_index(inplace=True, drop=True)
+        if self.verbose &gt; 0:
+                print(&#34;Rows&#34;, index, &#34;have been deleted and indices have &#34;
+                      &#34;been reset in the half_cell_reactions table.&#34;)
+
+    
+    def reset_half_reactions(self):
+        &#34;&#34;&#34;
+        Reset the half_cell_reactions table back to its original default. Takes
+        no parameters.
+        &#34;&#34;&#34;
+        self.half_cell_reactions = copy.deepcopy(self._half_cell_reactions_originalcopy)
+        if self.verbose &gt; 0:
+                print(&#34;The table of half reactions half_cell_reactions has been reset.&#34;)
 
     
     def apply_redox_reactions(self, y_type=&#34;E&#34;, y_units=&#34;cal&#34;, limiting=None,
@@ -4827,13 +4944,19 @@ class Speciation(object):
         
         self.custom_grouping_filepath = custom_grouping_filepath
         
-        self.__make_speciation_group_dict()
+        self._make_speciation_group_dict()
         
         y_name_list = []
         val_list_list = []
         result_dict = {}
         result_lim_dict = {}
 
+        if not isinstance(self.redox_reactions_table, pd.DataFrame):
+            self.err_handler.raise_exception(&#34;Redox reactions cannot be applied &#34;
+                &#34;because they have not yet been generated. Generate redox &#34;
+                &#34;reactions with the function make_redox_reactions() and then &#34;
+                &#34;try again.&#34;)
+        
         coeff_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;coeff_&#34; in c]
         species_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;species_&#34; in c]
 
@@ -5025,6 +5148,31 @@ class Speciation(object):
         # reset all redox variables stored in the AqEquil class
         self.redox_reactions_table = None
         self.redox_formatted_reactions = None
+
+        if isinstance(idx_list, str):
+            if idx_list == &#34;all&#34;:
+                pass
+            else:
+                self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                        &#34;either be a list of indices corresponding to desired &#34;
+                        &#34;half reactions in the half_cell_reactions table, or &#34;
+                        &#34;&#39;all&#39; for all half reaction combinations.&#34;)
+        elif isinstance(idx_list, list):
+            if len(idx_list) == 0:
+                self.err_handler.raise_exception(&#34;The list of desired half &#34;
+                        &#34;reactions is empty. Please define the indices of at &#34;
+                        &#34;least two half reactions to combine into a full redox &#34;
+                        &#34;reaction. These indices correspond to rows in the &#34;
+                        &#34;half_cell_reactions table.&#34;)
+            if len(idx_list) == 1:
+                self.err_handler.raise_exception(&#34;Only one half reaction index &#34;
+                        &#34;was provided. At least two must be provided in order &#34;
+                        &#34;to create a full redox reaction.&#34;)
+        else:
+            self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                    &#34;either be a list of indices corresponding to desired &#34;
+                    &#34;half reactions in the half_cell_reactions table, or &#34;
+                    &#34;&#39;all&#39; for all half reaction combinations.&#34;)
         
         if self.verbose &gt; 1:
             print(&#34;Generating redox reactions...&#34;)
@@ -5054,6 +5202,10 @@ class Speciation(object):
         for idx in idx_list:
         
             #print(idx)
+
+            if idx not in self.half_cell_reactions.index:
+                self.err_handler.raise_exception(&#34;The index &#34; + str(idx) + &#34; was not &#34;
+                        &#34;found in the half_cell_reactions table.&#34;)
             
             oxidant = self.half_cell_reactions[&#34;Oxidant&#34;].iloc[idx]
             reductant = self.half_cell_reactions[&#34;Reductant&#34;].iloc[idx]
@@ -5138,7 +5290,11 @@ class Speciation(object):
                 electron_coeff = red_coeff*total_red_ce_oxstate - ox_coeff*total_ox_ce_oxstate
                 
                 if electron_coeff &gt; 0:
-                    print(&#34;Error: this half reaction&#39;s oxidant and reductant are switched. Electron coeff must be negative.&#34;)
+                    self.err_handler.raise_exception(&#34;The oxidant &#39;&#34;+oxidant+&#34;&#39; is more reduced than the &#34;
+                            &#34;reductant &#39;&#34;+reductant+&#34;&#39; in the half reaction corresponding to index &#34; + str(idx) + &#34; &#34;
+                            &#34;in the half_cell_reactions table. Please flip the species so that &#34;
+                            &#34;the oxidant is in the Oxidant column.&#34;)
+                    
                     # TODO: automatically flip it for the user...
                 else:
                     # if e- transfer for this common elem is negative (e- is transferred)
@@ -5194,6 +5350,12 @@ class Speciation(object):
                     if elems[0] in elems_unique_to_reductant and elems[0] not in basis_candidate_elems:
                         basis_candidates.append(f)
                         basis_candidate_elems.append(elems[0])
+
+            if len(common_elem_electron_dict) == 0:
+                # no common elements between oxidant and reductant
+                self.err_handler.raise_exception(&#34;A common element could not be found between &#34;
+                        &#34;the oxidant &#34; + str(oxidant) + &#34; and the reductant &#34; + str(reductant))
+                
             
             unpacked_dict = common_elem_electron_dict[list(common_elem_electron_dict.keys())[0]]
 
@@ -5514,7 +5676,8 @@ class Speciation(object):
         &#34;&#34;&#34;
         scalars = []
         groups = []
-        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):
+        
+        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):            
             if s in grp_list:
                 s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be &#34;sulfates 1&#34;
                 s_key_split = s_key.split(&#34; &#34;)
@@ -5528,9 +5691,19 @@ class Speciation(object):
                         continue
                 groups = [s_key_grp+&#34; &#34;+str(s) for s in scalars]
                 break
+                
         scalars = [float(s) for s in scalars]
-        groups = [self.reactant_dict_scalar[g] for g in groups]
-        return scalars, groups
+
+        # prevent duplicate groups and scalars from appearing
+        scalars_final = []
+        groups_final = []
+        for i,group in enumerate(groups):
+            if group not in groups_final:
+                scalars_final.append(scalars[i])
+                groups_final.append(groups[i])
+
+        groups_final = [self.reactant_dict_scalar[g] for g in groups_final]
+        return scalars_final, groups_final
 
 
     def calculate_energy(self, species, stoich,
@@ -5711,7 +5884,7 @@ class Speciation(object):
 
         if y_type == &#34;E&#34;:
             if not isinstance(self.reactant_dict_scalar, dict):
-                self.__make_speciation_group_dict()
+                self._make_speciation_group_dict()
         
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
@@ -5811,14 +5984,16 @@ class Speciation(object):
                 s_logact_dict[s] = [v for v in list(self.aq_distribution_logact[&#34;H2O&#34;])]
                 s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.aq_distribution_logact[&#34;H2O&#34;])
             elif list(self.thermo.csv_db[self.thermo.csv_db[&#34;name&#34;]==s][&#34;state&#34;])[0] not in [&#34;cr&#34;, &#34;liq&#34;]:
+
                 if s in self.aq_distribution_logact.columns:
+
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
                     if isinstance(self.reactant_dict_scalar, dict):
 
                         # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                         scalars, groups = self.__match_grouped_species(s)
-                        
+
                         if as_written:
                             # if energy supplies are to be calculated as written
                             # with no grouping or limiting reactant switching,
@@ -5869,12 +6044,14 @@ class Speciation(object):
                         s_molal_dict[s] = [sp_moles]*len(self.misc_params[&#34;Temp(C)&#34;])
                 else:
                     s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.misc_params[&#34;Temp(C)&#34;])
-                
 
         if y_type in [&#34;logK&#34;, &#34;logQ&#34;]:
             y_type_plain = copy.copy(y_type)
         elif y_type == &#34;A&#34;:
-            y_type_plain = &#34;affinity&#34;
+            if per_electron:
+                y_type_plain = &#34;affinity per mole e-&#34;
+            else:
+                y_type_plain = &#34;affinity per mole rxn&#34;
         elif y_type == &#34;G&#34;:
             y_type_plain = &#34;Gibbs free energy&#34;
         elif y_type == &#34;E&#34;:
@@ -6253,6 +6430,8 @@ class Speciation(object):
         
         if isinstance(col, str):
             col = [col]
+
+        col = list(dict.fromkeys(col)) # remove duplicate search terms while preserving order
         
         df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
@@ -6368,9 +6547,9 @@ class Speciation(object):
         
         df = pd.DataFrame(mineral_data)
 
-        fig = px.bar(df, x=df.index, y=&#34;affinity&#34;,
+        fig = px.bar(df, x=df.index, y=mineral_sat_type,
             height=plot_height*ppi, width=plot_width*ppi,
-            labels={&#39;affinity&#39;: ylabel}, template=&#34;simple_white&#34;)
+            labels={mineral_sat_type: ylabel}, template=&#34;simple_white&#34;)
         
         fig.update_traces(hovertemplate = &#34;%{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;,
                           marker_color=color_list)
@@ -6890,7 +7069,13 @@ class Speciation(object):
         df = self.lookup([x]+y).copy() # TODO: is this where the &#34;can&#39;t find name&#34; message comes from?
         df.loc[:, &#34;name&#34;] = df.index
         df.columns = df.columns.get_level_values(0)
-        df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+        
+        if x in y:
+            df[str(x)+&#34;_copy&#34;] = df[str(x)]
+            df = df.melt(id_vars=[&#34;name&#34;, str(x)+&#34;_copy&#34;], value_vars=y).rename(columns={str(x)+&#39;_copy&#39;: str(x)})
+        else:
+            df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+            
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
         if not plot_zero:
@@ -6919,7 +7104,7 @@ class Speciation(object):
 
         if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
-            y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
+            y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity per mole rxn&#34;, &#34;&#34;).replace(&#34; affinity per mole e-&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
             y_find = [yi for yi in y_find if &#34;limiting reactant&#34; not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
@@ -6990,6 +7175,9 @@ class Speciation(object):
                           yaxis={&#39;exponentformat&#39;:&#39;power&#39;})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
+
+        fig.update_xaxes(exponentformat = &#39;E&#39;)
+        fig.update_yaxes(exponentformat = &#39;E&#39;)
             
         save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
@@ -7949,7 +8137,7 @@ the point.</dd>
 <dl>
 <dt id="AqEquil.AqSpeciation.AqEquil"><code class="flex name class">
 <span>class <span class="ident">AqEquil</span></span>
-<span>(</span><span>eq36da=None, eq36co=None, db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_organics=False, exclude_category=None, suppress_redox=None, input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
+<span>(</span><span>eq36da=None, eq36co=None, db='WORM', elements=None, solid_solutions=None, logK=None, logK_S=None, logK_extrapolate='none', download_csv_files=False, exclude_organics=False, exclude_organics_except=None, exclude_category=None, suppress_redox=None, input_template='none', water_model='SUPCRT92', exceed_Ttr=True, verbose=1, load_thermo=True, hide_traceback=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Class containing functions to speciate aqueous water chemistry data using
@@ -8233,6 +8421,7 @@ values during speciation.</dd>
                  logK_extrapolate=&#34;none&#34;,
                  download_csv_files=False,
                  exclude_organics=False,
+                 exclude_organics_except=None,
                  exclude_category=None,
                  suppress_redox=None,
                  input_template=&#34;none&#34;,
@@ -8242,9 +8431,9 @@ values during speciation.</dd>
                  load_thermo=True,
                  hide_traceback=True):
 
-        if not isinstance(str, eq36da):
+        if not isinstance(eq36da, str):
             eq36da = os.environ.get(&#39;EQ36DA&#39;)
-        if not isinstance(str, eq36co):
+        if not isinstance(eq36co, str):
             eq36co = os.environ.get(&#39;EQ36CO&#39;)
         
         self.eq36da = eq36da
@@ -8257,6 +8446,7 @@ values during speciation.</dd>
         
         half_rxn_data = pkg_resources.resource_stream(__name__, &#34;half_cell_reactions.csv&#34;)
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
+        self._half_cell_reactions_originalcopy = copy.deepcopy(self.half_cell_reactions)
         
         self.verbose = verbose
         self.hide_traceback = hide_traceback
@@ -8281,18 +8471,41 @@ values during speciation.</dd>
 
             if exclude_category is None:
                 exclude_category = dict()
+
+            if isinstance(exclude_organics_except, str):
+                exclude_organics_except = [exclude_organics_except]
             
-            if exclude_organics:
+            if exclude_organics and not isinstance(exclude_organics_except, list):
                 if not isinstance(exclude_category.get(&#34;category_1&#34;), list):
                     exclude_category[&#34;category_1&#34;] = [&#34;organic_aq&#34;, &#34;organic_cr&#34;]
                 else:
-                    print(&#34;category_1 exists in &#39;exclude_category&#39; dict.&#34;)
                     if &#34;organic_aq&#34; not in exclude_category[&#34;category_1&#34;]:
                         exclude_category[&#34;category_1&#34;] = exclude_category[&#34;category_1&#34;].append(&#34;organic_aq&#34;)
                     if &#34;organic_cr&#34; not in exclude_category[&#34;category_1&#34;]:
                         exclude_category[&#34;category_1&#34;] = exclude_category[&#34;category_1&#34;].append(&#34;organic_cr&#34;)
-            
+            elif isinstance(exclude_organics_except, list):
+                # exclude all organics except what is specified by the user in exclude_organics_except
+                # and species in associated speciation group
+                
+                sp = Speciation({})
+                sp._make_speciation_group_dict()
+                reactant_dict_scalar = copy.deepcopy(sp.reactant_dict_scalar)
+                sp_dict_unpacked = copy.deepcopy(sp.speciation_group_dict_unpacked)
+                sp_dict_groups = copy.deepcopy(sp.sp_dict_groups)
+                self.reactant_dict_scalar = reactant_dict_scalar
+                self.sp_dict_unpacked = sp_dict_unpacked
+                self.sp_dict_groups = sp_dict_groups
+                del sp
+
+                exclude_organics_except_orig = copy.copy(exclude_organics_except)
+                for org in exclude_organics_except_orig:
+                    for group in self.sp_dict_groups:
+                        if org in self.sp_dict_groups[group]:
+                            exclude_organics_except += self.sp_dict_groups[group]
+                exclude_organics_except = list(set(exclude_organics_except))
+
             self.exclude_category = exclude_category
+            self.exclude_organics_except = exclude_organics_except
             self.logK = logK
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
@@ -8549,13 +8762,16 @@ values during speciation.</dd>
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in [&#39;Temperature&#39;, &#39;logfO2&#39;, &#39;pH&#39;, &#39;Pressure&#39;, &#39;Eh&#39;, &#39;pe&#39;]+FIXED_SPECIES:
-                    err_species_not_in_db = (&#34;The species &#39;{}&#39;&#34;.format(species) + &#34; &#34;
-                        &#34;was not found in {}&#34;.format(data_path) + &#34;. &#34;
-                        &#34;If the column contains data that should not be &#34;
-                        &#34;included in the speciation calculation, add the &#34;
-                        &#34;column name to the &#39;exclude&#39; argument. Try &#34;
-                        &#34;help(AqEquil.AqEquil.speciate) &#34;
-                        &#34;for more information about &#39;exclude&#39;.&#34;)
+                    err_species_not_in_db = (&#34;The column &#39;{}&#39;&#34;.format(species) + &#34; in the input file &#34;
+                        &#34;was not found in the currently loaded chemical species from {}&#34;.format(data_path) + &#34;. &#34;
+                        &#34;If the column &#39;&#34;+format(species)+&#34;&#39; contains data that should not be &#34;
+                        &#34;included in the speciation calculation (such as sample metadata), add the &#34;
+                        &#34;column name to the &#39;exclude&#39; parameter. Otherwise, the &#34;
+                        &#34;species might not be loaded because it is not in the thermodynamic database, &#34;
+                        &#34;or it was excluded via the &#39;exclude_category&#39;, &#39;exclude_organics&#39;, or &#39;exclude_organics_except&#39; &#34;
+                        &#34;parameters when the database was loaded. Species may also be excluded when &#34;
+                        &#34;element redox states are isolated with the parameter &#39;suppress_redox&#39; and &#34;
+                        &#34;appropriate basis species cannot be found to represent them.&#34;)
                     err_list.append(err_species_not_in_db)
                 elif species == &#39;pH&#39;:
                     err_species_pH = (&#34;Please rename the &#39;pH&#39; column in &#34;
@@ -9124,13 +9340,8 @@ values during speciation.</dd>
                  get_fugacity=True,
                  get_basis_totals=True,
                  get_solid_solutions=True,
-                 get_affinity_energy=False, # deprecated
-                 negative_energy_supplies=False, # deprecated
                  mineral_reactant_energy_supplies=False,
-                 rxn_filename=None, # deprecated
-                 not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;], # deprecated
                  get_charge_balance=True,
-                 custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  db_args={}):
@@ -9183,43 +9394,14 @@ values during speciation.</dd>
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        db : str, default &#34;wrm&#34;
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            
-            - Three letter file extension for the desired data1 database, e.g.,
-            &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-            &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+        db : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_solid_solution : str, optional
-            Used only if `db` points to a thermodynamic data CSV file (or the
-            URL of a CSV hosted online). Determines which thermodynamic database
-            is used for idealized solid solutions in the speciation calculation.
-            There are two options:
-            
-            - The name of a CSV file containing solid solution parameters
-            located in the current working directory, e.g.,
-            &#34;wrm_solid_solutions.csv&#34;
-            - The URL of a CSV file containing solid solution parameters, e.g.,
-            &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+        db_solid_solution : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
-        db_logK : str, optional
-            The name of the CSV file containing species with dissociation
-            constants but no other properties or parameters. Used only if `db`
-            points to a thermodynamic data CSV file (or the URL of a CSV hosted
-            online).
+        db_logK : None
+            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
         activity_model : str, default &#34;b-dot&#34;
             Activity model to use for speciation. Can be either &#34;b-dot&#34;,
@@ -9367,13 +9549,6 @@ values during speciation.</dd>
         get_solid_solutions : bool, default True
             Permit the calculation of solid solutions and include them in the
             speciation report?
-        
-        get_affinity_energy : bool, default False
-            Deprecated; affinities and energy supplies are now calculated after
-            speciation.
-        
-        negative_energy_supplies : bool, default False
-            Deprecated.
 
         mineral_reactant_energy_supplies : bool, default False
             Report energy supplies for reactions with mineral reactants? This
@@ -9385,10 +9560,7 @@ values during speciation.</dd>
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
             and energy supplies. Ignored if `get_affinity_energy` is False.
-        
-        not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
-            Deprecated.
-        
+
         get_charge_balance : bool, default True
             Calculate charge balance and ionic strength?
         
@@ -9427,12 +9599,11 @@ values during speciation.</dd>
         &#34;&#34;&#34;
 
         # deprecated!
-        if get_affinity_energy:
-            self.err_handler.raise_exception(&#34;Deprecation error: affinity and &#34;
-                    &#34;energy supply calculations are now handled after speciation &#34;
-                    &#34;using the speciation.apply_redox_reactions(...) or &#34;
-                    &#34;speciation.calculate_energy(...) functions.&#34;)
-
+        if db is not None or db_solid_solution is not None or db_logK is not None:
+            self.err_handler.raise_exception(&#34;The parameters db, db_solid_solution, and db_logK &#34;
+                &#34;are deprecated in the speciate() function. Databases are now loaded during &#34;
+                &#34;the AqEquil.AqEquil(...) step.&#34;)
+        
         self.batch_T = []
         self.batch_P = []
         
@@ -9449,7 +9620,6 @@ values during speciation.</dd>
             
         dynamic_db = self.thermo.dynamic_db
         data0_lettercode = self.thermo.data0_lettercode # needs to be this way
-        
         
         if (self.thermo.thermo_db_type == &#34;data0&#34; or self.thermo.thermo_db_type == &#34;data1&#34;) and len(db_args) &gt; 0:
             if self.verbose &gt; 0:
@@ -9490,7 +9660,7 @@ values during speciation.</dd>
         else:
             self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                                              &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
-            
+
         # handle batch_3o naming
         if batch_3o_filename != None:
             if &#34;.rds&#34; in batch_3o_filename[-4:]:
@@ -9499,11 +9669,11 @@ values during speciation.</dd>
                 batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(data0_lettercode)
         else:
             batch_3o_filename = ro.r(&#34;NULL&#34;)
-        
+
         # reset logK_models whenever speciate() is called
         # (prevents errors when speciations are run back-to-back)
         self.logK_models = {}
-        
+
         # dynamic data0 creation per sample
         if dynamic_db:
             db_args[&#34;fill_data0&#34;] = False
@@ -9901,12 +10071,6 @@ values during speciation.</dd>
             get_solid_solutions=get_solid_solutions,
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-            # New rpy2 py2rpy2 conversion might not need the workaround below.
-            # The old note regarding deprecated pandas2ri is shown below...
-            # OLD NOTE:
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
             verbose=self.verbose,
         )
@@ -10176,6 +10340,7 @@ values during speciation.</dd>
         speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
         speciation.half_cell_reactions = self.half_cell_reactions
+        speciation._half_cell_reactions_originalcopy = self._half_cell_reactions_originalcopy
         
         if report_filename != None:
             if &#34;.csv&#34; in report_filename[-4:]:
@@ -10943,24 +11108,6 @@ values during speciation.</dd>
 
         if self.verbose &gt; 0:
             print(&#34;Finished creating data0.{}.&#34;.format(db))
-            
-
-    def make_redox_reactions(self, *args, **kwargs):
-        &#34;&#34;&#34;
-        Deprecated
-        &#34;&#34;&#34;
-        self.err_handler.raise_exception(&#34;Deprecation error: make_redox_reactions &#34;
-                &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-                &#34;use: speciation.make_redox_reactions(...)&#34;)
-
-    def show_redox_reactions(self, *args, **kwargs):
-        &#34;&#34;&#34;
-        Deprecated
-        &#34;&#34;&#34;
-        self.err_handler.raise_exception(&#34;Deprecation error: show_redox_reactions &#34;
-                &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-                &#34;use: speciation.show_redox_reactions(...)&#34;)
-
 
     
     class Thermodata(object):
@@ -10979,6 +11126,7 @@ values during speciation.</dd>
             self.elements = self.AqEquil_instance.elements
             solid_solutions = self.AqEquil_instance.solid_solutions
             self.exclude_category = self.AqEquil_instance.exclude_category
+            self.exclude_organics_except = self.AqEquil_instance.exclude_organics_except
             self.water_model = self.AqEquil_instance.water_model
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
@@ -11520,7 +11668,10 @@ values during speciation.</dd>
             self.logK_S_db = self._exclude_category(df=self.logK_S_db, df_name=self.logK_S_db_filename)
 
             if self.logK_S_active:
+                
                 for i,sp in enumerate(self.logK_S_db[&#34;name&#34;]):
+
+                    i = self.logK_S_db.index[i]
                     
                     logK_25C = float(self.logK_S_db[&#34;logK_25&#34;][i])
 
@@ -11565,9 +11716,9 @@ values during speciation.</dd>
                         elif self.thermo_db[&#34;name&#34;].isin([ligand_name]).any():
                             ligand_charge = float(list(self.thermo_db[self.thermo_db[&#34;name&#34;] == ligand_name][&#34;z.T&#34;])[0])
                         else:
-                            # todo: elif ligand_name in logK database names, get charge from there...
-                            # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
+                            self.err_handler.raise_exception(&#34;The ligand &#39;&#34;+ligand_name+&#34;&#39; was not found in the &#34;
+                                    &#34;currently loaded databases. Is this ligand present in the database? Was this &#34;
+                                    &#34;ligand excluded (e.g., exclude_organics=True)?&#34;)
                     
                         dissrxn = self.logK_S_db[&#34;dissrxn&#34;][i].split(&#34; &#34;)
                         n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
@@ -11760,13 +11911,29 @@ values during speciation.</dd>
             Exclude entries from a df based on values in columns.
             e.g., {&#34;category_1&#34;:[&#34;organic_aq&#34;, &#34;organic_cr&#34;]}
             &#34;&#34;&#34;
+
+            if isinstance(self.exclude_organics_except, list):
+                organics_to_exclude = []
+                for i,name in enumerate(df[&#34;name&#34;]):
+                    if df[&#34;category_1&#34;].iloc[i] in [&#34;organic_aq&#34;, &#34;organic_cr&#34;] and name not in self.exclude_organics_except:
+                        organics_to_exclude.append(name)
+
+                if not isinstance(self.exclude_category.get(&#34;name&#34;), list) or &#34;name&#34; not in list(self.exclude_category.keys()):
+                    self.exclude_category[&#34;name&#34;] = organics_to_exclude
+                else:
+                    self.exclude_category[&#34;name&#34;] += organics_to_exclude
+                    self.exclude_category[&#34;name&#34;] = list(set(self.exclude_category[&#34;name&#34;]))
+
             
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) &gt; 0:
                 for key in exclude_keys:
                     if self.verbose &gt; 0:
-                        print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column&#34;, str(key), &#34;in&#34;, df_name)
-                        
+                        if len(self.exclude_category[key]) &lt;= 10:
+                            print(&#34;Excluding&#34;, str(self.exclude_category[key]), &#34;from column &#39;&#34; + str(key) + &#34;&#39;in&#34;, df_name)
+                        else:
+                            print(&#34;Excluding&#34;, len(self.exclude_category[key]), &#34;different chemical species from column &#39;&#34; + str(key) + &#34;&#39; in&#34;, df_name)
+                    
                     if isinstance(self.exclude_category[key], list):
                         
                         idx = list(df[df[key].isin(self.exclude_category[key])].index)
@@ -12166,24 +12333,6 @@ calculation. 2 for all messages, 1 for errors or warnings only,
 
     if self.verbose &gt; 0:
         print(&#34;Finished creating data0.{}.&#34;.format(db))</code></pre>
-</details>
-</dd>
-<dt id="AqEquil.AqSpeciation.AqEquil.make_redox_reactions"><code class="name flex">
-<span>def <span class="ident">make_redox_reactions</span></span>(<span>self, *args, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Deprecated</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def make_redox_reactions(self, *args, **kwargs):
-    &#34;&#34;&#34;
-    Deprecated
-    &#34;&#34;&#34;
-    self.err_handler.raise_exception(&#34;Deprecation error: make_redox_reactions &#34;
-            &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-            &#34;use: speciation.make_redox_reactions(...)&#34;)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.plot_logK_fit"><code class="name flex">
@@ -12718,26 +12867,8 @@ This parameter is for internal use.</dd>
     self.__move_eqpt_extra_output()</code></pre>
 </details>
 </dd>
-<dt id="AqEquil.AqSpeciation.AqEquil.show_redox_reactions"><code class="name flex">
-<span>def <span class="ident">show_redox_reactions</span></span>(<span>self, *args, **kwargs)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Deprecated</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def show_redox_reactions(self, *args, **kwargs):
-    &#34;&#34;&#34;
-    Deprecated
-    &#34;&#34;&#34;
-    self.err_handler.raise_exception(&#34;Deprecation error: show_redox_reactions &#34;
-            &#34;now belongs to the Speciation class. Perform a speciation and then &#34;
-            &#34;use: speciation.show_redox_reactions(...)&#34;)</code></pre>
-</details>
-</dd>
 <dt id="AqEquil.AqSpeciation.AqEquil.speciate"><code class="name flex">
-<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, blanks_are_0=False, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, get_affinity_energy=False, negative_energy_supplies=False, mineral_reactant_energy_supplies=False, rxn_filename=None, not_limiting=['H+', 'OH-', 'H2O'], get_charge_balance=True, custom_db=False, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
+<span>def <span class="ident">speciate</span></span>(<span>self, input_filename, db=None, db_solid_solution=None, db_logK=None, logK_extrapolate=None, activity_model='b-dot', redox_flag='logfO2', redox_aux='Fe+3', default_logfO2=-6, exclude=[], suppress=[], alter_options=[], charge_balance_on='none', suppress_missing=True, blanks_are_0=False, strict_minimum_pressure=True, aq_scale=1, verbose=1, report_filename=None, get_aq_dist=True, aq_dist_type='log_activity', get_mass_contribution=True, mass_contribution_other=True, get_mineral_sat=True, mineral_sat_type='affinity', get_redox=True, redox_type='Eh', get_ion_activity_ratios=True, get_fugacity=True, get_basis_totals=True, get_solid_solutions=True, mineral_reactant_energy_supplies=False, get_charge_balance=True, batch_3o_filename=None, delete_generated_folders=False, db_args={})</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Calculate the equilibrium distribution of chemical species in solution.
@@ -12791,47 +12922,12 @@ subheader.</p>
 duplicate sample names.</li>
 </ul>
 </dd>
-<dt><strong><code>db</code></strong> :&ensp;<code>str</code>, default <code>"wrm"</code></dt>
-<dd>
-<p>Determines which thermodynamic database is used in the speciation
-calculation. There are several options available:</p>
-<ul>
-<li>Three letter file extension for the desired data1 database, e.g.,
-"wrm". This will use a data1 file with this file extension, e.g.,
-"data1.wrm" located in the path stored in the 'EQ36DA' environment
-variable used by EQ3NR.</li>
-<li>The name of a data0 file located in the current working directory,
-e.g., "data0.wrm". This data0 file will be compiled by EQPT
-automatically during the speciation calculation.</li>
-<li>The name of a CSV file containing thermodynamic data located in
-the current working directory, e.g., "wrm_data.csv". The CSV file
-will be used to generate a data0 file for each sample (using
-additional arguments from <code>db_args</code> if desired).</li>
-<li>The URL of a data0 file, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"</li>
-<li>The URL of a CSV file containing thermodynamic data, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"</li>
-</ul>
-</dd>
-<dt><strong><code>db_solid_solution</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>
-<p>Used only if <code>db</code> points to a thermodynamic data CSV file (or the
-URL of a CSV hosted online). Determines which thermodynamic database
-is used for idealized solid solutions in the speciation calculation.
-There are two options:</p>
-<ul>
-<li>The name of a CSV file containing solid solution parameters
-located in the current working directory, e.g.,
-"wrm_solid_solutions.csv"</li>
-<li>The URL of a CSV file containing solid solution parameters, e.g.,
-"https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"</li>
-</ul>
-</dd>
-<dt><strong><code>db_logK</code></strong> :&ensp;<code>str</code>, optional</dt>
-<dd>The name of the CSV file containing species with dissociation
-constants but no other properties or parameters. Used only if <code>db</code>
-points to a thermodynamic data CSV file (or the URL of a CSV hosted
-online).</dd>
+<dt><strong><code>db</code></strong> :&ensp;<code>None</code></dt>
+<dd>Deprecated. Databases are loaded during AqEquil.AqEquil(&hellip;).</dd>
+<dt><strong><code>db_solid_solution</code></strong> :&ensp;<code>None</code></dt>
+<dd>Deprecated. Databases are loaded during AqEquil.AqEquil(&hellip;).</dd>
+<dt><strong><code>db_logK</code></strong> :&ensp;<code>None</code></dt>
+<dd>Deprecated. Databases are loaded during AqEquil.AqEquil(&hellip;).</dd>
 <dt><strong><code>activity_model</code></strong> :&ensp;<code>str</code>, default <code>"b-dot"</code></dt>
 <dd>Activity model to use for speciation. Can be either "b-dot",
 or "davies". NOTE: the "pitzer" model is not yet implemented.</dd>
@@ -12956,11 +13052,6 @@ solids. Can be "logQoverK" or "affinity". Ignored if
 <dt><strong><code>get_solid_solutions</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Permit the calculation of solid solutions and include them in the
 speciation report?</dd>
-<dt><strong><code>get_affinity_energy</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Deprecated; affinities and energy supplies are now calculated after
-speciation.</dd>
-<dt><strong><code>negative_energy_supplies</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
-<dd>Deprecated.</dd>
 <dt><strong><code>mineral_reactant_energy_supplies</code></strong> :&ensp;<code>bool</code>, default <code>False</code></dt>
 <dd>Report energy supplies for reactions with mineral reactants? This
 option is False by default because mineral reactants are considered
@@ -12970,8 +13061,6 @@ systems where the reactant minerals are unstable.</dd>
 <dt><strong><code>rxn_filename</code></strong> :&ensp;<code>str</code>, optional</dt>
 <dd>Name of .txt file containing reactions used to calculate affinities
 and energy supplies. Ignored if <code>get_affinity_energy</code> is False.</dd>
-<dt><strong><code>not_limiting</code></strong> :&ensp;<code>list</code>, default <code>["H+", "OH-", "H2O"]</code></dt>
-<dd>Deprecated.</dd>
 <dt><strong><code>get_charge_balance</code></strong> :&ensp;<code>bool</code>, default <code>True</code></dt>
 <dd>Calculate charge balance and ionic strength?</dd>
 <dt><strong><code>batch_3o_filename</code></strong> :&ensp;<code>str</code>, optional</dt>
@@ -13041,13 +13130,8 @@ suppressed for Fe and S:</li>
              get_fugacity=True,
              get_basis_totals=True,
              get_solid_solutions=True,
-             get_affinity_energy=False, # deprecated
-             negative_energy_supplies=False, # deprecated
              mineral_reactant_energy_supplies=False,
-             rxn_filename=None, # deprecated
-             not_limiting=[&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;], # deprecated
              get_charge_balance=True,
-             custom_db=False, # deprecated
              batch_3o_filename=None,
              delete_generated_folders=False,
              db_args={}):
@@ -13100,43 +13184,14 @@ suppressed for Fe and S:</li>
         - The first column must contain sample names. There cannot be
           duplicate sample names.
     
-    db : str, default &#34;wrm&#34;
-        Determines which thermodynamic database is used in the speciation
-        calculation. There are several options available:
-        
-        - Three letter file extension for the desired data1 database, e.g.,
-        &#34;wrm&#34;. This will use a data1 file with this file extension, e.g.,
-        &#34;data1.wrm&#34; located in the path stored in the &#39;EQ36DA&#39; environment
-        variable used by EQ3NR.
-        - The name of a data0 file located in the current working directory,
-        e.g., &#34;data0.wrm&#34;. This data0 file will be compiled by EQPT
-        automatically during the speciation calculation.
-        - The name of a CSV file containing thermodynamic data located in
-        the current working directory, e.g., &#34;wrm_data.csv&#34;. The CSV file
-        will be used to generate a data0 file for each sample (using
-        additional arguments from `db_args` if desired).
-        - The URL of a data0 file, e.g.,
-        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm&#34;
-        - The URL of a CSV file containing thermodynamic data, e.g.,
-        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv&#34;
+    db : None
+        Deprecated. Databases are loaded during AqEquil.AqEquil(...).
     
-    db_solid_solution : str, optional
-        Used only if `db` points to a thermodynamic data CSV file (or the
-        URL of a CSV hosted online). Determines which thermodynamic database
-        is used for idealized solid solutions in the speciation calculation.
-        There are two options:
-        
-        - The name of a CSV file containing solid solution parameters
-        located in the current working directory, e.g.,
-        &#34;wrm_solid_solutions.csv&#34;
-        - The URL of a CSV file containing solid solution parameters, e.g.,
-        &#34;https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv&#34;
+    db_solid_solution : None
+        Deprecated. Databases are loaded during AqEquil.AqEquil(...).
     
-    db_logK : str, optional
-        The name of the CSV file containing species with dissociation
-        constants but no other properties or parameters. Used only if `db`
-        points to a thermodynamic data CSV file (or the URL of a CSV hosted
-        online).
+    db_logK : None
+        Deprecated. Databases are loaded during AqEquil.AqEquil(...).
     
     activity_model : str, default &#34;b-dot&#34;
         Activity model to use for speciation. Can be either &#34;b-dot&#34;,
@@ -13284,13 +13339,6 @@ suppressed for Fe and S:</li>
     get_solid_solutions : bool, default True
         Permit the calculation of solid solutions and include them in the
         speciation report?
-    
-    get_affinity_energy : bool, default False
-        Deprecated; affinities and energy supplies are now calculated after
-        speciation.
-    
-    negative_energy_supplies : bool, default False
-        Deprecated.
 
     mineral_reactant_energy_supplies : bool, default False
         Report energy supplies for reactions with mineral reactants? This
@@ -13302,10 +13350,7 @@ suppressed for Fe and S:</li>
     rxn_filename : str, optional
         Name of .txt file containing reactions used to calculate affinities
         and energy supplies. Ignored if `get_affinity_energy` is False.
-    
-    not_limiting : list, default [&#34;H+&#34;, &#34;OH-&#34;, &#34;H2O&#34;]
-        Deprecated.
-    
+
     get_charge_balance : bool, default True
         Calculate charge balance and ionic strength?
     
@@ -13344,12 +13389,11 @@ suppressed for Fe and S:</li>
     &#34;&#34;&#34;
 
     # deprecated!
-    if get_affinity_energy:
-        self.err_handler.raise_exception(&#34;Deprecation error: affinity and &#34;
-                &#34;energy supply calculations are now handled after speciation &#34;
-                &#34;using the speciation.apply_redox_reactions(...) or &#34;
-                &#34;speciation.calculate_energy(...) functions.&#34;)
-
+    if db is not None or db_solid_solution is not None or db_logK is not None:
+        self.err_handler.raise_exception(&#34;The parameters db, db_solid_solution, and db_logK &#34;
+            &#34;are deprecated in the speciate() function. Databases are now loaded during &#34;
+            &#34;the AqEquil.AqEquil(...) step.&#34;)
+    
     self.batch_T = []
     self.batch_P = []
     
@@ -13366,7 +13410,6 @@ suppressed for Fe and S:</li>
         
     dynamic_db = self.thermo.dynamic_db
     data0_lettercode = self.thermo.data0_lettercode # needs to be this way
-    
     
     if (self.thermo.thermo_db_type == &#34;data0&#34; or self.thermo.thermo_db_type == &#34;data1&#34;) and len(db_args) &gt; 0:
         if self.verbose &gt; 0:
@@ -13407,7 +13450,7 @@ suppressed for Fe and S:</li>
     else:
         self.err_handler.raise_exception(&#34;Unrecognized redox flag. Valid options are &#39;O2(g)&#39;&#34;
                                          &#34;, &#39;pe&#39;, &#39;Eh&#39;, &#39;logfO2&#39;, &#39;redox aux&#39;&#34;)
-        
+
     # handle batch_3o naming
     if batch_3o_filename != None:
         if &#34;.rds&#34; in batch_3o_filename[-4:]:
@@ -13416,11 +13459,11 @@ suppressed for Fe and S:</li>
             batch_3o_filename = &#34;batch_3o_{}.rds&#34;.format(data0_lettercode)
     else:
         batch_3o_filename = ro.r(&#34;NULL&#34;)
-    
+
     # reset logK_models whenever speciate() is called
     # (prevents errors when speciations are run back-to-back)
     self.logK_models = {}
-    
+
     # dynamic data0 creation per sample
     if dynamic_db:
         db_args[&#34;fill_data0&#34;] = False
@@ -13818,12 +13861,6 @@ suppressed for Fe and S:</li>
         get_solid_solutions=get_solid_solutions,
         batch_3o_filename=batch_3o_filename,
         df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-        # New rpy2 py2rpy2 conversion might not need the workaround below.
-        # The old note regarding deprecated pandas2ri is shown below...
-        # OLD NOTE:
-        # Needed for keeping symbols in column names after porting
-        #   df_input_processed in the line above. Some kind of check.names
-        #   option for pandas2ri.py2ri would be nice. Workaround:
         df_input_processed_names=df_input_processed_names,
         verbose=self.verbose,
     )
@@ -14093,6 +14130,7 @@ suppressed for Fe and S:</li>
     speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
     speciation.half_cell_reactions = self.half_cell_reactions
+    speciation._half_cell_reactions_originalcopy = self._half_cell_reactions_originalcopy
     
     if report_filename != None:
         if &#34;.csv&#34; in report_filename[-4:]:
@@ -14377,7 +14415,7 @@ speciation report.</dd>
          return getattr(self, item)
 
     
-    def __make_speciation_group_dict(self):
+    def _make_speciation_group_dict(self):
 
         if isinstance(self.custom_grouping_filepath, str):
             with open(self.custom_grouping_filepath) as file:
@@ -14391,21 +14429,32 @@ speciation report.</dd>
 
         lines = [l for l in lines if l != &#34;&#34;] # remove blank lines
 
-        
         # Creates a dictionary with this format:
         #
         # {...
-        #  &#34;sulfides 1&#34;: [&#34;H2S&#34;, &#34;HS-&#34;],
-        #  &#34;sulfides 2&#34;: [&#34;Pb(HS)2&#34;, &#34;Ag(HS)2-&#34;, &#34;Au(HS)2-&#34;],
-        #  &#34;sulfides 3&#34;: [&#34;Pb(HS)3-&#34;],
-        #  &#34;ferrous iron 1&#34;: [...],
+        #  &#34;sulfide 1&#34;: [&#34;H2S&#34;, &#34;HS-&#34;],
+        #  &#34;sulfide 2&#34;: [&#34;Pb(HS)2&#34;, &#34;Ag(HS)2-&#34;, &#34;Au(HS)2-&#34;],
+        #  &#34;sulfide 3&#34;: [&#34;Pb(HS)3-&#34;],
+        #  &#34;iron(II) 1&#34;: [...],
         #  ...
         # }
         #
         # Used by calculate_energy() to calculate concentrations of limiting reactants.
-        reactant_dict_scalar = {l.split(&#34;:&#34;)[0]:l.split(&#34;:&#34;)[1].strip() for l in lines}
-        self.reactant_dict_scalar = {k:v.split(&#34; &#34;) for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
+        try:
+            reactant_dict_scalar = {l.split(&#34;:&#34;)[0]:l.split(&#34;:&#34;)[1].strip() for l in lines}
+        except:
+            bad_line_indices = []
+            bad_lines = []
+            for i,l in enumerate(lines):
+                if &#34;:&#34; not in l:
+                    bad_line_indices.append(i)
+                    bad_lines.append(l)
 
+            bad_line_indices = [i+1 for i in bad_line_indices]
+            self.err_handler.raise_exception(&#34;Line(s) in the speciation group file do not contain a colon &#39;:&#39;. Fix the formatting on line(s):\n&#34;+str(bad_line_indices)+&#34;\nLines to blame:\n&#34;+str(bad_lines))
+
+
+        self.reactant_dict_scalar = {k:v.split(&#34; &#34;) for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
 
         # Creates a dictionary with this format:
         # {...
@@ -14419,6 +14468,7 @@ speciation report.</dd>
         #
         # Used to switch a user-specified limiting reactant to one within the same scalar group.
         speciation_group_dict = {}
+        speciation_group_dict_all_like_categories = {}
         for i,line in enumerate(lines):
             line = line.strip().split(&#34;:&#34;)
             assert len(line) == 2 # will fail if : in species names
@@ -14434,6 +14484,32 @@ speciation report.</dd>
 
         self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
 
+        # Creates a dictionary with this format:
+        # {...
+        #  &#34;sulfate&#34;: [&#39;SO4-2&#39;,&#39;HSO4-&#39;,&#39;PdSO4&#39;,&#39;RhSO4&#39;, ..., &#39;Ru(SO4)3-4&#39;],
+        #  &#34;formate&#34;: [&#39;formic-acid&#39;, &#39;formate&#39;, &#39;Am(For)+2&#39;, ..., &#39;Zn(For)2&#39;],
+        #  ...
+        # }
+        # Used when the user wants to exclude all organics except for acetate (e.g.)
+        # and all species in the acetate speciation group
+        group_categories = []
+        for group_name in self.reactant_dict_scalar.keys():
+            group_name_no_number = group_name.split(&#34; &#34;)
+            group_name_no_number = &#34; &#34;.join(group_name_no_number[:-1])
+            group_categories.append(group_name_no_number)
+        group_categories = list(set(group_categories))
+
+        sp_dict_groups = {}
+        for g1 in group_categories:
+            for i,g2 in enumerate(self.reactant_dict_scalar.keys()):
+                g2_cat_name = g2.split(&#34; &#34;)
+                g2_cat_name = &#34; &#34;.join(g2_cat_name[:-1])
+                if g1 == g2_cat_name:
+                    if g1 not in sp_dict_groups.keys():
+                        sp_dict_groups[g1] = copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+                    else:
+                        sp_dict_groups[g1] += copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+        self.sp_dict_groups = sp_dict_groups
 
 
     def __switch_limiting(self, limiting, stoich, species, lenient=False):
@@ -14477,6 +14553,106 @@ speciation report.</dd>
                 limiting = None
                 
         return limiting
+
+
+    def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
+        &#34;&#34;&#34;
+        Add a new half reaction to the bottom of the table of available half
+        reactions that can be combined using `make_redox_reactions`.
+
+        Parameters
+        ----------
+        oxidant, reductant : str
+            Names of the oxidant and reductant as they appear in the
+            thermodynamic database. It does not matter what speciated form of an
+            oxidant or reductant is chosen. For example, choosing &#34;acetate&#34; as
+            the oxidant is the same as choosing &#34;acetic-acid&#34; because they
+            belong to the same speciation group.
+        
+        redox_couple : str, optional
+            Desired name of the half reaction. This name is arbitrary and can be
+            anything you&#39;d like. If no name is provided, a name will be
+            automatically generated based on the oxidant and reductant.
+
+        Result
+        ----------
+        Appends a new row to the half_cell_reactions table.
+        &#34;&#34;&#34;
+
+        if not isinstance(self.thermo.thermo_db, pd.DataFrame):
+            # check to see if user is using a thermodynamic database CSV
+            if self.verbose &gt; 0:
+                print(&#34;Did not add a new half reaction because a WORM-style thermodynamic database CSV is not available &#34;
+                      &#34;to check the validity of the user-supplied oxidant and reductant or perform energy calculations. Perhaps you &#34;
+                      &#34;are getting this message because you are using a calibrated database or data0 file (e.g. db=&#39;wrm&#39; in AqEquil() ) &#34;
+                      &#34;instead of a more complete CSV database (e.g. db=&#39;WORM&#39; or db=&#39;wrm_data.csv&#39; in AqEquil() ).&#34;)
+            return
+        else:
+            # check to see if the oxidant and reductant are actually in the thermodynamic database
+            if oxidant in list(self.thermo.thermo_db[&#34;name&#34;]) and reductant in list(self.thermo.thermo_db[&#34;name&#34;]):
+                pass
+            else:
+                if oxidant not in list(self.thermo.thermo_db[&#34;name&#34;]):
+                    if self.verbose &gt; 0:
+                        print(&#34;Did not add a new half reaction because the oxidant &#39;&#34;+str(oxidant)+&#34;&#39; &#34;
+                              &#34;was not found amongst the currently loaded chemical species.&#34;)
+                else:
+                    print(&#34;Did not add a new half reaction because the reductant &#39;&#34;+str(reductant)+&#34;&#39; &#34;
+                          &#34;was not found amongst the currently loaded chemical species.&#34;)
+                return
+                
+        # check to see if this half reaction already exists
+        add_new_row = True
+        dup_index = None
+        for i in self.half_cell_reactions.index:
+            if self.half_cell_reactions.iloc[i][&#34;Oxidant&#34;] == oxidant and self.half_cell_reactions.iloc[i][&#34;Reductant&#34;] == reductant:
+                add_new_row = False
+                dup_index = i
+                break
+
+        if add_new_row:
+
+            if not isinstance(redox_couple, str):
+                redox_couple = str(oxidant) + &#34; to &#34; + str(reductant)
+            
+            new_row = [redox_couple, oxidant, reductant]
+            self.half_cell_reactions.loc[len(self.half_cell_reactions.index)] = new_row
+            if self.verbose &gt; 0:
+                print(&#34;Added new half reaction to half_cell_reactions.&#34;)
+        else:
+            if self.verbose &gt; 0:
+                print(&#34;A row with this oxidant and reductant already exists with index&#34;, i)
+    
+
+    def delete_half_reaction(self, index):
+        &#34;&#34;&#34;
+        Delete a half reaction from the half_cell_reactions table. Useful for
+        removing unwanted or mistaken half reactions. This will reset the
+        indices in the table to prevent a gap from the deleted row.
+
+        Parameters
+        ----------
+        index : int or list of int
+            Index or list of indices of the row in the half_cell_reactions table
+            to be deleted.
+        &#34;&#34;&#34;
+        if not isinstance(index, list):
+            index = [index]
+        self.half_cell_reactions.drop(index, inplace=True)
+        self.half_cell_reactions.reset_index(inplace=True, drop=True)
+        if self.verbose &gt; 0:
+                print(&#34;Rows&#34;, index, &#34;have been deleted and indices have &#34;
+                      &#34;been reset in the half_cell_reactions table.&#34;)
+
+    
+    def reset_half_reactions(self):
+        &#34;&#34;&#34;
+        Reset the half_cell_reactions table back to its original default. Takes
+        no parameters.
+        &#34;&#34;&#34;
+        self.half_cell_reactions = copy.deepcopy(self._half_cell_reactions_originalcopy)
+        if self.verbose &gt; 0:
+                print(&#34;The table of half reactions half_cell_reactions has been reset.&#34;)
 
     
     def apply_redox_reactions(self, y_type=&#34;E&#34;, y_units=&#34;cal&#34;, limiting=None,
@@ -14558,13 +14734,19 @@ speciation report.</dd>
         
         self.custom_grouping_filepath = custom_grouping_filepath
         
-        self.__make_speciation_group_dict()
+        self._make_speciation_group_dict()
         
         y_name_list = []
         val_list_list = []
         result_dict = {}
         result_lim_dict = {}
 
+        if not isinstance(self.redox_reactions_table, pd.DataFrame):
+            self.err_handler.raise_exception(&#34;Redox reactions cannot be applied &#34;
+                &#34;because they have not yet been generated. Generate redox &#34;
+                &#34;reactions with the function make_redox_reactions() and then &#34;
+                &#34;try again.&#34;)
+        
         coeff_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;coeff_&#34; in c]
         species_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;species_&#34; in c]
 
@@ -14756,6 +14938,31 @@ speciation report.</dd>
         # reset all redox variables stored in the AqEquil class
         self.redox_reactions_table = None
         self.redox_formatted_reactions = None
+
+        if isinstance(idx_list, str):
+            if idx_list == &#34;all&#34;:
+                pass
+            else:
+                self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                        &#34;either be a list of indices corresponding to desired &#34;
+                        &#34;half reactions in the half_cell_reactions table, or &#34;
+                        &#34;&#39;all&#39; for all half reaction combinations.&#34;)
+        elif isinstance(idx_list, list):
+            if len(idx_list) == 0:
+                self.err_handler.raise_exception(&#34;The list of desired half &#34;
+                        &#34;reactions is empty. Please define the indices of at &#34;
+                        &#34;least two half reactions to combine into a full redox &#34;
+                        &#34;reaction. These indices correspond to rows in the &#34;
+                        &#34;half_cell_reactions table.&#34;)
+            if len(idx_list) == 1:
+                self.err_handler.raise_exception(&#34;Only one half reaction index &#34;
+                        &#34;was provided. At least two must be provided in order &#34;
+                        &#34;to create a full redox reaction.&#34;)
+        else:
+            self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                    &#34;either be a list of indices corresponding to desired &#34;
+                    &#34;half reactions in the half_cell_reactions table, or &#34;
+                    &#34;&#39;all&#39; for all half reaction combinations.&#34;)
         
         if self.verbose &gt; 1:
             print(&#34;Generating redox reactions...&#34;)
@@ -14785,6 +14992,10 @@ speciation report.</dd>
         for idx in idx_list:
         
             #print(idx)
+
+            if idx not in self.half_cell_reactions.index:
+                self.err_handler.raise_exception(&#34;The index &#34; + str(idx) + &#34; was not &#34;
+                        &#34;found in the half_cell_reactions table.&#34;)
             
             oxidant = self.half_cell_reactions[&#34;Oxidant&#34;].iloc[idx]
             reductant = self.half_cell_reactions[&#34;Reductant&#34;].iloc[idx]
@@ -14869,7 +15080,11 @@ speciation report.</dd>
                 electron_coeff = red_coeff*total_red_ce_oxstate - ox_coeff*total_ox_ce_oxstate
                 
                 if electron_coeff &gt; 0:
-                    print(&#34;Error: this half reaction&#39;s oxidant and reductant are switched. Electron coeff must be negative.&#34;)
+                    self.err_handler.raise_exception(&#34;The oxidant &#39;&#34;+oxidant+&#34;&#39; is more reduced than the &#34;
+                            &#34;reductant &#39;&#34;+reductant+&#34;&#39; in the half reaction corresponding to index &#34; + str(idx) + &#34; &#34;
+                            &#34;in the half_cell_reactions table. Please flip the species so that &#34;
+                            &#34;the oxidant is in the Oxidant column.&#34;)
+                    
                     # TODO: automatically flip it for the user...
                 else:
                     # if e- transfer for this common elem is negative (e- is transferred)
@@ -14925,6 +15140,12 @@ speciation report.</dd>
                     if elems[0] in elems_unique_to_reductant and elems[0] not in basis_candidate_elems:
                         basis_candidates.append(f)
                         basis_candidate_elems.append(elems[0])
+
+            if len(common_elem_electron_dict) == 0:
+                # no common elements between oxidant and reductant
+                self.err_handler.raise_exception(&#34;A common element could not be found between &#34;
+                        &#34;the oxidant &#34; + str(oxidant) + &#34; and the reductant &#34; + str(reductant))
+                
             
             unpacked_dict = common_elem_electron_dict[list(common_elem_electron_dict.keys())[0]]
 
@@ -15245,7 +15466,8 @@ speciation report.</dd>
         &#34;&#34;&#34;
         scalars = []
         groups = []
-        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):
+        
+        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):            
             if s in grp_list:
                 s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be &#34;sulfates 1&#34;
                 s_key_split = s_key.split(&#34; &#34;)
@@ -15259,9 +15481,19 @@ speciation report.</dd>
                         continue
                 groups = [s_key_grp+&#34; &#34;+str(s) for s in scalars]
                 break
+                
         scalars = [float(s) for s in scalars]
-        groups = [self.reactant_dict_scalar[g] for g in groups]
-        return scalars, groups
+
+        # prevent duplicate groups and scalars from appearing
+        scalars_final = []
+        groups_final = []
+        for i,group in enumerate(groups):
+            if group not in groups_final:
+                scalars_final.append(scalars[i])
+                groups_final.append(groups[i])
+
+        groups_final = [self.reactant_dict_scalar[g] for g in groups_final]
+        return scalars_final, groups_final
 
 
     def calculate_energy(self, species, stoich,
@@ -15442,7 +15674,7 @@ speciation report.</dd>
 
         if y_type == &#34;E&#34;:
             if not isinstance(self.reactant_dict_scalar, dict):
-                self.__make_speciation_group_dict()
+                self._make_speciation_group_dict()
         
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
@@ -15542,14 +15774,16 @@ speciation report.</dd>
                 s_logact_dict[s] = [v for v in list(self.aq_distribution_logact[&#34;H2O&#34;])]
                 s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.aq_distribution_logact[&#34;H2O&#34;])
             elif list(self.thermo.csv_db[self.thermo.csv_db[&#34;name&#34;]==s][&#34;state&#34;])[0] not in [&#34;cr&#34;, &#34;liq&#34;]:
+
                 if s in self.aq_distribution_logact.columns:
+
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
                     if isinstance(self.reactant_dict_scalar, dict):
 
                         # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                         scalars, groups = self.__match_grouped_species(s)
-                        
+
                         if as_written:
                             # if energy supplies are to be calculated as written
                             # with no grouping or limiting reactant switching,
@@ -15600,12 +15834,14 @@ speciation report.</dd>
                         s_molal_dict[s] = [sp_moles]*len(self.misc_params[&#34;Temp(C)&#34;])
                 else:
                     s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.misc_params[&#34;Temp(C)&#34;])
-                
 
         if y_type in [&#34;logK&#34;, &#34;logQ&#34;]:
             y_type_plain = copy.copy(y_type)
         elif y_type == &#34;A&#34;:
-            y_type_plain = &#34;affinity&#34;
+            if per_electron:
+                y_type_plain = &#34;affinity per mole e-&#34;
+            else:
+                y_type_plain = &#34;affinity per mole rxn&#34;
         elif y_type == &#34;G&#34;:
             y_type_plain = &#34;Gibbs free energy&#34;
         elif y_type == &#34;E&#34;:
@@ -15984,6 +16220,8 @@ speciation report.</dd>
         
         if isinstance(col, str):
             col = [col]
+
+        col = list(dict.fromkeys(col)) # remove duplicate search terms while preserving order
         
         df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
@@ -16099,9 +16337,9 @@ speciation report.</dd>
         
         df = pd.DataFrame(mineral_data)
 
-        fig = px.bar(df, x=df.index, y=&#34;affinity&#34;,
+        fig = px.bar(df, x=df.index, y=mineral_sat_type,
             height=plot_height*ppi, width=plot_width*ppi,
-            labels={&#39;affinity&#39;: ylabel}, template=&#34;simple_white&#34;)
+            labels={mineral_sat_type: ylabel}, template=&#34;simple_white&#34;)
         
         fig.update_traces(hovertemplate = &#34;%{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;,
                           marker_color=color_list)
@@ -16621,7 +16859,13 @@ speciation report.</dd>
         df = self.lookup([x]+y).copy() # TODO: is this where the &#34;can&#39;t find name&#34; message comes from?
         df.loc[:, &#34;name&#34;] = df.index
         df.columns = df.columns.get_level_values(0)
-        df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+        
+        if x in y:
+            df[str(x)+&#34;_copy&#34;] = df[str(x)]
+            df = df.melt(id_vars=[&#34;name&#34;, str(x)+&#34;_copy&#34;], value_vars=y).rename(columns={str(x)+&#39;_copy&#39;: str(x)})
+        else:
+            df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+            
         df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
         if not plot_zero:
@@ -16650,7 +16894,7 @@ speciation report.</dd>
 
         if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
-            y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
+            y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity per mole rxn&#34;, &#34;&#34;).replace(&#34; affinity per mole e-&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
             y_find = [yi for yi in y_find if &#34;limiting reactant&#34; not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
@@ -16721,6 +16965,9 @@ speciation report.</dd>
                           yaxis={&#39;exponentformat&#39;:&#39;power&#39;})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
+
+        fig.update_xaxes(exponentformat = &#39;E&#39;)
+        fig.update_yaxes(exponentformat = &#39;E&#39;)
             
         save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
@@ -17308,6 +17555,100 @@ def format_reaction(coeffs, names, formatted=True,
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="AqEquil.AqSpeciation.Speciation.add_new_half_reaction"><code class="name flex">
+<span>def <span class="ident">add_new_half_reaction</span></span>(<span>self, oxidant, reductant, redox_couple=None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Add a new half reaction to the bottom of the table of available half
+reactions that can be combined using <code>make_redox_reactions</code>.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>oxidant</code></strong>, <strong><code>reductant</code></strong> :&ensp;<code>str</code></dt>
+<dd>Names of the oxidant and reductant as they appear in the
+thermodynamic database. It does not matter what speciated form of an
+oxidant or reductant is chosen. For example, choosing "acetate" as
+the oxidant is the same as choosing "acetic-acid" because they
+belong to the same speciation group.</dd>
+<dt><strong><code>redox_couple</code></strong> :&ensp;<code>str</code>, optional</dt>
+<dd>Desired name of the half reaction. This name is arbitrary and can be
+anything you'd like. If no name is provided, a name will be
+automatically generated based on the oxidant and reductant.</dd>
+</dl>
+<h2 id="result">Result</h2>
+<p>Appends a new row to the half_cell_reactions table.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
+    &#34;&#34;&#34;
+    Add a new half reaction to the bottom of the table of available half
+    reactions that can be combined using `make_redox_reactions`.
+
+    Parameters
+    ----------
+    oxidant, reductant : str
+        Names of the oxidant and reductant as they appear in the
+        thermodynamic database. It does not matter what speciated form of an
+        oxidant or reductant is chosen. For example, choosing &#34;acetate&#34; as
+        the oxidant is the same as choosing &#34;acetic-acid&#34; because they
+        belong to the same speciation group.
+    
+    redox_couple : str, optional
+        Desired name of the half reaction. This name is arbitrary and can be
+        anything you&#39;d like. If no name is provided, a name will be
+        automatically generated based on the oxidant and reductant.
+
+    Result
+    ----------
+    Appends a new row to the half_cell_reactions table.
+    &#34;&#34;&#34;
+
+    if not isinstance(self.thermo.thermo_db, pd.DataFrame):
+        # check to see if user is using a thermodynamic database CSV
+        if self.verbose &gt; 0:
+            print(&#34;Did not add a new half reaction because a WORM-style thermodynamic database CSV is not available &#34;
+                  &#34;to check the validity of the user-supplied oxidant and reductant or perform energy calculations. Perhaps you &#34;
+                  &#34;are getting this message because you are using a calibrated database or data0 file (e.g. db=&#39;wrm&#39; in AqEquil() ) &#34;
+                  &#34;instead of a more complete CSV database (e.g. db=&#39;WORM&#39; or db=&#39;wrm_data.csv&#39; in AqEquil() ).&#34;)
+        return
+    else:
+        # check to see if the oxidant and reductant are actually in the thermodynamic database
+        if oxidant in list(self.thermo.thermo_db[&#34;name&#34;]) and reductant in list(self.thermo.thermo_db[&#34;name&#34;]):
+            pass
+        else:
+            if oxidant not in list(self.thermo.thermo_db[&#34;name&#34;]):
+                if self.verbose &gt; 0:
+                    print(&#34;Did not add a new half reaction because the oxidant &#39;&#34;+str(oxidant)+&#34;&#39; &#34;
+                          &#34;was not found amongst the currently loaded chemical species.&#34;)
+            else:
+                print(&#34;Did not add a new half reaction because the reductant &#39;&#34;+str(reductant)+&#34;&#39; &#34;
+                      &#34;was not found amongst the currently loaded chemical species.&#34;)
+            return
+            
+    # check to see if this half reaction already exists
+    add_new_row = True
+    dup_index = None
+    for i in self.half_cell_reactions.index:
+        if self.half_cell_reactions.iloc[i][&#34;Oxidant&#34;] == oxidant and self.half_cell_reactions.iloc[i][&#34;Reductant&#34;] == reductant:
+            add_new_row = False
+            dup_index = i
+            break
+
+    if add_new_row:
+
+        if not isinstance(redox_couple, str):
+            redox_couple = str(oxidant) + &#34; to &#34; + str(reductant)
+        
+        new_row = [redox_couple, oxidant, reductant]
+        self.half_cell_reactions.loc[len(self.half_cell_reactions.index)] = new_row
+        if self.verbose &gt; 0:
+            print(&#34;Added new half reaction to half_cell_reactions.&#34;)
+    else:
+        if self.verbose &gt; 0:
+            print(&#34;A row with this oxidant and reductant already exists with index&#34;, i)</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.Speciation.apply_redox_reactions"><code class="name flex">
 <span>def <span class="ident">apply_redox_reactions</span></span>(<span>self, y_type='E', y_units='cal', limiting=None, grams_minerals=0, negative_energy_supplies=False, custom_grouping_filepath=None, append_report=True)</span>
 </code></dt>
@@ -17455,13 +17796,19 @@ speciation object will be appended/updated.</dd>
     
     self.custom_grouping_filepath = custom_grouping_filepath
     
-    self.__make_speciation_group_dict()
+    self._make_speciation_group_dict()
     
     y_name_list = []
     val_list_list = []
     result_dict = {}
     result_lim_dict = {}
 
+    if not isinstance(self.redox_reactions_table, pd.DataFrame):
+        self.err_handler.raise_exception(&#34;Redox reactions cannot be applied &#34;
+            &#34;because they have not yet been generated. Generate redox &#34;
+            &#34;reactions with the function make_redox_reactions() and then &#34;
+            &#34;try again.&#34;)
+    
     coeff_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;coeff_&#34; in c]
     species_colnames = [c for c in list(self.redox_reactions_table.columns) if &#34;species_&#34; in c]
 
@@ -18147,7 +18494,7 @@ set to True, then the dataframe will not be multiindexed.</dd>
 
     if y_type == &#34;E&#34;:
         if not isinstance(self.reactant_dict_scalar, dict):
-            self.__make_speciation_group_dict()
+            self._make_speciation_group_dict()
     
     # assign aq_distribution_logact table to Speciation
     sample_dict = {}
@@ -18247,14 +18594,16 @@ set to True, then the dataframe will not be multiindexed.</dd>
             s_logact_dict[s] = [v for v in list(self.aq_distribution_logact[&#34;H2O&#34;])]
             s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.aq_distribution_logact[&#34;H2O&#34;])
         elif list(self.thermo.csv_db[self.thermo.csv_db[&#34;name&#34;]==s][&#34;state&#34;])[0] not in [&#34;cr&#34;, &#34;liq&#34;]:
+
             if s in self.aq_distribution_logact.columns:
+
                 # aqueous species
                 s_logact_dict[s] = list(self.aq_distribution_logact[s])
                 if isinstance(self.reactant_dict_scalar, dict):
 
                     # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                     scalars, groups = self.__match_grouped_species(s)
-                    
+
                     if as_written:
                         # if energy supplies are to be calculated as written
                         # with no grouping or limiting reactant switching,
@@ -18305,12 +18654,14 @@ set to True, then the dataframe will not be multiindexed.</dd>
                     s_molal_dict[s] = [sp_moles]*len(self.misc_params[&#34;Temp(C)&#34;])
             else:
                 s_molal_dict[s] = [float(&#34;NaN&#34;)]*len(self.misc_params[&#34;Temp(C)&#34;])
-            
 
     if y_type in [&#34;logK&#34;, &#34;logQ&#34;]:
         y_type_plain = copy.copy(y_type)
     elif y_type == &#34;A&#34;:
-        y_type_plain = &#34;affinity&#34;
+        if per_electron:
+            y_type_plain = &#34;affinity per mole e-&#34;
+        else:
+            y_type_plain = &#34;affinity per mole rxn&#34;
     elif y_type == &#34;G&#34;:
         y_type_plain = &#34;Gibbs free energy&#34;
     elif y_type == &#34;E&#34;:
@@ -18535,6 +18886,44 @@ set to True, then the dataframe will not be multiindexed.</dd>
         return df_out # multiindex</code></pre>
 </details>
 </dd>
+<dt id="AqEquil.AqSpeciation.Speciation.delete_half_reaction"><code class="name flex">
+<span>def <span class="ident">delete_half_reaction</span></span>(<span>self, index)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Delete a half reaction from the half_cell_reactions table. Useful for
+removing unwanted or mistaken half reactions. This will reset the
+indices in the table to prevent a gap from the deleted row.</p>
+<h2 id="parameters">Parameters</h2>
+<dl>
+<dt><strong><code>index</code></strong> :&ensp;<code>int</code> or <code>list</code> of <code>int</code></dt>
+<dd>Index or list of indices of the row in the half_cell_reactions table
+to be deleted.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def delete_half_reaction(self, index):
+    &#34;&#34;&#34;
+    Delete a half reaction from the half_cell_reactions table. Useful for
+    removing unwanted or mistaken half reactions. This will reset the
+    indices in the table to prevent a gap from the deleted row.
+
+    Parameters
+    ----------
+    index : int or list of int
+        Index or list of indices of the row in the half_cell_reactions table
+        to be deleted.
+    &#34;&#34;&#34;
+    if not isinstance(index, list):
+        index = [index]
+    self.half_cell_reactions.drop(index, inplace=True)
+    self.half_cell_reactions.reset_index(inplace=True, drop=True)
+    if self.verbose &gt; 0:
+            print(&#34;Rows&#34;, index, &#34;have been deleted and indices have &#34;
+                  &#34;been reset in the half_cell_reactions table.&#34;)</code></pre>
+</details>
+</dd>
 <dt id="AqEquil.AqSpeciation.Speciation.join_6i_p"><code class="name flex">
 <span>def <span class="ident">join_6i_p</span></span>(<span>self, filepath_6i, chain_mt)</span>
 </code></dt>
@@ -18674,6 +19063,8 @@ columns in a section (if a section name is provided).</dd>
     
     if isinstance(col, str):
         col = [col]
+
+    col = list(dict.fromkeys(col)) # remove duplicate search terms while preserving order
     
     df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
@@ -18762,6 +19153,31 @@ False.</dd>
     # reset all redox variables stored in the AqEquil class
     self.redox_reactions_table = None
     self.redox_formatted_reactions = None
+
+    if isinstance(idx_list, str):
+        if idx_list == &#34;all&#34;:
+            pass
+        else:
+            self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                    &#34;either be a list of indices corresponding to desired &#34;
+                    &#34;half reactions in the half_cell_reactions table, or &#34;
+                    &#34;&#39;all&#39; for all half reaction combinations.&#34;)
+    elif isinstance(idx_list, list):
+        if len(idx_list) == 0:
+            self.err_handler.raise_exception(&#34;The list of desired half &#34;
+                    &#34;reactions is empty. Please define the indices of at &#34;
+                    &#34;least two half reactions to combine into a full redox &#34;
+                    &#34;reaction. These indices correspond to rows in the &#34;
+                    &#34;half_cell_reactions table.&#34;)
+        if len(idx_list) == 1:
+            self.err_handler.raise_exception(&#34;Only one half reaction index &#34;
+                    &#34;was provided. At least two must be provided in order &#34;
+                    &#34;to create a full redox reaction.&#34;)
+    else:
+        self.err_handler.raise_exception(&#34;The parameter idx_list must &#34;
+                &#34;either be a list of indices corresponding to desired &#34;
+                &#34;half reactions in the half_cell_reactions table, or &#34;
+                &#34;&#39;all&#39; for all half reaction combinations.&#34;)
     
     if self.verbose &gt; 1:
         print(&#34;Generating redox reactions...&#34;)
@@ -18791,6 +19207,10 @@ False.</dd>
     for idx in idx_list:
     
         #print(idx)
+
+        if idx not in self.half_cell_reactions.index:
+            self.err_handler.raise_exception(&#34;The index &#34; + str(idx) + &#34; was not &#34;
+                    &#34;found in the half_cell_reactions table.&#34;)
         
         oxidant = self.half_cell_reactions[&#34;Oxidant&#34;].iloc[idx]
         reductant = self.half_cell_reactions[&#34;Reductant&#34;].iloc[idx]
@@ -18875,7 +19295,11 @@ False.</dd>
             electron_coeff = red_coeff*total_red_ce_oxstate - ox_coeff*total_ox_ce_oxstate
             
             if electron_coeff &gt; 0:
-                print(&#34;Error: this half reaction&#39;s oxidant and reductant are switched. Electron coeff must be negative.&#34;)
+                self.err_handler.raise_exception(&#34;The oxidant &#39;&#34;+oxidant+&#34;&#39; is more reduced than the &#34;
+                        &#34;reductant &#39;&#34;+reductant+&#34;&#39; in the half reaction corresponding to index &#34; + str(idx) + &#34; &#34;
+                        &#34;in the half_cell_reactions table. Please flip the species so that &#34;
+                        &#34;the oxidant is in the Oxidant column.&#34;)
+                
                 # TODO: automatically flip it for the user...
             else:
                 # if e- transfer for this common elem is negative (e- is transferred)
@@ -18931,6 +19355,12 @@ False.</dd>
                 if elems[0] in elems_unique_to_reductant and elems[0] not in basis_candidate_elems:
                     basis_candidates.append(f)
                     basis_candidate_elems.append(elems[0])
+
+        if len(common_elem_electron_dict) == 0:
+            # no common elements between oxidant and reductant
+            self.err_handler.raise_exception(&#34;A common element could not be found between &#34;
+                    &#34;the oxidant &#34; + str(oxidant) + &#34; and the reductant &#34; + str(reductant))
+            
         
         unpacked_dict = common_elem_electron_dict[list(common_elem_electron_dict.keys())[0]]
 
@@ -19884,9 +20314,9 @@ it is generated.</dd>
     
     df = pd.DataFrame(mineral_data)
 
-    fig = px.bar(df, x=df.index, y=&#34;affinity&#34;,
+    fig = px.bar(df, x=df.index, y=mineral_sat_type,
         height=plot_height*ppi, width=plot_width*ppi,
-        labels={&#39;affinity&#39;: ylabel}, template=&#34;simple_white&#34;)
+        labels={mineral_sat_type: ylabel}, template=&#34;simple_white&#34;)
     
     fig.update_traces(hovertemplate = &#34;%{x} &lt;br&gt;&#34;+ylabel+&#34;: %{y}&#34;,
                       marker_color=color_list)
@@ -20173,6 +20603,26 @@ figure is simply displayed.</dd>
         return fig
     else:
         fig.show(config=config)</code></pre>
+</details>
+</dd>
+<dt id="AqEquil.AqSpeciation.Speciation.reset_half_reactions"><code class="name flex">
+<span>def <span class="ident">reset_half_reactions</span></span>(<span>self)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Reset the half_cell_reactions table back to its original default. Takes
+no parameters.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def reset_half_reactions(self):
+    &#34;&#34;&#34;
+    Reset the half_cell_reactions table back to its original default. Takes
+    no parameters.
+    &#34;&#34;&#34;
+    self.half_cell_reactions = copy.deepcopy(self._half_cell_reactions_originalcopy)
+    if self.verbose &gt; 0:
+            print(&#34;The table of half reactions half_cell_reactions has been reset.&#34;)</code></pre>
 </details>
 </dd>
 <dt id="AqEquil.AqSpeciation.Speciation.save"><code class="name flex">
@@ -20502,7 +20952,13 @@ figure is simply displayed.</dd>
     df = self.lookup([x]+y).copy() # TODO: is this where the &#34;can&#39;t find name&#34; message comes from?
     df.loc[:, &#34;name&#34;] = df.index
     df.columns = df.columns.get_level_values(0)
-    df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+    
+    if x in y:
+        df[str(x)+&#34;_copy&#34;] = df[str(x)]
+        df = df.melt(id_vars=[&#34;name&#34;, str(x)+&#34;_copy&#34;], value_vars=y).rename(columns={str(x)+&#39;_copy&#39;: str(x)})
+    else:
+        df = pd.melt(df, id_vars=[&#34;name&#34;, x], value_vars=y)
+        
     df = df.rename(columns={&#34;Sample&#34;: &#34;y_variable&#34;, &#34;value&#34;: &#34;y_value&#34;})
 
     if not plot_zero:
@@ -20531,7 +20987,7 @@ figure is simply displayed.</dd>
 
     if (unit_type == &#34;energy supply&#34; or unit_type == &#34;affinity&#34;) and isinstance(self.reactions_for_plotting, pd.DataFrame):
         
-        y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
+        y_find = [yi.replace(&#34; energy supply&#34;, &#34;&#34;).replace(&#34; affinity per mole rxn&#34;, &#34;&#34;).replace(&#34; affinity per mole e-&#34;, &#34;&#34;).replace(&#34; Gibbs free energy&#34;, &#34;&#34;) for yi in y]
         y_find = [yi for yi in y_find if &#34;limiting reactant&#34; not in yi]
 
         rxns = self.reactions_for_plotting.loc[y_find, :][&#34;reaction&#34;].tolist()
@@ -20602,6 +21058,9 @@ figure is simply displayed.</dd>
                       yaxis={&#39;exponentformat&#39;:&#39;power&#39;})
     if len(y) == 1:
         fig.update_layout(showlegend=False)
+
+    fig.update_xaxes(exponentformat = &#39;E&#39;)
+    fig.update_yaxes(exponentformat = &#39;E&#39;)
         
     save_as, save_format = self._save_figure(fig, save_as, save_format,
                                               save_scale, plot_width,
@@ -20744,15 +21203,13 @@ notebook.</dd>
 <ul>
 <li>
 <h4><code><a title="AqEquil.AqSpeciation.AqEquil" href="#AqEquil.AqSpeciation.AqEquil">AqEquil</a></code></h4>
-<ul class="">
+<ul class="two-column">
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.Thermodata" href="#AqEquil.AqSpeciation.AqEquil.Thermodata">Thermodata</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.create_data0" href="#AqEquil.AqSpeciation.AqEquil.create_data0">create_data0</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.make_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.make_redox_reactions">make_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.plot_logK_fit" href="#AqEquil.AqSpeciation.AqEquil.plot_logK_fit">plot_logK_fit</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq3" href="#AqEquil.AqSpeciation.AqEquil.runeq3">runeq3</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeq6" href="#AqEquil.AqSpeciation.AqEquil.runeq6">runeq6</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.runeqpt" href="#AqEquil.AqSpeciation.AqEquil.runeqpt">runeqpt</a></code></li>
-<li><code><a title="AqEquil.AqSpeciation.AqEquil.show_redox_reactions" href="#AqEquil.AqSpeciation.AqEquil.show_redox_reactions">show_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.AqEquil.speciate" href="#AqEquil.AqSpeciation.AqEquil.speciate">speciate</a></code></li>
 </ul>
 </li>
@@ -20766,9 +21223,11 @@ notebook.</dd>
 <li>
 <h4><code><a title="AqEquil.AqSpeciation.Speciation" href="#AqEquil.AqSpeciation.Speciation">Speciation</a></code></h4>
 <ul class="">
+<li><code><a title="AqEquil.AqSpeciation.Speciation.add_new_half_reaction" href="#AqEquil.AqSpeciation.Speciation.add_new_half_reaction">add_new_half_reaction</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.apply_redox_reactions" href="#AqEquil.AqSpeciation.Speciation.apply_redox_reactions">apply_redox_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.barplot" href="#AqEquil.AqSpeciation.Speciation.barplot">barplot</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.calculate_energy" href="#AqEquil.AqSpeciation.Speciation.calculate_energy">calculate_energy</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Speciation.delete_half_reaction" href="#AqEquil.AqSpeciation.Speciation.delete_half_reaction">delete_half_reaction</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.format_reaction" href="#AqEquil.AqSpeciation.Speciation.format_reaction">format_reaction</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.join_6i_p" href="#AqEquil.AqSpeciation.Speciation.join_6i_p">join_6i_p</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.lookup" href="#AqEquil.AqSpeciation.Speciation.lookup">lookup</a></code></li>
@@ -20778,6 +21237,7 @@ notebook.</dd>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mass_contribution" href="#AqEquil.AqSpeciation.Speciation.plot_mass_contribution">plot_mass_contribution</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_mineral_saturation" href="#AqEquil.AqSpeciation.Speciation.plot_mineral_saturation">plot_mineral_saturation</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.plot_solid_solutions" href="#AqEquil.AqSpeciation.Speciation.plot_solid_solutions">plot_solid_solutions</a></code></li>
+<li><code><a title="AqEquil.AqSpeciation.Speciation.reset_half_reactions" href="#AqEquil.AqSpeciation.Speciation.reset_half_reactions">reset_half_reactions</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.save" href="#AqEquil.AqSpeciation.Speciation.save">save</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.scatterplot" href="#AqEquil.AqSpeciation.Speciation.scatterplot">scatterplot</a></code></li>
 <li><code><a title="AqEquil.AqSpeciation.Speciation.show_redox_reactions" href="#AqEquil.AqSpeciation.Speciation.show_redox_reactions">show_redox_reactions</a></code></li>

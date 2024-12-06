@@ -27,7 +27,6 @@ from fractions import Fraction
 import functools
 
 from ipywidgets import IntProgress
-from IPython.display import display
 import time
 
 from urllib.request import urlopen
@@ -67,6 +66,8 @@ rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR) # will display erro
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
+
+from WORMutils import Error_Handler, chemlabel, format_equation, check_balance, format_coeff, get_colors, isnotebook
 
 
 def load(filename, messages=True, hide_traceback=True):
@@ -123,91 +124,11 @@ def load(filename, messages=True, hide_traceback=True):
 
 def _get_duplicates(array):
     """
-    Return a list of duplicate elements in another list
+    Return a list of duplicate elements present in a list
     https://stackoverflow.com/questions/46554866/efficiently-finding-duplicates-in-a-list
     """
     c = Counter(array)
     return [k for k in c if c[k] > 1]
-
-
-def _float_to_fraction (x, error=0.000001):
-    
-    """
-    Convert a float into a fraction. Works with floats like 2.66666666.
-    Solution from https://stackoverflow.com/a/5128558/8406195
-    """
-    n = int(math.floor(x))
-    x -= n
-    if x < error:
-        return (n, 1)
-    elif 1 - error < x:
-        return (n+1, 1)
-
-    # The lower fraction is 0/1
-    lower_n = 0
-    lower_d = 1
-    # The upper fraction is 1/1
-    upper_n = 1
-    upper_d = 1
-    while True:
-        # The middle fraction is (lower_n + upper_n) / (lower_d + upper_d)
-        middle_n = lower_n + upper_n
-        middle_d = lower_d + upper_d
-        # If x + error < middle
-        if middle_d * (x + error) < middle_n:
-            # middle is our new upper
-            upper_n = middle_n
-            upper_d = middle_d
-        # Else If middle < x - error
-        elif middle_n < (x - error) * middle_d:
-            # middle is our new lower
-            lower_n = middle_n
-            lower_d = middle_d
-        # Else middle is our best fraction
-        else:
-            return (n * middle_d + middle_n, middle_d)
-
-    
-def _float_to_formatted_fraction(x, error=0.000001):
-    
-    """
-    Format a fraction for html.
-    """
-    f = _float_to_fraction(x, error=error)
-    
-    whole_number_float = int((f[0]-(f[0]%f[1]))/f[1])
-    remainder_tuple = (f[0]%f[1], f[1])
-    
-    if remainder_tuple[0] == 0:
-        return str(whole_number_float)
-    else:
-        if whole_number_float == 0:
-            whole_number_float = ""
-        return "{0}<sup>{1}</sup>&frasl;<sub>{2}</sub>".format(
-                whole_number_float, remainder_tuple[0], remainder_tuple[1])
-
-
-def _format_coeff(coeff):
-    
-    """
-    Format a reaction coefficient for html.
-    """
-    if coeff == 1 or coeff == -1:
-        coeff = ""
-    elif coeff.is_integer() and coeff < 0:
-        coeff = str(-int(coeff))
-    elif coeff.is_integer() and coeff > 0:
-        coeff = str(int(coeff))
-    else:
-        if coeff < 0:
-            coeff = _float_to_formatted_fraction(-coeff)
-        else:
-            coeff = _float_to_formatted_fraction(coeff)
-
-    if coeff != "":
-        coeff = coeff + " "
-
-    return coeff
 
 
 def _convert_to_RVector(value, force_Rvec=True):
@@ -275,94 +196,6 @@ def _clean_rpy2_pandas_conversion(
         if col in df.columns:
             df[col] = df[col].astype(str)
     return df
-    
-
-def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
-
-    """
-    Get a list of rgb values for a matplotlib colormap
-    
-    Parameters
-    ----------
-    colormap : str
-        Name of the colormap to color the scatterpoints. Accepts "WORM",
-        "colorblind", or matplotlib colormaps.
-        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
-        The "colorblind" colormap is referenced from Wong, B. Points of view:
-        Color blindness. Nat Methods 8, 441 (2011).
-        https://doi.org/10.1038/nmeth.1618
-    
-    ncol : int
-        Number of colors to return in the list.
-    
-    alpha : float, default 1.0
-        An alpha value between 0.0 (transparent) and 1.0 (opaque).
-
-    hide_traceback : bool, default True
-        Hide traceback message when encountering errors handled by this function?
-        When True, error messages handled by this class will be short and to
-        the point.
-    
-    Returns
-    -------
-    colors : list
-        A list of rgb color tuples
-    """
-    
-    err_handler = Error_Handler(clean=hide_traceback)
-    
-    qualitative_cmaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent',
-                         'Dark2', 'Set1', 'Set2', 'Set3',
-                         'tab10', 'tab20', 'tab20b', 'tab20c']
-    
-    if colormap == "colorblind":
-        # colors from Wong B. 2011, https://doi.org/10.1038/nmeth.1618
-        colors = [(0, 0, 0, alpha), # black
-                  (230/255, 159/255, 0, alpha), # orange
-                  (86/255, 180/255, 233/255, alpha), # sky blue
-                  (0, 158/255, 115/255, alpha), # bluish green
-                  (240/255, 228/255, 66/255, alpha), # yellow
-                  (0, 114/255, 178/255, alpha), # blue
-                  (213/255, 94/255, 0, alpha), # vermillion
-                  (204/255, 121/255, 167/255, alpha)] # reddish purple
-        if ncol <= len(colors):
-            return colors[:ncol]
-        else:
-            print("Switching from 'colorblind' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
-            colormap = "viridis"
-    elif colormap == "WORM":
-        colors = [(0, 0, 0, alpha), # black
-                  (22/255, 153/255, 211/255, alpha), # blue
-                  (232/255, 86/255, 66/255, alpha), # red
-                  (245/255, 171/255, 80/255, alpha), # orange
-                  (115/255, 108/255, 168/255, alpha), # purple
-                  (151/255, 208/255, 119/255, alpha), # green
-                  (47/255, 91/255, 124/255, alpha), # dark blue
-                  (119/255, 119/255, 119/255, alpha)] # gray
-        if ncol <= len(colors):
-            return colors[:ncol]
-        else:
-            print("Switching from 'WORM' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
-            colormap = "viridis"
-            
-    if colormap in qualitative_cmaps:
-        # handle qualitative (non-continuous) colormaps
-        colors = [plt.cm.__getattribute__(colormap).colors[i] for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    else:
-        # handle sequential (continuous) colormaps
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=ncol-1)
-        try:
-            cmap = cm.__getattribute__(colormap)
-        except:
-            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
-            err_handler.raise_exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
-                    "Try one of these: {}".format(valid_colormaps))
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
-        colors = [m.to_rgba(i) for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    
-    return colors
 
 
 def _all_equal(iterable):
@@ -371,252 +204,6 @@ def _all_equal(iterable):
     return next(g, True) and not next(g, False)
 
 
-def check_balance(formulas, stoich):
-    """
-    Check that a chemical reaction is balanced. If not, get missing composition.
-    
-    Parameters
-    ----------
-    formulas : list of str
-        A list of species formulas that match the order of
-        the stoichiometric reaction coefficients in the `stoich` parameter.
-    
-    stoich : list of numeric
-        A list of stoichiometric reaction coefficients that match the order of
-        the species formulas in the `formulas` parameter. Reactants are
-        negative.
-        
-    Returns
-    -------
-    A printed warning and a dictionary of the missing composition if the
-    reaction is unbalanced.
-    """
-    
-    if len(formulas) != len(stoich):
-        raise Exception("The number of species formulas does not match the "
-              "number of stoichiometric coefficients in the reaction.")
-    
-    # sum all elements, +, and - by their reaction coefficient
-    all_dict = {}
-    for i,s in enumerate(formulas):
-        s_dict = parse_formula(s)
-        s_dict = {key: stoich[i]*s_dict[key] for key in s_dict.keys()}
-        all_dict = {k: all_dict.get(k, 0) + s_dict.get(k, 0) for k in set(all_dict) | set(s_dict)}
-    
-    # sum + and - as Z (charge)
-    if "+" not in list(all_dict.keys()):
-        all_dict["+"] = 0
-    if "-" not in list(all_dict.keys()):
-        all_dict["-"] = 0
-    all_dict["Z"] = all_dict["+"] - all_dict["-"]
-    del all_dict["+"]
-    del all_dict["-"]
-    
-    # delete all elements with a value of 0 (balanced)
-    for key in list(all_dict.keys()):
-        if all_dict[key] == 0:
-            del all_dict[key]
-    
-    # print warnings, prepare missing composition dictionary
-    if len(list(all_dict.keys())) > 0:
-        missing_composition_dict = {k:[-all_dict[k]] for k in all_dict.keys()}
-        print("Warning! The reaction is unbalanced. It is missing this composition:")
-        print(pd.DataFrame(missing_composition_dict).to_string(index=False))
-    else:
-        missing_composition_dict = {}
-    
-    return missing_composition_dict
-        
-
-def chemlabel(name, charge_sign_at_end=False):
-    
-    """
-    Format a chemical formula to display subscripts and superscripts in HTML
-    (e.g., Plotly plots)
-    Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    charge_sign_at_end : bool, default False
-        Display charge with sign after the number (e.g. SO4 2-)?
-        
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    """
-    
-    # format only the first part of the name if it has "_(input)"
-    if len(name.split("_(input)"))==2:
-        if name.split("_(input)")[1] == '':
-            name = name.split("_(input)")[0]
-            input_flag=True
-    else:
-        input_flag = False
-    
-    name = _html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
-    
-    # add " (input)" to the end of the name
-    if input_flag:
-        name = name+" (input)"
-    
-    return(name)
-
-
-def format_equation(species, stoich, charge_sign_at_end=False):
-    """
-    Format a chemical equation to display in HTML
-    (e.g., Plotly plots)
-    
-    Parameters
-    ----------
-    species : list of str
-        List of species in the reaction
-        
-    stoich : list of numeric
-        List of stoichiometric reaction coefficients (reactants are negative)
-    
-    charge_sign_at_end : bool, default False
-        Display charge with sign after the number (e.g. SO4 2-)?
-        
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    """
-    reactants_list = []
-    products_list = []
-    for i,s in enumerate(species):
-        s_f = chemlabel(s, charge_sign_at_end=charge_sign_at_end)
-        if stoich[i] < 0:
-            if stoich[i] != -1:
-                entry = str(abs(stoich[i])) + " " + s_f
-            else:
-                entry = s_f
-            reactants_list.append(entry)
-        elif stoich[i] > 0:
-            if stoich[i] != 1:
-                entry = str(stoich[i]) + " " + s_f
-            else:
-                entry = s_f
-            products_list.append(entry)
-    
-    reactants_together = " + ".join(reactants_list)
-    products_together = " + ".join(products_list)
-    
-    equation_str = " → ".join([reactants_together, products_together])
-    
-    return equation_str
-
-
-def _html_chemname_format(name, charge_sign_at_end=False):
-    
-    """
-    Function duplicated from pyCHNOSZ
-    """
-    
-    p = re.compile(r'(?P<sp>[-+]\d*?$)')
-    name = p.sub(r'<sup>\g<sp></sup>', name)
-    charge = re.search(r'<.*$', name)
-
-    name_no_charge = re.match(r'(?:(?!<|$).)*', name).group(0)
-    mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>",
-               "3": "<sub>3</sub>", "4": "<sub>4</sub>", "5": "<sub>5</sub>",
-               "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>",
-               "9": "<sub>9</sub>", ".":"<sub>.</sub>"}
-    name_no_charge_formatted = "".join([mapping.get(x) or x
-                                        for x in list(name_no_charge)])
-
-    if charge != None:
-        name = name_no_charge_formatted + charge.group(0)
-    else:
-        name = name_no_charge_formatted
-
-    if charge_sign_at_end:
-        if "<sup>-" in name:
-            name = name.replace("<sup>-", "<sup>")
-            name = name.replace("</sup>", "-</sup>")
-        if "<sup>+" in name:
-            name = name.replace("<sup>+", "<sup>")
-            name = name.replace("</sup>", "+</sup>")
-
-    return(name)
-    
-
-def _isnotebook():
-    
-    """
-    Check if this code is running in a Jupyter notebook
-    """
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
-
-class Error_Handler:
-    
-    """
-    Handles how errors are printed in Jupyter notebooks. By default, errors that
-    are handled by AqEquil are printed with an error message, but no traceback.
-    Errors that are not handled by AqEquil, such as those thrown if the user
-    encounters a bug, will display a full traceback.
-    
-    If the error handler prints an error message without traceback, all future
-    errors regardless of origin will be shown without traceback until the
-    notebook kernel is restarted.
-    
-    Parameters
-    ----------
-    clean : bool
-        Report exceptions without traceback? If True, only the error message is
-        shown. If False, the entire error message, including traceback, is
-        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
-    
-    """
-    def __init__(self, clean=True):
-        self.clean = clean # bool: hide traceback?
-        pass
-    
-    
-    @staticmethod
-    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
-                       exception_only=False, running_compiled_code=False):
-        
-        """
-        Return a modified ipython showtraceback function that does not display
-        traceback when encountering an error.
-        """
-        
-        ipython = get_ipython()
-        etype, value, tb = sys.exc_info()
-        value.__cause__ = None  # suppress chained exceptions
-        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
-        
-
-    def raise_exception(self, msg):
-        
-        """
-        Raise an exception that displays the error message without traceback. This
-        happens only when the exception is predicted by the AqEquil package
-        (e.g., for common user errors).
-        """
-        if self.clean and _isnotebook():
-            ipython = get_ipython()
-            ipython.showtraceback = self.hide_traceback
-            
-        raise Exception(msg)
-        
-    
 class AqEquil(object):
 
     """
@@ -797,6 +384,7 @@ class AqEquil(object):
         
         half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
+        self._half_cell_reactions_originalcopy = copy.deepcopy(self.half_cell_reactions)
         
         self.verbose = verbose
         self.hide_traceback = hide_traceback
@@ -2690,6 +2278,7 @@ class AqEquil(object):
         speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
         speciation.half_cell_reactions = self.half_cell_reactions
+        speciation._half_cell_reactions_originalcopy = self._half_cell_reactions_originalcopy
         
         if report_filename != None:
             if ".csv" in report_filename[-4:]:
@@ -3162,23 +2751,45 @@ class AqEquil(object):
                     elif not math.isnan(p):
                         sp_press_grid.append(p)
 
+                if dynamic_db:
+                    sp_press_grid_numeric = [pyCHNOSZ.water("Psat", T=273.15+T).iloc[0][0] if P=="Psat" or P=="psat" or P=="PSAT" else P for P,T in zip(sp_press_grid, sp_temps_grid) ]
+                    grid_press_list_numeric = [pyCHNOSZ.water("Psat", T=273.15+T).iloc[0][0] if P=="Psat" or P=="psat" or P=="PSAT" else P for P,T in zip(grid_press_list, grid_temps) ]
+    
+                    sp_temps_grid_psatted = []
+                    for ii,T in enumerate(sp_temps_grid):
+                        if T < 100 and sp_press_grid_numeric[ii] == 1:
+                            sp_temps_grid_psatted.append(25)
+                        else:
+                            sp_temps_grid_psatted.append(T)
+                    
+                    grid_temps_psatted = []
+                    for ii,T in enumerate(grid_temps):
+                        if T < 100 and grid_press_list_numeric[ii] == 1:
+                            grid_temps_psatted.append(25)
+                        else:
+                            grid_temps_psatted.append(T)
+                    
+                    sp_TP = [(T,P) for T,P in zip(sp_temps_grid_psatted, sp_press_grid_numeric)]
+                    sample_TP = [(T,P) for T,P in zip(grid_temps_psatted, grid_press_list_numeric)]
+
+                
                 if sp_press_grid == grid_press_list and sp_temps_grid == grid_temps:
                     # If pressures and temperature grid exactly matches that of the sp...
                     # need to test this!
+                    valid_sp_i.append(i)
+                elif dynamic_db and all(P in sp_TP for P in sample_TP):
+                    # If every sample T,P point matches any of the T,P points in the species grid...
                     valid_sp_i.append(i)
                 elif (logK_extrapolate != "none" or (min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid))) and _all_equal(sp_press_grid + grid_press_list):
                     # If all grid temperatures are within minimum and maximum file temperatures,
                     # and all pressures in file for the sp are equal, and all grid pressures match
                     # file pressure, then the species is valid
                     valid_sp_i.append(i)
-                
                 else:
                     # species is invalid. Define reasons.
                     
                     reject_reason_list = []
-                    
 
-                    
                     if min(grid_temps) < min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list) and logK_extrapolate == "none":
 
                         min_sp = str(min(sp_temps_grid))
@@ -4039,39 +3650,64 @@ class AqEquil(object):
                         
                         # collect azero values for metal, ligand, and complex
                         metal_name = self.logK_S_db["metal_name"][i]
-                        
+
                         if self.thermo_db["name"].isin([metal_name]).any():
                             metal_azero = list(self.thermo_db[self.thermo_db["name"] == metal_name]["azero"])[0]
                             metal_charge = float(list(self.thermo_db[self.thermo_db["name"] == metal_name]["z.T"])[0])
 #                         elif:
 #                             # todo: get metal azero and charge from other databases, e.g., logK db
 #                             pass
+                        elif metal_name == "H+":
+                            metal_azero = 4
+                            metal_charge = 1
                         else:
                             # todo: throw error
                             pass
                         
                         ligand_name = self.logK_S_db["ligand_name"][i]
-                        if isinstance(self.logK_S_db["ligand_azero"][i], float):
-                            ligand_azero = float(self.logK_S_db["ligand_azero"][i])
-                        elif self.thermo_db["name"].isin([ligand_name]).any():
-                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["azero"])[0])
-                        else:
-                            # todo: elif ligand_name in logK database names, get azero from there...
-                            # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
-                        
+                        ligand_basis = self.logK_S_db["ligand_basis"][i]
+
+
                         if isinstance(self.logK_S_db["ligand_charge"][i], float):
                             ligand_charge = float(self.logK_S_db["ligand_charge"][i])
                         elif self.thermo_db["name"].isin([ligand_name]).any():
                             ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["z.T"])[0])
+                        elif self.thermo_db["name"].isin([ligand_basis]).any():
+                            ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_basis]["z.T"])[0])
                         else:
-                            self.err_handler.raise_exception("The ligand '"+ligand_name+"' was not found in the "
-                                    "currently loaded databases. Is this ligand present in the database? Was this "
-                                    "ligand excluded (e.g., exclude_organics=True)?")
+                            formula_dict = parse_formula(self.logK_S_db["ligand_formula"])
+                            if "+" in list(formula_dict.keys()):
+                                ligand_charge = float(formula_dict["+"])
+                            elif "-" in list(formula_dict.keys()):
+                                ligand_charge = float(formula_dict["-"])
+                            else:
+                                ligand_charge = 0
+                            # self.err_handler.raise_exception("The ligand '"+ligand_name+"' was not found in the "
+                            #         "currently loaded databases. Is this ligand present in the database? Was this "
+                            #         "ligand excluded (e.g., exclude_organics=True)?")
+
+                        if isinstance(self.logK_S_db["ligand_azero"][i], float):
+                            ligand_azero = float(self.logK_S_db["ligand_azero"][i])
+                        elif self.thermo_db["name"].isin([ligand_name]).any():
+                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["azero"])[0])
+                        elif self.thermo_db["name"].isin([ligand_basis]).any():
+                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_basis]["azero"])[0])
+                        else:
+                            # todo: elif ligand_name in logK database names, get azero from there...
+                            # or maybe this is not necessary if logK is merged with thermo_db at this point
+
+                            ligand_azero = 4 # acceptable placeholder azero for charged species
+
                     
                         dissrxn = self.logK_S_db["dissrxn"][i].split(" ")
                         n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
-                        n_ligand = float(dissrxn[dissrxn.index(ligand_name)-1])
+                        if ligand_name in dissrxn:
+                            n_ligand = float(dissrxn[dissrxn.index(ligand_name)-1])
+                        elif ligand_basis in dissrxn:
+                            n_ligand = float(dissrxn[dissrxn.index(ligand_basis)-1])
+                        else:
+                            # todo: throw error
+                            pass
                         n_complex = -float(dissrxn[dissrxn.index(sp)-1])
                         
                         complex_charge = n_metal*metal_charge + n_ligand*ligand_charge
@@ -4104,7 +3740,7 @@ class AqEquil(object):
                     if isinstance(self.logK_S_db["ligand_element"][i], str):
                         # modify element database with pseudoelements
                         pseudoelement = self.logK_S_db["ligand_element"][i]
-                        if pseudoelement not in self.element_db["element"]:
+                        if pseudoelement not in list(self.element_db["element"]):
                             e_df = pd.DataFrame(
                                 {'element':[self.logK_S_db["ligand_element"][i]],
                                  'state':[self.logK_S_db["state"][i]],
@@ -4119,7 +3755,8 @@ class AqEquil(object):
                     if isinstance(self.logK_S_db["ligand_basis"][i], str):
                         # add a basis species representing the pseudoelement
                         basis = self.logK_S_db["ligand_basis"][i]
-                        if basis not in self.thermo_db["name"]:
+                        
+                        if basis not in list(self.thermo_db["name"]):
                             b_df = pd.DataFrame(
                                 {'name':[self.logK_S_db["ligand_basis"][i]],
                                  'abbrv':[""],
@@ -4142,7 +3779,7 @@ class AqEquil(object):
                                  'formula_ox':[self.logK_S_db["ligand_formula"][i]],
                                  'category_1':[self.logK_S_db["category_1"][i]],
                                 })
-
+                            
                             self.thermo_db = pd.concat([self.thermo_db, b_df], ignore_index=True)
 
                     if self.logK_S_db["name"][i] not in self.thermo_db["name"] and self.logK_S_db["name"][i] not in self.logK_db["name"]:
@@ -4634,8 +4271,6 @@ class Speciation(object):
             self.err_handler.raise_exception("Line(s) in the speciation group file do not contain a colon ':'. Fix the formatting on line(s):\n"+str(bad_line_indices)+"\nLines to blame:\n"+str(bad_lines))
 
 
-
-        
         self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
 
         # Creates a dictionary with this format:
@@ -4712,7 +4347,7 @@ class Speciation(object):
                             print("The specified limiting reactant", str(limiting),
                                   "has been switched to", str(s), "because the latter",
                                   "appears as a reactant in the reaction:")
-                            if _isnotebook():
+                            if isnotebook():
                                 _ = self.format_reaction(coeffs=stoich,
                                    names=species,
                                    formatted=True,
@@ -4735,6 +4370,106 @@ class Speciation(object):
                 limiting = None
                 
         return limiting
+
+
+    def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
+        """
+        Add a new half reaction to the bottom of the table of available half
+        reactions that can be combined using `make_redox_reactions`.
+
+        Parameters
+        ----------
+        oxidant, reductant : str
+            Names of the oxidant and reductant as they appear in the
+            thermodynamic database. It does not matter what speciated form of an
+            oxidant or reductant is chosen. For example, choosing "acetate" as
+            the oxidant is the same as choosing "acetic-acid" because they
+            belong to the same speciation group.
+        
+        redox_couple : str, optional
+            Desired name of the half reaction. This name is arbitrary and can be
+            anything you'd like. If no name is provided, a name will be
+            automatically generated based on the oxidant and reductant.
+
+        Result
+        ----------
+        Appends a new row to the half_cell_reactions table.
+        """
+
+        if not isinstance(self.thermo.thermo_db, pd.DataFrame):
+            # check to see if user is using a thermodynamic database CSV
+            if self.verbose > 0:
+                print("Did not add a new half reaction because a WORM-style thermodynamic database CSV is not available "
+                      "to check the validity of the user-supplied oxidant and reductant or perform energy calculations. Perhaps you "
+                      "are getting this message because you are using a calibrated database or data0 file (e.g. db='wrm' in AqEquil() ) "
+                      "instead of a more complete CSV database (e.g. db='WORM' or db='wrm_data.csv' in AqEquil() ).")
+            return
+        else:
+            # check to see if the oxidant and reductant are actually in the thermodynamic database
+            if oxidant in list(self.thermo.thermo_db["name"]) and reductant in list(self.thermo.thermo_db["name"]):
+                pass
+            else:
+                if oxidant not in list(self.thermo.thermo_db["name"]):
+                    if self.verbose > 0:
+                        print("Did not add a new half reaction because the oxidant '"+str(oxidant)+"' "
+                              "was not found amongst the currently loaded chemical species.")
+                else:
+                    print("Did not add a new half reaction because the reductant '"+str(reductant)+"' "
+                          "was not found amongst the currently loaded chemical species.")
+                return
+                
+        # check to see if this half reaction already exists
+        add_new_row = True
+        dup_index = None
+        for i in self.half_cell_reactions.index:
+            if self.half_cell_reactions.iloc[i]["Oxidant"] == oxidant and self.half_cell_reactions.iloc[i]["Reductant"] == reductant:
+                add_new_row = False
+                dup_index = i
+                break
+
+        if add_new_row:
+
+            if not isinstance(redox_couple, str):
+                redox_couple = str(oxidant) + " to " + str(reductant)
+            
+            new_row = [redox_couple, oxidant, reductant]
+            self.half_cell_reactions.loc[len(self.half_cell_reactions.index)] = new_row
+            if self.verbose > 0:
+                print("Added new half reaction to half_cell_reactions.")
+        else:
+            if self.verbose > 0:
+                print("A row with this oxidant and reductant already exists with index", i)
+    
+
+    def delete_half_reaction(self, index):
+        """
+        Delete a half reaction from the half_cell_reactions table. Useful for
+        removing unwanted or mistaken half reactions. This will reset the
+        indices in the table to prevent a gap from the deleted row.
+
+        Parameters
+        ----------
+        index : int or list of int
+            Index or list of indices of the row in the half_cell_reactions table
+            to be deleted.
+        """
+        if not isinstance(index, list):
+            index = [index]
+        self.half_cell_reactions.drop(index, inplace=True)
+        self.half_cell_reactions.reset_index(inplace=True, drop=True)
+        if self.verbose > 0:
+                print("Rows", index, "have been deleted and indices have "
+                      "been reset in the half_cell_reactions table.")
+
+    
+    def reset_half_reactions(self):
+        """
+        Reset the half_cell_reactions table back to its original default. Takes
+        no parameters.
+        """
+        self.half_cell_reactions = copy.deepcopy(self._half_cell_reactions_originalcopy)
+        if self.verbose > 0:
+                print("The table of half reactions half_cell_reactions has been reset.")
 
     
     def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
@@ -4951,7 +4686,7 @@ class Speciation(object):
 
         df_out = copy.copy(self.redox_formatted_reactions)
 
-        if _isnotebook() and show:
+        if isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
         return df_out
@@ -4968,11 +4703,11 @@ class Speciation(object):
         reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
         products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
         if formatted:
-            reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-            products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+            reactants = " + ".join([format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+            products = " + ".join([format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
         reaction = reactants + " = " + products
 
-        if _isnotebook() and show:
+        if isnotebook() and show:
             display(HTML(reaction))
         
         return reaction
@@ -5074,6 +4809,10 @@ class Speciation(object):
         for idx in idx_list:
         
             #print(idx)
+
+            if idx not in self.half_cell_reactions.index:
+                self.err_handler.raise_exception("The index " + str(idx) + " was not "
+                        "found in the half_cell_reactions table.")
             
             oxidant = self.half_cell_reactions["Oxidant"].iloc[idx]
             reductant = self.half_cell_reactions["Reductant"].iloc[idx]
@@ -5158,7 +4897,11 @@ class Speciation(object):
                 electron_coeff = red_coeff*total_red_ce_oxstate - ox_coeff*total_ox_ce_oxstate
                 
                 if electron_coeff > 0:
-                    print("Error: this half reaction's oxidant and reductant are switched. Electron coeff must be negative.")
+                    self.err_handler.raise_exception("The oxidant '"+oxidant+"' is more reduced than the "
+                            "reductant '"+reductant+"' in the half reaction corresponding to index " + str(idx) + " "
+                            "in the half_cell_reactions table. Please flip the species so that "
+                            "the oxidant is in the Oxidant column.")
+                    
                     # TODO: automatically flip it for the user...
                 else:
                     # if e- transfer for this common elem is negative (e- is transferred)
@@ -5214,6 +4957,12 @@ class Speciation(object):
                     if elems[0] in elems_unique_to_reductant and elems[0] not in basis_candidate_elems:
                         basis_candidates.append(f)
                         basis_candidate_elems.append(elems[0])
+
+            if len(common_elem_electron_dict) == 0:
+                # no common elements between oxidant and reductant
+                self.err_handler.raise_exception("A common element could not be found between "
+                        "the oxidant " + str(oxidant) + " and the reductant " + str(reductant))
+                
             
             unpacked_dict = common_elem_electron_dict[list(common_elem_electron_dict.keys())[0]]
 
@@ -6524,7 +6273,7 @@ class Speciation(object):
         if not isinstance(y, list):
             y = [y]
 
-        colors = _get_colors(colormap, len(y))
+        colors = get_colors(colormap, len(y))
 
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -6942,7 +6691,7 @@ class Speciation(object):
 
         if isinstance(colormap, str):
             # get colors
-            colors = _get_colors(colormap, len(y), alpha=fill_alpha)
+            colors = get_colors(colormap, len(y), alpha=fill_alpha)
             
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -7243,7 +6992,7 @@ class Speciation(object):
             pass
         else:
             # get colormap
-            colors = _get_colors(colormap, len(unique_species))
+            colors = get_colors(colormap, len(unique_species))
 
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -7404,7 +7153,7 @@ class Speciation(object):
         unique_minerals = self.__unique(df["mineral"])
         
         # get colormap
-        colors = _get_colors(colormap, len(unique_minerals))
+        colors = get_colors(colormap, len(unique_minerals))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]

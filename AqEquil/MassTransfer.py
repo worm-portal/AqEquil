@@ -16,7 +16,8 @@ from datetime import datetime
 import numbers
 import roman
 from natsort import natsorted
-from .AqSpeciation import Error_Handler, Speciation, AqEquil, chemlabel, check_balance, format_equation
+from .AqSpeciation import Speciation, AqEquil
+from WORMutils import Error_Handler, chemlabel, format_equation, check_balance
 
 FIXED_SPECIES = ["H2O", "H+", "O2(g)", "water", "Cl-", "e-", "OH-", "O2", "H2O(g)"]
 
