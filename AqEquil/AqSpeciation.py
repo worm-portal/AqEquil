@@ -4408,6 +4408,8 @@ class Speciation(object):
             # check to see if the oxidant and reductant are actually in the thermodynamic database
             if oxidant in list(self.thermo.thermo_db["name"]) and reductant in list(self.thermo.thermo_db["name"]):
                 pass
+            elif oxidant == "H2O" or reductant == "H2O":
+                pass
             else:
                 if oxidant not in list(self.thermo.thermo_db["name"]):
                     if self.verbose > 0:
@@ -4823,9 +4825,14 @@ class Speciation(object):
             elif oxidant == "H2O" and reductant == "H2":
                 half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2': 1.0, 'OH-': 2.0}
                 continue
+            elif oxidant == "H2O" and reductant == "H2O2":
+                half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2O2': 1.0, "H+": 2.0}
+                continue
 
             db_sp_names = list(self.thermo.thermo_db["name"])
-            if oxidant not in db_sp_names or reductant not in db_sp_names:
+            if oxidant == "H2O" or reductant == "H2O":
+                pass
+            elif oxidant not in db_sp_names or reductant not in db_sp_names:
                 if oxidant not in db_sp_names:
                     problem_sp = oxidant
                 else:
@@ -4845,7 +4852,8 @@ class Speciation(object):
             ox_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==oxidant].values[0])
             ox_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
             ox_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
-
+                
+            
             red_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==reductant].values[0])
             red_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==reductant].values[0]
             red_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==reductant].values[0]
