@@ -373,7 +373,7 @@ class AqEquil(object):
             eq36da = os.environ.get('EQ36DA')
         if not isinstance(eq36co, str):
             eq36co = os.environ.get('EQ36CO')
-        
+
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
@@ -389,7 +389,7 @@ class AqEquil(object):
         self.verbose = verbose
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
-        
+
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
         self.raw_3_pickup_dict_bottom = {}
@@ -400,6 +400,19 @@ class AqEquil(object):
         
         self.logK_models = {}
 
+        if "'" in os.getcwd():
+            self.err_handler.raise_exception("The current working directory "
+                    "has a parent folder with an invalid name that that "
+                    "contains an apostrophe ' . Please remove the apostrophe "
+                    "and then retry.")
+        elif "*" in os.getcwd():
+            self.err_handler.raise_exception("The current working directory "
+                    "has a parent folder with an invalid name that that "
+                    "contains an asterisk * . Please remove the asterisk "
+                    "and then retry.")
+        else:
+            pass
+        
         if load_thermo:
             
             # attributes to add to AqEquil class
@@ -4825,8 +4838,14 @@ class Speciation(object):
             elif oxidant == "H2O" and reductant == "H2":
                 half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2': 1.0, 'OH-': 2.0}
                 continue
-            elif oxidant == "H2O" and reductant == "H2O2":
-                half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2O2': 1.0, "H+": 2.0}
+            elif oxidant == "H2O2" and reductant == "H2O":
+                half_reaction_dict[idx] = {'H2O2': -1.0, 'e-': -2.0, 'H2O': 2.0, "H+": -2.0}
+                continue
+            elif oxidant == "O2" and reductant == "H2O2":
+                half_reaction_dict[idx] = {'O2': -1.0, 'e-': -2.0, 'H+': -2.0, 'H2O2': 1.0}
+                continue
+            elif oxidant == "H2O2" and reductant == "H2":
+                half_reaction_dict[idx] = {'H2O2': -1.0, 'e-': -4.0, 'H+': -2.0, 'H2':1.0, 'OH-': 2.0}
                 continue
 
             db_sp_names = list(self.thermo.thermo_db["name"])
