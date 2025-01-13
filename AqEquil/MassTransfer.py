@@ -4975,8 +4975,19 @@ class Prepare_Reaction:
                 pval5=f"{'{:.5E}'.format(self.pval5):>12}",
             ))
 
-        
-        reactant_blocks = "".join([r.formatted_block for r in self.reactants])
+        if len(self.reactants) > 0:
+            reactant_blocks = "".join([r.formatted_block for r in self.reactants])
+        else:
+            reactant_blocks = """\n|Reactant        |None                    | (ureac(n))                         |
+|------------------------------------------------------------------------------|
+|->|Type         |None                    | (urcjco(jcode(n)))                 |
+|------------------------------------------------------------------------------|
+|->|Status       |None                    | (urcjre(jreac(n)))                 |
+|------------------------------------------------------------------------------|
+|->|Amount remaining (moles) | 0.00000E+00| (morr(n))                          |
+|------------------------------------------------------------------------------|
+|->|Amount destroyed (moles) | 0.00000E+00| (modr(n))                          |
+|------------------------------------------------------------------------------|"""
         gas_lines = "".join([r.formatted_line for r in self.gases])
         reaction_options_formatted.update(dict(reactant_blocks=reactant_blocks))
         reaction_options_formatted.update(dict(gas_lines=gas_lines))

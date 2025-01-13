@@ -402,12 +402,14 @@ class AqEquil(object):
 
         if "'" in os.getcwd():
             self.err_handler.raise_exception("The current working directory "
-                    "has a parent folder with an invalid name that that "
+                    "({})".format(str(os.getcwd()))+" "
+                    "has a parent folder with an invalid name that "
                     "contains an apostrophe ' . Please remove the apostrophe "
                     "and then retry.")
         elif "*" in os.getcwd():
             self.err_handler.raise_exception("The current working directory "
-                    "has a parent folder with an invalid name that that "
+                    "({})".format(str(os.getcwd()))+" "
+                    "has a parent folder with an invalid name that "
                     "contains an asterisk * . Please remove the asterisk "
                     "and then retry.")
         else:
