@@ -479,7 +479,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     for(e in elements_without_basis){
       elements_without_basis_formatted <- c(elements_without_basis_formatted, format_pseudoelement_name_R(e))
     }
-      
+
     msg <- paste("Warning: The following elements (or oxidation states)",
                  "appear in chemical species but do not have representative",
                  "basis species:", paste(elements_without_basis_formatted, collapse=", "),
@@ -547,7 +547,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
     if(sp_formula_ox=="nan"){
       # Triggers when there is no value given in the formula_ox column in
       # thermo_df for this species.
-
+        
       basis(c(unlist(simplest_basis), "H+")) # TODO: this may fail depending on the strict basis species within thermo_df
       out <- subcrt(c(sp), c(-1))
 
@@ -1277,18 +1277,19 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     generated_dissrxns <- dissrxns[names]
       
     nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) x[2] != x[4])) # x[2] != x[4] refers to picking dissrxns that do not look something like -1.0000 HCO3- 1.0000 HCO3-
-                                  
-    basis_idx <- !nonbasis_idx
-    nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
-    nonbasis_names <- unique(nonbasis_names)
-    basis_names <- names(basis_idx)[basis_idx]
 
-    vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
+    if(!is.null(nonbasis_idx)){
+      basis_idx <- !nonbasis_idx
+      nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
+      nonbasis_names <- unique(nonbasis_names)
+      basis_names <- names(basis_idx)[basis_idx]
+
+      vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], " \n"), 1, verbose)
                     
-    if(!identical(basis_names, character(0))){
-      vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
+      if(!identical(basis_names, character(0))){
+        vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
+      }
     }
-
     # replace dissrxns with any regenerated dissrxns
     for(name in names){
         

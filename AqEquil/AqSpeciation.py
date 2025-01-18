@@ -356,6 +356,7 @@ class AqEquil(object):
                  solid_solutions=None,
                  logK=None,
                  logK_S=None,
+                 mineral_db="default",
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_organics=False,
@@ -421,6 +422,7 @@ class AqEquil(object):
             self.db = db
             self.elements = elements
             self.solid_solutions = solid_solutions
+            self.mineral_db = mineral_db
 
             if exclude_category is None:
                 exclude_category = dict()
@@ -457,6 +459,9 @@ class AqEquil(object):
                             exclude_organics_except += self.sp_dict_groups[group]
                 exclude_organics_except = list(set(exclude_organics_except))
 
+            if mineral_db != "default":
+                exclude_category["category_1"] = exclude_category["category_1"].append("inorganic_cr")
+            
             self.exclude_category = exclude_category
             self.exclude_organics_except = exclude_organics_except
             self.logK = logK
@@ -1263,9 +1268,6 @@ class AqEquil(object):
         
     def speciate(self,
                  input_filename,
-                 db=None,
-                 db_solid_solution=None,
-                 db_logK=None,
                  logK_extrapolate=None,
                  activity_model="b-dot",
                  redox_flag="logfO2",
@@ -1346,15 +1348,6 @@ class AqEquil(object):
               subheader.
             - The first column must contain sample names. There cannot be
               duplicate sample names.
-        
-        db : None
-            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
-        
-        db_solid_solution : None
-            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
-        
-        db_logK : None
-            Deprecated. Databases are loaded during AqEquil.AqEquil(...).
         
         activity_model : str, default "b-dot"
             Activity model to use for speciation. Can be either "b-dot",
@@ -1551,22 +1544,12 @@ class AqEquil(object):
         
         """
 
-        # deprecated!
-        if db is not None or db_solid_solution is not None or db_logK is not None:
-            self.err_handler.raise_exception("The parameters db, db_solid_solution, and db_logK "
-                "are deprecated in the speciate() function. Databases are now loaded during "
-                "the AqEquil.AqEquil(...) step.")
-        
         self.batch_T = []
         self.batch_P = []
         
         self.verbose = verbose
-        
-        if db != None:
-            # load new thermodynamic database
-            self.thermo._set_active_db(db)
-        else:
-            db = self.thermo.db
+
+        db = self.thermo.db
             
         if self.thermo.thermo_db_type in ["CSV", "Pandas DataFrame"]:
             db_args["db"] = "dyn"
@@ -1635,9 +1618,6 @@ class AqEquil(object):
             db_args["dynamic_db_sample_temps"] = sample_temps
             db_args["dynamic_db_sample_press"] = sample_press
             
-            if db_logK != None:
-                self.thermo._load_logK(db_logK, source="file")
-            
             if logK_extrapolate != None:
                 db_args["logK_extrapolate"] = logK_extrapolate
             elif self.thermo.logK_active:
@@ -1645,29 +1625,6 @@ class AqEquil(object):
                 logK_extrapolate = self.thermo.logK_extrapolate
             else:
                 logK_extrapolate = "none"
-
-            if db_solid_solution != None:
-                if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
-                    if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
-                        db_args["filename_ss"] = db_solid_solution
-                    else:
-                        self.err_handler.raise_exception("Error: could not locate " + str(db_solid_solution))
-                else:
-                    db_solid_solution_csv_name = db_solid_solution.split("/")[-1].lower()
-
-                    try:
-                        # Download from URL and decode as UTF-8 text.
-                        with urlopen(db_solid_solution) as webpage:
-                            content = webpage.read().decode()
-                    except:
-                        self.err_handler.raise_exception("The webpage "+str(db_solid_solution)+" cannot"
-                                " be reached at this time.")
-                        
-                    # Save to CSV file.
-                    with open(db_solid_solution_csv_name, 'w') as output:
-                        output.write(content)
-                        
-                    db_args["filename_ss"] = db_solid_solution_csv_name
                     
             if self.verbose > 0:
                 print("Getting", self.thermo.thermo_db_filename, "ready. This will take a moment...")
@@ -2169,6 +2126,7 @@ class AqEquil(object):
             
         if get_fugacity:
             fugacity_cols = list(report_divs.rx2('fugacity'))
+            fugacity_cols = [col for col in fugacity_cols if col != "df"] # TO DO: why is df appearing in fugacity, mineral sat cols and redox sections?
             df_fugacity = df_report[fugacity_cols]
             df_fugacity = df_fugacity.apply(pd.to_numeric, errors='coerce')
             
@@ -3106,6 +3064,7 @@ class AqEquil(object):
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
+            mineral_db = self.AqEquil_instance.mineral_db
             download_csv_files = self.AqEquil_instance.download_csv_files
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
@@ -3200,7 +3159,6 @@ class AqEquil(object):
                     print("Loading a user-supplied Pandas DataFrame thermodynamic database...")
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
                 
-
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 self._validate_thermodynamic_database()
 
@@ -3222,7 +3180,11 @@ class AqEquil(object):
                 
             if self.logK_active:
                 self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
-                
+
+            if mineral_db != "WORM" and self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
+                # load a different mineral database
+                pass
+            
             # process dissociation reactions
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 self._suppress_redox_and_generate_dissrxns(
