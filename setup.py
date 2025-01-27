@@ -19,7 +19,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.8',
-    install_requires=['rpy2', 'pandas', 'numpy', 'matplotlib', 'plotly==5.13.0', 'ipython', 'chemparse', 'dill', 'periodictable', 'natsort', 'roman', 'ipywidgets'],
+    install_requires=['rpy2', 'pandas', 'numpy', 'matplotlib', 'plotly==5.13.0', 'ipython', 'chemparse', 'dill', 'periodictable', 'natsort', 'roman', 'ipywidgets', 'WORMutils'],
     include_package_data=True,
     package_data={'': ['*.r', '*.min', '*.csv', '*.txt']},
     zip_safe=False

@@ -445,9 +445,7 @@ mine_3o <- function(this_file,
       rownames(df) <- unlist(lapply(split_str, `[[`, 1))[1]
       df <- df[ , !(names(df)=="gas"), drop=FALSE]
     }
-      
     sample_3o[["fugacity"]] <- df
-      
   }
 
                              

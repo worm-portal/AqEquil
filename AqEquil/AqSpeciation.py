@@ -23,9 +23,10 @@ import collections
 import dill
 import math
 import itertools
+from fractions import Fraction
+import functools
 
 from ipywidgets import IntProgress
-from IPython.display import display
 import time
 
 from urllib.request import urlopen
@@ -65,6 +66,8 @@ rpy2.rinterface_lib.callbacks.logger.setLevel(logging.ERROR) # will display erro
 import rpy2.robjects as ro
 from rpy2.robjects import pandas2ri
 pandas2ri.activate()
+
+from WORMutils import Error_Handler, chemlabel, format_equation, check_balance, format_coeff, get_colors, isnotebook
 
 
 def load(filename, messages=True, hide_traceback=True):
@@ -109,7 +112,8 @@ def load(filename, messages=True, hide_traceback=True):
     
     if os.path.getsize(filename) > 0:
         with open(filename, 'rb') as handle:
-            speciation = dill.load(handle)
+            #speciation = dill.load(handle)
+            speciation = pd.compat.pickle_compat.load(handle) 
             if messages:
                 print("Loaded '{}'".format(filename))
             return speciation
@@ -120,91 +124,11 @@ def load(filename, messages=True, hide_traceback=True):
 
 def _get_duplicates(array):
     """
-    Return a list of duplicate elements in another list
+    Return a list of duplicate elements present in a list
     https://stackoverflow.com/questions/46554866/efficiently-finding-duplicates-in-a-list
     """
     c = Counter(array)
     return [k for k in c if c[k] > 1]
-
-
-def _float_to_fraction (x, error=0.000001):
-    
-    """
-    Convert a float into a fraction. Works with floats like 2.66666666.
-    Solution from https://stackoverflow.com/a/5128558/8406195
-    """
-    n = int(math.floor(x))
-    x -= n
-    if x < error:
-        return (n, 1)
-    elif 1 - error < x:
-        return (n+1, 1)
-
-    # The lower fraction is 0/1
-    lower_n = 0
-    lower_d = 1
-    # The upper fraction is 1/1
-    upper_n = 1
-    upper_d = 1
-    while True:
-        # The middle fraction is (lower_n + upper_n) / (lower_d + upper_d)
-        middle_n = lower_n + upper_n
-        middle_d = lower_d + upper_d
-        # If x + error < middle
-        if middle_d * (x + error) < middle_n:
-            # middle is our new upper
-            upper_n = middle_n
-            upper_d = middle_d
-        # Else If middle < x - error
-        elif middle_n < (x - error) * middle_d:
-            # middle is our new lower
-            lower_n = middle_n
-            lower_d = middle_d
-        # Else middle is our best fraction
-        else:
-            return (n * middle_d + middle_n, middle_d)
-
-    
-def _float_to_formatted_fraction(x, error=0.000001):
-    
-    """
-    Format a fraction for html.
-    """
-    f = _float_to_fraction(x, error=error)
-    
-    whole_number_float = int((f[0]-(f[0]%f[1]))/f[1])
-    remainder_tuple = (f[0]%f[1], f[1])
-    
-    if remainder_tuple[0] == 0:
-        return str(whole_number_float)
-    else:
-        if whole_number_float == 0:
-            whole_number_float = ""
-        return "{0}<sup>{1}</sup>&frasl;<sub>{2}</sub>".format(
-                whole_number_float, remainder_tuple[0], remainder_tuple[1])
-
-
-def _format_coeff(coeff):
-    
-    """
-    Format a reaction coefficient for html.
-    """
-    if coeff == 1 or coeff == -1:
-        coeff = ""
-    elif coeff.is_integer() and coeff < 0:
-        coeff = str(-int(coeff))
-    elif coeff.is_integer() and coeff > 0:
-        coeff = str(int(coeff))
-    else:
-        if coeff < 0:
-            coeff = _float_to_formatted_fraction(-coeff)
-        else:
-            coeff = _float_to_formatted_fraction(coeff)
-
-    if coeff != "":
-        coeff = coeff + " "
-
-    return coeff
 
 
 def _convert_to_RVector(value, force_Rvec=True):
@@ -272,94 +196,6 @@ def _clean_rpy2_pandas_conversion(
         if col in df.columns:
             df[col] = df[col].astype(str)
     return df
-    
-
-def _get_colors(colormap, ncol, alpha=1.0, hide_traceback=True):
-
-    """
-    Get a list of rgb values for a matplotlib colormap
-    
-    Parameters
-    ----------
-    colormap : str
-        Name of the colormap to color the scatterpoints. Accepts "WORM",
-        "colorblind", or matplotlib colormaps.
-        See https://matplotlib.org/stable/tutorials/colors/colormaps.html
-        The "colorblind" colormap is referenced from Wong, B. Points of view:
-        Color blindness. Nat Methods 8, 441 (2011).
-        https://doi.org/10.1038/nmeth.1618
-    
-    ncol : int
-        Number of colors to return in the list.
-    
-    alpha : float, default 1.0
-        An alpha value between 0.0 (transparent) and 1.0 (opaque).
-
-    hide_traceback : bool, default True
-        Hide traceback message when encountering errors handled by this function?
-        When True, error messages handled by this class will be short and to
-        the point.
-    
-    Returns
-    -------
-    colors : list
-        A list of rgb color tuples
-    """
-    
-    err_handler = Error_Handler(clean=hide_traceback)
-    
-    qualitative_cmaps = ['Pastel1', 'Pastel2', 'Paired', 'Accent',
-                         'Dark2', 'Set1', 'Set2', 'Set3',
-                         'tab10', 'tab20', 'tab20b', 'tab20c']
-    
-    if colormap == "colorblind":
-        # colors from Wong B. 2011, https://doi.org/10.1038/nmeth.1618
-        colors = [(0, 0, 0, alpha), # black
-                  (230/255, 159/255, 0, alpha), # orange
-                  (86/255, 180/255, 233/255, alpha), # sky blue
-                  (0, 158/255, 115/255, alpha), # bluish green
-                  (240/255, 228/255, 66/255, alpha), # yellow
-                  (0, 114/255, 178/255, alpha), # blue
-                  (213/255, 94/255, 0, alpha), # vermillion
-                  (204/255, 121/255, 167/255, alpha)] # reddish purple
-        if ncol <= len(colors):
-            return colors[:ncol]
-        else:
-            print("Switching from 'colorblind' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
-            colormap = "viridis"
-    elif colormap == "WORM":
-        colors = [(0, 0, 0, alpha), # black
-                  (22/255, 153/255, 211/255, alpha), # blue
-                  (232/255, 86/255, 66/255, alpha), # red
-                  (245/255, 171/255, 80/255, alpha), # orange
-                  (115/255, 108/255, 168/255, alpha), # purple
-                  (151/255, 208/255, 119/255, alpha), # green
-                  (47/255, 91/255, 124/255, alpha), # dark blue
-                  (119/255, 119/255, 119/255, alpha)] # gray
-        if ncol <= len(colors):
-            return colors[:ncol]
-        else:
-            print("Switching from 'WORM' colormap to 'viridis' because there are {} variables to plot.".format(ncol))
-            colormap = "viridis"
-            
-    if colormap in qualitative_cmaps:
-        # handle qualitative (non-continuous) colormaps
-        colors = [plt.cm.__getattribute__(colormap).colors[i] for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    else:
-        # handle sequential (continuous) colormaps
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=ncol-1)
-        try:
-            cmap = cm.__getattribute__(colormap)
-        except:
-            valid_colormaps = [cmap for cmap in dir(cm) if "_" not in cmap and cmap not in ["LUTSIZE", "MutableMapping", "ScalarMappable", "functools", "datad", "revcmap"]]
-            err_handler.raise_exception("'{}'".format(colormap)+" is not a recognized matplotlib colormap. "
-                    "Try one of these: {}".format(valid_colormaps))
-        m = cm.ScalarMappable(norm=norm, cmap=cmap)
-        colors = [m.to_rgba(i) for i in range(ncol)]
-        colors = [(c[0], c[1], c[2], alpha) for c in colors]
-    
-    return colors
 
 
 def _all_equal(iterable):
@@ -368,252 +204,6 @@ def _all_equal(iterable):
     return next(g, True) and not next(g, False)
 
 
-def check_balance(formulas, stoich):
-    """
-    Check that a chemical reaction is balanced. If not, get missing composition.
-    
-    Parameters
-    ----------
-    formulas : list of str
-        A list of species formulas that match the order of
-        the stoichiometric reaction coefficients in the `stoich` parameter.
-    
-    stoich : list of numeric
-        A list of stoichiometric reaction coefficients that match the order of
-        the species formulas in the `formulas` parameter. Reactants are
-        negative.
-        
-    Returns
-    -------
-    A printed warning and a dictionary of the missing composition if the
-    reaction is unbalanced.
-    """
-    
-    if len(formulas) != len(stoich):
-        raise Exception("The number of species formulas does not match the "
-              "number of stoichiometric coefficients in the reaction.")
-    
-    # sum all elements, +, and - by their reaction coefficient
-    all_dict = {}
-    for i,s in enumerate(formulas):
-        s_dict = parse_formula(s)
-        s_dict = {key: stoich[i]*s_dict[key] for key in s_dict.keys()}
-        all_dict = {k: all_dict.get(k, 0) + s_dict.get(k, 0) for k in set(all_dict) | set(s_dict)}
-    
-    # sum + and - as Z (charge)
-    if "+" not in list(all_dict.keys()):
-        all_dict["+"] = 0
-    if "-" not in list(all_dict.keys()):
-        all_dict["-"] = 0
-    all_dict["Z"] = all_dict["+"] - all_dict["-"]
-    del all_dict["+"]
-    del all_dict["-"]
-    
-    # delete all elements with a value of 0 (balanced)
-    for key in list(all_dict.keys()):
-        if all_dict[key] == 0:
-            del all_dict[key]
-    
-    # print warnings, prepare missing composition dictionary
-    if len(list(all_dict.keys())) > 0:
-        missing_composition_dict = {k:[-all_dict[k]] for k in all_dict.keys()}
-        print("Warning! The reaction is unbalanced. It is missing this composition:")
-        print(pd.DataFrame(missing_composition_dict).to_string(index=False))
-    else:
-        missing_composition_dict = {}
-    
-    return missing_composition_dict
-        
-
-def chemlabel(name, charge_sign_at_end=False):
-    
-    """
-    Format a chemical formula to display subscripts and superscripts in HTML
-    (e.g., Plotly plots)
-    Example, "CH3COO-" becomes "CH<sub>3</sub>COO<sup>-</sup>"
-    
-    Parameters
-    ----------
-    name : str
-        A chemical formula.
-    
-    charge_sign_at_end : bool, default False
-        Display charge with sign after the number (e.g. SO4 2-)?
-        
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    """
-    
-    # format only the first part of the name if it has "_(input)"
-    if len(name.split("_(input)"))==2:
-        if name.split("_(input)")[1] == '':
-            name = name.split("_(input)")[0]
-            input_flag=True
-    else:
-        input_flag = False
-    
-    name = _html_chemname_format(name, charge_sign_at_end=charge_sign_at_end)
-    
-    # add " (input)" to the end of the name
-    if input_flag:
-        name = name+" (input)"
-    
-    return(name)
-
-
-def format_equation(species, stoich, charge_sign_at_end=False):
-    """
-    Format a chemical equation to display in HTML
-    (e.g., Plotly plots)
-    
-    Parameters
-    ----------
-    species : list of str
-        List of species in the reaction
-        
-    stoich : list of numeric
-        List of stoichiometric reaction coefficients (reactants are negative)
-    
-    charge_sign_at_end : bool, default False
-        Display charge with sign after the number (e.g. SO4 2-)?
-        
-    
-    Returns
-    -------
-    A formatted chemical formula string.
-    """
-    reactants_list = []
-    products_list = []
-    for i,s in enumerate(species):
-        s_f = chemlabel(s, charge_sign_at_end=charge_sign_at_end)
-        if stoich[i] < 0:
-            if stoich[i] != -1:
-                entry = str(abs(stoich[i])) + " " + s_f
-            else:
-                entry = s_f
-            reactants_list.append(entry)
-        elif stoich[i] > 0:
-            if stoich[i] != 1:
-                entry = str(stoich[i]) + " " + s_f
-            else:
-                entry = s_f
-            products_list.append(entry)
-    
-    reactants_together = " + ".join(reactants_list)
-    products_together = " + ".join(products_list)
-    
-    equation_str = " → ".join([reactants_together, products_together])
-    
-    return equation_str
-
-
-def _html_chemname_format(name, charge_sign_at_end=False):
-    
-    """
-    Function duplicated from pyCHNOSZ
-    """
-    
-    p = re.compile(r'(?P<sp>[-+]\d*?$)')
-    name = p.sub(r'<sup>\g<sp></sup>', name)
-    charge = re.search(r'<.*$', name)
-
-    name_no_charge = re.match(r'(?:(?!<|$).)*', name).group(0)
-    mapping = {"0": "<sub>0</sub>", "1": "<sub>1</sub>", "2": "<sub>2</sub>",
-               "3": "<sub>3</sub>", "4": "<sub>4</sub>", "5": "<sub>5</sub>",
-               "6": "<sub>6</sub>", "7": "<sub>7</sub>", "8": "<sub>8</sub>",
-               "9": "<sub>9</sub>", ".":"<sub>.</sub>"}
-    name_no_charge_formatted = "".join([mapping.get(x) or x
-                                        for x in list(name_no_charge)])
-
-    if charge != None:
-        name = name_no_charge_formatted + charge.group(0)
-    else:
-        name = name_no_charge_formatted
-
-    if charge_sign_at_end:
-        if "<sup>-" in name:
-            name = name.replace("<sup>-", "<sup>")
-            name = name.replace("</sup>", "-</sup>")
-        if "<sup>+" in name:
-            name = name.replace("<sup>+", "<sup>")
-            name = name.replace("</sup>", "+</sup>")
-
-    return(name)
-    
-
-def _isnotebook():
-    
-    """
-    Check if this code is running in a Jupyter notebook
-    """
-    try:
-        shell = get_ipython().__class__.__name__
-        if shell == 'ZMQInteractiveShell':
-            return True   # Jupyter notebook or qtconsole
-        elif shell == 'TerminalInteractiveShell':
-            return False  # Terminal running IPython
-        else:
-            return False  # Other type (?)
-    except NameError:
-        return False      # Probably standard Python interpreter
-
-
-class Error_Handler:
-    
-    """
-    Handles how errors are printed in Jupyter notebooks. By default, errors that
-    are handled by AqEquil are printed with an error message, but no traceback.
-    Errors that are not handled by AqEquil, such as those thrown if the user
-    encounters a bug, will display a full traceback.
-    
-    If the error handler prints an error message without traceback, all future
-    errors regardless of origin will be shown without traceback until the
-    notebook kernel is restarted.
-    
-    Parameters
-    ----------
-    clean : bool
-        Report exceptions without traceback? If True, only the error message is
-        shown. If False, the entire error message, including traceback, is
-        shown. Ignored if AqEquil is not being run in a Jupyter notebook.
-    
-    """
-    def __init__(self, clean=True):
-        self.clean = clean # bool: hide traceback?
-        pass
-    
-    
-    @staticmethod
-    def hide_traceback(exc_tuple=None, filename=None, tb_offset=None,
-                       exception_only=False, running_compiled_code=False):
-        
-        """
-        Return a modified ipython showtraceback function that does not display
-        traceback when encountering an error.
-        """
-        
-        ipython = get_ipython()
-        etype, value, tb = sys.exc_info()
-        value.__cause__ = None  # suppress chained exceptions
-        return ipython._showtraceback(etype, value, ipython.InteractiveTB.get_exception_only(etype, value))
-        
-
-    def raise_exception(self, msg):
-        
-        """
-        Raise an exception that displays the error message without traceback. This
-        happens only when the exception is predicted by the AqEquil package
-        (e.g., for common user errors).
-        """
-        if self.clean and _isnotebook():
-            ipython = get_ipython()
-            ipython.showtraceback = self.hide_traceback
-            
-        raise Exception(msg)
-        
-    
 class AqEquil(object):
 
     """
@@ -631,6 +221,7 @@ class AqEquil(object):
     db : str, default "WORM"
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
+        
         - "WORM" will load the default WORM thermodynamic database,
         solid solution database, and logK database. These files are retrieved
         from https://github.com/worm-portal/WORM-db to ensure they are
@@ -740,10 +331,10 @@ class AqEquil(object):
     
     Attributes
     ----------
-    eq36da : str
+    eq36da : str, defaults to path given by the environment variable EQ36DA
         Path to directory where data1 files are stored.
         
-    eq36co : str
+    eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
         
     df_input_processed : pd.DataFrame
@@ -758,16 +349,18 @@ class AqEquil(object):
     """
 
     def __init__(self,
-                 eq36da=os.environ.get('EQ36DA'),
-                 eq36co=os.environ.get('EQ36CO'),
+                 eq36da=None,
+                 eq36co=None,
                  db="WORM",
                  elements=None,
                  solid_solutions=None,
                  logK=None,
                  logK_S=None,
+                 mineral_db="default",
                  logK_extrapolate="none",
                  download_csv_files=False,
                  exclude_organics=False,
+                 exclude_organics_except=None,
                  exclude_category=None,
                  suppress_redox=None,
                  input_template="none",
@@ -776,7 +369,12 @@ class AqEquil(object):
                  verbose=1,
                  load_thermo=True,
                  hide_traceback=True):
-        
+
+        if not isinstance(eq36da, str):
+            eq36da = os.environ.get('EQ36DA')
+        if not isinstance(eq36co, str):
+            eq36co = os.environ.get('EQ36CO')
+
         self.eq36da = eq36da
         self.eq36co = eq36co
         self.df_input_processed = None
@@ -787,11 +385,12 @@ class AqEquil(object):
         
         half_rxn_data = pkg_resources.resource_stream(__name__, "half_cell_reactions.csv")
         self.half_cell_reactions = pd.read_csv(half_rxn_data) #define the input file (dataframe of redox pairs)
+        self._half_cell_reactions_originalcopy = copy.deepcopy(self.half_cell_reactions)
         
         self.verbose = verbose
         self.hide_traceback = hide_traceback
         self.err_handler = Error_Handler(clean=self.hide_traceback)
-        
+
         self.raw_3_input_dict = {}
         self.raw_3_output_dict = {}
         self.raw_3_pickup_dict_bottom = {}
@@ -802,27 +401,69 @@ class AqEquil(object):
         
         self.logK_models = {}
 
+        if "'" in os.getcwd():
+            self.err_handler.raise_exception("The current working directory "
+                    "({})".format(str(os.getcwd()))+" "
+                    "has a parent folder with an invalid name that "
+                    "contains an apostrophe ' . Please remove the apostrophe "
+                    "and then retry.")
+        elif "*" in os.getcwd():
+            self.err_handler.raise_exception("The current working directory "
+                    "({})".format(str(os.getcwd()))+" "
+                    "has a parent folder with an invalid name that "
+                    "contains an asterisk * . Please remove the asterisk "
+                    "and then retry.")
+        else:
+            pass
+        
         if load_thermo:
             
             # attributes to add to AqEquil class
             self.db = db
             self.elements = elements
             self.solid_solutions = solid_solutions
+            self.mineral_db = mineral_db
 
             if exclude_category is None:
                 exclude_category = dict()
+
+            if isinstance(exclude_organics_except, str):
+                exclude_organics_except = [exclude_organics_except]
             
-            if exclude_organics:
+            if exclude_organics and not isinstance(exclude_organics_except, list):
                 if not isinstance(exclude_category.get("category_1"), list):
                     exclude_category["category_1"] = ["organic_aq", "organic_cr"]
                 else:
-                    print("category_1 exists in 'exclude_category' dict.")
                     if "organic_aq" not in exclude_category["category_1"]:
                         exclude_category["category_1"] = exclude_category["category_1"].append("organic_aq")
                     if "organic_cr" not in exclude_category["category_1"]:
                         exclude_category["category_1"] = exclude_category["category_1"].append("organic_cr")
+            elif isinstance(exclude_organics_except, list):
+                # exclude all organics except what is specified by the user in exclude_organics_except
+                # and species in associated speciation group
+                
+                sp = Speciation({})
+                sp._make_speciation_group_dict()
+                reactant_dict_scalar = copy.deepcopy(sp.reactant_dict_scalar)
+                sp_dict_unpacked = copy.deepcopy(sp.speciation_group_dict_unpacked)
+                sp_dict_groups = copy.deepcopy(sp.sp_dict_groups)
+                self.reactant_dict_scalar = reactant_dict_scalar
+                self.sp_dict_unpacked = sp_dict_unpacked
+                self.sp_dict_groups = sp_dict_groups
+                del sp
+
+                exclude_organics_except_orig = copy.copy(exclude_organics_except)
+                for org in exclude_organics_except_orig:
+                    for group in self.sp_dict_groups:
+                        if org in self.sp_dict_groups[group]:
+                            exclude_organics_except += self.sp_dict_groups[group]
+                exclude_organics_except = list(set(exclude_organics_except))
+
+            if mineral_db != "default":
+                exclude_category["category_1"] = exclude_category["category_1"].append("inorganic_cr")
             
             self.exclude_category = exclude_category
+            self.exclude_organics_except = exclude_organics_except
             self.logK = logK
             self.logK_S = logK_S
             self.logK_extrapolate = logK_extrapolate
@@ -1079,13 +720,16 @@ class AqEquil(object):
             
             for species in list(dict.fromkeys(df_in_headercheck.columns)):
                 if species not in db_species and species not in ['Temperature', 'logfO2', 'pH', 'Pressure', 'Eh', 'pe']+FIXED_SPECIES:
-                    err_species_not_in_db = ("The species '{}'".format(species) + " "
-                        "was not found in {}".format(data_path) + ". "
-                        "If the column contains data that should not be "
-                        "included in the speciation calculation, add the "
-                        "column name to the 'exclude' argument. Try "
-                        "help(AqEquil.AqEquil.speciate) "
-                        "for more information about 'exclude'.")
+                    err_species_not_in_db = ("The column '{}'".format(species) + " in the input file "
+                        "was not found in the currently loaded chemical species from {}".format(data_path) + ". "
+                        "If the column '"+format(species)+"' contains data that should not be "
+                        "included in the speciation calculation (such as sample metadata), add the "
+                        "column name to the 'exclude' parameter. Otherwise, the "
+                        "species might not be loaded because it is not in the thermodynamic database, "
+                        "or it was excluded via the 'exclude_category', 'exclude_organics', or 'exclude_organics_except' "
+                        "parameters when the database was loaded. Species may also be excluded when "
+                        "element redox states are isolated with the parameter 'suppress_redox' and "
+                        "appropriate basis species cannot be found to represent them.")
                     err_list.append(err_species_not_in_db)
                 elif species == 'pH':
                     err_species_pH = ("Please rename the 'pH' column in "
@@ -1624,9 +1268,6 @@ class AqEquil(object):
         
     def speciate(self,
                  input_filename,
-                 db=None,
-                 db_solid_solution=None,
-                 db_logK=None,
                  logK_extrapolate=None,
                  activity_model="b-dot",
                  redox_flag="logfO2",
@@ -1654,13 +1295,8 @@ class AqEquil(object):
                  get_fugacity=True,
                  get_basis_totals=True,
                  get_solid_solutions=True,
-                 get_affinity_energy=False, # deprecated
-                 negative_energy_supplies=False, # deprecated
                  mineral_reactant_energy_supplies=False,
-                 rxn_filename=None, # deprecated
-                 not_limiting=["H+", "OH-", "H2O"], # deprecated
                  get_charge_balance=True,
-                 custom_db=False, # deprecated
                  batch_3o_filename=None,
                  delete_generated_folders=False,
                  db_args={}):
@@ -1712,42 +1348,6 @@ class AqEquil(object):
               subheader.
             - The first column must contain sample names. There cannot be
               duplicate sample names.
-        
-        db : str, default "wrm"
-            Determines which thermodynamic database is used in the speciation
-            calculation. There are several options available:
-            - Three letter file extension for the desired data1 database, e.g.,
-            "wrm". This will use a data1 file with this file extension, e.g.,
-            "data1.wrm" located in the path stored in the 'EQ36DA' environment
-            variable used by EQ3NR.
-            - The name of a data0 file located in the current working directory,
-            e.g., "data0.wrm". This data0 file will be compiled by EQPT
-            automatically during the speciation calculation.
-            - The name of a CSV file containing thermodynamic data located in
-            the current working directory, e.g., "wrm_data.csv". The CSV file
-            will be used to generate a data0 file for each sample (using
-            additional arguments from `db_args` if desired).
-            - The URL of a data0 file, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm"
-            - The URL of a CSV file containing thermodynamic data, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-        
-        db_solid_solution : str, optional
-            Used only if `db` points to a thermodynamic data CSV file (or the
-            URL of a CSV hosted online). Determines which thermodynamic database
-            is used for idealized solid solutions in the speciation calculation.
-            There are two options:
-            - The name of a CSV file containing solid solution parameters
-            located in the current working directory, e.g.,
-            "wrm_solid_solutions.csv"
-            - The URL of a CSV file containing solid solution parameters, e.g.,
-            "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
-        
-        db_logK : str, optional
-            The name of the CSV file containing species with dissociation
-            constants but no other properties or parameters. Used only if `db`
-            points to a thermodynamic data CSV file (or the URL of a CSV hosted
-            online).
         
         activity_model : str, default "b-dot"
             Activity model to use for speciation. Can be either "b-dot",
@@ -1807,12 +1407,14 @@ class AqEquil(object):
             [["CaOH+", "Suppress"], ["CaCl+", "AugmentLogK", -1]]
             The first element of each interior list is the name of a species.
             The second element is an option to alter the species, and can be:
+            
             - Suppress : suppress the formation of the species. (See also:
             `suppress`).
             - Replace : replace the species' log K value with a desired value.
             - AugmentLogK : augment the value of the species' log K.
             - AugmentG : augment the Gibbs free energy of the species by a
             desired value, in kcal/mol.
+            
             The third element is a numeric value corresponding to the chosen
             option. A third element is not required for Suppress.
             
@@ -1893,13 +1495,6 @@ class AqEquil(object):
         get_solid_solutions : bool, default True
             Permit the calculation of solid solutions and include them in the
             speciation report?
-        
-        get_affinity_energy : bool, default False
-            Deprecated; affinities and energy supplies are now calculated after
-            speciation.
-        
-        negative_energy_supplies : bool, default False
-            Deprecated.
 
         mineral_reactant_energy_supplies : bool, default False
             Report energy supplies for reactions with mineral reactants? This
@@ -1911,10 +1506,7 @@ class AqEquil(object):
         rxn_filename : str, optional
             Name of .txt file containing reactions used to calculate affinities
             and energy supplies. Ignored if `get_affinity_energy` is False.
-        
-        not_limiting : list, default ["H+", "OH-", "H2O"]
-            Deprecated.
-        
+
         get_charge_balance : bool, default True
             Calculate charge balance and ionic strength?
         
@@ -1938,6 +1530,7 @@ class AqEquil(object):
             
             - Example of `db_args` where organics are excluded and redox is
             suppressed for Fe and S:
+            
             db_args = {
                "exclude_category":{"category_1":["organic_aq"]},
                "suppress_redox":["Fe", "S"],
@@ -1951,30 +1544,18 @@ class AqEquil(object):
         
         """
 
-        # deprecated!
-        if get_affinity_energy:
-            self.err_handler.raise_exception("Deprecation error: affinity and "
-                    "energy supply calculations are now handled after speciation "
-                    "using the speciation.apply_redox_reactions(...) or "
-                    "speciation.calculate_energy(...) functions.")
-
         self.batch_T = []
         self.batch_P = []
         
         self.verbose = verbose
-        
-        if db != None:
-            # load new thermodynamic database
-            self.thermo._set_active_db(db)
-        else:
-            db = self.thermo.db
+
+        db = self.thermo.db
             
         if self.thermo.thermo_db_type in ["CSV", "Pandas DataFrame"]:
             db_args["db"] = "dyn"
             
         dynamic_db = self.thermo.dynamic_db
         data0_lettercode = self.thermo.data0_lettercode # needs to be this way
-        
         
         if (self.thermo.thermo_db_type == "data0" or self.thermo.thermo_db_type == "data1") and len(db_args) > 0:
             if self.verbose > 0:
@@ -2015,7 +1596,7 @@ class AqEquil(object):
         else:
             self.err_handler.raise_exception("Unrecognized redox flag. Valid options are 'O2(g)'"
                                              ", 'pe', 'Eh', 'logfO2', 'redox aux'")
-            
+
         # handle batch_3o naming
         if batch_3o_filename != None:
             if ".rds" in batch_3o_filename[-4:]:
@@ -2024,11 +1605,11 @@ class AqEquil(object):
                 batch_3o_filename = "batch_3o_{}.rds".format(data0_lettercode)
         else:
             batch_3o_filename = ro.r("NULL")
-        
+
         # reset logK_models whenever speciate() is called
         # (prevents errors when speciations are run back-to-back)
         self.logK_models = {}
-        
+
         # dynamic data0 creation per sample
         if dynamic_db:
             db_args["fill_data0"] = False
@@ -2037,9 +1618,6 @@ class AqEquil(object):
             db_args["dynamic_db_sample_temps"] = sample_temps
             db_args["dynamic_db_sample_press"] = sample_press
             
-            if db_logK != None:
-                self.thermo._load_logK(db_logK, source="file")
-            
             if logK_extrapolate != None:
                 db_args["logK_extrapolate"] = logK_extrapolate
             elif self.thermo.logK_active:
@@ -2047,29 +1625,6 @@ class AqEquil(object):
                 logK_extrapolate = self.thermo.logK_extrapolate
             else:
                 logK_extrapolate = "none"
-
-            if db_solid_solution != None:
-                if not (db_solid_solution[0:8].lower() == "https://" or db_solid_solution[0:7].lower() == "http://" or db_solid_solution[0:4].lower() == "www."):
-                    if os.path.exists(db_solid_solution) and os.path.isfile(db_solid_solution):
-                        db_args["filename_ss"] = db_solid_solution
-                    else:
-                        self.err_handler.raise_exception("Error: could not locate " + str(db_solid_solution))
-                else:
-                    db_solid_solution_csv_name = db_solid_solution.split("/")[-1].lower()
-
-                    try:
-                        # Download from URL and decode as UTF-8 text.
-                        with urlopen(db_solid_solution) as webpage:
-                            content = webpage.read().decode()
-                    except:
-                        self.err_handler.raise_exception("The webpage "+str(db_solid_solution)+" cannot"
-                                " be reached at this time.")
-                        
-                    # Save to CSV file.
-                    with open(db_solid_solution_csv_name, 'w') as output:
-                        output.write(content)
-                        
-                    db_args["filename_ss"] = db_solid_solution_csv_name
                     
             if self.verbose > 0:
                 print("Getting", self.thermo.thermo_db_filename, "ready. This will take a moment...")
@@ -2426,12 +1981,6 @@ class AqEquil(object):
             get_solid_solutions=get_solid_solutions,
             batch_3o_filename=batch_3o_filename,
             df_input_processed=ro.conversion.py2rpy(self.df_input_processed),
-            # New rpy2 py2rpy2 conversion might not need the workaround below.
-            # The old note regarding deprecated pandas2ri is shown below...
-            # OLD NOTE:
-            # Needed for keeping symbols in column names after porting
-            #   df_input_processed in the line above. Some kind of check.names
-            #   option for pandas2ri.py2ri would be nice. Workaround:
             df_input_processed_names=df_input_processed_names,
             verbose=self.verbose,
         )
@@ -2577,6 +2126,7 @@ class AqEquil(object):
             
         if get_fugacity:
             fugacity_cols = list(report_divs.rx2('fugacity'))
+            fugacity_cols = [col for col in fugacity_cols if col != "df"] # TO DO: why is df appearing in fugacity, mineral sat cols and redox sections?
             df_fugacity = df_report[fugacity_cols]
             df_fugacity = df_fugacity.apply(pd.to_numeric, errors='coerce')
             
@@ -2701,6 +2251,7 @@ class AqEquil(object):
         speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
         speciation.half_cell_reactions = self.half_cell_reactions
+        speciation._half_cell_reactions_originalcopy = self._half_cell_reactions_originalcopy
         
         if report_filename != None:
             if ".csv" in report_filename[-4:]:
@@ -3173,23 +2724,45 @@ class AqEquil(object):
                     elif not math.isnan(p):
                         sp_press_grid.append(p)
 
+                if dynamic_db:
+                    sp_press_grid_numeric = [pyCHNOSZ.water("Psat", T=273.15+T).iloc[0][0] if P=="Psat" or P=="psat" or P=="PSAT" else P for P,T in zip(sp_press_grid, sp_temps_grid) ]
+                    grid_press_list_numeric = [pyCHNOSZ.water("Psat", T=273.15+T).iloc[0][0] if P=="Psat" or P=="psat" or P=="PSAT" else P for P,T in zip(grid_press_list, grid_temps) ]
+    
+                    sp_temps_grid_psatted = []
+                    for ii,T in enumerate(sp_temps_grid):
+                        if T < 100 and sp_press_grid_numeric[ii] == 1:
+                            sp_temps_grid_psatted.append(25)
+                        else:
+                            sp_temps_grid_psatted.append(T)
+                    
+                    grid_temps_psatted = []
+                    for ii,T in enumerate(grid_temps):
+                        if T < 100 and grid_press_list_numeric[ii] == 1:
+                            grid_temps_psatted.append(25)
+                        else:
+                            grid_temps_psatted.append(T)
+                    
+                    sp_TP = [(T,P) for T,P in zip(sp_temps_grid_psatted, sp_press_grid_numeric)]
+                    sample_TP = [(T,P) for T,P in zip(grid_temps_psatted, grid_press_list_numeric)]
+
+                
                 if sp_press_grid == grid_press_list and sp_temps_grid == grid_temps:
                     # If pressures and temperature grid exactly matches that of the sp...
                     # need to test this!
+                    valid_sp_i.append(i)
+                elif dynamic_db and all(P in sp_TP for P in sample_TP):
+                    # If every sample T,P point matches any of the T,P points in the species grid...
                     valid_sp_i.append(i)
                 elif (logK_extrapolate != "none" or (min(grid_temps) >= min(sp_temps_grid) and max(grid_temps) <= max(sp_temps_grid))) and _all_equal(sp_press_grid + grid_press_list):
                     # If all grid temperatures are within minimum and maximum file temperatures,
                     # and all pressures in file for the sp are equal, and all grid pressures match
                     # file pressure, then the species is valid
                     valid_sp_i.append(i)
-                
                 else:
                     # species is invalid. Define reasons.
                     
                     reject_reason_list = []
-                    
 
-                    
                     if min(grid_temps) < min(sp_temps_grid) and _all_equal(sp_press_grid + grid_press_list) and logK_extrapolate == "none":
 
                         min_sp = str(min(sp_temps_grid))
@@ -3468,24 +3041,6 @@ class AqEquil(object):
 
         if self.verbose > 0:
             print("Finished creating data0.{}.".format(db))
-            
-
-    def make_redox_reactions(self, *args, **kwargs):
-        """
-        Deprecated
-        """
-        self.err_handler.raise_exception("Deprecation error: make_redox_reactions "
-                "now belongs to the Speciation class. Perform a speciation and then "
-                "use: speciation.make_redox_reactions(...)")
-
-    def show_redox_reactions(self, *args, **kwargs):
-        """
-        Deprecated
-        """
-        self.err_handler.raise_exception("Deprecation error: show_redox_reactions "
-                "now belongs to the Speciation class. Perform a speciation and then "
-                "use: speciation.show_redox_reactions(...)")
-
 
     
     class Thermodata(object):
@@ -3504,10 +3059,12 @@ class AqEquil(object):
             self.elements = self.AqEquil_instance.elements
             solid_solutions = self.AqEquil_instance.solid_solutions
             self.exclude_category = self.AqEquil_instance.exclude_category
+            self.exclude_organics_except = self.AqEquil_instance.exclude_organics_except
             self.water_model = self.AqEquil_instance.water_model
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
+            mineral_db = self.AqEquil_instance.mineral_db
             download_csv_files = self.AqEquil_instance.download_csv_files
             suppress_redox = self.AqEquil_instance.suppress_redox
             exceed_Ttr = self.AqEquil_instance.exceed_Ttr
@@ -3602,7 +3159,6 @@ class AqEquil(object):
                     print("Loading a user-supplied Pandas DataFrame thermodynamic database...")
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
                 
-
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 self._validate_thermodynamic_database()
 
@@ -3624,7 +3180,11 @@ class AqEquil(object):
                 
             if self.logK_active:
                 self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
-                
+
+            if mineral_db != "WORM" and self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
+                # load a different mineral database
+                pass
+            
             # process dissociation reactions
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 self._suppress_redox_and_generate_dissrxns(
@@ -4045,11 +3605,17 @@ class AqEquil(object):
             self.logK_S_db = self._exclude_category(df=self.logK_S_db, df_name=self.logK_S_db_filename)
 
             if self.logK_S_active:
+                
                 for i,sp in enumerate(self.logK_S_db["name"]):
+
+                    i = self.logK_S_db.index[i]
                     
                     logK_25C = float(self.logK_S_db["logK_25"][i])
-                    
-                    IS_ref = float(self.logK_S_db["logK_25_IS"][i])
+
+                    if "logK_25_IS" in self.logK_S_db.columns:
+                        IS_ref = float(self.logK_S_db["logK_25_IS"][i])
+                    else:
+                        IS_ref = 0
                     
                     T_list = self.logK_S_db["T_vals"][i].split(" ")
                     T_list = [float(T) for T in T_list]
@@ -4061,39 +3627,64 @@ class AqEquil(object):
                         
                         # collect azero values for metal, ligand, and complex
                         metal_name = self.logK_S_db["metal_name"][i]
-                        
+
                         if self.thermo_db["name"].isin([metal_name]).any():
                             metal_azero = list(self.thermo_db[self.thermo_db["name"] == metal_name]["azero"])[0]
                             metal_charge = float(list(self.thermo_db[self.thermo_db["name"] == metal_name]["z.T"])[0])
 #                         elif:
 #                             # todo: get metal azero and charge from other databases, e.g., logK db
 #                             pass
+                        elif metal_name == "H+":
+                            metal_azero = 4
+                            metal_charge = 1
                         else:
                             # todo: throw error
                             pass
                         
                         ligand_name = self.logK_S_db["ligand_name"][i]
-                        if isinstance(self.logK_S_db["ligand_azero"][i], float):
-                            ligand_azero = float(self.logK_S_db["ligand_azero"][i])
-                        elif self.thermo_db["name"].isin([ligand_name]).any():
-                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["azero"])[0])
-                        else:
-                            # todo: elif ligand_name in logK database names, get azero from there...
-                            # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
-                        
+                        ligand_basis = self.logK_S_db["ligand_basis"][i]
+
+
                         if isinstance(self.logK_S_db["ligand_charge"][i], float):
                             ligand_charge = float(self.logK_S_db["ligand_charge"][i])
                         elif self.thermo_db["name"].isin([ligand_name]).any():
                             ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["z.T"])[0])
+                        elif self.thermo_db["name"].isin([ligand_basis]).any():
+                            ligand_charge = float(list(self.thermo_db[self.thermo_db["name"] == ligand_basis]["z.T"])[0])
                         else:
-                            # todo: elif ligand_name in logK database names, get charge from there...
+                            formula_dict = parse_formula(self.logK_S_db["ligand_formula"])
+                            if "+" in list(formula_dict.keys()):
+                                ligand_charge = float(formula_dict["+"])
+                            elif "-" in list(formula_dict.keys()):
+                                ligand_charge = float(formula_dict["-"])
+                            else:
+                                ligand_charge = 0
+                            # self.err_handler.raise_exception("The ligand '"+ligand_name+"' was not found in the "
+                            #         "currently loaded databases. Is this ligand present in the database? Was this "
+                            #         "ligand excluded (e.g., exclude_organics=True)?")
+
+                        if isinstance(self.logK_S_db["ligand_azero"][i], float):
+                            ligand_azero = float(self.logK_S_db["ligand_azero"][i])
+                        elif self.thermo_db["name"].isin([ligand_name]).any():
+                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_name]["azero"])[0])
+                        elif self.thermo_db["name"].isin([ligand_basis]).any():
+                            ligand_azero = float(list(self.thermo_db[self.thermo_db["name"] == ligand_basis]["azero"])[0])
+                        else:
+                            # todo: elif ligand_name in logK database names, get azero from there...
                             # or maybe this is not necessary if logK is merged with thermo_db at this point
-                            pass
+
+                            ligand_azero = 4 # acceptable placeholder azero for charged species
+
                     
                         dissrxn = self.logK_S_db["dissrxn"][i].split(" ")
                         n_metal = float(dissrxn[dissrxn.index(metal_name)-1])
-                        n_ligand = float(dissrxn[dissrxn.index(ligand_name)-1])
+                        if ligand_name in dissrxn:
+                            n_ligand = float(dissrxn[dissrxn.index(ligand_name)-1])
+                        elif ligand_basis in dissrxn:
+                            n_ligand = float(dissrxn[dissrxn.index(ligand_basis)-1])
+                        else:
+                            # todo: throw error
+                            pass
                         n_complex = -float(dissrxn[dissrxn.index(sp)-1])
                         
                         complex_charge = n_metal*metal_charge + n_ligand*ligand_charge
@@ -4126,7 +3717,7 @@ class AqEquil(object):
                     if isinstance(self.logK_S_db["ligand_element"][i], str):
                         # modify element database with pseudoelements
                         pseudoelement = self.logK_S_db["ligand_element"][i]
-                        if pseudoelement not in self.element_db["element"]:
+                        if pseudoelement not in list(self.element_db["element"]):
                             e_df = pd.DataFrame(
                                 {'element':[self.logK_S_db["ligand_element"][i]],
                                  'state':[self.logK_S_db["state"][i]],
@@ -4141,7 +3732,8 @@ class AqEquil(object):
                     if isinstance(self.logK_S_db["ligand_basis"][i], str):
                         # add a basis species representing the pseudoelement
                         basis = self.logK_S_db["ligand_basis"][i]
-                        if basis not in self.thermo_db["name"]:
+                        
+                        if basis not in list(self.thermo_db["name"]):
                             b_df = pd.DataFrame(
                                 {'name':[self.logK_S_db["ligand_basis"][i]],
                                  'abbrv':[""],
@@ -4164,7 +3756,7 @@ class AqEquil(object):
                                  'formula_ox':[self.logK_S_db["ligand_formula"][i]],
                                  'category_1':[self.logK_S_db["category_1"][i]],
                                 })
-
+                            
                             self.thermo_db = pd.concat([self.thermo_db, b_df], ignore_index=True)
 
                     if self.logK_S_db["name"][i] not in self.thermo_db["name"] and self.logK_S_db["name"][i] not in self.logK_db["name"]:
@@ -4282,13 +3874,29 @@ class AqEquil(object):
             Exclude entries from a df based on values in columns.
             e.g., {"category_1":["organic_aq", "organic_cr"]}
             """
+
+            if isinstance(self.exclude_organics_except, list):
+                organics_to_exclude = []
+                for i,name in enumerate(df["name"]):
+                    if df["category_1"].iloc[i] in ["organic_aq", "organic_cr"] and name not in self.exclude_organics_except:
+                        organics_to_exclude.append(name)
+
+                if not isinstance(self.exclude_category.get("name"), list) or "name" not in list(self.exclude_category.keys()):
+                    self.exclude_category["name"] = organics_to_exclude
+                else:
+                    self.exclude_category["name"] += organics_to_exclude
+                    self.exclude_category["name"] = list(set(self.exclude_category["name"]))
+
             
             exclude_keys = list(self.exclude_category.keys())
             if len(exclude_keys) > 0:
                 for key in exclude_keys:
                     if self.verbose > 0:
-                        print("Excluding", str(self.exclude_category[key]), "from column", str(key), "in", df_name)
-                        
+                        if len(self.exclude_category[key]) <= 10:
+                            print("Excluding", str(self.exclude_category[key]), "from column '" + str(key) + "'in", df_name)
+                        else:
+                            print("Excluding", len(self.exclude_category[key]), "different chemical species from column '" + str(key) + "' in", df_name)
+                    
                     if isinstance(self.exclude_category[key], list):
                         
                         idx = list(df[df[key].isin(self.exclude_category[key])].index)
@@ -4601,7 +4209,7 @@ class Speciation(object):
          return getattr(self, item)
 
     
-    def __make_speciation_group_dict(self):
+    def _make_speciation_group_dict(self):
 
         if isinstance(self.custom_grouping_filepath, str):
             with open(self.custom_grouping_filepath) as file:
@@ -4615,21 +4223,32 @@ class Speciation(object):
 
         lines = [l for l in lines if l != ""] # remove blank lines
 
-        
         # Creates a dictionary with this format:
         #
         # {...
-        #  "sulfides 1": ["H2S", "HS-"],
-        #  "sulfides 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  "sulfides 3": ["Pb(HS)3-"],
-        #  "ferrous iron 1": [...],
+        #  "sulfide 1": ["H2S", "HS-"],
+        #  "sulfide 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
+        #  "sulfide 3": ["Pb(HS)3-"],
+        #  "iron(II) 1": [...],
         #  ...
         # }
         #
         # Used by calculate_energy() to calculate concentrations of limiting reactants.
-        reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
-        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
+        try:
+            reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
+        except:
+            bad_line_indices = []
+            bad_lines = []
+            for i,l in enumerate(lines):
+                if ":" not in l:
+                    bad_line_indices.append(i)
+                    bad_lines.append(l)
 
+            bad_line_indices = [i+1 for i in bad_line_indices]
+            self.err_handler.raise_exception("Line(s) in the speciation group file do not contain a colon ':'. Fix the formatting on line(s):\n"+str(bad_line_indices)+"\nLines to blame:\n"+str(bad_lines))
+
+
+        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
 
         # Creates a dictionary with this format:
         # {...
@@ -4643,6 +4262,7 @@ class Speciation(object):
         #
         # Used to switch a user-specified limiting reactant to one within the same scalar group.
         speciation_group_dict = {}
+        speciation_group_dict_all_like_categories = {}
         for i,line in enumerate(lines):
             line = line.strip().split(":")
             assert len(line) == 2 # will fail if : in species names
@@ -4658,6 +4278,32 @@ class Speciation(object):
 
         self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
 
+        # Creates a dictionary with this format:
+        # {...
+        #  "sulfate": ['SO4-2','HSO4-','PdSO4','RhSO4', ..., 'Ru(SO4)3-4'],
+        #  "formate": ['formic-acid', 'formate', 'Am(For)+2', ..., 'Zn(For)2'],
+        #  ...
+        # }
+        # Used when the user wants to exclude all organics except for acetate (e.g.)
+        # and all species in the acetate speciation group
+        group_categories = []
+        for group_name in self.reactant_dict_scalar.keys():
+            group_name_no_number = group_name.split(" ")
+            group_name_no_number = " ".join(group_name_no_number[:-1])
+            group_categories.append(group_name_no_number)
+        group_categories = list(set(group_categories))
+
+        sp_dict_groups = {}
+        for g1 in group_categories:
+            for i,g2 in enumerate(self.reactant_dict_scalar.keys()):
+                g2_cat_name = g2.split(" ")
+                g2_cat_name = " ".join(g2_cat_name[:-1])
+                if g1 == g2_cat_name:
+                    if g1 not in sp_dict_groups.keys():
+                        sp_dict_groups[g1] = copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+                    else:
+                        sp_dict_groups[g1] += copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
+        self.sp_dict_groups = sp_dict_groups
 
 
     def __switch_limiting(self, limiting, stoich, species, lenient=False):
@@ -4678,7 +4324,7 @@ class Speciation(object):
                             print("The specified limiting reactant", str(limiting),
                                   "has been switched to", str(s), "because the latter",
                                   "appears as a reactant in the reaction:")
-                            if _isnotebook():
+                            if isnotebook():
                                 _ = self.format_reaction(coeffs=stoich,
                                    names=species,
                                    formatted=True,
@@ -4701,6 +4347,108 @@ class Speciation(object):
                 limiting = None
                 
         return limiting
+
+
+    def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
+        """
+        Add a new half reaction to the bottom of the table of available half
+        reactions that can be combined using `make_redox_reactions`.
+
+        Parameters
+        ----------
+        oxidant, reductant : str
+            Names of the oxidant and reductant as they appear in the
+            thermodynamic database. It does not matter what speciated form of an
+            oxidant or reductant is chosen. For example, choosing "acetate" as
+            the oxidant is the same as choosing "acetic-acid" because they
+            belong to the same speciation group.
+        
+        redox_couple : str, optional
+            Desired name of the half reaction. This name is arbitrary and can be
+            anything you'd like. If no name is provided, a name will be
+            automatically generated based on the oxidant and reductant.
+
+        Result
+        ----------
+        Appends a new row to the half_cell_reactions table.
+        """
+
+        if not isinstance(self.thermo.thermo_db, pd.DataFrame):
+            # check to see if user is using a thermodynamic database CSV
+            if self.verbose > 0:
+                print("Did not add a new half reaction because a WORM-style thermodynamic database CSV is not available "
+                      "to check the validity of the user-supplied oxidant and reductant or perform energy calculations. Perhaps you "
+                      "are getting this message because you are using a calibrated database or data0 file (e.g. db='wrm' in AqEquil() ) "
+                      "instead of a more complete CSV database (e.g. db='WORM' or db='wrm_data.csv' in AqEquil() ).")
+            return
+        else:
+            # check to see if the oxidant and reductant are actually in the thermodynamic database
+            if oxidant in list(self.thermo.thermo_db["name"]) and reductant in list(self.thermo.thermo_db["name"]):
+                pass
+            elif oxidant == "H2O" or reductant == "H2O":
+                pass
+            else:
+                if oxidant not in list(self.thermo.thermo_db["name"]):
+                    if self.verbose > 0:
+                        print("Did not add a new half reaction because the oxidant '"+str(oxidant)+"' "
+                              "was not found amongst the currently loaded chemical species.")
+                else:
+                    print("Did not add a new half reaction because the reductant '"+str(reductant)+"' "
+                          "was not found amongst the currently loaded chemical species.")
+                return
+                
+        # check to see if this half reaction already exists
+        add_new_row = True
+        dup_index = None
+        for i in self.half_cell_reactions.index:
+            if self.half_cell_reactions.iloc[i]["Oxidant"] == oxidant and self.half_cell_reactions.iloc[i]["Reductant"] == reductant:
+                add_new_row = False
+                dup_index = i
+                break
+
+        if add_new_row:
+
+            if not isinstance(redox_couple, str):
+                redox_couple = str(oxidant) + " to " + str(reductant)
+            
+            new_row = [redox_couple, oxidant, reductant]
+            self.half_cell_reactions.loc[len(self.half_cell_reactions.index)] = new_row
+            if self.verbose > 0:
+                print("Added new half reaction to half_cell_reactions.")
+        else:
+            if self.verbose > 0:
+                print("A row with this oxidant and reductant already exists with index", i)
+    
+
+    def delete_half_reaction(self, index):
+        """
+        Delete a half reaction from the half_cell_reactions table. Useful for
+        removing unwanted or mistaken half reactions. This will reset the
+        indices in the table to prevent a gap from the deleted row.
+
+        Parameters
+        ----------
+        index : int or list of int
+            Index or list of indices of the row in the half_cell_reactions table
+            to be deleted.
+        """
+        if not isinstance(index, list):
+            index = [index]
+        self.half_cell_reactions.drop(index, inplace=True)
+        self.half_cell_reactions.reset_index(inplace=True, drop=True)
+        if self.verbose > 0:
+                print("Rows", index, "have been deleted and indices have "
+                      "been reset in the half_cell_reactions table.")
+
+    
+    def reset_half_reactions(self):
+        """
+        Reset the half_cell_reactions table back to its original default. Takes
+        no parameters.
+        """
+        self.half_cell_reactions = copy.deepcopy(self._half_cell_reactions_originalcopy)
+        if self.verbose > 0:
+                print("The table of half reactions half_cell_reactions has been reset.")
 
     
     def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
@@ -4782,13 +4530,19 @@ class Speciation(object):
         
         self.custom_grouping_filepath = custom_grouping_filepath
         
-        self.__make_speciation_group_dict()
+        self._make_speciation_group_dict()
         
         y_name_list = []
         val_list_list = []
         result_dict = {}
         result_lim_dict = {}
 
+        if not isinstance(self.redox_reactions_table, pd.DataFrame):
+            self.err_handler.raise_exception("Redox reactions cannot be applied "
+                "because they have not yet been generated. Generate redox "
+                "reactions with the function make_redox_reactions() and then "
+                "try again.")
+        
         coeff_colnames = [c for c in list(self.redox_reactions_table.columns) if "coeff_" in c]
         species_colnames = [c for c in list(self.redox_reactions_table.columns) if "species_" in c]
 
@@ -4911,7 +4665,7 @@ class Speciation(object):
 
         df_out = copy.copy(self.redox_formatted_reactions)
 
-        if _isnotebook() and show:
+        if isnotebook() and show:
             display(HTML(df_out.to_html(escape=False)))
         
         return df_out
@@ -4928,11 +4682,11 @@ class Speciation(object):
         reactants = " + ".join([(str(-int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else -react_grid["coeff"][i])+" " if -react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
         products = " + ".join([(str(int(react_grid["coeff"][i]) if react_grid["coeff"][i].is_integer() else react_grid["coeff"][i])+" " if react_grid["coeff"][i] != 1 else "") + react_grid["name"][i] for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
         if formatted:
-            reactants = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
-            products = " + ".join([_format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
+            reactants = " + ".join([format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] < 0])
+            products = " + ".join([format_coeff(react_grid["coeff"][i]) + chemlabel(react_grid["name"][i], charge_sign_at_end=charge_sign_at_end) for i in range(0, len(react_grid["name"])) if react_grid["coeff"][i] > 0])
         reaction = reactants + " = " + products
 
-        if _isnotebook() and show:
+        if isnotebook() and show:
             display(HTML(reaction))
         
         return reaction
@@ -4980,6 +4734,31 @@ class Speciation(object):
         # reset all redox variables stored in the AqEquil class
         self.redox_reactions_table = None
         self.redox_formatted_reactions = None
+
+        if isinstance(idx_list, str):
+            if idx_list == "all":
+                pass
+            else:
+                self.err_handler.raise_exception("The parameter idx_list must "
+                        "either be a list of indices corresponding to desired "
+                        "half reactions in the half_cell_reactions table, or "
+                        "'all' for all half reaction combinations.")
+        elif isinstance(idx_list, list):
+            if len(idx_list) == 0:
+                self.err_handler.raise_exception("The list of desired half "
+                        "reactions is empty. Please define the indices of at "
+                        "least two half reactions to combine into a full redox "
+                        "reaction. These indices correspond to rows in the "
+                        "half_cell_reactions table.")
+            if len(idx_list) == 1:
+                self.err_handler.raise_exception("Only one half reaction index "
+                        "was provided. At least two must be provided in order "
+                        "to create a full redox reaction.")
+        else:
+            self.err_handler.raise_exception("The parameter idx_list must "
+                    "either be a list of indices corresponding to desired "
+                    "half reactions in the half_cell_reactions table, or "
+                    "'all' for all half reaction combinations.")
         
         if self.verbose > 1:
             print("Generating redox reactions...")
@@ -5007,8 +4786,12 @@ class Speciation(object):
         half_reaction_dict = {}
         bad_idx_list = []
         for idx in idx_list:
-
+        
             #print(idx)
+
+            if idx not in self.half_cell_reactions.index:
+                self.err_handler.raise_exception("The index " + str(idx) + " was not "
+                        "found in the half_cell_reactions table.")
             
             oxidant = self.half_cell_reactions["Oxidant"].iloc[idx]
             reductant = self.half_cell_reactions["Reductant"].iloc[idx]
@@ -5019,9 +4802,20 @@ class Speciation(object):
             elif oxidant == "H2O" and reductant == "H2":
                 half_reaction_dict[idx] = {'H2O': -2.0, 'e-': -2.0, 'H2': 1.0, 'OH-': 2.0}
                 continue
+            elif oxidant == "H2O2" and reductant == "H2O":
+                half_reaction_dict[idx] = {'H2O2': -1.0, 'e-': -2.0, 'H2O': 2.0, "H+": -2.0}
+                continue
+            elif oxidant == "O2" and reductant == "H2O2":
+                half_reaction_dict[idx] = {'O2': -1.0, 'e-': -2.0, 'H+': -2.0, 'H2O2': 1.0}
+                continue
+            elif oxidant == "H2O2" and reductant == "H2":
+                half_reaction_dict[idx] = {'H2O2': -1.0, 'e-': -4.0, 'H+': -2.0, 'H2':1.0, 'OH-': 2.0}
+                continue
 
             db_sp_names = list(self.thermo.thermo_db["name"])
-            if oxidant not in db_sp_names or reductant not in db_sp_names:
+            if oxidant == "H2O" or reductant == "H2O":
+                pass
+            elif oxidant not in db_sp_names or reductant not in db_sp_names:
                 if oxidant not in db_sp_names:
                     problem_sp = oxidant
                 else:
@@ -5035,13 +4829,14 @@ class Speciation(object):
                           "the speciation step. Skipping this half reaction...")
                 bad_idx_list.append(idx)
                 continue
-
+            
             # comparing common elements
             # requires "formula" and not "formula_modded" columns of thermo_db
             ox_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==oxidant].values[0])
             ox_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
             ox_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==oxidant].values[0]
-
+                
+            
             red_formula_dict = parse_formula(self.thermo.thermo_db["formula"].loc[self.thermo.thermo_db["name"]==reductant].values[0])
             red_formula_ox = self.thermo.thermo_db["formula_ox"].loc[self.thermo.thermo_db["name"]==reductant].values[0]
             red_dissrxn = self.thermo.thermo_db["dissrxn"].loc[self.thermo.thermo_db["name"]==reductant].values[0]
@@ -5093,7 +4888,11 @@ class Speciation(object):
                 electron_coeff = red_coeff*total_red_ce_oxstate - ox_coeff*total_ox_ce_oxstate
                 
                 if electron_coeff > 0:
-                    print("Error: this half reaction's oxidant and reductant are switched. Electron coeff must be negative.")
+                    self.err_handler.raise_exception("The oxidant '"+oxidant+"' is more reduced than the "
+                            "reductant '"+reductant+"' in the half reaction corresponding to index " + str(idx) + " "
+                            "in the half_cell_reactions table. Please flip the species so that "
+                            "the oxidant is in the Oxidant column.")
+                    
                     # TODO: automatically flip it for the user...
                 else:
                     # if e- transfer for this common elem is negative (e- is transferred)
@@ -5149,6 +4948,12 @@ class Speciation(object):
                     if elems[0] in elems_unique_to_reductant and elems[0] not in basis_candidate_elems:
                         basis_candidates.append(f)
                         basis_candidate_elems.append(elems[0])
+
+            if len(common_elem_electron_dict) == 0:
+                # no common elements between oxidant and reductant
+                self.err_handler.raise_exception("A common element could not be found between "
+                        "the oxidant " + str(oxidant) + " and the reductant " + str(reductant))
+                
             
             unpacked_dict = common_elem_electron_dict[list(common_elem_electron_dict.keys())[0]]
 
@@ -5176,15 +4981,66 @@ class Speciation(object):
         good_idx_list = [idx for idx in idx_list if idx not in bad_idx_list]
         redox_pair_list = [list(p) for p in list(itertools.combinations(good_idx_list, 2))]
 
+
+        # Weed out redox pairs that would have the same
+        # electron-donating/accepting species as a product and reactant. E.g.
+        # 'CO2': -1.0, 'CH4': 1.0, 'e-': -8.0, 'H2O': 2.0, 'H+': -8.0
+        # 'CO': -1.0, 'CH4': 1.0, 'e-': -6.0, 'H2O': 1.0, 'H+': -6.0
+        # In this example, CH4 would be both a product and reactant in the resulting
+        # full redox reaction. Get rid of these pairs because they cause erroneous
+        # calculation of electrons transferred when half reactions are summed.
+        bad_redox_pair_index_list = []
+        for i,p in enumerate(redox_pair_list):
+            half_rxn_idx_1 = p[0]
+            half_rxn_idx_2 = p[1]
+
+            reactant_1 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_1].keys(), half_reaction_dict[half_rxn_idx_1].values()) if v<0]
+            reactant_2 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_2].keys(), half_reaction_dict[half_rxn_idx_2].values()) if v<0]
+            product_1 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_1].keys(), half_reaction_dict[half_rxn_idx_1].values()) if v>0]
+            product_2 = [k for k,v in zip(half_reaction_dict[half_rxn_idx_2].keys(), half_reaction_dict[half_rxn_idx_2].values()) if v>0]
+            reactant_1 = [r for r in reactant_1 if r not in ["H2O", "H+", "e-"]]
+            reactant_2 = [r for r in reactant_2 if r not in ["H2O", "H+", "e-"]]
+            product_1 = [r for r in product_1 if r not in ["H2O", "H+", "e-"]]
+            product_2 = [r for r in product_2 if r not in ["H2O", "H+", "e-"]]
+            if len([ii for ii in reactant_1 if ii in reactant_2]) != 0:
+                bad_redox_pair_index_list.append(i)
+            if len([ii for ii in product_1 if ii in product_2]) != 0:
+                bad_redox_pair_index_list.append(i)
+        
+        redox_pair_list = [i for j, i in enumerate(redox_pair_list) if j not in bad_redox_pair_index_list]
+        
+        if len(redox_pair_list) == 0:
+            if self.verbose > 0:
+                msg = ("No valid redox reactions could be made with these half reactions. "
+                       "This is likely because a species appears as both an oxidant and a "
+                       "reductant in the full redox reaction. For example, "
+                       "combining the half reactions 'CO2 to CH4' and 'CO to CH4' "
+                       "would produce a full redox reaction with CH4 as both a product "
+                       "and a reactant. If you would like to model a "
+                       "comproportionation or disproportionation reaction, be sure "
+                       "to select half reactions that do not share reactants and products. "
+                       "For example, 'CO2 to CO' and 'CO to CH4' is a valid combination that "
+                       "would represent the comproportionation or disproportionation of CO in "
+                       "the forward and backward redox reactions.")
+                print(msg)
+            return
+        
         self.redox_pair_list = redox_pair_list
 
         # create 'reaction_dict': a dictionary of reactions keyed by their idx pairs
         reaction_dict = {}
         e_dict = {}
         for pair in redox_pair_list:
-            half_reaction_dict_1 = half_reaction_dict[pair[0]]
-            half_reaction_dict_2 = half_reaction_dict[pair[1]]
 
+            # print("Pair:", str(pair))
+            
+            half_reaction_dict_1 = copy.deepcopy(half_reaction_dict[pair[0]])
+            half_reaction_dict_2 = copy.deepcopy(half_reaction_dict[pair[1]])
+
+            # print("half reactions")
+            # print(half_reaction_dict_1)
+            # print(half_reaction_dict_2)
+            
             # find the lowest common multiple of e-
             # ensure e- is an integer value or else lcm() won't work
             assert int(half_reaction_dict_1["e-"]) == half_reaction_dict_1["e-"]
@@ -5192,7 +5048,7 @@ class Speciation(object):
 
             # find lowest common multiple (lcm) of the electrons in the two half reactions
             e_lcm = math.lcm(int(half_reaction_dict_1["e-"]), int(half_reaction_dict_2["e-"]))
-
+            
             # use the lcm to multiply half reaction coefficients to get the
             # same number of electrons transferred in each half reaction
             mult_1 = abs(e_lcm/half_reaction_dict_1["e-"])
@@ -5236,23 +5092,22 @@ class Speciation(object):
             for k in list(full_rxn_dict.keys()):
                 if full_rxn_dict[k] == 0:
                     del full_rxn_dict[k]
-            
-            # divide all coefficients by their greatest common divisor
-            argv = [int(c) for c in list(full_rxn_dict.values())]
 
-            # all coefficients must be integers for math.gcd to work
-            assert argv == list(full_rxn_dict.values())
-            
-            coeff_gcd = math.gcd(*argv)
-            full_rxn_dict = {k:full_rxn_dict[k]/coeff_gcd for k in full_rxn_dict.keys()}
-            
-            # print("full_rxn_dict")
+            # print("full_rxn_dict before")
             # print(full_rxn_dict)
+            
+            # multiply all coefficients by their least common multiple
+            denoms = [Fraction(x).limit_denominator().denominator for x in list(full_rxn_dict.values())]
+            coeff_lcm = functools.reduce(lambda a,b: a*b//math.gcd(a,b), denoms)
+            full_rxn_dict = {k:full_rxn_dict[k]*coeff_lcm for k in full_rxn_dict.keys()}
 
-            e_transferred = half_reaction_dict_1["e-"]/coeff_gcd
+            # print("full_rxn_dict after")
+            # print(full_rxn_dict)
+            
+            e_transferred = half_reaction_dict_1["e-"]*coeff_lcm
             e_dict[str(pair[0])+"_"+str(pair[1])] = abs(e_transferred)
             e_dict[str(pair[1])+"_"+str(pair[0])] = abs(e_transferred)
-            
+
             # print("e_transferred")
             # print(e_transferred)
 
@@ -5419,7 +5274,8 @@ class Speciation(object):
         """
         scalars = []
         groups = []
-        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):
+        
+        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):            
             if s in grp_list:
                 s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be "sulfates 1"
                 s_key_split = s_key.split(" ")
@@ -5433,9 +5289,19 @@ class Speciation(object):
                         continue
                 groups = [s_key_grp+" "+str(s) for s in scalars]
                 break
+                
         scalars = [float(s) for s in scalars]
-        groups = [self.reactant_dict_scalar[g] for g in groups]
-        return scalars, groups
+
+        # prevent duplicate groups and scalars from appearing
+        scalars_final = []
+        groups_final = []
+        for i,group in enumerate(groups):
+            if group not in groups_final:
+                scalars_final.append(scalars[i])
+                groups_final.append(groups[i])
+
+        groups_final = [self.reactant_dict_scalar[g] for g in groups_final]
+        return scalars_final, groups_final
 
 
     def calculate_energy(self, species, stoich,
@@ -5616,7 +5482,7 @@ class Speciation(object):
 
         if y_type == "E":
             if not isinstance(self.reactant_dict_scalar, dict):
-                self.__make_speciation_group_dict()
+                self._make_speciation_group_dict()
         
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
@@ -5716,14 +5582,16 @@ class Speciation(object):
                 s_logact_dict[s] = [v for v in list(self.aq_distribution_logact["H2O"])]
                 s_molal_dict[s] = [float("NaN")]*len(self.aq_distribution_logact["H2O"])
             elif list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
+
                 if s in self.aq_distribution_logact.columns:
+
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
                     if isinstance(self.reactant_dict_scalar, dict):
 
                         # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
                         scalars, groups = self.__match_grouped_species(s)
-                        
+
                         if as_written:
                             # if energy supplies are to be calculated as written
                             # with no grouping or limiting reactant switching,
@@ -5774,12 +5642,14 @@ class Speciation(object):
                         s_molal_dict[s] = [sp_moles]*len(self.misc_params["Temp(C)"])
                 else:
                     s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
-                
 
         if y_type in ["logK", "logQ"]:
             y_type_plain = copy.copy(y_type)
         elif y_type == "A":
-            y_type_plain = "affinity"
+            if per_electron:
+                y_type_plain = "affinity per mole e-"
+            else:
+                y_type_plain = "affinity per mole rxn"
         elif y_type == "G":
             y_type_plain = "Gibbs free energy"
         elif y_type == "E":
@@ -6158,6 +6028,8 @@ class Speciation(object):
         
         if isinstance(col, str):
             col = [col]
+
+        col = list(dict.fromkeys(col)) # remove duplicate search terms while preserving order
         
         df = self.report.iloc[:, self.report.columns.get_level_values(0).isin(set(col))]
 
@@ -6273,9 +6145,9 @@ class Speciation(object):
         
         df = pd.DataFrame(mineral_data)
 
-        fig = px.bar(df, x=df.index, y="affinity",
+        fig = px.bar(df, x=df.index, y=mineral_sat_type,
             height=plot_height*ppi, width=plot_width*ppi,
-            labels={'affinity': ylabel}, template="simple_white")
+            labels={mineral_sat_type: ylabel}, template="simple_white")
         
         fig.update_traces(hovertemplate = "%{x} <br>"+ylabel+": %{y}",
                           marker_color=color_list)
@@ -6392,7 +6264,7 @@ class Speciation(object):
         if not isinstance(y, list):
             y = [y]
 
-        colors = _get_colors(colormap, len(y))
+        colors = get_colors(colormap, len(y))
 
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -6585,12 +6457,12 @@ class Speciation(object):
             fig.show(config=config)
 
         
-    def scatterplot(self, x="pH", y="Temperature", title=None,
+    def scatterplot(self, x="pH", y="Temperature", samples=None, title=None,
                     log_x=False, log_y=False, plot_zero=True,
                     rxns_as_labels=True, charge_sign_at_end=False,
                     plot_width=4, plot_height=3, ppi=122,
                     fill_alpha=0.7, point_size=10,
-                    ylab=None, lineplot=False,
+                    ylab=None, lineplot=False, linemarkers=True,
                     colormap="WORM", save_as=None, save_format=None,
                     save_scale=1, interactive=True, plot_out=False):
         
@@ -6603,6 +6475,10 @@ class Speciation(object):
             Names of the variables to plot against each other. Valid variables
             are columns in the speciation report. `y` can be a list of
             of variable names for a multi-series scatterplot.
+
+        samples : list, optional
+            List of samples to plot. By default, all samples in the speciation
+            are plotted at once.
 
         title : str, optional
             Title of the plot.
@@ -6631,6 +6507,15 @@ class Speciation(object):
         
         point_size : numeric, default 10
             Size of scatterpoints.
+
+        ylab : str, optional
+            Custom label for the y-axis.
+        
+        lineplot : bool, default False
+            Display a line plot instead of a scatterplot?
+
+        linemarkers : bool, default True
+            If `lineplot=True`, also plot markers?
         
         colormap : str, default "WORM"
             Name of the colormap to color the plotted data. Accepts "WORM",
@@ -6782,7 +6667,13 @@ class Speciation(object):
         df = self.lookup([x]+y).copy() # TODO: is this where the "can't find name" message comes from?
         df.loc[:, "name"] = df.index
         df.columns = df.columns.get_level_values(0)
-        df = pd.melt(df, id_vars=["name", x], value_vars=y)
+        
+        if x in y:
+            df[str(x)+"_copy"] = df[str(x)]
+            df = df.melt(id_vars=["name", str(x)+"_copy"], value_vars=y).rename(columns={str(x)+'_copy': str(x)})
+        else:
+            df = pd.melt(df, id_vars=["name", x], value_vars=y)
+            
         df = df.rename(columns={"Sample": "y_variable", "value": "y_value"})
 
         if not plot_zero:
@@ -6791,7 +6682,7 @@ class Speciation(object):
 
         if isinstance(colormap, str):
             # get colors
-            colors = _get_colors(colormap, len(y), alpha=fill_alpha)
+            colors = get_colors(colormap, len(y), alpha=fill_alpha)
             
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -6811,7 +6702,7 @@ class Speciation(object):
 
         if (unit_type == "energy supply" or unit_type == "affinity") and isinstance(self.reactions_for_plotting, pd.DataFrame):
             
-            y_find = [yi.replace(" energy supply", "").replace(" affinity", "").replace(" Gibbs free energy", "") for yi in y]
+            y_find = [yi.replace(" energy supply", "").replace(" affinity per mole rxn", "").replace(" affinity per mole e-", "").replace(" Gibbs free energy", "") for yi in y]
             y_find = [yi for yi in y_find if "limiting reactant" not in yi]
 
             rxns = self.reactions_for_plotting.loc[y_find, :]["reaction"].tolist()
@@ -6835,8 +6726,12 @@ class Speciation(object):
             log_x = False
         if "log" in ylabel and log_y and ylabel != "pH":
             log_y = False
+
+        if isinstance(samples, list):
+            df = df.loc[df['name'].isin(samples)]
         
         if lineplot:
+            df = df.sort_values(x).reset_index(drop=True)
             fig = px.line(df, x=x, y="y_value", color="y_variable",
                              log_x=log_x, log_y=log_y,
                              hover_data=[x, "y_value", "y_variable", "name", "formatted_rxn"],
@@ -6845,7 +6740,7 @@ class Speciation(object):
                              category_orders={"species": y},
                              color_discrete_map=dict_species_color,
                              custom_data=['name', 'formatted_rxn', 'y_variable_original'],
-                             template="simple_white")
+                             template="simple_white", markers=linemarkers)
         else:
             fig = px.scatter(df, x=x, y="y_value", color="y_variable",
                              log_x=log_x, log_y=log_y,
@@ -6878,6 +6773,9 @@ class Speciation(object):
                           yaxis={'exponentformat':'power'})
         if len(y) == 1:
             fig.update_layout(showlegend=False)
+
+        fig.update_xaxes(exponentformat = 'E')
+        fig.update_yaxes(exponentformat = 'E')
             
         save_as, save_format = self._save_figure(fig, save_as, save_format,
                                                   save_scale, plot_width,
@@ -7085,7 +6983,7 @@ class Speciation(object):
             pass
         else:
             # get colormap
-            colors = _get_colors(colormap, len(unique_species))
+            colors = get_colors(colormap, len(unique_species))
 
             # convert rgba to hex
             colors = [matplotlib.colors.rgb2hex(c) for c in colors]
@@ -7246,7 +7144,7 @@ class Speciation(object):
         unique_minerals = self.__unique(df["mineral"])
         
         # get colormap
-        colors = _get_colors(colormap, len(unique_minerals))
+        colors = get_colors(colormap, len(unique_minerals))
         
         # convert rgba to hex
         colors = [matplotlib.colors.rgb2hex(c) for c in colors]

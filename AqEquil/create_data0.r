@@ -524,29 +524,106 @@ create_data0 <- function(thermo_df,
     vmessage("No solid solutions supplied. Moving on...", 2, verbose)
   }
 
+  add_bdot_line <- function(spec_name, spec_azero, neutral_ion_type){
+      bdot_entry <- paste(spec_name,
+          paste(rep(" ", 36-(nchar(spec_name) + nchar(spec_azero))), collapse=''),
+          spec_azero,
+          "  ",
+          fillspace(neutral_ion_type, 2, spaces_after=FALSE),
+          collapse="")
+
+      # add bdot entry to data0.min template
+      bdot_insertline_regex <- "\\+--------------------------------------------------------------------\nelements"
+      bdot_insertline <- "+--------------------------------------------------------------------\nelements"
+      data0_template <<- sub(bdot_insertline_regex, paste0(bdot_entry, "\n", bdot_insertline), data0_template)
+  }
+
   # format basis and non-basis species for bdot parameter section
   bdot_formatted <- c()
+
+  if(water_model %in% c("SUPCRT92", "IAPWS95")){
+    # azero and neutral ion type parameter defaults for fixed species
+    Cl_azero <- 3
+    O2_azero <- 3
+    O2g_azero <- 3
+    OH_azero <- 3
+    H2O_azero <- 3
+    H_azero <- 9
+    Cl_neutral_ion_type <- 0
+    O2_neutral_ion_type <- -1
+    O2g_neutral_ion_type <- 0
+    OH_neutral_ion_type <- 0
+    H2O_neutral_ion_type <- 0
+    H_neutral_ion_type <- 0
+  }else if(water_model == "DEW"){
+    Cl_azero <- 3.7
+    O2_azero <- -0.5
+    O2g_azero <- 0
+    OH_azero <- 3.7
+    H2O_azero <- 0
+    H_azero <- 3.7
+    Cl_neutral_ion_type <- 0
+    O2_neutral_ion_type <- 0
+    O2g_neutral_ion_type <- 0
+    OH_neutral_ion_type <- 0
+    H2O_neutral_ion_type <- 0
+    H_neutral_ion_type <- 0
+  }
+
+  for (sp in c("Cl-", "O2", "O2(g)", "OH-", "H2O", "H+")){
+      if(sp == "Cl-"){
+        spec_name <- "Cl-"
+        spec_azero <- as.character(format(round(Cl_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- Cl_neutral_ion_type
+      }else if(sp == "O2"){
+        spec_name <- "O2"
+        spec_azero <- as.character(format(round(O2_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- O2_neutral_ion_type
+      }else if(sp == "O2(g)"){
+        spec_name <- "O2(g)"
+        spec_azero <- as.character(format(round(O2g_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- O2g_neutral_ion_type
+      }else if(sp == "OH-"){
+        spec_name <- "OH-"
+        spec_azero <- as.character(format(round(OH_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- OH_neutral_ion_type
+      }else if(sp == "H2O"){
+        spec_name <- "H2O"
+        spec_azero <- as.character(format(round(H2O_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- H2O_neutral_ion_type
+      }else if(sp == "H+"){
+        spec_name <- "H+"
+        spec_azero <- as.character(format(round(H_azero, 4), nsmall = 4, scientific=F))
+        neutral_ion_type <- H_neutral_ion_type
+      }
+      add_bdot_line(spec_name, spec_azero, neutral_ion_type)
+  }
+
   for(i in 1:length(azero_vec)){
       if(add_obigt_df[i, "name"] %in% c("Cl-", "O2", "OH-", "H2O", "H+")){
         next
-      }
-      
-      if(add_obigt_df[i, "state"] == "aq"){
+      }else if(add_obigt_df[i, "state"] == "aq"){
         spec_name <- names(azero_vec)[i]
         spec_azero <- as.character(format(round(azero_vec[i], 4), nsmall = 4, scientific=F))
+
+        if(spec_azero == "NaN"){
+          if(add_obigt_df[i, "z.T"] != 0){
+            if(water_model %in% c("SUPCRT92", "IAPWS95")){
+              spec_azero <- "4.0000"
+            }else if(water_model == "DEW"){
+              spec_azero <- "3.7000"
+            }
+          }else{
+            if(water_model %in% c("SUPCRT92", "IAPWS95")){
+              spec_azero <- "0.0000"
+            }else if(water_model == "DEW"){
+              spec_azero <- "-0.5000"
+            }
+          }
+        }
+          
         neutral_ion_type <- neutral_ion_type_vec[i]
-        bdot_entry <- paste(spec_name,
-              paste(rep(" ", 36-(nchar(spec_name) + nchar(spec_azero))), collapse=''),
-              spec_azero,
-              "  ",
-              fillspace(neutral_ion_type, 2, spaces_after=FALSE),
-              collapse="")
-
-        # add bdot entry to data0.min template
-        bdot_insertline_regex <- "\\+--------------------------------------------------------------------\nelements"
-        bdot_insertline <- "+--------------------------------------------------------------------\nelements"
-        data0_template <- sub(bdot_insertline_regex, paste0(bdot_entry, "\n", bdot_insertline), data0_template)
-
+        add_bdot_line(spec_name, spec_azero, neutral_ion_type)
       }
   }
 

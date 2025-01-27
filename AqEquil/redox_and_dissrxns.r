@@ -235,6 +235,7 @@ subcrt_bal <- function(ispecies, coeff){
     miss <- miss[miss!=0]
     # look for basis species that have our compositoin
     tb <- thermo$basis
+
     if(all(names(miss) %in% colnames(tb)[1:nrow(tb)])) {
       # the missing composition as formula
       ft <- as.chemical.formula(miss)
@@ -396,6 +397,8 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
   for(elem in basis_elem){
     # if a preferred basis species exists for this element, assign it and move to next element
     if(elem %in% names(basis_pref)){
+      # print(elem)
+      # print(basis_pref[elem])
       basis_list[[elem]] <- c(info(info(basis_pref[elem]), check.it=F)$name)
       names(basis_list[[elem]]) <- basis_pref[elem]
       next
@@ -476,7 +479,7 @@ get_dissrxn <- function(sp_name, redox_elem_states, basis_pref=c(), aux_pref=c()
     for(e in elements_without_basis){
       elements_without_basis_formatted <- c(elements_without_basis_formatted, format_pseudoelement_name_R(e))
     }
-      
+
     msg <- paste("Warning: The following elements (or oxidation states)",
                  "appear in chemical species but do not have representative",
                  "basis species:", paste(elements_without_basis_formatted, collapse=", "),
@@ -544,7 +547,7 @@ spec_diss <- function(sp, simplest_basis, sp_formula_makeup, HOZ_balancers,
     if(sp_formula_ox=="nan"){
       # Triggers when there is no value given in the formula_ox column in
       # thermo_df for this species.
-
+        
       basis(c(unlist(simplest_basis), "H+")) # TODO: this may fail depending on the strict basis species within thermo_df
       out <- subcrt(c(sp), c(-1))
 
@@ -1146,7 +1149,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       dissrxn_ispecies <- suppressMessages(info(dissrxn_names))
       dissrxn_coefs <- dissrxn[c(TRUE, FALSE)] # get coeffs of reactants and products
       dissrxn_coefs <- as.numeric(dissrxn_coefs) # convert coeffs from str to numeric
-        
+
       tryCatch({
         subcrt_bal(dissrxn_ispecies, dissrxn_coefs)
       }, error=function(e){
@@ -1193,7 +1196,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
       }
     }
     species_to_blame <- unique(species_to_blame)
-      
+
     msg_missing_basis <- paste("The following species appear in dissociation",
       "reactions but are not included in the database: [", paste(missing_basis_species, collapse=", "),
       "]. These missing species are found in the dissociation reactions of [",
@@ -1251,7 +1254,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     vmessage(needs_dissrxns_message, 1, verbose)
     vmessage("Generating dissociation reactions for these species using strict and auxiliary basis species containing a maximum of one atom of one element besides O and H...", 1, verbose)
   }
-                                   
+     
   # generate dissociation reactions
   dissrxns <- get_dissrxn(sp_name=unlist(df_needs_dissrxns["name"]),
                                            basis_pref=basis_pref,
@@ -1260,6 +1263,7 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
                                            thermo_df=thermo_df,
                                            verbose=verbose,
                                            redox_elem_states=redox_elem_states)
+                                   
   # Produce a warning message about which dissrxns were (re)generated and what they are.
   if("thermo_df_modified" %in% names(dissrxns)){
     thermo_df <- dissrxns[["thermo_df_modified"]]
@@ -1273,18 +1277,19 @@ suppress_redox_and_generate_dissrxns <- function(thermo_df,
     generated_dissrxns <- dissrxns[names]
       
     nonbasis_idx <- unlist(lapply(lapply(lapply(generated_dissrxns, strsplit, " "), `[[`, 1), FUN=function(x) x[2] != x[4])) # x[2] != x[4] refers to picking dissrxns that do not look something like -1.0000 HCO3- 1.0000 HCO3-
-              
-    basis_idx <- !nonbasis_idx
-    nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
-    nonbasis_names <- unique(nonbasis_names)
-    basis_names <- names(basis_idx)[basis_idx]
 
-    vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], "\n"), 1, verbose)
+    if(!is.null(nonbasis_idx)){
+      basis_idx <- !nonbasis_idx
+      nonbasis_names <- names(nonbasis_idx)[nonbasis_idx]
+      nonbasis_names <- unique(nonbasis_names)
+      basis_names <- names(basis_idx)[basis_idx]
+
+      vmessage(paste(nonbasis_names, ":", generated_dissrxns[nonbasis_names], " \n"), 1, verbose)
                     
-    if(!identical(basis_names, character(0))){
-      vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
+      if(!identical(basis_names, character(0))){
+        vmessage(paste("Species that have been converted into strict basis:", paste(unique(basis_names), collapse=", ")), 1, verbose)
+      }
     }
-
     # replace dissrxns with any regenerated dissrxns
     for(name in names){
         
