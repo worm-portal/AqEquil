@@ -2949,7 +2949,7 @@ class AqEquil(object):
                 print("WARNING: one or more pressures in 'grid_press' is above "
                       "{} bar".format(max_P)+", the maximum valid "
                       "pressure for the {} water model.".format(water_model))
-            
+        
         if water_model != "SUPCRT92":
             print("WARNING: water models other than SUPCRT92 are not yet fully supported.")
         

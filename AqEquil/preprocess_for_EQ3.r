@@ -480,8 +480,6 @@ write_3i_file <- function(df,
     }
   }
 
-  
-    
   # specify aux species redox couple
   if(redox_flag == 1){
 
@@ -532,7 +530,67 @@ write_3i_file <- function(df,
   df[row, "redox_value"] <- this_redox_value
   df[row, "redox_unit"] <- this_redox_unit
     
+  # check that the redox state of the sample is within the stability region of water
+  if(this_redox_flag != 1){
+    T <- temp_degC[row]
+    P <- pressure_bar[row]
 
+    # reduction
+    logaH2O <- 0 # a good starting guess is 0 before actually doing the speciation...
+    logfH2 <- logaH2O
+    logK <- suppressMessages(subcrt(c("H2O", "O2", "H2"), c(-1, 0.5, 1), c("liq", "gas", "gas"), T=T+273.15, P=P, convert=FALSE))$out$logK 
+    logfO2_red <- 2 * (logK - logfH2 + logaH2O)
+
+    # oxidation
+    logfO2_ox <- 0
+      
+    if(charge_balance_on != "H+" && (this_redox_flag == -1 || this_redox_flag == -2)){ # Eh or pe, excluding situations where charge balance is on pH
+      pH <- df[row, "H+_pH"]
+      Eh_ox <- convert(logfO2_ox, 'E0', T=T+273.15, P=P, pH=pH, logaH2O=logaH2O)
+      pe_ox <- convert(convert(logfO2_ox, 'E0', T = T+273.15, P=P, pH=pH, logaH2O=logaH2O), "pe", T=T+273.15)
+      Eh_red <- convert(logfO2_red, 'E0', T = T+273.15, P=P, pH=pH, logaH2O=logaH2O)
+      pe_red <- convert(convert(logfO2_red, 'E0', T=T+273.15, P=P, pH=pH, logaH2O=logaH2O), "pe", T=T+273.15)
+
+      if(this_redox_flag == -1){ # Eh
+        if(as.numeric(this_redox_value) <= Eh_red){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too reduced)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has an Eh of", round(as.numeric(this_redox_value), 2), "volts, which is below the", round(Eh_red, 2),
+                       "volt threshold for stable water at this temperature, pressure, and pH."))
+        }else if (as.numeric(this_redox_value) >= Eh_ox){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too oxidized)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has an Eh of", round(as.numeric(this_redox_value), 2), "volts, which is above the", round(Eh_ox, 2),
+                       "volt threshold for stable water at this temperature, pressure, and pH."))
+        }
+      }else{ # pe
+        if(as.numeric(this_redox_value) <= pe_red){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too reduced)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has a pe of", round(as.numeric(this_redox_value), 2), "which is below the", round(pe_red, 2),
+                       "pe threshold for stable water at this temperature, pressure, and pH."))
+        }else if (as.numeric(this_redox_value) >= pe_ox){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too oxidized)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has a pe of", round(as.numeric(this_redox_value), 2), "which is above the", round(pe_ox, 2),
+                       "pe threshold for stable water at this temperature, pressure, and pH."))
+        }
+      }
+    }else if (this_redox_flag == 0){ # logfO2
+        if(as.numeric(this_redox_value) <= logfO2_red){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too reduced)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has a logfO2 of", round(as.numeric(this_redox_value), 2), "which is below the", round(logfO2_red, 2),
+                       "logfO2 threshold for stable water at this temperature and pressure."))
+        }else if (as.numeric(this_redox_value) >= logfO2_ox){
+          vprint(paste("Warning: the sample", df[row, "Sample"], "may be outside of the stability region of water (too oxidized)",
+                       "which may cause the speciation calculation to fail.",
+                       "The sample has a logfO2 of", round(as.numeric(this_redox_value), 2), "which is above the", round(logfO2_ox, 2),
+                       "logfO2 threshold for stable water at this temperature and pressure."))
+        }
+    }
+      
+  }
     
   if(charge_balance_on == "none"){
     eq3.cb_block <- paste("\n|Electrical balancing option (iebal3):                                         |",
