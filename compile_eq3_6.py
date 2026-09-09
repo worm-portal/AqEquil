@@ -148,7 +148,7 @@ def compile_eq3_6():
             init_file = output_dir / "__init__.py"
             init_content = None
             if init_file.exists():
-                init_content = init_file.read_text()
+                init_content = init_file.read_text(encoding="utf-8")
 
             # Remove all files in the directory
             for item in output_dir.iterdir():
@@ -160,7 +160,7 @@ def compile_eq3_6():
 
             # Restore __init__.py
             if init_content is not None:
-                init_file.write_text(init_content)
+                init_file.write_text(init_content, encoding="utf-8")
                 print(f"Preserved {init_file}")
         else:
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -176,13 +176,19 @@ def compile_eq3_6():
 
         # Build all executables
         print("Compiling EQ3/6 executables...")
+        # Compiler output is decoded explicitly rather than with text=True.
+        # text=True uses the locale codec and raises UnicodeDecodeError on any
+        # byte it cannot handle, which hides the build log behind a decode
+        # error. backslashreplace keeps undecodable bytes visible as escapes
+        # and keeps the result printable on a non-UTF-8 console.
         result = subprocess.run(
             [make_cmd, 'all'],
             cwd=source_dir,
             env=env,
             check=True,
             capture_output=True,
-            text=True
+            encoding='utf-8',
+            errors='backslashreplace'
         )
 
         if result.stdout:
@@ -239,6 +245,12 @@ def compile_eq3_6():
 
 def main():
     """Main entry point."""
+    # the compiler log is relayed to these streams, and a UnicodeEncodeError
+    # while printing it would hide the result of the build
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
     print("=" * 60)
     print("Compiling EQ3/6 executables for aqequil")
     print("=" * 60)

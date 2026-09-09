@@ -58,13 +58,22 @@ class BuildWithFortran(build):
             print("=" * 60)
             print("Compiling EQ3/6 Fortran executables...")
             print("=" * 60)
+            # The compile script relays the compiler log, which can contain
+            # bytes the locale codec cannot handle. Pin both sides to UTF-8 so
+            # neither the child's print nor the decode here can fail and mask
+            # the real build result.
+            child_env = os.environ.copy()
+            child_env['PYTHONIOENCODING'] = 'utf-8:backslashreplace'
+
             try:
                 result = subprocess.run(
                     [sys.executable, compile_script],
                     cwd=setup_dir,
+                    env=child_env,
                     check=True,
                     capture_output=True,
-                    text=True
+                    encoding='utf-8',
+                    errors='backslashreplace'
                 )
                 if result.stdout:
                     print(result.stdout)

@@ -111,11 +111,18 @@ def run_eqpt(data0_path, work_dir):
 
     try:
         # Run EQPT with the data0 file path as argument
+        # EQPT output is decoded explicitly rather than with text=True. text=True
+        # uses the locale codec and raises UnicodeDecodeError on any byte it
+        # cannot handle, which would be reported as a failure to run EQPT even
+        # though EQPT itself ran fine. backslashreplace keeps undecodable bytes
+        # visible as escapes and keeps the result printable on a non-UTF-8
+        # console.
         result = subprocess.run(
             [eqpt_path, str(data0_path)],
             cwd=work_dir,
             capture_output=True,
-            text=True,
+            encoding='utf-8',
+            errors='backslashreplace',
             timeout=120
         )
 
@@ -204,6 +211,12 @@ def prepare_databases():
 
 def main():
     """Main entry point."""
+    # EQPT output is relayed to these streams, and a UnicodeEncodeError while
+    # printing it would hide the reason the database preparation failed
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(errors="backslashreplace")
+
     print("=" * 60)
     print("Preparing thermodynamic databases for aqequil")
     print("=" * 60)
