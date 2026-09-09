@@ -1,0 +1,826 @@
+species1,species2,species3,param,a1,a2,a3,a4,alpha,ref1,ref2,date,note
+Ca+2,Br-,,beta0,0.3816,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,Br-,,beta1,1.6133,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,Br-,,cphi,-0.0025721,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,Cl-,,beta0,0.303822,78.17855,1.455192e-11,0.0003570225,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+Ca+2,Cl-,,beta1,1.70143,-148.3249,1.164153e-10,0.005057894,2.0,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+Ca+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+Ca+2,Cl-,,cphi,0.00117585,-2.499438,-2.273737e-13,-3.43691e-05,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+CaCl+,Cl-,,beta0,0.3568405,22.3581,1.455192e-11,-0.0008390611,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+CaCl+,Cl-,,beta1,4.812351,3865.294,4.656613e-10,0.01123323,2.0,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+CaCl+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+CaCl+,Cl-,,cphi,-0.006770881,-1.412518,1.136868e-13,1.45678e-05,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+Ca+2,NO3-,,beta0,0.125912046,144.214055,0.520995994,-0.000477654569,,data0.ypf.R2,,09/28/2006,Source: 05wij/rar [FitPitzerNC_MX_Ca(NO3)2_CFJC.xls]
+Ca+2,NO3-,,beta1,0.402370513,-3219.15009,-8.98837868,0.00373058736,0.87,data0.ypf.R2,,09/28/2006,Source: 05wij/rar [FitPitzerNC_MX_Ca(NO3)2_CFJC.xls]
+Ca+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 05wij/rar [FitPitzerNC_MX_Ca(NO3)2_CFJC.xls]
+Ca+2,NO3-,,cphi,-0.00260819813,-29.6872307,-0.162394447,0.000220404842,,data0.ypf.R2,,09/28/2006,Source: 05wij/rar [FitPitzerNC_MX_Ca(NO3)2_CFJC.xls]
+Ca+2,HSO4-,,beta0,0.2145,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,HSO4-,,beta1,2.5275,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,I-,,beta0,0.4379,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,I-,,beta1,1.8068,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,I-,,cphi,-0.00083792,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Ca+2,SO4-2,,beta0,0.15,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 89Gre/Mol[FitPitzerNC_MX_CaSO4.xls]
+Ca+2,SO4-2,,beta1,3.0,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,Source: 89Gre/Mol[FitPitzerNC_MX_CaSO4.xls]
+Ca+2,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 89Gre/Mol[FitPitzerNC_MX_CaSO4.xls]
+Ca+2,SO4-2,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 89Gre/Mol[FitPitzerNC_MX_CaSO4.xls]
+Cs+,Br-,,beta0,0.0255603,-34.4283,-3.63797881e-12,1.0658141e-14,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_CsBr.xls]
+Cs+,Br-,,beta1,0.0284193,-338.671,-1.45519152e-11,5.68434189e-14,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_CsBr.xls]
+Cs+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_CsBr.xls]
+Cs+,Br-,,cphi,0.000949400985,52.6758099,0.233350267,-0.000265599864,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_CsBr.xls]
+Cs+,Cl-,,beta0,0.0329800647,-539.76053,-2.42136256,0.00272851702,,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_CsCl.xls]
+Cs+,Cl-,,beta1,0.0429,-38.0,1.45519152e-11,0.001306,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_CsCl.xls]
+Cs+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_CsCl.xls]
+Cs+,Cl-,,cphi,-0.000183801488,48.4732577,0.216076707,-0.000239735714,,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_CsCl.xls]
+Cs+,F-,,beta0,0.1306,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,F-,,beta1,0.257,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,F-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,F-,,cphi,-0.0043,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,I-,,beta0,0.0244,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,I-,,beta1,0.0262,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,I-,,cphi,-0.00365,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,NO3-,,beta0,-0.0758,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,NO3-,,beta1,-0.0669,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,NO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,OH-,,beta0,0.15,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,OH-,,beta1,0.3,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,OH-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,OH-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+Cs+,SO4-2,,beta0,0.0714,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Cs+,SO4-2,,beta1,1.2008,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Cs+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Cs+,SO4-2,,cphi,0.0029115,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+H+,Br-,,beta0,0.2085,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,Br-,,beta1,0.3477,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,Br-,,cphi,0.00152,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,Cl-,,beta0,0.177000779,-33.4777082,-0.262214535,0.000125778302,,data0.ypf.R2,,09/28/2006,Source: refit of 87Hol/Bus [FitPitzerNC_MX_HCl.xls]
+H+,Cl-,,beta1,0.292922504,3402.47027,19.7936248,-0.0279388381,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Hol/Bus [FitPitzerNC_MX_HCl.xls]
+H+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Hol/Bus [FitPitzerNC_MX_HCl.xls]
+H+,Cl-,,cphi,0.000362,-2.91038305e-11,0.0,-3.036e-05,,data0.ypf.R2,,09/28/2006,Source: refit of 87Hol/Bus [FitPitzerNC_MX_HCl.xls]
+H+,HSO4-,,beta0,0.209088541,1054.53606,5.95728263,-0.00877591957,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_HHSO4.xls]
+H+,HSO4-,,beta1,0.440921659,296.437457,2.37332579,-0.00463168109,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_HHSO4.xls]
+H+,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_HHSO4.xls]
+H+,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_HHSO4.xls]
+H+,I-,,beta0,0.2211,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,I-,,beta1,0.4907,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,I-,,cphi,0.00482,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+H+,NO3-,,beta0,0.125585222,560.1201816,4.916033806,-0.009950899,,data0.ypf.R2,,09/28/2006,Source: refit of 94Fel/Sch [FitPitzerNC_MX_H_HNO3.xls]
+H+,NO3-,,beta1,0.28778174,2.71242e-07,1.58606e-09,0.0013396,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Fel/Sch [FitPitzerNC_MX_H_HNO3.xls]
+H+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Fel/Sch [FitPitzerNC_MX_H_HNO3.xls]
+H+,NO3-,,cphi,-0.005596266,-6.576375081,-0.057719188,0.000110405,,data0.ypf.R2,,09/28/2006,Source: refit of 94Fel/Sch [FitPitzerNC_MX_H_HNO3.xls]
+H+,SO4-2,,beta0,0.0986192479,-6703.44441,-41.6861778,0.0636776572,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_H2SO4.xls]
+H+,SO4-2,,beta1,0.0,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_H2SO4.xls]
+H+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_H2SO4.xls]
+H+,SO4-2,,cphi,0.0593003463,-3029.54834,-16.0719978,0.0202174821,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_H2SO4.xls]
+K+,Br-,,beta0,0.052604863,-938.817459,-4.43030029,0.00524878644,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_KBr.xls]
+K+,Br-,,beta1,0.235352574,2489.7626,12.5419548,-0.0134150439,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_KBr.xls]
+K+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_KBr.xls]
+K+,Br-,,cphi,-1.47497663e-05,255.457648,1.25575455,-0.00152465437,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_KBr.xls]
+K+,Cl-,,beta0,0.0477811552,-343.299275,-1.38219467,0.00134298267,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_KCl.xls]
+K+,Cl-,,beta1,0.215510997,-576.387856,-2.88016901,0.00464483346,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_KCl.xls]
+K+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_KCl.xls]
+K+,Cl-,,cphi,-0.000748604891,36.532773,0.148205482,-0.000147224869,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_KCl.xls]
+K+,CO3-2,,beta0,0.1288,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,CO3-2,,beta1,1.4333,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,CO3-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,CO3-2,,cphi,0.00049851,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,F-,,beta0,0.08089,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,F-,,beta1,0.2021,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,F-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,F-,,cphi,0.00093,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HCO3-,,beta0,-0.0107,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HCO3-,,beta1,0.0478,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HCO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HCO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HPO4-2,,beta0,0.0248,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,HPO4-2,,beta1,1.2743,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,HPO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,HPO4-2,,cphi,0.016387,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+K+,HSO4-,,beta0,-0.0003,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HSO4-,,beta1,0.1735,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,I-,,beta0,0.0746,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,I-,,beta1,0.2517,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,I-,,cphi,-0.00414,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,NO3-,,beta0,-0.0816,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,NO3-,,beta1,0.0494,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,NO3-,,cphi,0.0066,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,OH-,,beta0,0.1298,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,OH-,,beta1,0.32,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,OH-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,OH-,,cphi,0.0041,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+K+,SO4-2,,beta0,0.0555358045,-1418.42998,-6.74728848,0.00826906675,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_K2SO4.xls]
+K+,SO4-2,,beta1,0.796384696,2067.12594,2.32830644e-10,0.0235793239,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_K2SO4.xls]
+K+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_K2SO4.xls]
+K+,SO4-2,,cphi,-0.0188,0.0,9.09494702e-13,-2.66453526e-15,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_K2SO4.xls]
+Li+,Br-,,beta0,0.172803,3.7252903e-09,1.45519152e-11,-0.000106042,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_LiBr.xls]
+Li+,Br-,,beta1,0.29775937,990.383242,5.60772784,-0.00697050835,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_LiBr.xls]
+Li+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_LiBr.xls]
+Li+,Br-,,cphi,0.00476300519,-92.5666981,-0.462631648,0.000524228867,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_LiBr.xls]
+Li+,Cl-,,beta0,0.14847,1.86264515e-09,0.0,-0.0001546,,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_LiCl.xls]
+Li+,Cl-,,beta1,0.307,7.4505806e-09,2.91038305e-11,0.000636,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_LiCl.xls]
+Li+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_LiCl.xls]
+Li+,Cl-,,cphi,0.00370970517,4.52467125,0.00327989372,-8.61317327e-06,,data0.ypf.R2,,09/28/2006,Source: refit of 83Hol/Mes [FitPitzerNC_MX_LiCl.xls]
+Li+,I-,,beta0,0.2104,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,I-,,beta1,0.373,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,I-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,NO3-,,beta0,0.142,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,NO3-,,beta1,0.278,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,NO3-,,cphi,-0.00551,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,OH-,,beta0,0.015,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,OH-,,beta1,0.14,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,OH-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,OH-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Li+,SO4-2,,beta0,0.1363,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Li+,SO4-2,,beta1,1.2705,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Li+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Li+,SO4-2,,cphi,-0.0039934,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 106; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,Br-,,beta0,0.4327,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,Br-,,beta1,1.7528,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,Br-,,cphi,0.0031236,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,Cl-,,beta0,0.351135695,-65.582184,-0.525061476,0.000447185031,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgCl2.xls]
+Mg+2,Cl-,,beta1,1.65325488,-2872.87764,-23.0007188,0.0494572964,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgCl2.xls]
+Mg+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgCl2.xls]
+Mg+2,Cl-,,cphi,0.00652610922,-26.7038299,-0.213795142,0.000311488279,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgCl2.xls]
+Mg+2,HCO3-,,beta0,0.033,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HCO3-,,beta1,0.8498,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HCO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HCO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HSO4-,,beta0,0.4746,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HSO4-,,beta1,1.7288,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,I-,,beta0,0.4902,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,I-,,beta1,1.8041,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,I-,,cphi,0.0079337,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Mg+2,NO3-,,beta0,0.306728,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 04Rar/Wij [FitPitzerNC_MX_Mg(NO3)2_CFJC.xls]
+Mg+2,NO3-,,beta1,1.257451,0.0,0.0,0.0,1.55,data0.ypf.R2,,09/28/2006,Source: 04Rar/Wij [FitPitzerNC_MX_Mg(NO3)2_CFJC.xls]
+Mg+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 04Rar/Wij [FitPitzerNC_MX_Mg(NO3)2_CFJC.xls]
+Mg+2,NO3-,,cphi,-0.00332923,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 04Rar/Wij [FitPitzerNC_MX_Mg(NO3)2_CFJC.xls]
+Mg+2,SO4-2,,beta0,0.222817832,-5688.19179,-32.8401402,0.0473379023,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgSO4.xls]
+Mg+2,SO4-2,,beta1,3.37712501,-23183.9681,-139.335072,0.217921221,1.4,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgSO4.xls]
+Mg+2,SO4-2,,beta2,-35.2587546,2170386.08,13998.2555,-22.8322526,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgSO4.xls]
+Mg+2,SO4-2,,cphi,0.0243650418,1894.83775,10.8446198,-0.0156340004,,data0.ypf.R2,,09/28/2006,Source: refit of 87Pab/Pit [FitPitzerNC_MX_MgSO4.xls]
+Mn+2,Br-,,beta0,0.44655,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Br-,,beta1,1.34477,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Br-,,cphi,-0.02269,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,ClO4-,,beta0,0.50957,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,ClO4-,,beta1,2.16209,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,ClO4-,,cphi,0.01144,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+MgOH+,Cl-,,beta0,-0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+MgOH+,Cl-,,beta1,1.658,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+MgOH+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+MgOH+,Cl-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,AlO2-,,beta0,0.0452319011,-1545.72558,-8.31360114,0.0110572297,,data0.ypf.R2,,09/28/2006,Source: refit of 94Felm/Rus [FitPitzerNC_MX_Na_AlO2.xls] Comment: Refit only valid to 100C.
+Na+,AlO2-,,beta1,0.306659949,-4913.3257,-28.5581274,0.0416055219,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Felm/Rus [FitPitzerNC_MX_Na_AlO2.xls] Comment: Refit only valid to 100C.
+Na+,AlO2-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Felm/Rus [FitPitzerNC_MX_Na_AlO2.xls] Comment: Refit only valid to 100C.
+Na+,AlO2-,,cphi,-0.0003036877,205.885396,1.07578286,-0.0014373699,,data0.ypf.R2,,09/28/2006,Source: refit of 94Felm/Rus [FitPitzerNC_MX_Na_AlO2.xls] Comment: Refit only valid to 100C.
+Na+,Br-,,beta0,0.097386736,-210.646372,-0.395938745,-0.000283573987,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_NaBr.xls]
+Na+,Br-,,beta1,0.297014694,-6335.18181,-37.5076549,0.05588035,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_NaBr.xls]
+Na+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_NaBr.xls]
+Na+,Br-,,cphi,0.000749485905,-14.2958589,-0.165395266,0.000305237332,,data0.ypf.R2,,09/28/2006,Source: refit of 98Hol/Mes [FitPitzerNC_MX_NaBr.xls]
+Na+,Cl-,,beta0,0.0745618073,-470.789056,-1.85114134,0.00165564633,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_NaCl.xls]
+Na+,Cl-,,beta1,0.27524069,-521.117635,-2.88035999,0.00471462791,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_NaCl.xls]
+Na+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_NaCl.xls]
+Na+,Cl-,,cphi,0.00153693372,48.0725476,0.174679979,-0.000156268596,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_NaCl.xls]
+Na+,CO3-2,,beta0,0.0362048087,1108.37605,11.1985553,-0.023301655,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_Na2CO3.xls]
+Na+,CO3-2,,beta1,1.51206913,4412.51197,44.5820703,-0.09989121,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_Na2CO3.xls]
+Na+,CO3-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_Na2CO3.xls]
+Na+,CO3-2,,cphi,0.0052,0.0,0.0,8.8817842e-16,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_Na2CO3.xls]
+Na+,F-,,beta0,0.0215,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,F-,,beta1,0.2107,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,F-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,F-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,HCO3-,,beta0,0.028002055,682.885977,6.8995857,-0.01445932,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaHCO3.xls]
+Na+,HCO3-,,beta1,0.0440052263,1129.38915,11.4108589,-0.02446734,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaHCO3.xls]
+Na+,HCO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaHCO3.xls]
+Na+,HCO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaHCO3.xls]
+Na+,HPO4-2,,beta0,-0.0583,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Na+,HPO4-2,,beta1,1.4655,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Na+,HPO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Na+,HPO4-2,,cphi,0.02938,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Na+,H2PO4-,,beta0,-0.0533,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+Na+,H2PO4-,,beta1,0.0396,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+Na+,H2PO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+Na+,H2PO4-,,cphi,0.00795,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+Na+,HSO4-,,beta0,0.073434873,52.560601,0.420808596,-0.000821232054,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_NaHSO4.xls]
+Na+,HSO4-,,beta1,0.299942504,4698.11737,26.8474688,-0.0373911853,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_NaHSO4.xls]
+Na+,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_NaHSO4.xls]
+Na+,HSO4-,,cphi,-0.00462067,-5.82076609e-11,-2.27373675e-13,6.82142e-06,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MX_NaHSO4.xls]
+Na+,I-,,beta0,0.1195,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,I-,,beta1,0.3439,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,I-,,cphi,0.0018,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 100; 25C values only)
+Na+,NO3-,,beta0,-0.00129331176,-482.730419,-2.21015765,0.00254083532,,data0.ypf.R2,,09/28/2006,Source: Wijesinghe and Rard (2005); [FitPitzerNC_MX_NaNO3_CFJC.xls]
+Na+,NO3-,,beta1,0.141301486,-2759.35929,-13.3527356,0.0180628696,1.43,data0.ypf.R2,,09/28/2006,Source: Wijesinghe and Rard (2005); [FitPitzerNC_MX_NaNO3_CFJC.xls]
+Na+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Wijesinghe and Rard (2005); [FitPitzerNC_MX_NaNO3_CFJC.xls]
+Na+,NO3-,,cphi,0.00032051115,46.9542364,0.224386774,-0.000263787772,,data0.ypf.R2,,09/28/2006,Source: Wijesinghe and Rard (2005); [FitPitzerNC_MX_NaNO3_CFJC.xls]
+Na+,OH-,,beta0,0.0883443913,-1197.84571,-6.10983033,0.00743325156,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaOH.xls]
+Na+,OH-,,beta1,0.244421177,1627.02502,9.48250496,-0.0115788697,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaOH.xls]
+Na+,OH-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaOH.xls]
+Na+,OH-,,cphi,0.00399943679,88.2475511,0.406876285,-0.000475666912,,data0.ypf.R2,,09/28/2006,Source: refit of 93He/Mor [FitPitzerNC_MX_NaOH.xls]
+Na+,SO4-2,,beta0,0.0120596369,-2189.42621,-10.1447681,0.0119724161,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_Na2SO4.xls]
+Na+,SO4-2,,beta1,1.11537757,-12744.2345,-67.193449,0.089122337,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_Na2SO4.xls]
+Na+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_Na2SO4.xls]
+Na+,SO4-2,,cphi,0.00657125396,338.749374,1.48133893,-0.00164184593,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MX_Na2SO4.xls]
+NH4+,Br-,,beta0,0.0624,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,Br-,,beta1,0.1947,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,Br-,,cphi,-0.00436,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,Cl-,,beta0,0.0524920619,-216.412775,-0.973041353,0.00106114993,,data0.ypf.R2,,09/28/2006,Source: refit of 90Thi/Sim [FitPitzerNC_MX_NH4Cl.xls]
+NH4+,Cl-,,beta1,0.187339293,0.0,-0.142555,0.00109395,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 90Thi/Sim [FitPitzerNC_MX_NH4Cl.xls]
+NH4+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 90Thi/Sim [FitPitzerNC_MX_NH4Cl.xls]
+NH4+,Cl-,,cphi,-0.00307437349,7.39922482,0.0230711678,-1.762525e-05,,data0.ypf.R2,,09/28/2006,Source: refit of 90Thi/Sim [FitPitzerNC_MX_NH4Cl.xls]
+NH4+,HCO3-,,beta0,-0.038,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,HCO3-,,beta1,0.07,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,HCO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,HCO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,I-,,beta0,0.057,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,I-,,beta1,0.3157,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,I-,,cphi,-0.00308,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,NO3-,,beta0,-0.0154,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,NO3-,,beta1,0.112,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,NO3-,,cphi,-3e-05,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 101; 25C values only)
+NH4+,SO4-2,,beta0,0.0391672883,313.414349,2.51504017,-0.00447419501,,data0.ypf.R2,,09/28/2006,Source: refit of 96Cle/Mil [ConPitzerNC_MX_(NH4)2SO4.xls]
+NH4+,SO4-2,,beta1,0.662846757,37708.792,255.814178,-0.42221788,2.0,data0.ypf.R2,,09/28/2006,Source: refit of 96Cle/Mil [ConPitzerNC_MX_(NH4)2SO4.xls]
+NH4+,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: refit of 96Cle/Mil [ConPitzerNC_MX_(NH4)2SO4.xls]
+NH4+,SO4-2,,cphi,-0.000757091057,-114.018787,-0.756210265,0.00120646877,,data0.ypf.R2,,09/28/2006,Source: refit of 96Cle/Mil [ConPitzerNC_MX_(NH4)2SO4.xls]
+Sr+2,Br-,,beta0,0.3311,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,Br-,,beta1,1.7115,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,Br-,,cphi,0.0012251,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,Cl-,,beta0,0.2834,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls] Note: the second of two entries from 91Pit is used here. It carries a smaller reported standard deviation (0.002 vs. 0.003 in the fitted osmotic coefficient, while the concentration range is very similar (3.8 vs. 4 molal)."
+Sr+2,Cl-,,beta1,1.6256,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls] Note: the second of two entries from 91Pit is used here. It carries a smaller reported standard deviation (0.002 vs. 0.003 in the fitted osmotic coefficient, while the concentration range is very similar (3.8 vs. 4 molal)."
+Sr+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls] Note: the second of two entries from 91Pit is used here. It carries a smaller reported standard deviation (0.002 vs. 0.003 in the fitted osmotic coefficient, while the concentration range is very similar (3.8 vs. 4 molal)."
+Sr+2,Cl-,,cphi,-0.00089095,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls] Note: the second of two entries from 91Pit is used here. It carries a smaller reported standard deviation (0.002 vs. 0.003 in the fitted osmotic coefficient, while the concentration range is very similar (3.8 vs. 4 molal)."
+Sr+2,I-,,beta0,0.4013,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,I-,,beta1,1.86,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,I-,,cphi,0.002657,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]
+Sr+2,NO3-,,beta0,0.1346,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]  Binary parameters primarily for additional transition metals.* Nov 2003-Jan 2004, Russell Jarek and Carlos Jove-Colon.      * "
+Sr+2,NO3-,,beta1,1.38,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]  Binary parameters primarily for additional transition metals.* Nov 2003-Jan 2004, Russell Jarek and Carlos Jove-Colon.      * "
+Sr+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]  Binary parameters primarily for additional transition metals.* Nov 2003-Jan 2004, Russell Jarek and Carlos Jove-Colon.      * "
+Sr+2,NO3-,,cphi,-0.019925,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: Calculated from data in 91Pit (p. 105; 25C values only) [Some2-1Salts25C_TJW.xls]  Binary parameters primarily for additional transition metals.* Nov 2003-Jan 2004, Russell Jarek and Carlos Jove-Colon.      * "
+Al+3,Cl-,,beta0,0.6993,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII, Similar to 01Chr.1 Values"
+Al+3,Cl-,,beta1,5.8447,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII, Similar to 01Chr.1 Values"
+Al+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII, Similar to 01Chr.1 Values"
+Al+3,Cl-,,cphi,0.00273,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII, Similar to 01Chr.1 Values"
+Ba+2,Cl-,,beta0,0.2628,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Cl-,,beta1,1.4963,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Cl-,,cphi,-0.01938,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Br-,,beta0,0.3146,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Br-,,beta1,1.5698,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,Br-,,cphi,-0.01596,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,I-,,beta0,0.4219,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,I-,,beta1,1.6868,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,I-,,cphi,-0.01743,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,OH-,,beta0,0.1718,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,OH-,,beta1,1.2,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,OH-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,OH-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,ClO4-,,beta0,0.3614,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,ClO4-,,beta1,1.5758,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,ClO4-,,cphi,-0.03126,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,NO3-,,beta0,-0.0323,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,NO3-,,beta1,0.8025,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ba+2,NO3-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Ca+2,ClO4-,,beta0,0.4511,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 3; 25C value)
+Ca+2,ClO4-,,beta1,1.757,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 3; 25C value)
+Ca+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 3; 25C value)
+Ca+2,ClO4-,,cphi,-0.005,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 3; 25C value)
+Ca+2,MoO4-2,,beta0,0.2,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Fel/Rai, Table I"
+Ca+2,MoO4-2,,beta1,3.1973,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 92Fel/Rai, Table I"
+Ca+2,MoO4-2,,beta2,-54.24,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 92Fel/Rai, Table I"
+Ca+2,MoO4-2,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Fel/Rai, Table I"
+Co+2,Cl-,,beta0,0.37351,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,Cl-,,beta1,1.25999,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,Cl-,,cphi,-0.01803,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,ClO4-,,beta0,0.50409,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,ClO4-,,beta1,1.96664,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,ClO4-,,cphi,0.01349,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Co+2,Br-,,beta0,0.427,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,Br-,,beta1,1.6598,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,Br-,,cphi,-0.00067,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,I-,,beta0,0.5213,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,I-,,beta1,1.6725,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,I-,,cphi,-0.00467,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,NO3-,,beta0,0.3119,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,NO3-,,beta1,1.6905,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,NO3-,,cphi,-0.00762,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Co+2,SO4-2,,beta0,0.2,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I."
+Co+2,SO4-2,,beta1,2.7,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I."
+Co+2,SO4-2,,beta2,-30.7,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I."
+Co+2,SO4-2,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I."
+Cr+3,Cl-,,beta0,0.72234,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 03Chr, Table 3 Similar to 73Pit/May (.7364/5.2553/0/-.04511)"
+Cr+3,Cl-,,beta1,5.5989,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 03Chr, Table 3 Similar to 73Pit/May (.7364/5.2553/0/-.04511)"
+Cr+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 03Chr, Table 3 Similar to 73Pit/May (.7364/5.2553/0/-.04511)"
+Cr+3,Cl-,,cphi,-0.04141,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 03Chr, Table 3 Similar to 73Pit/May (.7364/5.2553/0/-.04511)"
+Cr+3,NO3-,,beta0,0.704,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Cr+3,NO3-,,beta1,5.1847,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Cr+3,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Cr+3,NO3-,,cphi,-0.05901,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+K+,Cr2O7-2,,beta0,-2.1239,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 1"
+K+,Cr2O7-2,,beta1,6.3443,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 1"
+K+,Cr2O7-2,,beta2,25.9183,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 1"
+K+,Cr2O7-2,,cphi,1.6682,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 1"
+Cu+2,Cl-,,beta0,0.23052,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Cl-,,beta1,2.20897,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Cl-,,cphi,-0.01639,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,NO3-,,beta0,0.28124,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,NO3-,,beta1,1.72906,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,NO3-,,cphi,-0.00842,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,SO4-2,,beta0,0.2358,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Cu+2,SO4-2,,beta1,2.485,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Cu+2,SO4-2,,beta2,-47.35,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Cu+2,SO4-2,,cphi,-0.0012,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Cu+2,HSO4-,,beta0,0.4755,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11"
+Cu+2,HSO4-,,beta1,2.428,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11"
+Cu+2,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11"
+Cu+2,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11"
+Cu+2,Br-,,beta0,0.41247,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Br-,,beta1,1.6627,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,Br-,,cphi,-0.04262,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,ClO4-,,beta0,0.48984,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,ClO4-,,beta1,1.90361,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Cu+2,ClO4-,,cphi,0.00839,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Fe+2,Cl-,,beta0,0.3359,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Fe+2,Cl-,,beta1,1.5323,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Fe+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Fe+2,Cl-,,cphi,-0.00861,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+H+,ClO4-,,beta0,0.1747,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+H+,ClO4-,,beta1,0.2931,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+H+,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+H+,ClO4-,,cphi,0.00819,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+K+,CrO4-2,,beta0,0.0791,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Similar to 73Pit/May (.0758/1.239/-.00078)"
+K+,CrO4-2,,beta1,1.113,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Similar to 73Pit/May (.0758/1.239/-.00078)"
+K+,CrO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Similar to 73Pit/May (.0758/1.239/-.00078)"
+K+,CrO4-2,,cphi,-0.0012,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Similar to 73Pit/May (.0758/1.239/-.00078)"
+K+,PO4-3,,beta0,0.3729,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+K+,PO4-3,,beta1,3.972,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+K+,PO4-3,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+K+,PO4-3,,cphi,-0.08679,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Mn+2,Cl-,,beta0,0.29486,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Cl-,,beta1,2.01251,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,Cl-,,cphi,-0.01528,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Mn+2,SO4-2,,beta0,0.201,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I); recommended Beta(2) value of -40.0 by 74Pit/May.
+Mn+2,SO4-2,,beta1,2.98,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I); recommended Beta(2) value of -40.0 by 74Pit/May.
+Mn+2,SO4-2,,beta2,-40.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I); recommended Beta(2) value of -40.0 by 74Pit/May.
+Mn+2,SO4-2,,cphi,0.0182,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I); recommended Beta(2) value of -40.0 by 74Pit/May.
+Na+,ClO4-,,beta0,0.0554,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+Na+,ClO4-,,beta1,0.2755,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+Na+,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+Na+,ClO4-,,cphi,-0.00118,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table I"
+Na+,PO4-3,,beta0,0.1781,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Na+,PO4-3,,beta1,3.8513,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Na+,PO4-3,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Na+,PO4-3,,cphi,-0.051538,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VIII"
+Na+,MoO4-2,,beta0,0.116,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p. 75"
+Na+,MoO4-2,,beta1,2.287,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p. 75"
+Na+,MoO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p. 75"
+Na+,MoO4-2,,cphi,0.006,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p. 75"
+Na+,CrO4-2,,beta0,0.0645,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Updated from 73Pit/May (.0938/1.3695/-.00216)"
+Na+,CrO4-2,,beta1,1.5974,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Updated from 73Pit/May (.0938/1.3695/-.00216)"
+Na+,CrO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Updated from 73Pit/May (.0938/1.3695/-.00216)"
+Na+,CrO4-2,,cphi,0.0094,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, Table 3 Updated from 73Pit/May (.0938/1.3695/-.00216)"
+Ni+2,ClO4-,,beta0,0.49285,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,ClO4-,,beta1,1.98517,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,ClO4-,,cphi,0.01679,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,Cl-,,beta0,0.3499,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 87Rar (Table V) Very similar to 73Pit/May, (.347925/1.581/0/-.00372292 after conversion)"
+Ni+2,Cl-,,beta1,1.53,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 87Rar (Table V) Very similar to 73Pit/May, (.347925/1.581/0/-.00372292 after conversion)"
+Ni+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 87Rar (Table V) Very similar to 73Pit/May, (.347925/1.581/0/-.00372292 after conversion)"
+Ni+2,Cl-,,cphi,-0.00471,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 87Rar (Table V) Very similar to 73Pit/May, (.347925/1.581/0/-.00372292 after conversion)"
+Ni+2,Br-,,beta0,0.4451,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ni+2,Br-,,beta1,1.49,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ni+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ni+2,Br-,,cphi,-0.00626,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ni+2,NO3-,,beta0,0.30978,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,NO3-,,beta1,2.10644,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,NO3-,,cphi,-0.00394,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+Ni+2,SO4-2,,beta0,0.1702,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Ni+2,SO4-2,,beta1,2.907,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Ni+2,SO4-2,,beta2,-40.06,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Ni+2,SO4-2,,cphi,0.0366,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)
+Fe+2,SO4-2,,beta0,0.2568,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+2,SO4-2,,beta1,3.063,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+2,SO4-2,,beta2,-42.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+2,SO4-2,,cphi,0.0209,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+3,ClO4-,,beta0,1.412,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+3,ClO4-,,beta1,2.989,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+3,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Fe+3,ClO4-,,cphi,-0.462,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Mil/Yao, Table 3"
+Zn+2,Cl-,,beta0,0.2602,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Cl-,,beta1,1.6425,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Cl-,,cphi,-0.08798,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Br-,,beta0,0.466,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Br-,,beta1,1.6343,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Br-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,Br-,,cphi,-0.10792,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,I-,,beta0,0.4821,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,I-,,beta1,1.9455,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,I-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,I-,,cphi,-0.01427,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,NO3-,,beta0,0.3481,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,NO3-,,beta1,1.6913,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,NO3-,,cphi,-0.01567,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,ClO4-,,beta0,0.506,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,ClO4-,,beta1,1.797,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,ClO4-,,cphi,0.01132,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 73Pit/May, Table VI; converted in [Pitzer Conversions.xls]"
+Zn+2,SO4-2,,beta0,0.1949,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)  ACTINIDE BINARY PARAMETERS                           * Compiled by Carlos F. Jove Colon (SNL)                 *  Trivalent Actinides - Pitzer Binary Parameters
+Zn+2,SO4-2,,beta1,2.883,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)  ACTINIDE BINARY PARAMETERS                           * Compiled by Carlos F. Jove Colon (SNL)                 *  Trivalent Actinides - Pitzer Binary Parameters
+Zn+2,SO4-2,,beta2,-32.81,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)  ACTINIDE BINARY PARAMETERS                           * Compiled by Carlos F. Jove Colon (SNL)                 *  Trivalent Actinides - Pitzer Binary Parameters
+Zn+2,SO4-2,,cphi,0.029,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 74Pit/May (Table I)  ACTINIDE BINARY PARAMETERS                           * Compiled by Carlos F. Jove Colon (SNL)                 *  Trivalent Actinides - Pitzer Binary Parameters
+Na+,Am(CO3)2-,,beta0,-0.24,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Na+,Am(CO3)2-,,beta1,0.224,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Na+,Am(CO3)2-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Na+,Am(CO3)2-,,cphi,0.0284,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Nd+3,H2PO4-,,beta0,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Nd+3,H2PO4-,,beta1,0.0,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Nd+3,H2PO4-,,beta2,-92.9,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Nd+3,H2PO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Am+3,H2PO4-,,beta0,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Am+3,H2PO4-,,beta1,0.0,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Am+3,H2PO4-,,beta2,-92.9,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Am+3,H2PO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table I).
+Nd+3,SO4-2,,beta0,1.792,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Nd+3,SO4-2,,beta1,15.04,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Nd+3,SO4-2,,beta2,-2500.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Nd+3,SO4-2,,cphi,0.6,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Am+3,SO4-2,,beta0,1.792,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Am+3,SO4-2,,beta1,15.04,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Am+3,SO4-2,,beta2,-2500.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+Am+3,SO4-2,,cphi,0.6,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table I); 99Fel/Rai (Table I)
+NdCl2+,Cl-,,beta0,0.516,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl2+,Cl-,,beta1,1.75,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl2+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl2+,Cl-,,cphi,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl2+,Cl-,,beta0,0.516,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl2+,Cl-,,beta1,1.75,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl2+,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl2+,Cl-,,cphi,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl+2,Cl-,,beta0,0.593,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl+2,Cl-,,beta1,3.15,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+NdCl+2,Cl-,,cphi,-0.006,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl+2,Cl-,,beta0,0.593,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl+2,Cl-,,beta1,3.15,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+AmCl+2,Cl-,,cphi,-0.006,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Gd+3,Cl-,,beta0,0.5856,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Gd+3,Cl-,,beta1,5.6,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Gd+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Gd+3,Cl-,,cphi,-0.0166,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Nd+3,Cl-,,beta0,0.5856,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Nd+3,Cl-,,beta1,5.6,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Nd+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Nd+3,Cl-,,cphi,-0.0166,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Am+3,Cl-,,beta0,0.5856,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Am+3,Cl-,,beta1,5.6,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Am+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Am+3,Cl-,,cphi,-0.0166,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Gd+3,NO3-,,beta0,0.5173,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table II"
+Gd+3,NO3-,,beta1,5.1333,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table II"
+Gd+3,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table II"
+Gd+3,NO3-,,cphi,-0.06543,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table II"
+Gd+3,ClO4-,,beta0,0.78,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III"
+Gd+3,ClO4-,,beta1,6.5333,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III"
+Gd+3,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III"
+Gd+3,ClO4-,,cphi,0.00539,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III"
+Am+3,ClO4-,,beta0,0.754,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Rai/Fel, Table IV; assume to be similar to Nd+++ - ClO4- binary parameters."
+Am+3,ClO4-,,beta1,6.53,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 95Rai/Fel, Table IV; assume to be similar to Nd+++ - ClO4- binary parameters."
+Am+3,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 95Rai/Fel, Table IV; assume to be similar to Nd+++ - ClO4- binary parameters."
+Am+3,ClO4-,,cphi,0.0075,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 95Rai/Fel, Table IV; assume to be similar to Nd+++ - ClO4- binary parameters."
+Nd+3,ClO4-,,beta0,0.7533,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III --------------------------------------------------------------- Tetravalent Actinides - Pitzer Binary Parameters"
+Nd+3,ClO4-,,beta1,6.5333,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III --------------------------------------------------------------- Tetravalent Actinides - Pitzer Binary Parameters"
+Nd+3,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III --------------------------------------------------------------- Tetravalent Actinides - Pitzer Binary Parameters"
+Nd+3,ClO4-,,cphi,0.007313,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 78Pit/Pet, Table III --------------------------------------------------------------- Tetravalent Actinides - Pitzer Binary Parameters"
+Th+4,SO4-2,,beta0,1.56,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,SO4-2,,beta1,0.0,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,SO4-2,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,SO4-2,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,NO3-,,beta0,0.96625,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 78Pit/May (Table IX)
+Th+4,NO3-,,beta1,11.3875,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 78Pit/May (Table IX)
+Th+4,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 78Pit/May (Table IX)
+Th+4,NO3-,,cphi,-0.1846,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 78Pit/May (Table IX)
+Th+4,HSO4-,,beta0,1.44,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,HSO4-,,beta1,0.0,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,HSO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,HSO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Fel/Rai (Table III).
+Th+4,Cl-,,beta0,1.092,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II).
+Th+4,Cl-,,beta1,13.7,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II).
+Th+4,Cl-,,beta2,-160.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II).
+Th+4,Cl-,,cphi,-0.112,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II).
+UOH+3,Cl-,,beta0,1.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3).
+UOH+3,Cl-,,beta1,7.856,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3).
+UOH+3,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3).
+UOH+3,Cl-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3).
+U+4,Cl-,,beta0,1.644,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3). --------------------------------------------------------------- Pentavalent Actinides - Pitzer Binary Parameters
+U+4,Cl-,,beta1,15.5,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3). --------------------------------------------------------------- Pentavalent Actinides - Pitzer Binary Parameters
+U+4,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3). --------------------------------------------------------------- Pentavalent Actinides - Pitzer Binary Parameters
+U+4,Cl-,,cphi,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3). --------------------------------------------------------------- Pentavalent Actinides - Pitzer Binary Parameters
+Ca+2,TcO4-,,beta0,0.2964,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Ca+2,TcO4-,,beta1,1.661,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Ca+2,TcO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Ca+2,TcO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Cs+,TcO4-,,beta0,-0.1884,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 567)
+Cs+,TcO4-,,beta1,-0.1588,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 567)
+Cs+,TcO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 567)
+Cs+,TcO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 567)
+Cs+,ClO4-,,beta0,-0.1652,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 571)
+Cs+,ClO4-,,beta1,-0.15,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 571)
+Cs+,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 571)
+Cs+,ClO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 571)
+Mg+2,TcO4-,,beta0,0.3138,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,TcO4-,,beta1,1.84,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,TcO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,TcO4-,,cphi,0.0114,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+K+,TcO4-,,beta0,-0.0578,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon (Table IV)
+K+,TcO4-,,beta1,0.006,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon (Table IV)
+K+,TcO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon (Table IV)
+K+,TcO4-,,cphi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon (Table IV)
+Na+,TcO4-,,beta0,0.01111,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV) --------------------------------------------------------------- Hexavalent Actnides - Pitzer Binary Parameters
+Na+,TcO4-,,beta1,0.1595,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV) --------------------------------------------------------------- Hexavalent Actnides - Pitzer Binary Parameters
+Na+,TcO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV) --------------------------------------------------------------- Hexavalent Actnides - Pitzer Binary Parameters
+Na+,TcO4-,,cphi,0.00236,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV) --------------------------------------------------------------- Hexavalent Actnides - Pitzer Binary Parameters
+UO2+2,ClO4-,,beta0,0.62346,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Pas/Czer (Table 6); Original source:88Kim/Fre.
+UO2+2,ClO4-,,beta1,1.97357,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 97Pas/Czer (Table 6); Original source:88Kim/Fre.
+UO2+2,ClO4-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 97Pas/Czer (Table 6); Original source:88Kim/Fre.
+UO2+2,ClO4-,,cphi,0.02084,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Pas/Czer (Table 6); Original source:88Kim/Fre.
+UO2+2,NO3-,,beta0,0.47803,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+UO2+2,NO3-,,beta1,1.5953,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+UO2+2,NO3-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+UO2+2,NO3-,,cphi,-0.03971,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre (Table III)
+UO2+2,Cl-,,beta0,0.4273,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 73Pit/May (Table VI)
+UO2+2,Cl-,,beta1,1.644,0.0,0.0,0.0,2.0,data0.ypf.R2,,09/28/2006,Source: 73Pit/May (Table VI)
+UO2+2,Cl-,,beta2,0.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,Source: 73Pit/May (Table VI)
+UO2+2,Cl-,,cphi,-0.03686,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 73Pit/May (Table VI)
+UO2+2,SO4-2,,beta0,0.322,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I; recommended Beta(2) value of -40.0 by 74Pit/May"
+UO2+2,SO4-2,,beta1,1.827,0.0,0.0,0.0,1.4,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I; recommended Beta(2) value of -40.0 by 74Pit/May"
+UO2+2,SO4-2,,beta2,-40.0,0.0,0.0,0.0,12.0,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I; recommended Beta(2) value of -40.0 by 74Pit/May"
+UO2+2,SO4-2,,cphi,-0.0176,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 74Pit/May, Table I; recommended Beta(2) value of -40.0 by 74Pit/May"
+Ca+2,H+,,theta,0.092,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Ca+2,K+,,theta,0.1156,9.31322575e-10,0.0,1.42108547e-14,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MM_K_Ca.xls]
+Ca+2,Na+,,theta,0.05,1.86264515e-09,7.27595761e-12,0.0,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MM_Na_Ca.xls]
+Ca+2,Mg+2,,theta,0.007,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Cs+,H+,,theta,-0.044,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 116; 25C value)
+Cs+,K+,,theta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 116; 25C value)
+Cs+,Li+,,theta,-0.1242,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Cs+,Na+,,theta,-0.03886,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,Mg+2,,theta,-0.078,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+H+,K+,,theta,0.005,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+H+,Li+,,theta,0.015,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 116; 25C value)
+H+,Mg+2,,theta,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+H+,Na+,,theta,0.036,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+H+,NH4+,,theta,-0.019,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 116; 25C value)
+H+,Sr+2,,theta,0.0642,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+K+,Li+,,theta,-0.0563,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+K+,Mg+2,,theta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 87Pab/Pit
+K+,Na+,,theta,-0.00320349317,14.0213141,9.09494702e-13,-2.66453526e-15,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MM_Na_K.xls]
+Li+,Na+,,theta,0.0029,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Na+,Nd+3,,theta,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Na+,Am+3,,theta,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,Nd+3,,theta,0.2,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,Am+3,,theta,0.2,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,NdCl+2,,theta,-0.014,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,AmCl+2,,theta,-0.014,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,NdCl2+,,theta,-0.196,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+Ca+2,AmCl2+,,theta,-0.196,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1).
+H+,Th+4,,theta,0.6,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II)
+Na+,Th+4,,theta,0.42,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3)
+Mg+2,Th+4,,theta,0.6,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3)
+H+,UO2+2,,theta,0.1377,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Na+,UO2+2,,theta,0.0231,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV) Also adopted by 98Fan/Kim (Table 1).
+H+,Gd+3,,theta,0.07,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Ba+2,H+,,theta,0.0991,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Na+,Co+2,,theta,0.0382,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Ca+2,Co+2,,theta,0.1722,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Co+2,H+,,theta,0.0829,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Co+2,K+,,theta,0.0559,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 91Sar/Ana, Table II"
+Cr+3,K+,,theta,-0.07,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 03Chr, p. 916."
+Cu+2,K+,,theta,-0.16,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Chr, Table 4"
+Cu+2,Na+,,theta,0.037,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Cu+2,H+,,theta,0.084,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11."
+Mg+2,Na+,,theta,0.07,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 87Pab/Pit
+Na+,Mn+2,,theta,0.0907,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Ni+2,H+,,theta,0.069,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ni+2,K+,,theta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Chr, Table 4"
+Ni+2,Na+,,theta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr(2), Table 4"
+AlO2-,NO3-,,theta,0.038,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Rus
+AlO2-,OH-,,theta,0.014,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Rus
+Br-,Cl-,,theta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Br-,OH-,,theta,-0.065,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Cl-,ClO4-,,theta,0.0341,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (Table I))
+Cl-,CO3-2,,theta,-0.092,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 82pei/pit
+Cl-,HCO3-,,theta,0.0359,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 82pei/pit
+Cl-,HSO4-,,theta,-0.006,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+Cl-,NO3-,,theta,0.016,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 116; 25C value)
+Cl-,OH-,,theta,-0.05,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 87Pab/Pit
+ClO4-,OH-,,theta,-0.032,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4; 25C value)
+Cl-,SO4-2,,theta,0.0703278797,182.513459,1.32573055,-0.00233222702,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_XX_Cl_SO4.xls]
+ClO4-,SO4-2,,theta,0.02,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+CO3-2,HCO3-,,theta,-0.04,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+CO3-2,OH-,,theta,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+CO3-2,SO4-2,,theta,0.02,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+CO3-2,ClO4-,,theta,0.07,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4; 25C value)
+HCO3-,SO4-2,,theta,0.01,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 91Pit (p. 118; 25C value)
+HCO3-,ClO4-,,theta,0.081,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4; 25C value)
+HSO4-,SO4-2,,theta,-0.116842489,-3090.83341,-14.0020408,0.015402823,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_XX_HSO4_SO4.xls]
+OH-,SO4-2,,theta,-0.013,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 87Pab/Pit
+Cl-,CrO4-2,,theta,0.02,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, p. 992"
+Cl-,Cr2O7-2,,theta,0.1,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 3"
+Br-,Cr2O7-2,,theta,-0.05,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 3"
+Cl-,MoO4-2,,theta,0.035,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p.75"
+Cl-,TcO4-,,theta,0.067,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+SO4-2,TcO4-,,theta,0.179,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+CO2,Ca+2,,lambda,0.230880472,554.029976,2.3615659,-0.00253647159,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CO2,H+,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93He/Mor (Table 4, p. 3546; thermodynamic convention)"
+CO2,K+,,lambda,0.115440236,277.014988,1.18078295,-0.0012682358,,data0.ypf.R2,,09/28/2006,Source: Same as CO2(aq)-Na+; 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CO2,Mg+2,,lambda,0.230880472,554.029976,2.3615659,-0.00253647159,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CO2,Na+,,lambda,0.115440236,277.014988,1.18078295,-0.0012682358,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+O2,Al+3,,lambda,0.3095,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Ba+2,,lambda,0.285,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Ca+2,,lambda,0.2497,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,H+,,lambda,0.035284639,81.44999999,-8.09461e-11,1.21206e-13,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,,lambda,0.151915,199.431,7.64677e-10,-1.14341e-12,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Li+,,lambda,0.149,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Mg+2,,lambda,0.229806,305.513,-2.15815e-10,3.23403e-13,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,,lambda,0.160236,72.8644,-0.616311,0.0018462,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,NH4+,,lambda,0.0751,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+SiO2,H+,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch (thermodynamic convention)
+SiO2,Mg+2,,lambda,0.082109605,-3.83318e-09,-2.32691e-11,-0.0018133,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+SiO2,Na+,,lambda,-0.0788994,-1.43923e-07,-8.63577e-10,0.000118667,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+H3PO4,H+,,lambda,0.29,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+CO2,Cl-,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls] Note: The adopted convention for the lambda (CO2(aq)-Cl) value in 90Cor/dePab is zero; consistent with that of Clegg and Brimblecombe (1990).
+CO2,SO4-2,,lambda,0.0938550573,640.651636,2.19629464,-0.00183326325,,data0.ypf.R2,,09/28/2006,Source: 93Rum/Mau [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+O2,Cl-,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls] Note: this lamda is zero by thermodynamic convention.
+O2,Br-,,lambda,-0.0347,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,CO3-2,,lambda,0.09648925,-277.074,2.030064e-10,-3.034302e-13,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,HCO3-,,lambda,0.0854,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,I-,,lambda,-0.0744,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,NO3-,,lambda,-0.0377,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,OH-,,lambda,0.05222539,15.571,-2.740323e-10,4.101025e-13,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,SO4-2,,lambda,0.087774406,-274.085,1.3290659e-09,-1.98727658e-12,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+CO2,ClO4-,,lambda,-0.07,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4; 25C value)
+SiO2,Cl-,,lambda,0.142309,167.356,1.50701,-0.00321903,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+SiO2,NO3-,,lambda,0.134079,6301.5,35.5262,-0.0502191,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+SiO2,SO4-2,,lambda,0.07759934,1.55517e-07,9.33172e-10,0.00055333,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+H3PO4,H2PO4-,,lambda,-0.4,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+CO2,CO2,,lambda,-0.0114856224,1172.99112,5.62470009,-0.00680012749,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CO2,CO2,CO2,mu,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CaCl2,CaCl2,,lambda,3.7093994,5485.617426,-1.01905e-10,0.019903147,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+CaCl2,CaCl2,CaCl2,mu,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98ste/fel (Model 3) [FitPitzerNC_MX_CaCl_CFJC_Model3_Sterner_et_al_1998.xls]
+H3PO4,H3PO4,,lambda,0.0503,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+H3PO4,H3PO4,H3PO4,mu,0.0109,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+SiO2,SiO2,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: None [template only]
+SiO2,SiO2,SiO2,mu,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: None [template only]
+CO2,SiO2,,lambda,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: None [template only]
+Ca+2,K+,Cl-,psi,-0.0431889754,-27.0770507,-3.63797881e-12,3.55271368e-15,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MMX_K_Ca_Cl.xls]
+Ca+2,Na+,Cl-,psi,-0.003,0.0,1.13686838e-13,-6.66133815e-16,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MMX_Na_Ca_Cl.xls]
+Ca+2,Na+,SO4-2,psi,-0.012,0.0,4.54747351e-13,-2.66453526e-15,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MMX_Na_Ca_SO4.xls]
+K+,Mg+2,Cl-,psi,-0.022,-14.27,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: conversion of 87Pab/Pit data to 25C-centric form [Pabalan_icf_TJW.xls]
+K+,Na+,Cl-,psi,-0.00369149429,-5.10212917,-3.41060513e-13,6.66133815e-16,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MMX_Na_K_Cl.xls]
+K+,Na+,SO4-2,psi,0.00732101065,-71.6090806,-0.394156322,0.000606678643,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MMX_Na_K_SO4.xls]
+Mg+2,Na+,Cl-,psi,-0.012,-9.51,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: conversion of 87Pab/Pit data to 25C-centric form [Pabalan_icf_TJW.xls]
+H+,Na+,HSO4-,psi,-0.0129,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+H+,Na+,ClO4-,psi,-0.016,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 01Rai/Moo (Table 1)
+Ca+2,Na+,ClO4-,psi,-0.02,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4)
+Na+,HCO3-,ClO4-,psi,-0.019,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99Kon/Kon (Table 4)
+H+,UO2+2,ClO4-,psi,-0.0319,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Cr+3,Na+,Cl-,psi,0.01,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 03Chr, p. 916."
+Cr+3,K+,Cl-,psi,-0.01,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 03Chr, p. 916."
+Cs+,Na+,ClO4-,psi,0.0026,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec Table I
+Cs+,Na+,Cl-,psi,-0.00135,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,Na+,SO4-2,psi,0.0023,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,K+,Cl-,psi,-0.0013,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,K+,SO4-2,psi,-0.0042,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,Mg+2,Cl-,psi,-0.044,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+Cs+,Mg+2,SO4-2,psi,-0.08,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 2)
+H+,Th+4,Cl-,psi,0.37,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 92Roy/Vog (Table II)
+Na+,Nd+3,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Na+,Am+3,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,Nd+3,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,Am+3,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,NdCl+2,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,AmCl+2,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,NdCl2+,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Ca+2,AmCl2+,Cl-,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Fan/Kim (Table 1)
+Na+,Th+4,Cl-,psi,0.21,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel(1) (Table 3)
+Na+,UO2+2,ClO4-,psi,-0.0437,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source 88Kim/Fre(2)
+Mg+2,Th+4,Cl-,psi,0.21,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Rai/Fel (Table 3)
+H+,Gd+3,Cl-,psi,0.14,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 00Roy/Gre (Table III)
+Al+3,K+,Cl-,psi,-0.06,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 01Chr.2, Table 4"
+Al+3,Mg+2,Cl-,psi,-0.024,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 01Chr.2, Table 4"
+Ba+2,H+,Cl-,psi,-0.0081,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Na+,Co+2,Cl-,psi,-0.0056,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Ca+2,Co+2,Cl-,psi,-0.0332,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) (Table IV)
+Co+2,K+,Cl-,psi,-0.0315,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 91Sar/Ana, Table II"
+Co+2,H+,Cl-,psi,0.0075,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Cu+2,Na+,Cl-,psi,-0.0129,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 88Kim/Fre(2), Table IV"
+Cu+2,Na+,SO4-2,psi,-0.0235,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Chr, Table 4"
+Cu+2,K+,Cl-,psi,-0.001,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Chr, Table 4"
+Cu+2,K+,SO4-2,psi,0.06,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Chr, Table 4"
+Cu+2,H+,HSO4-,psi,-0.019,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table V, parameter set 11"
+Mg+2,Na+,TcO4-,psi,-0.02,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,H+,Cl-,psi,-0.011,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 84Har/Mol/Wea as quoted in 03Alt/Met, Table 1"
+Mg+2,MgOH+,Cl-,psi,0.028,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 84Har/Mol/Wea as quoted in 03Alt/Met, Table 1"
+Na+,Mn+2,Cl-,psi,-0.019,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Ni+2,H+,Cl-,psi,0.0044,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 88Kim/Fre(2) Table IV
+Ni+2,K+,Cl-,psi,-0.031,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Christov, Table 4"
+Ni+2,K+,SO4-2,psi,-0.069,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 99Christov, Table 4"
+Ni+2,Na+,SO4-2,psi,-0.015,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr(2), Table 4"
+Ni+2,H+,Br-,psi,0.06,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Roy/Cof, Table 2"
+Ca+2,Cl-,SO4-2,psi,-0.018,-6.98491931e-10,-2.72848411e-12,1.77635684e-15,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MXX_Ca_Cl_SO4.xls]
+K+,Cl-,SO4-2,psi,-0.00161523116,37.5619614,2.89901436e-12,0.000284698333,,data0.ypf.R2,,09/28/2006,Source: refit of 89Gre/Mol [FitPitzerNC_MXX_K_Cl_SO4.xls]
+Mg+2,Cl-,SO4-2,psi,-0.00796,32.63,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: conversion of 87Pab/Pit data to 25C-centric form [Pabalan_icf_TJW.xls]
+Na+,AlO2-,NO3-,psi,0.0066,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Rus
+Na+,Cl-,NO3-,psi,-0.006,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 91Pit (Table 16, p. 116)"
+Na+,HCO3-,Cl-,psi,-0.0143,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 82pei/pit
+Na+,CO3-2,Cl-,psi,0.016,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 99kon/kon
+Na+,AlO2-,OH-,psi,-0.0048,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Rus
+Na+,Cl-,OH-,psi,-0.00601,-9.93,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: conversion of 87Pab/Pit data to 25C-centric form [Pabalan_icf_TJW.xls]
+Na+,Cl-,SO4-2,psi,-0.00908854947,-78.6141517,-0.551999137,0.00094610605,,data0.ypf.R2,,09/28/2006,* Source: refit of 89Gre/Mol [FitPitzerNC_MXX_Na_Cl_SO4.xls]
+Na+,HSO4-,SO4-2,psi,0.0143652661,258.084011,1.16443706,-0.00125523553,,data0.ypf.R2,,09/28/2006,Source: refit of 94Hol/Mes [FitPitzerNC_MXX_Na_HSO4_SO4.xls]
+Na+,OH-,SO4-2,psi,-0.0091,-11.69,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: conversion of 87Pab/Pit data to 25C-centric form [Pabalan_icf_TJW.xls]
+H+,HSO4-,SO4-2,psi,0.02781,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 93Bae/Rea, Table I. (same as 93Hov/Pit)."
+Na+,ClO4-,SO4-2,psi,0.0014,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 95Rai/Fel (Table IV)
+Cs+,TcO4-,Cl-,psi,-0.0011,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 567)
+Cs+,ClO4-,Cl-,psi,0.0023,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (p. 571)
+Na+,ClO4-,Cl-,psi,-0.0057,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Na+,TcO4-,Cl-,psi,-0.0085,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 97Kon/Nec (Table I)
+K+,TcO4-,Cl-,psi,-0.011,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,TcO4-,Cl-,psi,-0.0115,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Ca+2,TcO4-,Cl-,psi,-0.033,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Na+,TcO4-,SO4-2,psi,-0.003,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+K+,TcO4-,SO4-2,psi,0.002,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Mg+2,TcO4-,SO4-2,psi,-0.03,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+Cs+,TcO4-,SO4-2,psi,0.024,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(2) (Table 3)
+Ca+2,TcO4-,SO4-2,psi,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 98Nec/Kon(1) (Table IV)
+K+,Cl-,CrO4-2,psi,0.035,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, p. 993"
+Na+,Cl-,CrO4-2,psi,-0.004,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 02Chr/Iva, p. 992"
+K+,Cl-,Cr2O7-2,psi,-0.7,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 3"
+K+,Br-,Cr2O7-2,psi,-0.7,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 3"
+K+,SO4-2,Cr2O7-2,psi,-0.7,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 98Chr, Table 3"
+Cu+2,Cl-,SO4-2,psi,0.01,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 00Chr, Table 4"
+Na+,Cl-,MoO4-2,psi,0.0032,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,"Source: 92Gra/Mul, p.75"
+CO2,Na+,Cl-,zeta,-0.00756938326,0.0,0.0,6.05286344e-06,,data0.ypf.R2,,09/28/2006,Source: 90Cor/dePab [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+CO2,Na+,SO4-2,zeta,-0.0105,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 93Rum/Mau [FitPitzerMX_Ca-HCO3_NMX_CO2_CFJC2.xls]
+O2,Ba+2,Cl-,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Ca+2,Cl-,zeta,-0.0169,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Ca+2,NO3-,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,H+,Cl-,zeta,-0.0077,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,Br-,zeta,-0.00541,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,Cl-,zeta,-0.0211,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,OH-,zeta,-0.00706411904,-15.0750433,-0.0452071983,4.50984598e-05,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,NO3-,zeta,-0.0281,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,K+,SO4-2,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Li+,Cl-,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,Br-,zeta,-0.00909,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,Cl-,zeta,-0.00918665101,-2.73899999,3.2599209e-11,-4.87958604e-14,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,CO3-2,zeta,-0.0181,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,HCO3-,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,NO3-,zeta,-0.012,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,OH-,zeta,-0.0125,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,Na+,SO4-2,zeta,-0.046,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls]
+O2,NH4+,SO4-2,zeta,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 90Clegg/Brimb [FitPitzerNC_lambdas_zetas_O2_CFJC.xls] NOTE: The above value for a1 is actually -0.028 per [FitPitzerNC_lambdas_zetas_O2_CFJC.xls] See also ANL-EBS-MD-000045 Rev 03
+SiO2,H+,NO3-,zeta,-0.0033,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+SiO2,Mg+2,Cl-,zeta,-0.051469246,1.49594e-08,8.98686e-11,0.000594133,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+SiO2,Na+,Cl-,zeta,-8.47766e-15,-1.84314e-08,-1.10633e-10,-0.0002,,data0.ypf.R2,,09/28/2006,Source: 94Fel/Sch [Pitzer_NMX_SiO2.xls] Comment: refit valid to 100C.
+CO2,CO2,SiO2,mu,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: None [template]
+SiO2,SiO2,CO2,mu,0.0,0.0,0.0,0.0,,data0.ypf.R2,,09/28/2006,Source: None [template]

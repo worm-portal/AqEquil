@@ -3,8 +3,10 @@ Main module for processing dissociation reactions in thermodynamic databases.
 
 This module handles:
 1. Checking that dissociation reactions are balanced
-2. Generating balanced dissociation reactions for species that lack them or have unbalanced ones
-3. Organizing basis species to prevent EQPT errors
+2. Checking that dissociation reactions are written in terms of strict basis
+   and auxiliary basis species
+3. Generating balanced dissociation reactions for species that lack them or have unbalanced or invalid ones
+4. Organizing basis species to prevent EQPT errors
 
 This replaces the R script redox_and_dissrxns.r for the dissociation reaction
 checking and generation tasks (redox suppression will be handled separately).
@@ -16,6 +18,7 @@ import pychnosz
 from .dissrxn_balancer import check_dissrxn_balanced, format_dissrxn_string
 from .dissrxn_generator import (
     find_species_needing_dissrxns,
+    find_invalid_dissrxn_species,
     generate_dissrxn,
     get_simplest_basis,
     match_basis_comp
@@ -156,9 +159,11 @@ def process_dissrxns(thermo_df, water_model='SUPCRT92', exceed_Ttr=True,
     This function:
     1. Handles redox suppression by creating pseudoelements
     2. Checks which species have missing or unbalanced dissociation reactions
-    3. Generates balanced dissociation reactions for those species
-    4. Orders the database to prevent EQPT errors
-    5. Performs cascading rejection of species dependent on rejected species
+    3. Checks which species have dissociation reactions that are written in
+       terms of species that are not strict or auxiliary basis species
+    4. Generates balanced dissociation reactions for those species
+    5. Orders the database to prevent EQPT errors
+    6. Performs cascading rejection of species dependent on rejected species
 
     Parameters
     ----------
@@ -637,13 +642,46 @@ def process_dissrxns(thermo_df, water_model='SUPCRT92', exceed_Ttr=True,
             if len(needs_dissrxn_unique) > 20:
                 species_str += f", ... and {len(needs_dissrxn_unique) - 20} more"
             print(f"  {species_str}")
+
+    # A balanced dissociation reaction is still invalid if it is written in
+    # terms of species that are not strict basis or auxiliary basis species,
+    # because EQPT cannot compile it. Mark these reactions so they get
+    # regenerated, too.
+    invalid_dissrxns = find_invalid_dissrxn_species(thermo_df, fixed_species=fixed_species)
+
+    if len(invalid_dissrxns) > 0:
+        if verbose >= 1:
+            db_names = set(thermo_df['name'])
+            print(f"\nWarning: dissociation reactions for the following "
+                  f"{len(invalid_dissrxns)} species are written in terms of "
+                  "species that are not strict basis or auxiliary basis "
+                  "species:")
+            for sp_name in list(invalid_dissrxns.keys())[:10]:
+                required = ["'{}'".format(sp) if sp in db_names
+                            else "'{}' (not in the database)".format(sp)
+                            for sp in invalid_dissrxns[sp_name]]
+                print(f"  '{sp_name}' requires {', '.join(required)}")
+            if len(invalid_dissrxns) > 10:
+                print(f"  ... and {len(invalid_dissrxns) - 10} more")
+            print("These dissociation reactions are invalid and will be "
+                  "regenerated.")
+
+    # Species with missing, unbalanced, or invalid dissociation reactions all
+    # get a freshly generated dissociation reaction
+    regenerate_dissrxn_species = needs_dissrxn_unique + [
+        sp for sp in invalid_dissrxns if sp not in needs_dissrxn_unique]
+
+    if len(regenerate_dissrxn_species) > 0:
+        thermo_df.loc[thermo_df['name'].isin(regenerate_dissrxn_species),
+                      'regenerate_dissrxn'] = True
+        if verbose >= 1:
             print("\nGenerating dissociation reactions for these species using "
                   "strict and auxiliary basis species containing a maximum of "
                   "one atom of one element besides O and H...\n")
 
     # Generate dissociation reactions for species that need them
     failed_dissrxn_species = []
-    for sp_name in needs_dissrxn_unique:
+    for sp_name in regenerate_dissrxn_species:
         dissrxn = generate_dissrxn(
             sp_name,
             thermo_df,

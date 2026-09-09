@@ -386,6 +386,461 @@ def test_water_rock_reaction():
         return False
 
 
+def test_pitzer_database():
+    """Test loading a Pitzer parameter CSV and building data0 Pitzer blocks."""
+    print("\n" + "=" * 60)
+    print("Test 7: Testing Pitzer parameter database support")
+    print("=" * 60)
+
+    try:
+        import pandas as pd
+        from aqequil.test_data import get_test_data_path
+        from aqequil.databases import __file__ as db_init
+        from aqequil.pitzer import (validate_pitzer_db, build_pitzer_superblocks,
+                                    PITZER_SUPERBLOCK_HEADERS, PITZER_SUPERBLOCK_ORDER,
+                                    data1_is_pitzer, data0_is_pitzer)
+
+        pitzer_csv = get_test_data_path("pitzer_params_ypf.csv")
+        if not os.path.isfile(pitzer_csv):
+            print(f"[FAIL] Pitzer parameter CSV not found at: {pitzer_csv}")
+            return False
+
+        pitzer_df = validate_pitzer_db(pd.read_csv(pitzer_csv), filename=pitzer_csv)
+        print(f"[OK] Loaded and validated {pitzer_df.shape[0]} Pitzer parameters")
+
+        # charges of aqueous species in the bundled WORM database
+        wrm_csv = os.path.join(os.path.dirname(db_init), "wrm_data_latest.csv")
+        wrm = pd.read_csv(wrm_csv)
+        wrm_aq = wrm[wrm["state"] == "aq"]
+        charges = dict(zip(wrm_aq["name"], pd.to_numeric(wrm_aq["z.T"], errors="coerce").fillna(0)))
+        charges.update({"H+": 1.0, "H2O": 0.0})
+
+        out = build_pitzer_superblocks(pitzer_df, charges, verbose=0)
+        if out["n_blocks"] <= 0:
+            print("[FAIL] No Pitzer interaction blocks were built")
+            return False
+        print(f"[OK] Built {out['n_blocks']} Pitzer interaction blocks with "
+              f"{out['n_terms']}-term temperature functions")
+
+        # superblock headers must appear once each, in the order EQPT expects
+        lines = out["text"].split("\n")
+        positions = []
+        for key in PITZER_SUPERBLOCK_ORDER:
+            header = PITZER_SUPERBLOCK_HEADERS[key]
+            idx = [i for i, l in enumerate(lines) if l == header]
+            if len(idx) != 1:
+                print(f"[FAIL] Superblock header '{header}' appears {len(idx)} times")
+                return False
+            positions.append(idx[0])
+        if positions != sorted(positions):
+            print("[FAIL] Pitzer superblocks are out of order")
+            return False
+        print("[OK] Pitzer superblocks are complete and in the required order")
+
+        # every coefficient value must contain a decimal point (EQPT reads
+        # them with an E25.18 format, which assumes 18 implied decimals for
+        # values written without a decimal point)
+        bad = [l for l in lines if l.strip().startswith("a") and "=" in l
+               and "." not in l.split("=")[1]]
+        if len(bad) > 0:
+            print(f"[FAIL] Coefficients written without a decimal point: {bad[:3]}")
+            return False
+        print("[OK] Coefficient formatting is compatible with EQPT")
+
+        # data file type detection
+        data1_wrm = os.path.join(os.path.dirname(db_init), "data1.wrm")
+        if os.path.isfile(data1_wrm):
+            with open(data1_wrm, "rb") as f:
+                if data1_is_pitzer(f.read(512)):
+                    print("[FAIL] data1.wrm was detected as a Pitzer data file")
+                    return False
+            print("[OK] data1.wrm detected as a B-dot/Davies data file")
+        data0_wrm = get_test_data_path("data0.wrm")
+        if os.path.isfile(data0_wrm):
+            with open(data0_wrm, "r") as f:
+                if data0_is_pitzer(f.read()):
+                    print("[FAIL] data0.wrm was detected as a Pitzer data file")
+                    return False
+            print("[OK] data0.wrm detected as a B-dot/Davies data file")
+
+        return True
+
+    except Exception as e:
+        print(f"[FAIL] Error during Pitzer database test: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+SMALL_DATA0 = """data0.tst
+Test data0 for data0_to_logK_csv
+BEGIN CONFIGURATION DATA BLOCK
+INTERPRET 500 AS NO DATA= YES
+END CONFIGURATION DATA
++--------------------------------------------------------------------
+Miscellaneous parameters
++--------------------------------------------------------------------
+Temperature limits (degC)
+         0.0000  300.0000
+temperatures
+         0.0000   25.0000   60.0000  100.0000
+       150.0000  200.0000  250.0000  300.0000
+pressures
+         1.0132    1.0132    1.0132    1.0132
+         4.7572   15.5365   39.7365   85.8378
++--------------------------------------------------------------------
+elements
++--------------------------------------------------------------------
+O          15.99940
++--------------------------------------------------------------------
+basis species
++--------------------------------------------------------------------
+H2O
+     charge  =   0.0
+****
+     2 element(s):
+      2.0000 H              1.0000 O
+****
++--------------------------------------------------------------------
+Ca++
+     charge  =   2.0
+****
+     1 element(s):
+      1.0000 Ca
+****
++--------------------------------------------------------------------
+Cl-
+     charge  =  -1.0
+****
+     1 element(s):
+      1.0000 Cl
+****
++--------------------------------------------------------------------
+Cr+++
+     charge  =   3.0
+****
+     1 element(s):
+      1.0000 Cr
+****
++--------------------------------------------------------------------
+Fe++
+     charge  =   2.0
+****
+     1 element(s):
+      1.0000 Fe
+****
++--------------------------------------------------------------------
+H+
+     charge  =   1.0
+****
+     1 element(s):
+      1.0000 H
+****
++--------------------------------------------------------------------
+Na+
+     charge  =   1.0
+****
+     1 element(s):
+      1.0000 Na
+****
++--------------------------------------------------------------------
+NO3-
+     charge  =  -1.0
+****
+     2 element(s):
+      1.0000 N              3.0000 O
+****
++--------------------------------------------------------------------
+O2(g)
+     charge  =   0.0
+****
+     1 element(s):
+      2.0000 O
+****
++--------------------------------------------------------------------
+auxiliary basis species
++--------------------------------------------------------------------
+CrO4--
+     charge  =  -2.0
+****
+     2 element(s):
+      1.0000 Cr             4.0000 O
+****
+     5 species in reaction:
+    -1.0000  CrO4--                      -5.0000  H+
+     0.7500  O2(g)                        1.0000  Cr+++
+     2.5000  H2O
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+        13.3037   11.8888   10.4704    9.3902
+         8.5746    8.1635    8.0620    8.2996
++--------------------------------------------------------------------
+Fe+++
+     charge  =   3.0
+****
+     1 element(s):
+      1.0000 Fe
+****
+     5 species in reaction:
+    -1.0000  Fe+++                       -0.5000  H2O
+     0.2500  O2(g)                        1.0000  Fe++
+     1.0000  H+
+*
+**** logK grid [0-25-60-100C @1.0132bar; 150-200-250-300C @Psat-H2O]:
+        -9.3693   -7.7654   -5.9151   -4.2176
+        -2.5286   -1.1656   -0.0198    0.9786
++--------------------------------------------------------------------
+aqueous species
++--------------------------------------------------------------------
+CaCl+
+     sp.type =  aqueous
+     charge  =   1.0
+****
+     2 element(s):
+      1.0000 Ca             1.0000 Cl
+****
+     3 species in reaction:
+    -1.0000  CaCl+                        1.0000  Ca++
+     1.0000  Cl-
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+         0.7865    0.7659    0.6105    0.3008
+        -0.2261   -0.8623   -1.5765  500.0000
+* Source: 98ste/fel (Model 3)
++--------------------------------------------------------------------
+CrOH++
+     charge  =   2.0
+****
+     3 element(s):
+      1.0000 Cr             1.0000 H              1.0000 O
+****
+     4 species in reaction:
+    -1.0000  CrOH++                      -1.0000  H+
+     1.0000  Cr+++                        1.0000  H2O
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+       500.0000    4.0000  500.0000  500.0000
+       500.0000  500.0000  500.0000  500.0000
++--------------------------------------------------------------------
+CaCl2(aq)
+     charge  =   0.0
+****
+     2 element(s):
+      1.0000 Ca             2.0000 Cl
+****
+     3 species in reaction:
+    -1.0000  CaCl2(aq)                    1.0000  Ca++
+     2.0000  Cl-
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+        20.3922   16.4677   12.0000    8.0000
+         4.0000    1.0000  500.0000  500.0000
++--------------------------------------------------------------------
+solids
++--------------------------------------------------------------------
+Halite                  NaCl
+     V0PrTr  =    27.015 cm**3/mol [source: 78hel/del]
+****
+     2 element(s):
+      1.0000 Cl             1.0000 Na
+****
+     3 species in reaction:
+    -1.0000  Halite                       1.0000  Cl-
+     1.0000  Na+
+*
+**** logK grid [0-25-60-100C @1.0132bar; 150-200-250-300C @Psat-H2O]:
+         1.5012    1.5857    1.6198    1.5825
+         1.4770    1.3249    1.1237    0.8557
++--------------------------------------------------------------------
+Soda Niter              NaNO3
+     V0PrTr  =   000.000 cm**3/mol [source: ]
+****
+     3 element(s):
+      1.0000 Na             1.0000 N              3.0000 O
+****
+     3 species in reaction:
+    -1.0000  Soda Niter                   1.0000  NO3-
+     1.0000  Na+
+*
+**** logK grid [0-25-60-100C @1.0132bar; 150-200-250-300C @Psat-H2O]:
+         0.7192    1.0915    1.4321    1.6649
+         1.8721   No_Data   No_Data   No_Data
++--------------------------------------------------------------------
+CaCl2
+     V0PrTr  =    51.620 cm**3/mol [source: 78rob/hem]
+****
+     2 element(s):
+      1.0000 Ca             2.0000 Cl
+****
+     3 species in reaction:
+    -1.0000  CaCl2                        1.0000  Ca++
+     2.0000  Cl-
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+        13.1770   11.9420   10.4444    9.0000
+         7.0000    5.0000    3.0000    1.0000
++--------------------------------------------------------------------
+Hematite                Fe2O3
+     V0PrTr  =    30.274 cm**3/mol [source: 78hel/del]
+****
+     2 element(s):
+      2.0000 Fe             3.0000 O
+****
+     4 species in reaction:
+    -1.0000  Hematite                    -6.0000  H+
+     2.0000  Fe+++                        3.0000  H2O
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+         1.0000    0.1086   -1.0000   -2.0000
+        -3.0000   -4.0000   -5.0000   -6.0000
++--------------------------------------------------------------------
+UO2.3333(beta)
+     sp.type =  solid   polymorph
+     V0PrTr  =   500.000 [null]
+****
+     2 element(s):
+      2.3333 O              1.0000 U
+****
+     5 species in reaction:
+    -2.0000  UO2.3333(beta)              -8.0000  H+
+     0.3333  O2(g)                        2.0000  U++++
+     4.0000  H2O
+*
+**** logK grid [0-25-60-100C @1bar; 150-200-250-300C @Psat-H2O]:
+       -26.0327  -26.7364  -27.4546  -28.0234
+       500.0000  500.0000  500.0000  500.0000
++--------------------------------------------------------------------
+liquids
++--------------------------------------------------------------------
+gases
++--------------------------------------------------------------------
+O2(g)                   O2(g)
+     V0PrTr  =     0.000 cm**3/mol [source: supcrt92]
+****
+     1 element(s):
+      2.0000 O
+****
+     1 species in reaction:
+    -1.0000  O2(g)
+*
+**** logK grid [0-25-60-100C @1.0132bar; 150-200-250-300C @Psat-H2O]:
+         0.0000    0.0000    0.0000    0.0000
+         0.0000    0.0000    0.0000    0.0000
++--------------------------------------------------------------------
+solid solutions
++--------------------------------------------------------------------
+references
++--------------------------------------------------------------------
+stop.
+"""
+
+
+def test_data0_to_logK_csv():
+    """Test converting the species blocks of a data0 file into a logK CSV."""
+    print("\n" + "=" * 60)
+    print("Test 8: Testing data0 to logK CSV conversion")
+    print("=" * 60)
+
+    try:
+        import tempfile
+        import numpy as np
+        import pandas as pd
+        import aqequil
+
+        with tempfile.TemporaryDirectory() as tmp:
+            data0_path = os.path.join(tmp, "data0.tst")
+            with open(data0_path, "w") as f:
+                f.write(SMALL_DATA0)
+            csv_path = os.path.join(tmp, "tst_logK.csv")
+            out = aqequil.data0_to_logK_csv(data0_path, csv_path, verbose=0)
+            df = out["logK"]
+            report = out["report"]
+            if not os.path.isfile(csv_path):
+                print("[FAIL] logK CSV was not written")
+                return False
+        rows = {r["name"]: r for _, r in df.iterrows()}
+        print(f"[OK] Converted {len(df)} species: {sorted(rows)}")
+
+        # WORM names, ':' hydrate separator, lower-case minerals, spaces removed
+        for name in ["CaCl+", "CrOH+2", "Fe+3", "Cr+3", "halite", "soda_niter", "hematite",
+                     "CaCl2", "CaCl2(cr)"]:
+            if name not in rows:
+                print(f"[FAIL] Expected species '{name}' missing from the logK CSV")
+                return False
+        print("[OK] Species names follow WORM conventions; the CaCl2 solid was renamed CaCl2(cr)")
+
+        # CrO4-- is a strict basis species in WORM, so it is not written and
+        # Cr+3 becomes an auxiliary species with the inverted reaction
+        if "CrO4-2" in rows:
+            print("[FAIL] CrO4-2 is a target basis species and should not be written")
+            return False
+        cr = rows["Cr+3"]
+        if cr["tag"] != "aux" or "CrO4-2" not in cr["dissrxn"] or "O2(g)" not in cr["dissrxn"]:
+            print(f"[FAIL] Cr+3 should be an auxiliary species written in terms of CrO4-2: {cr['dissrxn']}")
+            return False
+        if abs(cr["logK2"] - (-11.8888)) > 1e-4:
+            print(f"[FAIL] Cr+3 log K at 25 C should be -11.8888, got {cr['logK2']}")
+            return False
+        print("[OK] Basis change Cr+3 -> CrO4-2 handled (Cr+3 is an auxiliary species, log K inverted)")
+
+        # reactions written in terms of an available auxiliary species are kept as is
+        hem = rows["hematite"]
+        if "Fe+3" not in hem["dissrxn"] or abs(hem["logK2"] - 0.1086) > 1e-6:
+            print(f"[FAIL] hematite reaction should be kept in terms of Fe+3: {hem['dissrxn']}")
+            return False
+        if rows["Fe+3"]["tag"] != "aux":
+            print("[FAIL] Fe+3 should carry the 'aux' tag")
+            return False
+        print("[OK] Reactions involving auxiliary species are kept as written")
+
+        # 'no data' markers (500 and No_Data) shrink the temperature grid
+        cacl = rows["CaCl+"]
+        if not (cacl["T7"] == 250.0 and np.isnan(cacl["T8"])):
+            print(f"[FAIL] CaCl+ should have a 7-point grid (T8 missing), got T7={cacl['T7']} T8={cacl['T8']}")
+            return False
+        if not (rows["CrOH+2"]["T1"] == 25.0 and np.isnan(rows["CrOH+2"]["T2"])):
+            print("[FAIL] CrOH+2 should have a one-point grid at 25 C")
+            return False
+        sn = rows["soda_niter"]
+        if not (sn["T5"] == 150.0 and np.isnan(sn["T6"])):
+            print("[FAIL] 'No_Data' entries were not treated as missing data for soda_niter")
+            return False
+        print("[OK] 500 and No_Data grid entries are treated as missing data")
+
+        # formula, volume, formula_ox and category columns
+        if rows["halite"]["formula"] != "NaCl" or abs(rows["halite"]["V"] - 27.015) > 1e-9:
+            print("[FAIL] halite formula or volume not carried over")
+            return False
+        if rows["hematite"]["formula_ox"] != "2Fe+3 3O-2":
+            print(f"[FAIL] hematite formula_ox should be '2Fe+3 3O-2', got {rows['hematite']['formula_ox']}")
+            return False
+        if rows["halite"]["category_1"] != "tst_cr" or rows["CaCl+"]["category_1"] != "tst_aq":
+            print("[FAIL] category_1 should be '<dataset>_<state>'")
+            return False
+        print("[OK] formula, V, formula_ox and category_1 columns are populated")
+
+        # reaction that cannot be balanced with four-decimal coefficients is skipped
+        if "UO2.3333(beta)" in rows or "UO2.3333(beta)" not in report["skipped"]:
+            print("[FAIL] UO2.3333(beta) should be skipped (unbalanceable with 4-decimal coefficients)")
+            return False
+        if "U+4" in rows or any("U++++" in k for k in rows):
+            print("[FAIL] unknown species U++++ should not produce a row")
+            return False
+        print("[OK] Species with unrepresentable reactions or unknown participants are skipped and reported")
+
+        # the gas block for O2(g) duplicates the basis species and is not written
+        if "O2(g)" in rows:
+            print("[FAIL] O2(g) should not be written to the logK CSV")
+            return False
+        return True
+
+    except Exception as e:
+        print(f"[FAIL] Error during data0 to logK CSV test: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 def main():
     """Run all integration tests."""
     print("\n" + "=" * 60)
@@ -407,6 +862,8 @@ def main():
         ("EQPT Data0 to Data1 Conversion", test_runeqpt),
         ("Simple Speciation (wrm database)", test_speciation_simple),
         ("Water-Rock Reaction", test_water_rock_reaction),
+        ("Pitzer Parameter Database", test_pitzer_database),
+        ("data0 to logK CSV Conversion", test_data0_to_logK_csv),
     ]
 
     results = []

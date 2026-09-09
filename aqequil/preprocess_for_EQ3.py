@@ -551,24 +551,33 @@ def write_3i_file(df,
     df.loc[df.index[row], "redox_unit"] = this_redox_unit
 
     # check that the redox state of the sample is within the stability region of water
+    logK_H2 = None
     if this_redox_flag != 1 and water_model != "DEW":
+        try:
+            logK_H2 = pychnosz.subcrt(
+                ["H2O", "O2", "H2"],
+                [-1, 0.5, 1],
+                ["liq", "gas", "gas"],
+                T=temp_degC+273.15,
+                P=pressure_bar,
+                property="logK",
+                convert=False,
+                messages=False,
+                show=False,
+            ).out['logK'][0]
+        except Exception:
+            # H2(g) may be absent from a reduced custom database (e.g., when
+            # gases are excluded); the stability check is skipped in that case
+            logK_H2 = None
+
+    if logK_H2 is not None:
         T = temp_degC
         P = pressure_bar
 
         # reduction
         logaH2O = 0  # a good starting guess is 0 before actually doing the speciation...
         logfH2 = logaH2O
-        logK = pychnosz.subcrt(
-            ["H2O", "O2", "H2"],
-            [-1, 0.5, 1],
-            ["liq", "gas", "gas"],
-            T=T+273.15,
-            P=P,
-            property="logK",
-            convert=False,
-            messages=False,
-            show=False,
-        ).out['logK'][0]
+        logK = logK_H2
         logfO2_red = 2 * (logK - logfH2 + logaH2O)
 
         # oxidation

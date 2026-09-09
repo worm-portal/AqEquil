@@ -1,6 +1,9 @@
 from .AqSpeciation import AqEquil, load, compare, Speciation, join_input_files, drop_min_molal_bases
 from .MassTransfer import Mass_Transfer, react, Reactant, Gas, Prepare_Reaction, Mixing_Fluid, join_mixes
 from .water_rock_mix import react_water_rock, mix, combine_plots
+from .pitzer import pitzer_data0_to_csv
+from .gwb_tdat import gwb_tdat_to_csv
+from .data0_logK import data0_to_logK_csv
 from ._version import __version__
 
 

@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 from pychnosz import makeup, mass, info, water
 
+from .pitzer import build_pitzer_superblocks, pitzer_config_lines, DATA0_DELIMITER
+
 
 # Helper functions
 
@@ -52,6 +54,8 @@ def create_data0(thermo_df,
                  exceed_Ttr=False,
                  fixed_species=None,
                  redox_elem_states=None,
+                 activity_model="b-dot",
+                 pitzer_df=None,
                  verbose=1):
     """
     Main function to create a data0 file from thermodynamic data.
@@ -78,6 +82,14 @@ def create_data0(thermo_df,
         Whether to exceed transition temperatures
     fixed_species : list
         List of fixed species (H2O, H+, O2(g), water, Cl-, e-)
+    activity_model : str
+        Aqueous species activity coefficient model the data0 file will be
+        used with: "b-dot" or "davies" produce a data0 file with a B-dot
+        (hard core diameter) parameter block; "pitzer" produces a data0 file
+        with Pitzer interaction parameter blocks.
+    pitzer_df : DataFrame, optional
+        Pitzer parameter database in the long CSV format described in
+        `aqequil.pitzer`. Required when `activity_model` is "pitzer".
     verbose : int
         Verbosity level (0, 1, or 2)
 
@@ -344,7 +356,10 @@ def create_data0(thermo_df,
             tag = tag_vec[entry["name"]]
             formatted_tag = fillspace(tag, 17)
             keys = f" keys   = solid            {formatted_tag}active"
-            formatted_V0PrTr = fillspace(str(entry["V"]), 9, spaces_after=False)
+            V_entry = entry["V"] if "V" in entry.index else float("nan")
+            if pd.isna(V_entry):
+                V_entry = 0.0  # unknown molar volume; not used by EQ3NR
+            formatted_V0PrTr = fillspace(str(V_entry), 9, spaces_after=False)
             volume = f"     V0PrTr = {formatted_V0PrTr} cm**3/mol"
             insertline_regex = r"\+-+\nliquids"
             insertline = "+--------------------------------------------------------------------\nliquids"
@@ -709,6 +724,47 @@ def create_data0(thermo_df,
         bdot_insertline = "+--------------------------------------------------------------------\nelements"
         data0_template = re.sub(bdot_insertline_regex, bdot_entry + "\n" + bdot_insertline,
                                data0_template)
+
+    if activity_model == "pitzer":
+        # Replace the bdot parameter block with Pitzer interaction
+        # parameter blocks. Pitzer data0 files do not have a bdot block.
+        if pitzer_df is None:
+            raise ValueError("A Pitzer parameter database is required to "
+                             "create a data0 file for the Pitzer activity model.")
+
+        # Charges of all aqueous species that appear in the data0 file
+        species_charges = {"H2O": 0.0, "H+": 1.0}
+        for i in range(len(add_obigt_df)):
+            row = add_obigt_df.iloc[i]
+            if row["state"] != "aq":
+                continue
+            try:
+                z = makeup(row["formula_modded"]).get("Z", 0.0)
+            except Exception:
+                z = row["z.T"] if not pd.isna(row["z.T"]) else 0.0
+            species_charges[row["name"]] = float(z)
+
+        pitzer_out = build_pitzer_superblocks(pitzer_df, species_charges, verbose=verbose)
+
+        vmessage(f"Added {pitzer_out['n_blocks']} Pitzer interaction parameter "
+                 "blocks to the data0 file.", 2, verbose)
+
+        pitzer_insertline_regex = r"\+-+\nbdot parameters\n\+-+\n.*?\n\+-+\nelements"
+        data0_template = re.sub(pitzer_insertline_regex,
+                                lambda m: DATA0_DELIMITER + "\n" + pitzer_out["text"] + "\nelements",
+                                data0_template, count=1, flags=re.DOTALL)
+
+        # Tell EQPT how the Pitzer data blocks are organized. These lines
+        # are read from the title of the data0 file.
+        config_anchor = "*   NO. OF POINTS IN RANGE 2  = 4\n"
+        config_text = config_anchor + "\n".join(pitzer_config_lines(pitzer_out["n_terms"])) + "\n"
+        if config_anchor in data0_template:
+            data0_template = data0_template.replace(config_anchor, config_text, 1)
+        else:
+            raise ValueError("Could not find the data grid parameter lines in the "
+                             "data0 template needed to insert Pitzer configuration lines.")
+
+        return data0_template
 
     # Format basis and non-basis species for bdot parameter section
     if water_model in ["SUPCRT92", "IAPWS95"]:

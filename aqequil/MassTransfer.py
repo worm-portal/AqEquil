@@ -17,6 +17,7 @@ import numbers
 import roman
 from natsort import natsorted
 from .AqSpeciation import Speciation, AqEquil
+from .speciation_groups import SpeciationGroups
 from wormutils import Error_Handler, chemlabel, format_equation, check_balance, assign_worm_db_col_dtypes
 import time
 
@@ -411,7 +412,7 @@ def join_mixes(m1, m2):
     return m1
 
 
-class Mass_Transfer:
+class Mass_Transfer(SpeciationGroups):
     """
     Class containing functions to facilitate mass transfer and reaction path
     calculations and visualize results.
@@ -2977,8 +2978,10 @@ class Mass_Transfer:
 
     
     def plot_energy(self, species, stoich,
-                    divisor=1, x_type="logxi", y_type="A", y_units="kcal", 
-                    show_zero_line=False, limiting=None, xlab=None, ylab=None,
+                    divisor=1, x_type="logxi", y_type="A", y_units="kcal",
+                    show_zero_line=False, limiting=None, as_written=False,
+                    grams_minerals=None, negative_energy_supplies=False,
+                    custom_grouping_filepath=None, xlab=None, ylab=None,
                     title=None, charge_sign_at_end=False, log_y=False,
                     plot_width=4, plot_height=3, ppi=122,
                     xlim=None, ylim=None, df_out=False,
@@ -3030,7 +3033,48 @@ class Mass_Transfer:
             limiting reactant will be chosen automatically based on
             concentration and stoichiometry. This parameter is ignored unless
             `y_type` is set to 'E' (energy supply).
-        
+
+        as_written : bool, default False
+            If `as_written` is False, then built-in speciation groups
+            will be used to calculate limiting reactants. For example, if CaCO3
+            is a reactant, then the code tests whether the limiting reactant is
+            the sum of CaCO3, CO2, HCO3-, CO3-2, NaCO3-... everything in the
+            carbonate speciation group. If `as_written` is True, then speciation
+            groups will not be used; only the species defined as reactants
+            will be used to test whether a reactant is limiting
+            (e.g., just CaCO3). This parameter is ignored unless `y_type` is set
+            to 'E' (energy supply).
+
+        grams_minerals : float, int, dict, or pandas.DataFrame, optional
+            Number of grams belonging to each mineral reactant when calculating
+            the limiting reactant during an energy supply calculation. This
+            parameter is only used when `y_type="E"`.
+            For example, in the reaction
+            4 goethite + 4 iron + 3 O2 = 4 magnetite + 2 H2O
+            setting `grams_minerals = 0.001` would mean 0.001 grams of goethite
+            is reacting with 0.001 grams of iron at every step of reaction
+            progress. If it is desirable to specify individual masses for each
+            mineral reactant, then a dictionary can be provided. For example:
+            `grams_minerals={"goethite": 0.001, "iron": 0.1},`
+            To vary the mass of a mineral with reaction progress, provide a
+            dataframe with a column per mineral and a row per reported xi step.
+            By default, mineral masses are left undefined and minerals are not
+            considered when looking for a limiting reactant. Note that defining
+            a mass of 0 grams is different: a mineral present at 0 grams is
+            immediately the limiting reactant, giving an energy supply of 0.
+
+        negative_energy_supplies : bool, default False
+            Report negative energy supplies? If False, negative energy supplies
+            are reported as 0. If True, negative energy supplies are
+            reported. A 'negative energy supply' represents the energy cost of
+            depleting the limiting reactant of a reaction. This metric is not
+            always helpful when examing energy supply results, so this option is
+            set to False by default.
+
+        custom_grouping_filepath : str, optional
+            Filepath for a TXT file containing customized speciation groups. Use
+            to override the built-in speciation group file.
+
         xlab, ylab : str, optional
             Custom x and y axis labels.
         
@@ -3054,7 +3098,8 @@ class Mass_Transfer:
             Minimum and maximum value of the x-axis and y-axis, respectively.
             
         df_out = bool, default False
-            Return a pandas dataframe in addition to a figure?
+            Return a pandas dataframe in addition to a figure? Energy supply
+            dataframes include a 'limiting reactant' column.
             
         save_as : str, optional
             Provide a filename to save this figure. Filetype of saved figure is
@@ -3110,8 +3155,20 @@ class Mass_Transfer:
                             "was not found for species "+str(s)+"")
                     
         missing_composition = check_balance(formulas, stoich)
-        
-        
+
+        # set the custom grouping filepath
+        if isinstance(custom_grouping_filepath, str):
+            self.custom_grouping_filepath = custom_grouping_filepath
+
+        if y_type == "E":
+            self._set_speciation_groups()
+
+            # e.g., a limiting reactant of "HCO3-" is switched to "CO2" if the
+            # latter is what appears as a reactant in the reaction
+            limiting = self._switch_limiting(limiting,
+                                             stoich=stoich,
+                                             species=species)
+
         # check that there are valid limiting reactants when calculating energy
         # e.g., prevent issue when the only reactant is a mineral, etc.
         reactant_idx = [1 if i<0 else 0 for i in stoich]
@@ -3119,7 +3176,7 @@ class Mass_Transfer:
         invalid_limiting_reactants = []
         for r in reactants:
             if r not in ["H2O", "H+", "OH-"]:
-                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq":
+                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq" and not self._mineral_amounts_known(grams_minerals):
                     invalid_limiting_reactants.append(r)
             else:
                 invalid_limiting_reactants.append(r)
@@ -3167,7 +3224,13 @@ class Mass_Transfer:
                 if s in self.aq_distribution_logact.columns:
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
-                    s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                    if isinstance(self.reactant_dict_scalar, dict):
+                        s_molal_dict[s] = self._grouped_molality(
+                                                s,
+                                                self.aq_distribution_molal,
+                                                as_written=as_written)
+                    else:
+                        s_molal_dict[s] = list(self.aq_distribution_molal[s])
                 else:
                     self.err_handler.raise_exception("The species "+str(s)+" is "
                             "not among the distribution of aqueous species in "
@@ -3175,11 +3238,15 @@ class Mass_Transfer:
             else:
                 # liq and cr species
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-                s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
-                
-            
-        xlab, xvar = self.__get_xlab_xvar(x_type)
-            
+                s_molal_dict[s] = self._mineral_molality(
+                                        s,
+                                        len(self.misc_params["Temp(C)"]),
+                                        grams_minerals)
+
+
+        # the label that goes with x_type, unless the user asked for their own
+        xlab_out, xvar = self.__get_xlab_xvar(x_type)
+
         if y_type not in ["logK", "logQ"]:
             if y_units in ["cal", "kcal"]:
                 r_div = 4.184
@@ -3250,53 +3317,37 @@ class Mass_Transfer:
                     y_units_out = y_units+"/mol"
                 elif y_type=="E":
                     
-                    if not isinstance(limiting, str):
-                        lrc_dict = {}
-                        for i_s,s in enumerate(species):
-                            # identify valid limiting reactants and record concentrations
-                            # 1. negative coefficient (reactant)
-                            # 2. can't be OH-, H+, H2O
-                            # 3. can't be cr or liq
-                            if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
-                                lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
-                    
-                    if not isinstance(limiting, str):
-                        lr_name = min(lrc_dict, key=lrc_dict.get)
-                        lr_val = lrc_dict[lr_name]
-                        
-                        # handle situations where there might be multiple limiting reactants
-                        lr_list = []
-                        for k,v in zip(lrc_dict.keys(), lrc_dict.values()):
-                            if v == lr_val:
-                                lr_list.append(str(k))
-            
-                    else:
-                        lr_list = [limiting]
-                        
-                    lr_list_formatted = [chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end) for lr_name in lr_list]
-                    if len(lr_list_formatted) > 1:
-                        lr_reported = ", ".join(lr_list_formatted)
-                    else:
-                        lr_reported = lr_list[0]
-                        
-                    lr_name = lr_list[0] # doesn't matter which lr is used to calculate
-                    lr_concentration = s_molal_dict[lr_name][i]
-                    lr_name_list.append(lr_reported)
-                    lr_stoich = -stoich[species.index(lr_name)]
-                    E = A * (lr_concentration/lr_stoich)
+                    lr_name, lr_reported, lr_concentration, lr_stoich = \
+                            self._select_limiting_reactant(
+                                    species=species,
+                                    stoich=stoich,
+                                    s_molal_dict=s_molal_dict,
+                                    step=i,
+                                    limiting=limiting,
+                                    allow_minerals=self._mineral_amounts_known(grams_minerals),
+                                    charge_sign_at_end=charge_sign_at_end,
+                                    )
 
-                    y_list.append(round(E/divisor_i, 4))
+                    if lr_name != None:
+                        E = A * (lr_concentration/lr_stoich)
+                        y_list.append(E/divisor_i)
+                        lr_name_list.append(lr_reported)
+                    else:
+                        y_list.append(float('NaN'))
+                        lr_name_list.append(float('NaN'))
+
                     y_units_out = y_units+"/kg fluid"
                     ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
-#                     else:
-#                         lr_name_list.append("NA")
-#                         y_list.append(float('NaN'))
-#                         y_units_out = y_units+"/kg fluid"
-#                         ylab_out="Energy Supply, {}".format(y_units+"/kg fluid")
 
                 df_y_name = y_type+", "+y_units_out
 
-            
+        if not negative_energy_supplies and y_type == "E":
+            # a negative energy supply is the energy cost of depleting the
+            # limiting reactant, which is usually not what is being asked for
+            for i,v in enumerate(y_list):
+                if v < 0:
+                    y_list[i] = 0.0
+
         if xlab != None:
             xlab_out = xlab
         if ylab != None:
@@ -3305,26 +3356,31 @@ class Mass_Transfer:
         df = copy.deepcopy(self.misc_params)
         with np.errstate(divide='ignore'):
             df['log Xi'] = np.log10(df['Xi'])
-            
+
         df[df_y_name] = y_list
 
-        
+        if y_type == "E":
+            df["limiting reactant"] = lr_name_list
+
+
+        px_kwargs = {}
+        if y_type=="E":
+            # the limiting reactant rides along on the line itself rather than on
+            # a second trace added afterward. A spare trace turns up as a stray
+            # legend entry and shifts trace colors once these figures are
+            # combined into subplots.
+            px_kwargs["custom_data"] = ["limiting reactant"]
+
         fig = px.line(df, x=xvar, y=df_y_name, log_y=log_y,
                       width=plot_width*ppi, height=plot_height*ppi,
-                      template="simple_white")
-        
+                      template="simple_white", **px_kwargs)
+
         if y_type=="E":
-            fig.add_trace(
-                go.Scatter(
-                    x=df[xvar],
-                    y=df[df_y_name],
-                    mode='lines',
-                    customdata = lr_name_list,
-                    hovertemplate = xlab+': %{x}<br>'+ylab_out+': %{y}<br>Limiting : %{customdata}<extra></extra>',
-                )
+            fig.update_traces(
+                hovertemplate = xlab_out+': %{x}<br>'+ylab_out+': %{y}<br>Limiting : %{customdata[0]}<extra></extra>',
             )
-            fig.data[0].visible=False
-        
+
+
         fig.update_layout(xaxis_title=xlab_out,
                           yaxis_title=ylab_out)
         

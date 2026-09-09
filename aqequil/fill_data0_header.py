@@ -98,7 +98,9 @@ def fill_data0_head(data0_template, db, grid_temps, grid_press,
     B_DH_grid = np.atleast_1d(B_DH_grid)
 
     if activity_model == "pitzer":
-        Aphi_DH_grid = (A_DH_grid * 2.303) / 3
+        # The Debye-Huckel Aphi parameter used by Pitzer's equations is
+        # related to A_gamma (in log10 units) by Aphi = A_gamma * ln(10) / 3
+        Aphi_DH_grid = (A_DH_grid * np.log(10)) / 3
         Aphi_DH_grid_f = [f"{val:.4f}" for val in Aphi_DH_grid]
 
     # Ensure that the number of characters expressing pressure allows for spaces between values in the header
@@ -262,12 +264,15 @@ def fill_data0_head(data0_template, db, grid_temps, grid_press,
                                data0_template,
                                flags=re.DOTALL)
 
-    # Insert logk (eh) grid values into data0 template
-    logkgrid_insertlines = r"\nlog k for eh reaction\n.*?\n\+-+\nbdot parameters"
-    logkgrid_end_insert = "\n+--------------------------------------------------------------------\nbdot parameters"
+    # Insert logk (eh) grid values into data0 template. The block that
+    # follows is "bdot parameters" for B-dot/Davies data0 files and
+    # "ca combinations" (the first Pitzer superblock) for Pitzer data0 files.
+    logkgrid_insertlines = r"\nlog k for eh reaction\n.*?\n\+-+\n(bdot parameters|ca combinations)"
+    logkgrid_end_insert = "\n+--------------------------------------------------------------------\n"
     data0_template = re.sub(logkgrid_insertlines,
-                           f"\nlog k for eh reaction\n{logkgrid}{logkgrid_end_insert}",
+                           lambda m: f"\nlog k for eh reaction\n{logkgrid}{logkgrid_end_insert}{m.group(1)}",
                            data0_template,
+                           count=1,
                            flags=re.DOTALL)
 
     # Modify the data0 header lines

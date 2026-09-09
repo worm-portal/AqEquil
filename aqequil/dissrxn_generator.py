@@ -503,6 +503,18 @@ def generate_dissrxn(sp_name, thermo_df, basis_pref, aux_pref=None,
         seen = set()
         basis_to_add = [x for x in basis_to_add if not (x in seen or seen.add(x))]
 
+        # Oxidation states are not always available. When formula_ox is blank
+        # there is nothing to match basis species against, so fall back on the
+        # basis species chosen from elemental composition alone.
+        if len(basis_to_add) == 0 and len(chosen_basis_species) > 0:
+            seen = set()
+            basis_to_add = [x for x in chosen_basis_species
+                            if not (x in seen or seen.add(x))]
+            if verbose >= 2:
+                print(f"  No oxidation states are available for {sp_name}, so "
+                      "basis species were chosen from its elemental "
+                      f"composition: {basis_to_add}")
+
         if verbose >= 2:
             print(f"  Basis species to add: {basis_to_add}")
 
@@ -699,3 +711,71 @@ def find_species_needing_dissrxns(thermo_df, verbose=1):
             needs_dissrxn.append(sp_name)
 
     return needs_dissrxn
+
+
+def find_invalid_dissrxn_species(thermo_df, fixed_species=None):
+    """
+    Find species whose dissociation reactions are written in terms of species
+    that are not strict basis or auxiliary basis species.
+
+    A dissociation reaction may only be written in terms of strict basis
+    species ('basis' in the 'tag' column) and auxiliary basis species ('aux' in
+    the 'tag' column). A reaction that requires any other species is balanced
+    but cannot be compiled, so EQPT fails with an error like:
+
+        * Error - (EQPT/pcraq) The reaction which destroys non-basis species
+              NaCO3- is written in terms of an unrecognized basis species
+              "CO3-2"
+
+    Note that a balance check will not catch these reactions because the
+    offending species can still have a valid chemical formula.
+
+    Parameters
+    ----------
+    thermo_df : pd.DataFrame
+        Thermodynamic database dataframe with 'name', 'tag', and 'dissrxn'
+        columns
+    fixed_species : list, optional
+        List of fixed species (H2O, H+, O2(g), etc.). These are always valid
+        because EQ3/6 has them hard-coded.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping species names to the species in their dissociation
+        reactions that are neither strict nor auxiliary basis species. Species
+        that are missing from the database entirely are included, too.
+    """
+    if fixed_species is None:
+        fixed_species = ["H2O", "H+", "O2(g)", "water", "e-"]
+
+    if 'dissrxn' not in thermo_df.columns or 'tag' not in thermo_df.columns:
+        return {}
+
+    valid_names = set(thermo_df.loc[thermo_df['tag'].isin(['basis', 'aux']), 'name'])
+    valid_names.update(fixed_species)
+
+    invalid_dissrxns = {}
+
+    for idx, row in thermo_df.iterrows():
+        sp_name = row['name']
+        dissrxn = row.get('dissrxn', '')
+
+        if not isinstance(dissrxn, str) or dissrxn.strip() == '' or dissrxn == 'nan':
+            continue
+
+        # species names are at odd positions in a dissociation reaction, and
+        # the first one is the dissociating species itself
+        parts = dissrxn.strip().split()
+        species_in_rxn = [parts[i] for i in range(1, len(parts), 2)][1:]
+
+        invalid = [s for s in species_in_rxn
+                   if s not in valid_names and s != sp_name]
+
+        if len(invalid) > 0:
+            # polymorphs share a name, so combine what each row requires
+            # while removing duplicates and preserving order
+            invalid = invalid_dissrxns.get(sp_name, []) + invalid
+            invalid_dissrxns[sp_name] = list(dict.fromkeys(invalid))
+
+    return invalid_dissrxns

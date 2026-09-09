@@ -53,6 +53,7 @@ from .preprocess_for_EQ3 import preprocess, write_3i_file
 from .output_3o_mine import main_3o_mine
 from .create_data0 import create_data0 as create_data0_py
 from .fill_data0_header import fill_data0_head
+from .pitzer import validate_pitzer_db, pitzer_param_keys, format_pitzer_param_key, data0_is_pitzer, data1_is_pitzer, PitzerDatabaseError
 
 
 # matplotlib for static plots
@@ -66,6 +67,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 from wormutils import Error_Handler, chemlabel, format_equation, check_balance, format_coeff, get_colors, isnotebook, assign_worm_db_col_dtypes, import_package_file
+
+from .speciation_groups import SpeciationGroups
 
 # Import new Python modules for dissociation reaction processing
 from .process_dissrxns import process_dissrxns
@@ -137,6 +140,15 @@ def _all_equal(iterable):
     return next(g, True) and not next(g, False)
 
 
+def _is_url(s):
+    """
+    Is this string a web address?
+    """
+    if not isinstance(s, str):
+        return False
+    return s[0:8].lower() == "https://" or s[0:7].lower() == "http://" or s[0:4].lower() == "www."
+
+
 def _get_bundled_exe_path():
     """
     Get the path to bundled EQ3/6 executables.
@@ -202,10 +214,10 @@ class AqEquil(object):
     eq36co : str, defaults to path given by the environment variable EQ36CO
         Path to directory where EQ3 executables are stored.
     
-    db : str, default "WORM"
+    db : str, pd.DataFrame, or list, default "WORM"
         Determines which thermodynamic database is used in the speciation
         calculation. There are several options available:
-        
+
         - "WORM" will load the default WORM thermodynamic database,
         solid solution database, and logK database. These files are retrieved
         from https://github.com/worm-portal/WORM-db to ensure they are
@@ -234,24 +246,79 @@ class AqEquil(object):
         one; otherwise it is retrieved from
         https://github.com/worm-portal/WORM-db
 
-    solid_solutions : str
+        A list of two or more databases can also be given, in which case the
+        databases are concatenated into one database, e.g.,
+        `db=["WORM", "my_extra_species.csv"]`. Only WORM-style CSV databases
+        can be concatenated, so each entry in the list must be "WORM", the
+        filepath of a CSV file, the URL of a CSV file, or a Pandas DataFrame.
+        Three letter codes (e.g., "wrm"), data0 files, and data1 files cannot
+        be concatenated because they are not CSV databases. If a species is
+        defined in more than one of the databases, the entry in the last
+        database that defines it is the one that is used, so databases later
+        in the list override earlier ones.
+
+    solid_solutions : str, pd.DataFrame, or list
         Filepath of a CSV file containing parameters for solid solutions, e.g.,
         "my_solid_solutions.csv". If `db` is set to "WORM" and `solid_solutions`
         is not defined, then parameters for solid solutions will be retrieved
         from "Solid_solutions.csv" at https://github.com/worm-portal/WORM-db
-    
-    logK : str
+        A list of CSV filepaths, URLs, and/or Pandas DataFrames can be given to
+        concatenate multiple solid solution databases. Solid solutions defined
+        in more than one database are taken from the last database in the list
+        that defines them.
+
+    logK : str, pd.DataFrame, or list
         Filepath of a CSV file containing equilibrium constants for chemical
         species, e.g., "my_logK_entries.csv". If `db` is set to "WORM" and `logK`
         is not defined, then equilibrium constants will be retrieved from
         "wrm_data_logK.csv" at https://github.com/worm-portal/WORM-db
-    
-    logK_S : str
+        A species in the logK CSV that also exists in the main CSV
+        thermodynamic database replaces the main database entry (strict basis
+        species excepted), so a logK CSV can be used to override log K values
+        of minerals and aqueous species. Such a CSV can be generated from a
+        Geochemist's Workbench Pitzer dataset with `aqequil.gwb_tdat_to_csv`.
+        A list of CSV filepaths, URLs, and/or Pandas DataFrames can be given to
+        concatenate multiple logK databases. Species defined in more than one
+        logK database are taken from the last database in the list that defines
+        them.
+
+    logK_S : str, pd.DataFrame, or list
         Filepath of a CSV file containing equilibrium constants for chemical
         species, e.g., "my_logK_S_entries.csv". If `db` is set to "WORM" and `logK_S`
         is not defined, then equilibrium constants will be retrieved from
         "wrm_data_logK_S.csv" at https://github.com/worm-portal/WORM-db
-    
+        A list of CSV filepaths, URLs, and/or Pandas DataFrames can be given to
+        concatenate multiple logK_S databases. Species defined in more than one
+        logK_S database are taken from the last database in the list that
+        defines them.
+
+    pitzer : str, pd.DataFrame, or list, optional
+        Filepath or URL of a CSV file containing Pitzer ion-interaction
+        parameters, e.g., "my_pitzer_params.csv". The CSV has one row per
+        parameter with the columns species1, species2, species3, param
+        (beta0, beta1, beta2, cphi, theta, lambda, psi, zeta, or mu), a1
+        through a4 (temperature function coefficients), and optionally alpha,
+        ref1, ref2, date, and note. See `aqequil.pitzer` for a full
+        description of the format. When a Pitzer database is loaded alongside
+        a CSV thermodynamic database, data0 files can be generated for the
+        Pitzer activity model (see the `activity_model` parameter of
+        `speciate`). This parameter has no effect if the thermodynamic
+        database is a data0 or data1 file, because those files already
+        determine which activity model must be used.
+        A list of CSV filepaths, URLs, and/or Pandas DataFrames can be given to
+        concatenate multiple Pitzer parameter databases. A parameter defined in
+        more than one database is taken from the last database in the list that
+        defines it.
+        Two practical notes: EQPT checks every possible ion pair and triplet
+        for Pitzer parameters, so compiling a Pitzer data0 file built from a
+        large CSV database (hundreds of aqueous species) can take a few
+        minutes and several gigabytes of memory per data0 file. Reducing the
+        database with `exclude_organics` or `exclude_category` speeds this up
+        considerably. Also, Pitzer parameters already account for short-range
+        ion interactions, so aqueous ion pairs in the thermodynamic database
+        (e.g., NaCl, KCl) usually should be suppressed with the `suppress`
+        parameter of `speciate` when Pitzer's equations are used.
+
     logK_extrapolate : str, default "none"
         What method should be used to extrapolate equilibrium constants in the
         logK database (defined by parameter `logK`) as a function of
@@ -307,9 +374,13 @@ class AqEquil(object):
         aqueous species will be included.
         
     water_model : str, default "SUPCRT92"
-        This is an experimental feature that is not yet fully supported.
         Desired water model. Can be either "SUPCRT92", "IAPWS95", or "DEW".
         These models are described here: http://chnosz.net/manual/water.html
+        SUPCRT92 is valid from 0.01 °C upward. IAPWS95 extrapolates into the
+        supercooled liquid region, so it allows calculations at sub-zero
+        temperatures (down to about -30 °C at 1 bar), e.g., for cold brines
+        with the FREZCHEM or ColdChem Pitzer datasets. DEW is experimental
+        and not yet fully supported.
         
     exceed_Ttr : bool, default True
         Calculate Gibbs energies of mineral phases and other species
@@ -355,6 +426,7 @@ class AqEquil(object):
                  solid_solutions=None,
                  logK=None,
                  logK_S=None,
+                 pitzer=None,
                  mineral_db="default",
                  logK_extrapolate="none",
                  download_csv_files=False,
@@ -480,6 +552,7 @@ class AqEquil(object):
             self.exclude_organics_except = exclude_organics_except
             self.logK = logK
             self.logK_S = logK_S
+            self.pitzer = pitzer
             self.logK_extrapolate = logK_extrapolate
             self.download_csv_files = download_csv_files
             self.suppress_redox = suppress_redox
@@ -729,7 +802,9 @@ class AqEquil(object):
         if self.thermo.thermo_db_type == "data0" and self.thermo.thermo_db_source == "URL":
             data_path = "data0." + self.thermo.data0_lettercode
         
-        if not (os.path.exists(data_path) or os.path.isfile(data_path)) and self.thermo.thermo_db_source=="file":
+        # (data_path names every database that was concatenated when db is a
+        # list, so there is no single file to look for in that case)
+        if not (os.path.exists(data_path) or os.path.isfile(data_path)) and self.thermo.thermo_db_source=="file" and not isinstance(db, list):
             warn_no_data0 = ("Warning: Could not locate {}.".format(data_path) + " "
                 "Unable to determine if column headers included in "
                 "{} ".format(input_filename) + "match entries for species "
@@ -739,16 +814,20 @@ class AqEquil(object):
             
         if self.thermo.thermo_db_type == "data0":
             data0_lines = self.thermo.thermo_db.split("\n")
-            recording_species = False
+
+            # Species listed in the bdot parameters section (B-dot/Davies
+            # data0 files only; Pitzer data0 files do not have this section).
+            db_species = []
+            start_index = None
+            end_index = None
             for i,s in enumerate(data0_lines):
-                if recording_species and "+---" in s:
-                    end_index = i-1
-                    recording_species=False
+                if start_index is not None and "+---" in s:
+                    end_index = i
                     break
                 if '*  species name' in s:
                     start_index = i+1
-                    recording_species=True
-            db_species = [i.split()[0] for i in data0_lines[start_index:end_index]]
+            if start_index is not None and end_index is not None:
+                db_species = [l.split()[0] for l in data0_lines[start_index:end_index] if len(l.split()) > 0]
 
             # Also extract species from basis and gas sections of data0,
             # since gas basis species (e.g., S2(g)) appear there but not
@@ -1497,12 +1576,76 @@ class AqEquil(object):
 #         ###
         
         return logK, model
-        
-        
+
+
+    def _resolve_activity_model(self, activity_model):
+        """
+        Choose the aqueous activity coefficient model to use for a
+        calculation, checking that it is compatible with the loaded
+        thermodynamic database.
+
+        EQ3/6 requires the activity model (the iopg(1) switch of an input
+        file) to match the format of the data file: a Pitzer data0/data1 file
+        must be used with Pitzer's equations, and a B-dot/Davies (SEDH)
+        data0/data1 file cannot be used with Pitzer's equations. A CSV
+        database can generate either kind of data0 file, but a Pitzer
+        data0 file requires a loaded Pitzer parameter database.
+
+        Parameters
+        ----------
+        activity_model : str
+            "auto", "b-dot", "davies", or "pitzer".
+
+        Returns
+        -------
+        str
+            "b-dot", "davies", or "pitzer".
+        """
+
+        valid_models = ["auto", "b-dot", "davies", "pitzer"]
+        if activity_model not in valid_models:
+            self.err_handler.raise_exception("Unrecognized activity_model "
+                "'{}'. Valid options are {}.".format(activity_model, valid_models))
+
+        db_model = self.thermo.db_activity_model
+        db_name = str(self.thermo.thermo_db_filename)
+
+        if db_model == "pitzer":
+            if activity_model in ["auto", "pitzer"]:
+                return "pitzer"
+            self.err_handler.raise_exception("The thermodynamic database "
+                "{} is formatted for Pitzer's equations and cannot be used "
+                "with the '{}' activity model. Use activity_model='pitzer' "
+                "(or 'auto'), or load a B-dot/Davies database.".format(db_name, activity_model))
+
+        elif db_model == "sedh":
+            if activity_model == "pitzer":
+                self.err_handler.raise_exception("The thermodynamic database "
+                    "{} is formatted for the B-dot and Davies equations and "
+                    "does not contain Pitzer interaction parameters, so it "
+                    "cannot be used with activity_model='pitzer'. To use "
+                    "Pitzer's equations, load a Pitzer data0 or data1 file "
+                    "(e.g., db='data0.ypf'), or load a CSV thermodynamic "
+                    "database together with a Pitzer parameter CSV "
+                    "(e.g., AqEquil(db='wrm_data.csv', pitzer='pitzer_params.csv')).".format(db_name))
+            return "b-dot" if activity_model == "auto" else activity_model
+
+        else:
+            # CSV or DataFrame database: a data0 is generated for each sample
+            if activity_model == "auto":
+                return "pitzer" if self.thermo.pitzer_active else "b-dot"
+            if activity_model == "pitzer" and not self.thermo.pitzer_active:
+                self.err_handler.raise_exception("activity_model='pitzer' requires "
+                    "a Pitzer parameter database, but none was loaded. Load one "
+                    "with the 'pitzer' parameter when creating the AqEquil object, "
+                    "e.g., AqEquil(db='wrm_data.csv', pitzer='pitzer_params.csv').")
+            return activity_model
+
+
     def speciate(self,
                  input_filename,
                  logK_extrapolate=None,
-                 activity_model="b-dot",
+                 activity_model="auto",
                  redox_flag="auto",
                  redox_aux="Fe+3",
                  default_logfO2=-6,
@@ -1582,9 +1725,22 @@ class AqEquil(object):
             - The first column must contain sample names. There cannot be
               duplicate sample names.
         
-        activity_model : str, default "b-dot"
-            Activity model to use for speciation. Can be either "b-dot",
-            or "davies". NOTE: the "pitzer" model is not yet implemented.
+        activity_model : str, default "auto"
+            Aqueous species activity coefficient model to use for speciation.
+            Can be "auto", "b-dot", "davies", or "pitzer".
+
+            EQ3/6 requires that the activity model match the format of the
+            thermodynamic data file. A data0 or data1 file is formatted either
+            for the B-dot and Davies equations (e.g., data0.wrm) or for
+            Pitzer's equations (e.g., data0.ypf), and cannot be used with the
+            other kind of model. A CSV thermodynamic database can produce
+            either kind of data0 file; the "pitzer" model requires that a
+            Pitzer parameter database was loaded with the `pitzer` parameter
+            of `AqEquil`.
+
+            "auto" selects "pitzer" when the loaded database is a Pitzer
+            data0 or data1 file or when a Pitzer parameter database was loaded
+            alongside a CSV database, and "b-dot" otherwise.
         
         redox_flag : str, default "auto"
             Determines which column in the sample input file sets the overall
@@ -1817,12 +1973,14 @@ class AqEquil(object):
         if 'charge_balance_on' in df_check.columns and 'charge_balance_on' not in exclude_modified:
             exclude_modified.append('charge_balance_on')
 
+        # choose the activity model that is compatible with the loaded database
+        activity_model = self._resolve_activity_model(activity_model)
+
         # check input sample file for errors
-        if activity_model != 'pitzer': # TODO: allow check_sample_input_file() to handle pitzer
-            sample_temps, sample_press, redox_flag = self._check_sample_input_file(
-                                          input_filename, exclude_modified, db,
-                                          dynamic_db, charge_balance_on, suppress_missing,
-                                          redox_suppression, redox_flag)
+        sample_temps, sample_press, redox_flag = self._check_sample_input_file(
+                                      input_filename, exclude_modified, db,
+                                      dynamic_db, charge_balance_on, suppress_missing,
+                                      redox_suppression, redox_flag)
 
         if aq_dist_type not in ["molality", "log_molality", "log_gamma", "log_activity"]:
             self.err_handler.raise_exception("Unrecognized aq_dist_type. Valid "
@@ -1868,6 +2026,7 @@ class AqEquil(object):
             db_args["fill_data0"] = False
             db_args["dynamic_db"] = True
             db_args["verbose"] = self.verbose
+            db_args["activity_model"] = activity_model
             db_args["dynamic_db_sample_temps"] = sample_temps
             db_args["dynamic_db_sample_press"] = sample_press
             
@@ -1921,11 +2080,14 @@ class AqEquil(object):
                     data0_lines = data0.readlines()
                     data0_lines = [line.rstrip()+"\n" for line in data0_lines]
                     start_index = [i+1 for i, s in enumerate(data0_lines) if s == 'temperatures\n']
-                    if activity_model == 'davies' or activity_model == 'b-dot':
-                        end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel a (adh)\n']
-                    elif activity_model == 'pitzer':
-                        end_index = [i for i, s in enumerate(data0_lines) if s == 'debye huckel aphi\n']
-                        
+                    # the T-P grid is followed by 'debye huckel a (adh)' in
+                    # B-dot/Davies data0 files and 'debye huckel aphi' in
+                    # Pitzer data0 files
+                    end_index = [i for i, s in enumerate(data0_lines) if s.strip().lower() in ['debye huckel a (adh)', 'debye huckel aphi']]
+                    if len(start_index) == 0 or len(end_index) == 0:
+                        self.err_handler.raise_exception("Could not find the temperature and "
+                            "pressure grid in {}".format(data0_path))
+
                     db_grids_unformatted = [i.split("pressures")[0] for i in data0_lines[start_index[0]:end_index[0]]]
                     db_grids = [" ".join(i.split()) for i in db_grids_unformatted if i != '']
                     grid_temps = db_grids[0] + " " + db_grids[1]
@@ -2496,7 +2658,8 @@ class AqEquil(object):
 
         out_dict.update({"batch_3o": batch_3o})
         
-        out_dict.update({"water_model":water_model, "grid_temps":grid_temps, "grid_press":grid_press})
+        out_dict.update({"water_model":water_model, "grid_temps":grid_temps, "grid_press":grid_press,
+                         "activity_model":activity_model})
         
         speciation = Speciation(out_dict, hide_traceback=self.hide_traceback)
 
@@ -3105,7 +3268,7 @@ class AqEquil(object):
     def create_data0(self,
                      db,
                      filename_ss=None,
-                     activity_model="b-dot",
+                     activity_model="auto",
                      exceed_Ttr=True,
                      grid_temps=[0.0100, 50.0000, 100.0000, 150.0000,
                                  200.0000, 250.0000, 300.0000, 350.0000],
@@ -3128,6 +3291,16 @@ class AqEquil(object):
             
         filename_ss : str, optional
             Name of file containing solid solution parameters.
+
+        activity_model : str, default "auto"
+            Aqueous species activity coefficient model the data0 file is
+            meant for. Can be "auto", "b-dot", "davies", or "pitzer". The
+            "b-dot" and "davies" options both produce a data0 file with B-dot
+            (hard core diameter) parameters. The "pitzer" option produces a
+            data0 file with Pitzer interaction parameter blocks and requires
+            that a Pitzer parameter database was loaded with the `pitzer`
+            parameter of `AqEquil`. "auto" chooses "pitzer" if a Pitzer
+            parameter database is loaded and "b-dot" otherwise.
 
         grid_temps : list of eight float, default [0.0100, 50.0000, 100.0000, 150.0000, 200.0000, 250.0000, 300.0000, 350.0000]
             Eight temperature values that make up the T-P grid.
@@ -3156,8 +3329,11 @@ class AqEquil(object):
         thermo_df = self.thermo.thermo_db
         db_logK = self.thermo.logK_db
         water_model = self.thermo.water_model
-        
+
         self.verbose = verbose
+
+        activity_model = self._resolve_activity_model(activity_model)
+        pitzer_df = self.thermo.pitzer_db if activity_model == "pitzer" else None
         
         self.batch_T = grid_temps
         self.batch_P = grid_press
@@ -3220,8 +3396,13 @@ class AqEquil(object):
                       "{} bar".format(max_P)+", the maximum valid "
                       "pressure for the {} water model.".format(water_model))
         
-        if water_model != "SUPCRT92":
-            print("WARNING: water models other than SUPCRT92 are not yet fully supported.")
+        if water_model == "IAPWS95":
+            if self.verbose > 1:
+                print("Using the IAPWS95 water model. Water properties (and therefore "
+                      "calculations) are available for supercooled water down to "
+                      "about -30 °C at 1 bar.")
+        elif water_model != "SUPCRT92":
+            print("WARNING: water models other than SUPCRT92 and IAPWS95 are not yet fully supported.")
         
         # reset logK_models whenever create_data0() is called
         # (prevents errors when create_data0() functions are run back-to-back)
@@ -3290,6 +3471,8 @@ class AqEquil(object):
                           exceed_Ttr=exceed_Ttr,
                           fixed_species=FIXED_SPECIES,
                           redox_elem_states=redox_elem_states,
+                          activity_model=activity_model,
+                          pitzer_df=pitzer_df,
                           verbose=self.verbose,
                           )
 
@@ -3345,6 +3528,7 @@ class AqEquil(object):
             self.elements = self.AqEquil_instance.elements
             logK = self.AqEquil_instance.logK
             logK_S = self.AqEquil_instance.logK_S
+            pitzer = self.AqEquil_instance.pitzer
             mineral_db = self.AqEquil_instance.mineral_db
             download_csv_files = self.AqEquil_instance.download_csv_files
             suppress_redox = self.AqEquil_instance.suppress_redox
@@ -3414,54 +3598,112 @@ class AqEquil(object):
             self.logK_S_db_source = None
             self.logK_S_db_filename = None
 
+            # Pitzer parameter attributes
+            self.pitzer_active = False
+            self.pitzer_db = None
+            self.pitzer_db_source = None
+            self.pitzer_db_filename = None
+
+            # activity model that the active database is formatted for:
+            # "pitzer" or "sedh" (B-dot/Davies) for data0 and data1 files,
+            # None for CSV databases (which can generate either kind of data0)
+            self.db_activity_model = None
+
             self.verbose=verbose
 
-            if isinstance(self.db, str):
-                if self.db == "WORM":
+            # "WORM", by itself or as an entry in a list of databases, brings
+            # along the WORM element, solid solution, logK, and logK_S databases
+            db_entries = self.db if isinstance(self.db, list) else [self.db]
+            worm_requested = "WORM" in [d for d in db_entries if isinstance(d, str)]
+
+            if isinstance(self.db, list):
+                # the main thermodynamic database can be a list of WORM-style
+                # CSV databases that get concatenated into one database
+                if len(self.db) == 0:
+                    self.err_handler.raise_exception("An empty list was given "
+                            "for 'db'. At least one thermodynamic database is "
+                            "required.")
+
+                db_list = self._resolve_db_list(self.db)
+
+                if len(db_list) > 1:
+                    if self.verbose > 0:
+                        print("Loading and concatenating {} thermodynamic databases...".format(len(db_list)))
+                    self.db = db_list
+                else:
+                    # a list of one database is just a single database
+                    if self.verbose > 0:
+                        if worm_requested:
+                            print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
+                        else:
+                            print("Loading a user-supplied thermodynamic database...")
+                    self.db = db_list[0]
+
+                self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+
+            elif isinstance(self.db, str):
+                if worm_requested:
                     if self.verbose > 0:
                         print("Loading Water-Organic-Rock-Microbe (WORM) thermodynamic databases...")
-                    self.db = "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_latest.csv"
-                    self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-                    if self.elements == None:
-                        self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
-                    if solid_solutions == None:
-                        self._load_solid_solutions("https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv", source="URL", download_csv_files=download_csv_files)
-                    if logK == None:
-                        self._load_logK("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv", source="URL", download_csv_files=download_csv_files)
-                    if logK_S == None:
-                        self._load_logK_S("https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv", source="URL", download_csv_files=download_csv_files)
-                    if download_csv_files:
-                        self._download_txt_file("https://raw.githubusercontent.com/worm-portal/WORM-db/master/speciation_groups_WORM.txt")
+                    self.db = WORM_DB_BASE_URL+"/wrm_data_latest.csv"
                 else:
                     if self.verbose > 0:
                         print("Loading a user-supplied thermodynamic database...")
-                    self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-            
+                self._set_active_db(db=self.db, download_csv_files=download_csv_files)
+
             elif isinstance(self.db, pd.DataFrame):
                 if self.verbose > 0:
                     print("Loading a user-supplied Pandas DataFrame thermodynamic database...")
                 self._set_active_db(db=self.db, download_csv_files=download_csv_files)
-                
+
+            else:
+                self.err_handler.raise_exception("The thermodynamic database "
+                        "'db' must be a string, a Pandas DataFrame, or a list "
+                        "of WORM-style CSV databases to concatenate, not a "
+                        "{}.".format(type(self.db).__name__))
+
+            if worm_requested:
+                if self.elements is None:
+                    self._load_elements(WORM_DB_BASE_URL+"/elements.csv", download_csv_files=download_csv_files)
+                if solid_solutions is None:
+                    self._load_solid_solutions(WORM_DB_BASE_URL+"/solid_solutions.csv", download_csv_files=download_csv_files)
+                if logK is None:
+                    self._load_logK(WORM_DB_BASE_URL+"/wrm_data_logK.csv", download_csv_files=download_csv_files)
+                if logK_S is None:
+                    self._load_logK_S(WORM_DB_BASE_URL+"/wrm_data_logK_S.csv", download_csv_files=download_csv_files)
+                if download_csv_files:
+                    self._download_txt_file(WORM_DB_BASE_URL+"/speciation_groups_WORM.txt")
+
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 self._validate_thermodynamic_database()
 
             # elements must be loaded if thermo_db_type is a CSV
-            if self.elements != None:
-                self._load_elements(self.elements, source="file")
+            if self.elements is not None:
+                self._load_elements(self.elements, download_csv_files=download_csv_files)
             if not self.element_active and self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
-                self._load_elements("https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv", source="URL", download_csv_files=download_csv_files)
+                self._load_elements(WORM_DB_BASE_URL+"/elements.csv", download_csv_files=download_csv_files)
 
-            if solid_solutions != None:
-                self._load_solid_solutions(solid_solutions, source="file")
+            if solid_solutions is not None:
+                self._load_solid_solutions(solid_solutions, download_csv_files=download_csv_files)
 
-            if logK != None:
-                self._load_logK(logK, source="file")
+            if logK is not None:
+                self._load_logK(logK, download_csv_files=download_csv_files)
 
             # must be loaded after the logK database
-            if logK_S != None:
-                self._load_logK_S(logK_S, source="file")
-                
+            if logK_S is not None:
+                self._load_logK_S(logK_S, download_csv_files=download_csv_files)
+
+            if pitzer is not None:
+                self._load_pitzer(pitzer, download_csv_files=download_csv_files)
+
+            # which activity model does the active database call for?
+            self.db_activity_model = self._detect_db_activity_model()
+            if self.verbose > 0 and self.db_activity_model == "pitzer":
+                print(self.thermo_db_filename, "is formatted for Pitzer's equations. "
+                      "The 'pitzer' activity model will be used for speciation.")
+
             if self.logK_active:
+                self._apply_logK_overrides()
                 self.thermo_db = pd.concat([self.thermo_db, self.logK_db], ignore_index=True)
 
             if mineral_db != "WORM" and self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
@@ -3556,6 +3798,161 @@ class AqEquil(object):
     
             # TODO: other states besides minerals
                 
+        def _resolve_db_list(self, db_list):
+            """
+            Check a list of thermodynamic databases that are meant to be
+            concatenated and expand every "WORM" entry into the URL of the WORM
+            thermodynamic database CSV. Only WORM-style CSV databases can be
+            concatenated, so each entry must be "WORM", the filepath of a CSV
+            file, the URL of a CSV file, or a Pandas DataFrame.
+            """
+
+            resolved = []
+            for entry in db_list:
+                if isinstance(entry, pd.DataFrame):
+                    resolved.append(entry)
+                elif isinstance(entry, str) and entry == "WORM":
+                    resolved.append(WORM_DB_BASE_URL+"/wrm_data_latest.csv")
+                elif isinstance(entry, str) and entry[-4:].lower() == ".csv":
+                    resolved.append(entry)
+                else:
+                    self.err_handler.raise_exception("The thermodynamic "
+                        "database '{}'".format(str(entry))+" cannot be "
+                        "concatenated with other databases because it is not a "
+                        "WORM-style CSV database. Each entry in a list given to "
+                        "'db' must be:"
+                        "\n - 'WORM'"
+                        "\n - the name of a CSV file in your working directory. e.g., 'wrm_data.csv'"
+                        "\n - a URL directing to a CSV file. e.g.,"
+                        "\n\t 'https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_latest.csv'"
+                        "\n - a Pandas DataFrame containing a WORM-style thermodynamic database"
+                        "\nThree letter codes (e.g., 'wrm'), data0 files, and "
+                        "data1 files cannot be concatenated because they are "
+                        "not CSV databases.")
+
+            return resolved
+
+
+        def _read_csv_dbs(self, db, description, download_csv_files=False,
+                          key="name", key_label=str, validate=None):
+            """
+            Read one or more WORM-style CSV databases and concatenate them into
+            a single Pandas DataFrame. `db` can be the filepath of a CSV file,
+            the URL of a CSV file, a Pandas DataFrame, or a list of any
+            combination of these.
+
+            Entries that are defined in more than one database are taken from
+            the last database in the list that defines them; matching entries
+            in earlier databases are dropped. Entries are matched with the
+            column named by `key`, or, if `key` is a function, with the keys
+            that `key` returns for each row of a database. `key_label` formats
+            a key for display in messages.
+
+            `validate` is an optional function that is applied to each database
+            as it is read, e.g., to normalize columns before entries are
+            matched.
+
+            Returns a (filename, database, source) tuple describing all the
+            databases that were read.
+            """
+
+            db_list = db if isinstance(db, list) else [db]
+
+            if len(db_list) == 0:
+                self.err_handler.raise_exception("An empty list was given for "
+                        "the "+description+". At least one database is required.")
+
+            filenames = []
+            dfs = []
+            sources = []
+            for entry in db_list:
+                if isinstance(entry, pd.DataFrame):
+                    filenames.append("User-supplied Pandas DataFrame")
+                    dfs.append(copy.deepcopy(entry))
+                    sources.append("user-supplied")
+
+                elif _is_url(entry):
+                    # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv"
+                    filename, df = self.__df_from_url(entry, download_csv_files=download_csv_files)
+                    filenames.append(filename)
+                    dfs.append(df)
+                    sources.append("URL")
+
+                elif isinstance(entry, str):
+                    # e.g., "wrm_data_logK.csv"
+                    if os.path.isfile(entry):
+                        filenames.append(entry)
+                        dfs.append(pd.read_csv(entry))
+                        sources.append("file")
+                    else:
+                        self.err_handler.raise_exception("Could not locate the "
+                                "CSV file '"+entry+"' given for the "+description+".")
+
+                else:
+                    self.err_handler.raise_exception("The "+description+" must "
+                            "be the name of a CSV file, the URL of a CSV file, "
+                            "a Pandas DataFrame, or a list of any combination "
+                            "of these. '{}'".format(str(entry))+" is not a "
+                            "valid option.")
+
+            if validate is not None:
+                dfs = [validate(df, filenames[i]) for i,df in enumerate(dfs)]
+
+            if len(dfs) == 1:
+                return filenames[0], dfs[0], sources[0]
+
+            dfs = self._drop_overridden_entries(dfs, filenames, key=key,
+                                                key_label=key_label,
+                                                description=description)
+
+            filename = " + ".join(filenames)
+            source = sources[0] if len(set(sources)) == 1 else "multiple sources"
+
+            if self.verbose > 0:
+                print("Concatenated {}".format(len(dfs)), description+"s:", filename)
+
+            return filename, pd.concat(dfs, ignore_index=True), source
+
+
+        def _drop_overridden_entries(self, dfs, filenames, key, description,
+                                     key_label=str):
+            """
+            Drop entries of databases that are being concatenated if they are
+            also defined in a database later in the list. All rows that share a
+            key are dropped together so that, for instance, every polymorph of
+            an overridden mineral is replaced.
+            """
+
+            if callable(key):
+                keys = [list(key(df)) for df in dfs]
+            else:
+                keys = [list(df[key]) if key in df.columns else [] for df in dfs]
+
+            out = [None]*len(dfs)
+            later_keys = set()
+            for i in reversed(range(len(dfs))):
+                overridden = [k for k in dict.fromkeys(keys[i]) if k in later_keys]
+
+                if len(overridden) > 0:
+                    if self.verbose > 0:
+                        labels = [key_label(k) for k in overridden]
+                        if len(labels) <= 20:
+                            print("Entries for", "; ".join(labels), "in", filenames[i],
+                                  "are replaced by entries in a", description,
+                                  "that comes later in the list.")
+                        else:
+                            print(len(labels), "entries in", filenames[i], "are replaced "
+                                  "by entries in a", description, "that comes later in "
+                                  "the list, including:", "; ".join(labels[:10]) + "; ...")
+                    out[i] = dfs[i][[k not in later_keys for k in keys[i]]]
+                else:
+                    out[i] = dfs[i]
+
+                later_keys.update(keys[i])
+
+            return out
+
+
         def _set_active_db(self, db=None, download_csv_files=False):
             """
             Set the main active thermodynamic database to a Pandas DataFrame,
@@ -3563,7 +3960,19 @@ class AqEquil(object):
             or from a URL address.
             """
 
-            if isinstance(db, pd.DataFrame):
+            if isinstance(db, list):
+                # a list of WORM-style CSV databases to concatenate
+                self._load_csv(db, download_csv_files=download_csv_files)
+
+                self.thermo_db = self.csv_db
+                self.thermo_db_filename = self.csv_db_filename
+                self.thermo_db_type = "CSV"
+                self.thermo_db_source = self.csv_db_source
+                self.dynamic_db = True
+                self.custom_data0 = False
+                self.data0_lettercode = None
+
+            elif isinstance(db, pd.DataFrame):
                 self.thermo_db = copy.deepcopy(self.db)
                 self.db = "custom"
                 self.thermo_db_type = "Pandas DataFrame"
@@ -3664,8 +4073,8 @@ class AqEquil(object):
                 elif db[-4:].lower() == ".csv" and not (db[0:8].lower() == "https://" or db[0:7].lower() == "http://" or db[0:4].lower() == "www."):
                     # e.g., "wrm_data.csv"
     
-                    self._load_csv(db, source="file")
-    
+                    self._load_csv(db)
+
                     self.thermo_db = self.csv_db
                     self.thermo_db_filename = self.csv_db_filename
                     self.thermo_db_type = "CSV"
@@ -3678,7 +4087,7 @@ class AqEquil(object):
                     # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv
                     
                     
-                    self._load_csv(db, source="URL", download_csv_files=download_csv_files)
+                    self._load_csv(db, download_csv_files=download_csv_files)
     
                     self.thermo_db = self.csv_db
                     self.thermo_db_filename = self.csv_db_filename
@@ -3818,27 +4227,16 @@ class AqEquil(object):
                     print(f"  [ERROR] Failed to download {filename}: {e}")
 
 
-        def _load_elements(self, db, source="url", download_csv_files=False):
+        def _load_elements(self, db, download_csv_files=False):
             """
-            Load an element database CSV file from a file or URL.
+            Load one or more element database CSV files from files, URLs, or
+            Pandas DataFrames. Multiple databases are concatenated.
             """
 
-            if source == "file":
-                # e.g., "elements.csv"
-                if os.path.exists(db) and os.path.isfile(db):
-                    self.element_db = pd.read_csv(db)
-                    self.element_db_source = "file"
-                    self.element_db_filename = db
-                else:
-                    self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
-
-            elif source == "URL":
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv"
-                self.element_db_filename, self.element_db = self.__df_from_url(db, download_csv_files=download_csv_files)
-                self.element_db_source = "URL"
-            else:
-                if self.verbose > 0:
-                    print("No element database loaded.")
+            self.element_db_filename, self.element_db, self.element_db_source = \
+                self._read_csv_dbs(db, description="element database",
+                                   download_csv_files=download_csv_files,
+                                   key="element")
 
             if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
                 if self.verbose > 0:
@@ -3854,27 +4252,16 @@ class AqEquil(object):
                     print("Element database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
 
 
-        def _load_solid_solutions(self, db, source="url", download_csv_files=False):
+        def _load_solid_solutions(self, db, download_csv_files=False):
             """
-            Load a solid solution database CSV file from a file or URL.
+            Load one or more solid solution database CSV files from files, URLs,
+            or Pandas DataFrames. Multiple databases are concatenated.
             """
 
-            if source == "file":
-                # e.g., "solid_solutions.csv"
-                if os.path.exists(db) and os.path.isfile(db):
-                    self.solid_solution_db = pd.read_csv(db)
-                    self.solid_solution_db_source = "file"
-                    self.solid_solution_db_filename = db
-                else:
-                    self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
-
-            elif source == "URL":
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv"
-                self.solid_solution_db_filename, self.solid_solution_db = self.__df_from_url(db, download_csv_files=download_csv_files)
-                self.solid_solution_db_source = "URL"
-            else:
-                if self.verbose > 0:
-                    print("No solid solution database loaded.")
+            self.solid_solution_db_filename, self.solid_solution_db, self.solid_solution_db_source = \
+                self._read_csv_dbs(db, description="solid solution database",
+                                   download_csv_files=download_csv_files,
+                                   key="name")
 
             if self.thermo_db_type == "CSV":
                 if self.verbose > 0:
@@ -3885,28 +4272,16 @@ class AqEquil(object):
                     print("Solid solution database is not active because the active thermodynamic database is a", self.thermo_db_type, "and not a CSV.")
 
 
-        def _load_logK(self, db, source="URL", download_csv_files=False):
+        def _load_logK(self, db, download_csv_files=False):
             """
-            Load a logK database CSV file from a file or URL.
+            Load one or more logK database CSV files from files, URLs, or Pandas
+            DataFrames. Multiple databases are concatenated.
             """
 
-            if source == "file":
-                # e.g., "logK.csv"
-                if os.path.exists(db) and os.path.isfile(db):
-                    self.logK_db = pd.read_csv(db)
-                    self.logK_db_source = "file"
-                    self.logK_db_filename = db
-                else:
-                    self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
-
-            elif source == "URL":
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv"
-                self.logK_db_filename, self.logK_db = self.__df_from_url(db, download_csv_files=download_csv_files)
-                self.logK_db_source = "URL"
-
-            else:
-                if self.verbose > 0:
-                    print("No logK database loaded.")
+            self.logK_db_filename, self.logK_db, self.logK_db_source = \
+                self._read_csv_dbs(db, description="logK database",
+                                   download_csv_files=download_csv_files,
+                                   key="name")
 
             if self.thermo_db_type == "CSV":
                 if self.verbose > 0:
@@ -3919,28 +4294,66 @@ class AqEquil(object):
             self.logK_db = self._exclude_category(df=self.logK_db, df_name=self.logK_db_filename)
 
 
-        def _load_logK_S(self, db, source="URL", download_csv_files=False):
+        def _load_pitzer(self, db, download_csv_files=False):
             """
-            Load a logK_S database CSV file from a file or URL.
+            Load one or more Pitzer parameter database CSV files from files,
+            URLs, or Pandas DataFrames. Multiple databases are concatenated.
+            See `aqequil.pitzer` for the format.
             """
 
-            if source == "file":
-                # e.g., "logK_S.csv"
-                if os.path.exists(db) and os.path.isfile(db):
-                    self.logK_S_db = pd.read_csv(db)
-                    self.logK_S_db_source = "file"
-                    self.logK_S_db_filename = db
-                else:
-                    self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
+            def validate(df, filename):
+                try:
+                    return validate_pitzer_db(df, filename=filename)
+                except PitzerDatabaseError as e:
+                    self.err_handler.raise_exception(str(e))
 
-            elif source == "URL":
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv"
-                self.logK_S_db_filename, self.logK_S_db = self.__df_from_url(db, download_csv_files=download_csv_files)
-                self.logK_S_db_source = "URL"
+            # each database is validated before they are concatenated so that
+            # species names and parameter names are comparable between them
+            self.pitzer_db_filename, self.pitzer_db, self.pitzer_db_source = \
+                self._read_csv_dbs(db, description="Pitzer parameter database",
+                                   download_csv_files=download_csv_files,
+                                   key=pitzer_param_keys,
+                                   key_label=format_pitzer_param_key,
+                                   validate=validate)
 
+            if self.thermo_db_type in ["CSV", "Pandas DataFrame"]:
+                if self.verbose > 0:
+                    print("Pitzer parameter database", self.pitzer_db_filename, "is active.")
+                self.pitzer_active = True
             else:
                 if self.verbose > 0:
-                    print("No logK_S database loaded.")
+                    print("Pitzer parameter database is not active because the active "
+                          "thermodynamic database is a", self.thermo_db_type, "and not a CSV. "
+                          "A", self.thermo_db_type, "file already determines which activity "
+                          "model is used.")
+
+
+        def _detect_db_activity_model(self):
+            """
+            Determine which aqueous activity coefficient model the active
+            thermodynamic database is formatted for. Returns "pitzer" for
+            Pitzer data0/data1 files, "sedh" for B-dot/Davies data0/data1
+            files, and None for CSV databases, which can be used to generate
+            data0 files for either kind of model.
+            """
+            if self.thermo_db_type == "data0" and isinstance(self.thermo_db, str):
+                return "pitzer" if data0_is_pitzer(self.thermo_db) else "sedh"
+            elif self.thermo_db_type == "data1":
+                data1_bytes = self.data1.get("all_samples", b"")
+                return "pitzer" if data1_is_pitzer(data1_bytes) else "sedh"
+            return None
+
+
+        def _load_logK_S(self, db, download_csv_files=False):
+            """
+            Load one or more logK_S database CSV files from files, URLs, or
+            Pandas DataFrames. Multiple databases are concatenated.
+            """
+
+            self.logK_S_db_filename, self.logK_S_db, self.logK_S_db_source = \
+                self._read_csv_dbs(db, description="logK_S database",
+                                   download_csv_files=download_csv_files,
+                                   key="name")
 
             if self.logK_active and self.element_active:
                 if self.verbose > 0:
@@ -4180,26 +4593,20 @@ class AqEquil(object):
                     self.err_handler.raise_exception("Could not locate the data0 file '"+db+"'")
 
 
-        def _load_csv(self, db, source="URL", download_csv_files=False):
+        def _load_csv(self, db, download_csv_files=False):
             """
-            Load a WORM-styled thermodynamic database CSV from a file or URL.
+            Load one or more WORM-styled thermodynamic database CSVs from files,
+            URLs, or Pandas DataFrames. Multiple databases are concatenated.
             """
 
-            if source == "file":
-                # e.g., "wrm_data.csv"
-                if os.path.exists(db) and os.path.isfile(db):
-                    self.csv_db = pd.read_csv(db)
-                    self.csv_db_type = "CSV"
-                    self.csv_db_source = "file"
-                    self.csv_db_filename = db
-                else:
-                    self.err_handler.raise_exception("Could not locate the CSV file '"+db+"'")
+            self.csv_db_filename, self.csv_db, self.csv_db_source = \
+                self._read_csv_dbs(db, description="thermodynamic database",
+                                   download_csv_files=download_csv_files,
+                                   key="name")
+            self.csv_db_type = "CSV"
 
-            elif source == "URL":
-                # e.g., "https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data.csv"
-                self.csv_db_filename, self.csv_db = self.__df_from_url(db, download_csv_files=download_csv_files)
-                self.csv_db_type = "CSV"
-                self.csv_db_source = "URL"
+            # Check that thermodynamic database input files exist and are formatted correctly.
+            self._check_csv_db()
 
             self.csv_db = self.csv_db.astype(WORM_THERMODYNAMIC_DATABASE_COLUMN_TYPE_DICT)
 
@@ -4218,8 +4625,6 @@ class AqEquil(object):
                     UserWarning
                 )
 
-            # Check that thermodynamic database input files exist and are formatted correctly.
-            self._check_csv_db()
             self._remove_missing_G_species()
 
             self.csv_db = self._exclude_category(df=self.csv_db, df_name=self.csv_db_filename)
@@ -4246,10 +4651,9 @@ class AqEquil(object):
 
             try:
                 if len(local_csvs) > 0:
-                    self._load_csv(local_csvs[0], source="file")
+                    self._load_csv(local_csvs[0])
                 else:
                     self._load_csv(WORM_DB_BASE_URL+"/"+csv_names[0],
-                                   source="URL",
                                    download_csv_files=download_csv_files)
 
             except Exception as e:
@@ -4274,10 +4678,64 @@ class AqEquil(object):
                       "require a CSV database.")
 
 
+        def _apply_logK_overrides(self):
+            """
+            Species that appear in both the main CSV thermodynamic database and
+            the logK database are taken from the logK database: the main
+            database entries (including any polymorph rows) are removed so
+            that the data0 file does not contain duplicate species blocks.
+            Strict basis species cannot be overridden and are dropped from
+            the logK database instead. If an overridden species was an
+            auxiliary basis species, the logK entry inherits the 'aux' tag so
+            that reactions written in terms of it remain valid.
+            """
+            if not isinstance(self.thermo_db, pd.DataFrame) or not isinstance(self.logK_db, pd.DataFrame):
+                return
+            if "name" not in self.logK_db.columns or "name" not in self.thermo_db.columns:
+                return
+
+            main_names = set(self.thermo_db["name"])
+            overlap = [n for n in dict.fromkeys(self.logK_db["name"]) if n in main_names]
+            if len(overlap) == 0:
+                return
+
+            basis_names = set(self.thermo_db.loc[self.thermo_db["tag"] == "basis", "name"])
+            keep_basis = [n for n in overlap if n in basis_names]
+            replace = [n for n in overlap if n not in basis_names]
+
+            if len(keep_basis) > 0:
+                if self.verbose > 0:
+                    print("The logK database", self.logK_db_filename, "contains entries for the "
+                          "strict basis species", keep_basis, "which cannot be overridden. "
+                          "Ignoring these logK entries.")
+                self.logK_db = self.logK_db[~self.logK_db["name"].isin(keep_basis)]
+
+            if len(replace) > 0:
+                # carry over the auxiliary basis tag where the main database used it
+                aux_names = set(self.thermo_db.loc[self.thermo_db["tag"] == "aux", "name"])
+                if "tag" in self.logK_db.columns:
+                    self.logK_db["tag"] = self.logK_db["tag"].astype(object)
+                    for n in replace:
+                        if n in aux_names:
+                            mask = (self.logK_db["name"] == n) & (self.logK_db["tag"].isnull() | (self.logK_db["tag"].astype(str).str.strip() == "") | (self.logK_db["tag"].astype(str) == "nan"))
+                            self.logK_db.loc[mask, "tag"] = "aux"
+
+                self.thermo_db = self.thermo_db[~self.thermo_db["name"].isin(replace)]
+                if self.verbose > 0:
+                    if len(replace) <= 20:
+                        print("Entries in the logK database", self.logK_db_filename, "replace "
+                              "the following species in", self.thermo_db_filename, ":", replace)
+                    else:
+                        print("Entries in the logK database", self.logK_db_filename, "replace",
+                              len(replace), "species in", self.thermo_db_filename,
+                              "(including", ", ".join(replace[:10]) + ", ...)")
+
+
         def _exclude_category(self, df, df_name):
             """
             Exclude entries from a df based on values in columns.
             e.g., {"category_1":["organic_aq", "organic_cr"]}
+            Strict basis species are never excluded.
             """
 
             if isinstance(self.exclude_organics_except, list):
@@ -4303,14 +4761,24 @@ class AqEquil(object):
                             print("Excluding", len(self.exclude_category[key]), "different chemical species from column '" + str(key) + "' in", df_name)
                     
                     if isinstance(self.exclude_category[key], list):
-                        
-                        idx = list(df[df[key].isin(self.exclude_category[key])].index)
+
+                        to_exclude = df[key].isin(self.exclude_category[key])
+                        # strict basis species are the foundation of every
+                        # data0 file and are never excluded by category
+                        if "tag" in df.columns and key != "name":
+                            is_basis = df["tag"] == "basis"
+                            if (to_exclude & is_basis).any() and self.verbose > 1:
+                                print("Keeping strict basis species", list(df.loc[to_exclude & is_basis, "name"]),
+                                      "even though they match an excluded category.")
+                            to_exclude = to_exclude & ~is_basis
+
+                        idx = list(df[to_exclude].index)
                         names = df["name"].loc[idx]
-                        
+
                         for name in names:
                             self._reject_species(name=name, reason="excluded by user")
-                        
-                        df = df[~df[key].isin(self.exclude_category[key])]
+
+                        df = df[~to_exclude]
                         
 
                     elif isinstance(self.exclude_category[key], str):
@@ -4344,13 +4812,18 @@ class AqEquil(object):
                                 "azero", "neutral_ion_type",
                                 "dissrxn", "tag", "formula_ox"]
 
+            # columns that are needed to assign data types are required, too
+            required_headers += [c for c in WORM_THERMODYNAMIC_DATABASE_COLUMN_TYPE_DICT
+                                 if c not in required_headers]
+
             missing_headers = []
             for header in required_headers:
                 if header not in thermo_df.columns:
                     missing_headers.append(header)
             if len(missing_headers) > 0:
-                msg = ("The thermodynamic database file "
-                       "is missing one or more required columns: "
+                msg = ("The thermodynamic database "
+                       "{}".format(self.csv_db_filename)+" is missing one or "
+                       "more required columns: "
                        "{}".format(", ".join(missing_headers))+". "
                        "Are these headers spelled correctly in the file?")
                 self.err_handler.raise_exception(msg)
@@ -4423,6 +4896,11 @@ class AqEquil(object):
             # This Python version handles dissociation reaction checking and generation
             # Get list of already-rejected species (e.g., from exclude_category)
             already_rejected = list(self.df_rejected_species['name']) if len(self.df_rejected_species) > 0 else []
+            # A species excluded from the main database (e.g., by exclude_category)
+            # but supplied again by the logK database is present in thermo_df and
+            # must not cascade rejections onto the species that depend on it.
+            present_names = set(thermo_df["name"])
+            already_rejected = [n for n in already_rejected if n not in present_names]
 
             self.out_list = process_dissrxns(
                 thermo_df=thermo_df,
@@ -7128,7 +7606,7 @@ def compare(*args):
     return sp_total
 
 
-class Speciation(object):
+class Speciation(SpeciationGroups):
     
     """
     Stores the output of a speciation calculation.
@@ -7197,144 +7675,6 @@ class Speciation(object):
          return getattr(self, item)
 
     
-    def _make_speciation_group_dict(self):
-
-        if isinstance(self.custom_grouping_filepath, str):
-            with open(self.custom_grouping_filepath) as file:
-                lines = [line.rstrip() for line in file]
-        else:
-            content = import_package_file('aqequil.databases', 'speciation_groups_WORM.txt')
-            content = content.split("\n")
-            lines = [line.rstrip() for line in content]
-
-        lines = [l for l in lines if l != ""] # remove blank lines
-
-        # Creates a dictionary with this format:
-        #
-        # {...
-        #  "sulfide 1": ["H2S", "HS-"],
-        #  "sulfide 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  "sulfide 3": ["Pb(HS)3-"],
-        #  "iron(II) 1": [...],
-        #  ...
-        # }
-        #
-        # Used by calculate_energy() to calculate concentrations of limiting reactants.
-        try:
-            reactant_dict_scalar = {l.split(":")[0]:l.split(":")[1].strip() for l in lines}
-        except:
-            bad_line_indices = []
-            bad_lines = []
-            for i,l in enumerate(lines):
-                if ":" not in l:
-                    bad_line_indices.append(i)
-                    bad_lines.append(l)
-
-            bad_line_indices = [i+1 for i in bad_line_indices]
-            self.err_handler.raise_exception("Line(s) in the speciation group file do not contain a colon ':'. Fix the formatting on line(s):\n"+str(bad_line_indices)+"\nLines to blame:\n"+str(bad_lines))
-
-
-        self.reactant_dict_scalar = {k:v.split(" ") for k,v in zip(reactant_dict_scalar.keys(), reactant_dict_scalar.values())}
-
-        # Creates a dictionary with this format:
-        # {...
-        #  "H2S": ["H2S", "HS-"],
-        #  "HS-": ["H2S", "HS-"],
-        #  "Pb(HS)2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  "Ag(HS)2-": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  "Au(HS)2-": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-        #  ...
-        # }
-        #
-        # Used to switch a user-specified limiting reactant to one within the same scalar group.
-        speciation_group_dict = {}
-        speciation_group_dict_all_like_categories = {}
-        for i,line in enumerate(lines):
-            line = line.strip().split(":")
-            assert len(line) == 2 # will fail if : in species names
-            group_name = line[0].strip()
-            group_species = line[1].strip().split(" ")
-            group_species = list(collections.OrderedDict.fromkeys(group_species)) # remove duplicates
-            speciation_group_dict[group_name] = group_species
-
-        speciation_group_dict_unpacked = {}
-        for key in list(speciation_group_dict.keys()):
-            for sp in speciation_group_dict[key]:
-                speciation_group_dict_unpacked[sp] = speciation_group_dict[key]
-
-        self.speciation_group_dict_unpacked = speciation_group_dict_unpacked
-
-        # Creates a dictionary with this format:
-        # {...
-        #  "sulfate": ['SO4-2','HSO4-','PdSO4','RhSO4', ..., 'Ru(SO4)3-4'],
-        #  "formate": ['formic-acid', 'formate', 'Am(For)+2', ..., 'Zn(For)2'],
-        #  ...
-        # }
-        # Used when the user wants to exclude all organics except for acetate (e.g.)
-        # and all species in the acetate speciation group
-        group_categories = []
-        for group_name in self.reactant_dict_scalar.keys():
-            group_name_no_number = group_name.split(" ")
-            group_name_no_number = " ".join(group_name_no_number[:-1])
-            group_categories.append(group_name_no_number)
-        group_categories = list(set(group_categories))
-
-        sp_dict_groups = {}
-        for g1 in group_categories:
-            for i,g2 in enumerate(self.reactant_dict_scalar.keys()):
-                g2_cat_name = g2.split(" ")
-                g2_cat_name = " ".join(g2_cat_name[:-1])
-                if g1 == g2_cat_name:
-                    if g1 not in sp_dict_groups.keys():
-                        sp_dict_groups[g1] = copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
-                    else:
-                        sp_dict_groups[g1] += copy.deepcopy(self.reactant_dict_scalar[list(self.reactant_dict_scalar.keys())[i]])
-        self.sp_dict_groups = sp_dict_groups
-
-
-    def __switch_limiting(self, limiting, stoich, species, lenient=False):
-        if limiting != None:
-            reactant_idx = [1 if i<0 else 0 for i in stoich]
-            reactants = [species[i] for i,idx in enumerate(reactant_idx) if idx == 1]
-
-            if limiting not in reactants and limiting in list(self.speciation_group_dict_unpacked.keys()):
-                # if the user specifies a limiting reactant like "HCO3-" but the
-                # reaction has "CO2" as a reactant, check the dict that
-                # contains speciated groups and switch the limiting reactant to
-                # the relevant limiting reactant to appear in reports,
-                # e.g., "HCO3-" -> "CO2"
-                lim_species_group_list = self.speciation_group_dict_unpacked[limiting]
-                for s in lim_species_group_list:
-                    if s in reactants:
-                        if self.verbose > 0:
-                            print("The specified limiting reactant", str(limiting),
-                                  "has been switched to", str(s), "because the latter",
-                                  "appears as a reactant in the reaction:")
-                            if isnotebook():
-                                _ = self.format_reaction(coeffs=stoich,
-                                   names=species,
-                                   formatted=True,
-                                   charge_sign_at_end=True,
-                                   show=True)
-                            else:
-                                l = stoich + species
-                                l[::2] = stoich
-                                l[1::2] = species
-                                l = [str(v) for v in l]
-                                print(" ".join(l))
-                        limiting = s
-                        break
-                            
-            if limiting not in reactants and lenient:
-                # if the user specifies "CO2" as the limiting reactant during a
-                # batch calculation of many different reactions, some reactions
-                # won't actually have "CO2" as a reactant. In this case, set
-                # limiting to None so that CO2 will be limiting when applicable.
-                limiting = None
-                
-        return limiting
-
-
     def add_new_half_reaction(self, oxidant, reductant, redox_couple=None):
         """
         Add a new half reaction to the bottom of the table of available half
@@ -7438,7 +7778,7 @@ class Speciation(object):
 
     
     def apply_redox_reactions(self, y_type="E", y_units="cal", limiting=None,
-                                    grams_minerals=0,
+                                    grams_minerals=None,
                                     negative_energy_supplies=False,
                                     custom_grouping_filepath=None,
                                     append_report=True):
@@ -7450,7 +7790,7 @@ class Speciation(object):
 
         Parameters
         ----------
-        grams_minerals : float or dict, default 0
+        grams_minerals : float, int, dict, or pandas.DataFrame, optional
             Number of grams belonging to each mineral reactant when calculating
             the limiting reactant during an energy supply calculation. This
             parameter is only used when `y_type="E"`.
@@ -7461,6 +7801,12 @@ class Speciation(object):
             individual masses for each mineral reactant, then a dictionary can
             be provided. For example:
             `grams_minerals={"goethite": 0.001, "iron": 0.1},`
+            To vary the mass of a mineral from sample to sample, provide a
+            dataframe with a column per mineral and a row per sample.
+            By default, mineral masses are left undefined and minerals are not
+            considered when looking for a limiting reactant. Note that defining
+            a mass of 0 grams is different: a mineral present at 0 grams is
+            immediately the limiting reactant, giving an energy supply of 0.
 
         negative_energy_supplies : bool, default False
             Report negative energy supplies? If False, negative energy supplies
@@ -7514,10 +7860,8 @@ class Speciation(object):
             speciation object will be appended/updated.
         """
         
-        self.custom_grouping_filepath = custom_grouping_filepath
-        
-        self._make_speciation_group_dict()
-        
+        self._set_speciation_groups(custom_grouping_filepath, reset=True)
+
         y_name_list = []
         val_list_list = []
         result_dict = {}
@@ -7562,7 +7906,7 @@ class Speciation(object):
             redox_pair = self.redox_reactions_table["redox_pairs"].loc[rxn]
 
             if y_type == "E":
-                limiting_input = self.__switch_limiting(limiting,
+                limiting_input = self._switch_limiting(limiting,
                                                   stoich=coeff_list,
                                                   species=species_list,
                                                   lenient=True)
@@ -8240,59 +8584,9 @@ class Speciation(object):
         return out_dict
 
 
-    def __match_grouped_species(self, s):
-        """
-        Match whether a species is in a speciation group, and get a list of relevant groups and their scalars.
-        
-        e.g.,
-
-        self.reactant_dict_scalar = {...
-                                     "sulfides 1": ["H2S", "HS-"],
-                                     "sulfides 2": ["Pb(HS)2", "Ag(HS)2-", "Au(HS)2-"],
-                                     "sulfides 3": ["Pb(HS)3-"],
-                                     "ferrous iron 1": [...],
-                                     ...
-                                     }
-        If `s` = "Ag(HS)2-"
-        then `scalars` = [1, 2, 3]
-        and `groups` = ["sulfides 1", "sulfides 2", "sulfides 3"]
-        
-        """
-        scalars = []
-        groups = []
-        
-        for i,grp_list in enumerate(list(self.reactant_dict_scalar.values())):            
-            if s in grp_list:
-                s_key = list(self.reactant_dict_scalar.keys())[i] #e.g., s_key can be "sulfates 1"
-                s_key_split = s_key.split(" ")
-                s_key_grp = " ".join(s_key_split[:-1])
-                possible_scalars = [k.split(s_key_grp)[-1].strip() for k in list(self.reactant_dict_scalar.keys()) if s_key_grp in k]
-                for k in possible_scalars:
-                    try:
-                        float(k) # test whether the scalar is a number. If so, append.
-                        scalars.append(k)
-                    except:
-                        continue
-                groups = [s_key_grp+" "+str(s) for s in scalars]
-                break
-                
-        scalars = [float(s) for s in scalars]
-
-        # prevent duplicate groups and scalars from appearing
-        scalars_final = []
-        groups_final = []
-        for i,group in enumerate(groups):
-            if group not in groups_final:
-                scalars_final.append(scalars[i])
-                groups_final.append(groups[i])
-
-        groups_final = [self.reactant_dict_scalar[g] for g in groups_final]
-        return scalars_final, groups_final
-
-
     def calculate_energy(self, species, stoich,
                     divisor=1, per_electron=False,
-                    grams_minerals=0,
+                    grams_minerals=None,
                     rxn_name="custom reaction",
                     negative_energy_supplies=False,
                     y_type="A", y_units="kcal", 
@@ -8333,7 +8627,7 @@ class Speciation(object):
             calculate the Gibbs free energy per mole of electrons transferred,
             you would set `divisor` to 8 and `per_electron` to True.
 
-        grams_minerals : float or dict, default 0
+        grams_minerals : float, int, dict, or pandas.DataFrame, optional
             Number of grams belonging to each mineral reactant when calculating
             the limiting reactant during an energy supply calculation. This
             parameter is only used when `y_type="E"`.
@@ -8344,6 +8638,12 @@ class Speciation(object):
             individual masses for each mineral reactant, then a dictionary can
             be provided. For example:
             `grams_minerals={"goethite": 0.001, "iron": 0.1},`
+            To vary the mass of a mineral from sample to sample, provide a
+            dataframe with a column per mineral and a row per sample.
+            By default, mineral masses are left undefined and minerals are not
+            considered when looking for a limiting reactant. Note that defining
+            a mass of 0 grams is different: a mineral present at 0 grams is
+            immediately the limiting reactant, giving an energy supply of 0.
 
         rxn_name : str, default "custom reaction"
             Name for the reaction, e.g., "sulfide oxidation to sulfate".
@@ -8467,9 +8767,8 @@ class Speciation(object):
         missing_composition = check_balance(formulas, stoich)
 
         if y_type == "E":
-            if not isinstance(self.reactant_dict_scalar, dict):
-                self._make_speciation_group_dict()
-        
+            self._set_speciation_groups()
+
         # assign aq_distribution_logact table to Speciation
         sample_dict = {}
         for i,sample in enumerate(self.sample_data.keys()):
@@ -8512,7 +8811,7 @@ class Speciation(object):
         invalid_limiting_reactants = []
         for r in reactants:
             if r not in ["H2O", "H+", "OH-"]:
-                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq" and not isinstance(grams_minerals, (pd.DataFrame, float, int)):
+                if list(self.thermo.csv_db[self.thermo.csv_db["name"]==r]["state"])[0] != "aq" and not self._mineral_amounts_known(grams_minerals):
                     invalid_limiting_reactants.append(r)
             else:
                 invalid_limiting_reactants.append(r)
@@ -8529,7 +8828,7 @@ class Speciation(object):
         
         if limiting != None and y_type == "E":
 
-            limiting = self.__switch_limiting(limiting,
+            limiting = self._switch_limiting(limiting,
                                               stoich=stoich,
                                               species=species,
                                               lenient=False)
@@ -8575,32 +8874,10 @@ class Speciation(object):
                     # aqueous species
                     s_logact_dict[s] = list(self.aq_distribution_logact[s])
                     if isinstance(self.reactant_dict_scalar, dict):
-
-                        # check whether the species matches any of the groups in reactant_dict_scalar and retrieve scalars and groups
-                        scalars, groups = self.__match_grouped_species(s)
-
-                        if as_written:
-                            # if energy supplies are to be calculated as written
-                            # with no grouping or limiting reactant switching,
-                            # then use the current species and its scalar
-                            for i, sc in enumerate(scalars):
-                                if s in groups[i]:
-                                    scalars = [sc]
-                                    groups = [[s]]
-                                    break
-                        
-                        if len(scalars) > 0:
-                            total_summed_scaled = [0]*self.aq_distribution_molal.shape[0]
-                            
-                            for i,scalar in enumerate(scalars):
-                                col_subset = [col for col in groups[i] if col in self.aq_distribution_molal.columns]
-                                scaled_df = self.aq_distribution_molal[col_subset].apply(lambda x: x*scalar)
-                                summed_scaled = list(scaled_df.sum(axis=1, numeric_only=True))
-                                total_summed_scaled = [ii+iii for ii,iii in zip(total_summed_scaled, summed_scaled)]
-                                s_molal_dict[s] = total_summed_scaled
-
-                        else:
-                            s_molal_dict[s] = list(self.aq_distribution_molal[s])
+                        s_molal_dict[s] = self._grouped_molality(
+                                                s,
+                                                self.aq_distribution_molal,
+                                                as_written=as_written)
                     else:
                         s_molal_dict[s] = list(self.aq_distribution_molal[s])
                 else:
@@ -8612,23 +8889,10 @@ class Speciation(object):
             else:
                 # liq and cr species
                 s_logact_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-                
-                sp_formula = list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["formula"])[0]
-                sp_mass = pychnosz.mass(sp_formula)
-                
-                if isinstance(grams_minerals, (pd.DataFrame, float, int)):
-                    if isinstance(grams_minerals, pd.DataFrame):
-                        if s in grams_minerals.columns:
-                            sp_grams_list = list(grams_minerals[s])
-                            s_molal_dict[s] = [sp_grams/sp_mass for sp_grams in sp_grams_list]
-                        else:
-                            s_molal_dict[s] = [0]*len(self.misc_params["Temp(C)"])
-                    else:
-                        sp_grams = grams_minerals
-                        sp_moles = sp_grams/sp_mass
-                        s_molal_dict[s] = [sp_moles]*len(self.misc_params["Temp(C)"])
-                else:
-                    s_molal_dict[s] = [float("NaN")]*len(self.misc_params["Temp(C)"])
+                s_molal_dict[s] = self._mineral_molality(
+                                        s,
+                                        len(self.misc_params["Temp(C)"]),
+                                        grams_minerals)
 
         if y_type in ["logK", "logQ"]:
             y_type_plain = copy.copy(y_type)
@@ -8734,50 +8998,21 @@ class Speciation(object):
                         lr_name_list.append("None")
                         continue
                     
-                    if not isinstance(limiting, str):
-                        lrc_dict = {}
-                        for i_s,s in enumerate(species):
-                            # identify valid limiting reactants and record concentrations
-                            # 1. negative coefficient (reactant)
-                            # 2. can't be OH-, H+, H2O
-                            # 3. can't be cr or liq if grams_minerals == None
-                            if not isinstance(grams_minerals, (pd.DataFrame, float, int)):
-                                if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"] and list(self.thermo.csv_db[self.thermo.csv_db["name"]==s]["state"])[0] not in ["cr", "liq"]:
-                                    lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
-                            else:
-                                if stoich[i_s] < 0 and s not in ["H2O", "H+", "OH-"]:
-                                    lrc_dict[s] = s_molal_dict[s][i]/abs(stoich[i_s])
-                    
-                    if not isinstance(limiting, str):
-                        lr_name = min(lrc_dict, key=lrc_dict.get)
-                        lr_val = lrc_dict[lr_name]
-                        
-                        # handle situations where there might be multiple limiting reactants
-                        lr_list = []
-                        for k,v in zip(lrc_dict.keys(), lrc_dict.values()):
-                            if v == lr_val:
-                                lr_list.append(str(k))
-                    else:
-                        lrc_dict = {}
-                        lr_list = [limiting]
+                    lr_name, lr_reported, lr_concentration, lr_stoich = \
+                            self._select_limiting_reactant(
+                                    species=species,
+                                    stoich=stoich,
+                                    s_molal_dict=s_molal_dict,
+                                    step=i,
+                                    limiting=limiting,
+                                    allow_minerals=self._mineral_amounts_known(grams_minerals),
+                                    charge_sign_at_end=charge_sign_at_end,
+                                    )
 
-                    if len(lr_list) > 0 and sum([math.isnan(v) for v in list(lrc_dict.values())]) == 0:
-                        # if there is a limiting reactant and no values of 'nan' for limiting reactant concentrations...
-                        
-                        lr_list_formatted = [chemlabel(lr_name, charge_sign_at_end=charge_sign_at_end) for lr_name in lr_list]
-                        if len(lr_list_formatted) > 1:
-                            lr_reported = ", ".join(lr_list_formatted)
-                        else:
-                            lr_reported = lr_list[0]
-    
-                        lr_name = lr_list[0] # doesn't matter which lr is used to calculate
-                        lr_concentration = s_molal_dict[lr_name][i]
-                        lr_name_list.append(lr_reported)
-                        lr_stoich = -stoich[species.index(lr_name)]
-
+                    if lr_name != None:
                         E = A * (lr_concentration/lr_stoich)
-    
                         y_list.append(E/divisor_i)
+                        lr_name_list.append(lr_reported)
                     else:
                         y_list.append(float('NaN'))
                         lr_name_list.append(float('NaN'))
