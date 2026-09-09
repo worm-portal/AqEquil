@@ -1,0 +1,1170 @@
+﻿2026-09-09T23:01:48.8189890Z Current runner version: '2.337.0'
+2026-09-09T23:01:48.8231520Z ##[group]Runner Image Provisioner
+2026-09-09T23:01:48.8232710Z Hosted Compute Agent
+2026-09-09T23:01:48.8233460Z Version: 20260819.586
+2026-09-09T23:01:48.8234290Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-09-09T23:01:48.8235300Z Build Date: 2026-08-18T23:20:18Z
+2026-09-09T23:01:48.8236210Z Worker ID: {6d267ea5-54b5-40a8-92b6-55c53f9a6f09}
+2026-09-09T23:01:48.8237190Z Azure Region: westus
+2026-09-09T23:01:48.8237920Z ##[endgroup]
+2026-09-09T23:01:48.8241290Z ##[group]Operating System
+2026-09-09T23:01:48.8242110Z macOS
+2026-09-09T23:01:48.8242760Z 15.7.9
+2026-09-09T23:01:48.8243410Z 24G830
+2026-09-09T23:01:48.8244060Z ##[endgroup]
+2026-09-09T23:01:48.8244770Z ##[group]Runner Image
+2026-09-09T23:01:48.8245530Z Image: macos-15
+2026-09-09T23:01:48.8246240Z Version: 20260824.0482.1
+2026-09-09T23:01:48.8248050Z Included Software: https://github.com/actions/runner-images/blob/macos-15/20260824.0482/images/macos/macos-15-Readme.md
+2026-09-09T23:01:48.8250430Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15%2F20260824.0482
+2026-09-09T23:01:48.8251930Z ##[endgroup]
+2026-09-09T23:01:48.8257510Z ##[group]GITHUB_TOKEN Permissions
+2026-09-09T23:01:48.8261170Z Actions: write
+2026-09-09T23:01:48.8261960Z ArtifactMetadata: write
+2026-09-09T23:01:48.8262760Z Attestations: write
+2026-09-09T23:01:48.8263500Z Checks: write
+2026-09-09T23:01:48.8264200Z CodeQuality: write
+2026-09-09T23:01:48.8264930Z Contents: write
+2026-09-09T23:01:48.8265670Z CopilotRequests: write
+2026-09-09T23:01:48.8266450Z Deployments: write
+2026-09-09T23:01:48.8267190Z Discussions: write
+2026-09-09T23:01:48.8267920Z Drives: write
+2026-09-09T23:01:48.8268610Z Issues: write
+2026-09-09T23:01:48.8269300Z Metadata: read
+2026-09-09T23:01:48.8270120Z Models: read
+2026-09-09T23:01:48.8270820Z Packages: write
+2026-09-09T23:01:48.8271540Z Pages: write
+2026-09-09T23:01:48.8272250Z PullRequests: write
+2026-09-09T23:01:48.8273060Z RepositoryProjects: write
+2026-09-09T23:01:48.8273910Z SecurityEvents: write
+2026-09-09T23:01:48.8274680Z Statuses: write
+2026-09-09T23:01:48.8275420Z VulnerabilityAlerts: read
+2026-09-09T23:01:48.8276220Z ##[endgroup]
+2026-09-09T23:01:48.8282830Z Secret source: Actions
+2026-09-09T23:01:48.8284110Z Cache mode: write
+2026-09-09T23:01:48.8285050Z Prepare workflow directory
+2026-09-09T23:01:48.9623830Z Prepare all required actions
+2026-09-09T23:01:48.9770830Z Getting action download info
+2026-09-09T23:01:49.5134020Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-09-09T23:01:49.7110770Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-09-09T23:01:50.0379970Z Download action repository 'msys2/setup-msys2@v2' (SHA:66cd2cce69caa17b53920067426061ca1de3a884)
+2026-09-09T23:01:50.3895110Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-09-09T23:01:51.0431890Z Complete job name: Build wheels on macos-15-intel
+2026-09-09T23:01:51.1532380Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-09T23:01:51.1548460Z ##[group]Run actions/checkout@v4
+2026-09-09T23:01:51.1550570Z with:
+2026-09-09T23:01:51.1551660Z   fetch-depth: 0
+2026-09-09T23:01:51.1552810Z   ref: refs/heads/master
+2026-09-09T23:01:51.1554100Z   repository: worm-portal/aqequil
+2026-09-09T23:01:51.1563620Z   token: ***
+2026-09-09T23:01:51.1564730Z   ssh-strict: true
+2026-09-09T23:01:51.1565870Z   ssh-user: git
+2026-09-09T23:01:51.1567020Z   persist-credentials: true
+2026-09-09T23:01:51.1568290Z   clean: true
+2026-09-09T23:01:51.1569440Z   sparse-checkout-cone-mode: true
+2026-09-09T23:01:51.1570820Z   fetch-tags: false
+2026-09-09T23:01:51.1571980Z   show-progress: true
+2026-09-09T23:01:51.1573840Z   lfs: false
+2026-09-09T23:01:51.1574930Z   submodules: false
+2026-09-09T23:01:51.1576110Z   set-safe-directory: true
+2026-09-09T23:01:51.1577420Z   allow-unsafe-pr-checkout: false
+2026-09-09T23:01:51.1579250Z ##[endgroup]
+2026-09-09T23:01:51.8180110Z Syncing repository: worm-portal/aqequil
+2026-09-09T23:01:51.8184850Z ##[group]Getting Git version info
+2026-09-09T23:01:51.8187260Z Working directory is '/Users/runner/work/aqequil/aqequil'
+2026-09-09T23:01:51.8190650Z [command]/usr/local/bin/git version
+2026-09-09T23:01:51.8534710Z git version 2.55.0
+2026-09-09T23:01:51.8561290Z ##[endgroup]
+2026-09-09T23:01:51.8573600Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/27cd8c9f-62e7-4fde-971b-7ad3d4b317d8/.gitconfig'
+2026-09-09T23:01:51.8589920Z Temporarily overriding HOME='/Users/runner/work/_temp/27cd8c9f-62e7-4fde-971b-7ad3d4b317d8' before making global git config changes
+2026-09-09T23:01:51.8595200Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-09T23:01:51.8599780Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/aqequil/aqequil
+2026-09-09T23:01:51.8758100Z Deleting the contents of '/Users/runner/work/aqequil/aqequil'
+2026-09-09T23:01:51.8767960Z ##[group]Initializing the repository
+2026-09-09T23:01:51.8775570Z [command]/usr/local/bin/git init /Users/runner/work/aqequil/aqequil
+2026-09-09T23:01:51.9205040Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-09T23:01:51.9339410Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-09-09T23:01:51.9345310Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-09-09T23:01:51.9349240Z hint: call:
+2026-09-09T23:01:51.9351390Z hint:
+2026-09-09T23:01:51.9353290Z hint: 	git config --global init.defaultBranch <name>
+2026-09-09T23:01:51.9357630Z hint:
+2026-09-09T23:01:51.9360470Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-09T23:01:51.9364770Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-09T23:01:51.9367910Z hint:
+2026-09-09T23:01:51.9369380Z hint: 	git branch -m <name>
+2026-09-09T23:01:51.9371320Z hint:
+2026-09-09T23:01:51.9373970Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-09-09T23:01:51.9379320Z Initialized empty Git repository in /Users/runner/work/aqequil/aqequil/.git/
+2026-09-09T23:01:51.9389710Z [command]/usr/local/bin/git remote add origin https://github.com/worm-portal/aqequil
+2026-09-09T23:01:51.9400510Z ##[endgroup]
+2026-09-09T23:01:51.9406890Z ##[group]Disabling automatic garbage collection
+2026-09-09T23:01:51.9411660Z [command]/usr/local/bin/git config --local gc.auto 0
+2026-09-09T23:01:52.0019690Z ##[endgroup]
+2026-09-09T23:01:52.0031520Z ##[group]Setting up auth
+2026-09-09T23:01:52.0036110Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-09T23:01:52.1000170Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-09T23:01:52.2634640Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-09T23:01:52.2742300Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-09T23:01:52.4118890Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-09T23:01:52.4338900Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-09T23:01:52.5620660Z [command]/usr/local/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-09-09T23:01:52.5738810Z ##[endgroup]
+2026-09-09T23:01:52.5742300Z ##[group]Fetching the repository
+2026-09-09T23:01:52.5751260Z [command]/usr/local/bin/git -c protocol.version=2 fetch --prune --no-recurse-submodules origin +refs/heads/*:refs/remotes/origin/* +refs/tags/*:refs/tags/*
+2026-09-09T23:01:56.4129590Z From https://github.com/worm-portal/aqequil
+2026-09-09T23:01:56.4139680Z  * [new branch]      jordyn     -> origin/jordyn
+2026-09-09T23:01:56.4159940Z  * [new branch]      master     -> origin/master
+2026-09-09T23:01:56.4179660Z  * [new tag]         v0.13.4    -> v0.13.4
+2026-09-09T23:01:56.4195520Z  * [new tag]         v0.13.5    -> v0.13.5
+2026-09-09T23:01:56.4212410Z  * [new tag]         v0.14.0    -> v0.14.0
+2026-09-09T23:01:56.4236960Z  * [new tag]         v0.15.3    -> v0.15.3
+2026-09-09T23:01:56.4250140Z  * [new tag]         v0.16.0    -> v0.16.0
+2026-09-09T23:01:56.4272350Z  * [new tag]         v0.17.0    -> v0.17.0
+2026-09-09T23:01:56.4280110Z  * [new tag]         v0.18.0    -> v0.18.0
+2026-09-09T23:01:56.4327060Z  * [new tag]         v0.19.0    -> v0.19.0
+2026-09-09T23:01:56.4366180Z  * [new tag]         v0.9.1     -> v0.9.1
+2026-09-09T23:01:56.4622900Z  * [new tag]         v1.0.0     -> v1.0.0
+2026-09-09T23:01:56.4626270Z  * [new tag]         v1.0.1     -> v1.0.1
+2026-09-09T23:01:56.4627370Z  * [new tag]         v1.0.2     -> v1.0.2
+2026-09-09T23:01:56.4629460Z  * [new tag]         v1.1.0     -> v1.1.0
+2026-09-09T23:01:56.4630220Z  * [new tag]         v1.1.1     -> v1.1.1
+2026-09-09T23:01:56.4631050Z  * [new tag]         v1.1.2     -> v1.1.2
+2026-09-09T23:01:56.4631810Z  * [new tag]         v1.1.3     -> v1.1.3
+2026-09-09T23:01:56.4632520Z  * [new tag]         v1.1.4     -> v1.1.4
+2026-09-09T23:01:56.4636340Z  * [new tag]         v1.1.6     -> v1.1.6
+2026-09-09T23:01:56.4644210Z  * [new tag]         v1.1.7     -> v1.1.7
+2026-09-09T23:01:56.4645000Z  * [new tag]         v1.2.0     -> v1.2.0
+2026-09-09T23:01:56.4647570Z  * [new tag]         v1.2.1     -> v1.2.1
+2026-09-09T23:01:56.4648360Z  * [new tag]         v1.3.0     -> v1.3.0
+2026-09-09T23:01:56.4649220Z  * [new tag]         v1.3.1     -> v1.3.1
+2026-09-09T23:01:56.4652400Z ##[endgroup]
+2026-09-09T23:01:56.4653510Z ##[group]Determining the checkout info
+2026-09-09T23:01:56.4654570Z ##[endgroup]
+2026-09-09T23:01:56.4655260Z [command]/usr/local/bin/git sparse-checkout disable
+2026-09-09T23:01:56.4657240Z [command]/usr/local/bin/git config --local --unset-all extensions.worktreeConfig
+2026-09-09T23:01:56.4659540Z ##[group]Checking out the ref
+2026-09-09T23:01:56.4660660Z [command]/usr/local/bin/git checkout --progress --force -B master refs/remotes/origin/master
+2026-09-09T23:01:56.9393080Z Reset branch 'master'
+2026-09-09T23:01:56.9416730Z branch 'master' set up to track 'origin/master'.
+2026-09-09T23:01:56.9421760Z ##[endgroup]
+2026-09-09T23:01:56.9527350Z [command]/usr/local/bin/git log -1 --format=%H
+2026-09-09T23:01:56.9639080Z efff52a1120f51e70adf4116491d38eae2b6a789
+2026-09-09T23:01:57.0038240Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-09T23:01:57.0042470Z ##[group]Run actions/setup-python@v5
+2026-09-09T23:01:57.0043090Z with:
+2026-09-09T23:01:57.0043520Z   python-version: 3.13
+2026-09-09T23:01:57.0044060Z   check-latest: false
+2026-09-09T23:01:57.0049740Z   token: ***
+2026-09-09T23:01:57.0050250Z   update-environment: true
+2026-09-09T23:01:57.0050920Z   allow-prereleases: false
+2026-09-09T23:01:57.0051500Z   freethreaded: false
+2026-09-09T23:01:57.0051990Z ##[endgroup]
+2026-09-09T23:01:57.2132720Z ##[group]Installed versions
+2026-09-09T23:01:57.2220960Z (node:2836) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-09T23:01:57.2223000Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-09T23:01:57.2224050Z Successfully set up CPython (3.13.15)
+2026-09-09T23:01:57.2226220Z ##[endgroup]
+2026-09-09T23:01:57.2443500Z ##[group]Run python -m pip install cibuildwheel==3.3.1
+2026-09-09T23:01:57.2444590Z [36;1mpython -m pip install cibuildwheel==3.3.1[0m
+2026-09-09T23:01:57.2540970Z shell: /bin/bash -e {0}
+2026-09-09T23:01:57.2541580Z env:
+2026-09-09T23:01:57.2542310Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:01:57.2543540Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.13.15/x64/lib/pkgconfig
+2026-09-09T23:01:57.2544790Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:01:57.2545900Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:01:57.2547030Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:01:57.2547930Z ##[endgroup]
+2026-09-09T23:02:00.0158030Z Collecting cibuildwheel==3.3.1
+2026-09-09T23:02:00.1544010Z   Downloading cibuildwheel-3.3.1-py3-none-any.whl.metadata (24 kB)
+2026-09-09T23:02:00.3572460Z Collecting bashlex!=0.13 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.3802370Z   Downloading bashlex-0.18-py2.py3-none-any.whl.metadata (1.1 kB)
+2026-09-09T23:02:00.4183380Z Collecting bracex (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.4482620Z   Downloading bracex-3.0.1-py3-none-any.whl.metadata (3.3 kB)
+2026-09-09T23:02:00.4768390Z Collecting build>=1.0.0 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.4991830Z   Downloading build-1.6.0-py3-none-any.whl.metadata (5.6 kB)
+2026-09-09T23:02:00.5150720Z Requirement already satisfied: certifi in /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages (from cibuildwheel==3.3.1) (2026.7.22)
+2026-09-09T23:02:00.5354020Z Collecting dependency-groups>=1.2 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.5612860Z   Downloading dependency_groups-1.3.2-py3-none-any.whl.metadata (2.4 kB)
+2026-09-09T23:02:00.6138080Z Collecting filelock (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.6370830Z   Downloading filelock-3.32.6-py3-none-any.whl.metadata (2.0 kB)
+2026-09-09T23:02:00.6797470Z Collecting humanize (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.7021550Z   Downloading humanize-4.16.0-py3-none-any.whl.metadata (8.0 kB)
+2026-09-09T23:02:00.7404160Z Collecting packaging>=20.9 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.7630460Z   Downloading packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+2026-09-09T23:02:00.8038530Z Collecting patchelf (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.8275590Z   Downloading patchelf-0.19.1.0-py3-none-macosx_10_9_universal2.whl.metadata (3.7 kB)
+2026-09-09T23:02:00.8642740Z Collecting platformdirs (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.8878340Z   Downloading platformdirs-4.11.8-py3-none-any.whl.metadata (5.5 kB)
+2026-09-09T23:02:00.9199290Z Collecting pyelftools>=0.29 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.9423720Z   Downloading pyelftools-0.33-py3-none-any.whl.metadata (1.0 kB)
+2026-09-09T23:02:00.9773140Z Collecting wheel>=0.33.6 (from cibuildwheel==3.3.1)
+2026-09-09T23:02:00.9998540Z   Downloading wheel-0.48.0-py3-none-any.whl.metadata (2.3 kB)
+2026-09-09T23:02:01.0308270Z Collecting pyproject_hooks (from build>=1.0.0->cibuildwheel==3.3.1)
+2026-09-09T23:02:01.0533800Z   Downloading pyproject_hooks-1.2.0-py3-none-any.whl.metadata (1.3 kB)
+2026-09-09T23:02:01.0908970Z Downloading cibuildwheel-3.3.1-py3-none-any.whl (127 kB)
+2026-09-09T23:02:01.1474290Z Downloading bashlex-0.18-py2.py3-none-any.whl (69 kB)
+2026-09-09T23:02:01.1813450Z Downloading build-1.6.0-py3-none-any.whl (31 kB)
+2026-09-09T23:02:01.2157660Z Downloading dependency_groups-1.3.2-py3-none-any.whl (9.8 kB)
+2026-09-09T23:02:01.2455020Z Downloading packaging-26.3-py3-none-any.whl (129 kB)
+2026-09-09T23:02:01.2820400Z Downloading pyelftools-0.33-py3-none-any.whl (201 kB)
+2026-09-09T23:02:01.3258000Z Downloading wheel-0.48.0-py3-none-any.whl (33 kB)
+2026-09-09T23:02:01.3991620Z Downloading bracex-3.0.1-py3-none-any.whl (11 kB)
+2026-09-09T23:02:01.3995340Z Downloading filelock-3.32.6-py3-none-any.whl (100 kB)
+2026-09-09T23:02:01.4308070Z Downloading humanize-4.16.0-py3-none-any.whl (137 kB)
+2026-09-09T23:02:01.4963130Z Downloading patchelf-0.19.1.0-py3-none-macosx_10_9_universal2.whl (281 kB)
+2026-09-09T23:02:01.5150760Z Downloading platformdirs-4.11.8-py3-none-any.whl (24 kB)
+2026-09-09T23:02:01.5529720Z Downloading pyproject_hooks-1.2.0-py3-none-any.whl (10 kB)
+2026-09-09T23:02:01.6525890Z Installing collected packages: pyproject_hooks, pyelftools, platformdirs, patchelf, packaging, humanize, filelock, bracex, bashlex, wheel, dependency-groups, build, cibuildwheel
+2026-09-09T23:02:02.5669970Z 
+2026-09-09T23:02:02.5994270Z Successfully installed bashlex-0.18 bracex-3.0.1 build-1.6.0 cibuildwheel-3.3.1 dependency-groups-1.3.2 filelock-3.32.6 humanize-4.16.0 packaging-26.3 patchelf-0.19.1.0 platformdirs-4.11.8 pyelftools-0.33 pyproject_hooks-1.2.0 wheel-0.48.0
+2026-09-09T23:02:02.6620380Z ##[group]Run echo "===== Installing x86_64 Homebrew and gfortran ====="
+2026-09-09T23:02:02.6621540Z [36;1mecho "===== Installing x86_64 Homebrew and gfortran ====="[0m
+2026-09-09T23:02:02.6622390Z [36;1m[0m
+2026-09-09T23:02:02.6622920Z [36;1m# Remove ARM64 brew from PATH to avoid confusion[0m
+2026-09-09T23:02:02.6623850Z [36;1mexport PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"[0m
+2026-09-09T23:02:02.6624620Z [36;1m[0m
+2026-09-09T23:02:02.6625080Z [36;1m# Install x86_64 Homebrew if needed[0m
+2026-09-09T23:02:02.6625750Z [36;1mif [ ! -f /usr/local/bin/brew ]; then[0m
+2026-09-09T23:02:02.6626440Z [36;1m  echo "Installing x86_64 Homebrew..."[0m
+2026-09-09T23:02:02.6627670Z [36;1m  arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"[0m
+2026-09-09T23:02:02.6628890Z [36;1mfi[0m
+2026-09-09T23:02:02.6629300Z [36;1m[0m
+2026-09-09T23:02:02.6629750Z [36;1m# Verify x86_64 Homebrew[0m
+2026-09-09T23:02:02.6630430Z [36;1mif [ -f /usr/local/bin/brew ]; then[0m
+2026-09-09T23:02:02.6631100Z [36;1m  echo "x86_64 Homebrew installed"[0m
+2026-09-09T23:02:02.6631800Z [36;1m  arch -x86_64 /usr/local/bin/brew --version[0m
+2026-09-09T23:02:02.6632460Z [36;1m[0m
+2026-09-09T23:02:02.6632870Z [36;1m  # Install gcc[0m
+2026-09-09T23:02:02.6633410Z [36;1m  echo "Installing x86_64 gcc..."[0m
+2026-09-09T23:02:02.6634140Z [36;1m  arch -x86_64 /usr/local/bin/brew install gcc[0m
+2026-09-09T23:02:02.6634800Z [36;1m[0m
+2026-09-09T23:02:02.6635240Z [36;1m  # Find and verify gfortran[0m
+2026-09-09T23:02:02.6636110Z [36;1m  GFORTRAN_PATH=$(arch -x86_64 /usr/local/bin/brew --prefix gcc)/bin/gfortran[0m
+2026-09-09T23:02:02.6637470Z [36;1m  echo "Found gfortran at: $GFORTRAN_PATH"[0m
+2026-09-09T23:02:02.6638120Z [36;1m[0m
+2026-09-09T23:02:02.6638610Z [36;1m  echo "Checking gfortran architecture:"[0m
+2026-09-09T23:02:02.6639280Z [36;1m  file "$GFORTRAN_PATH"[0m
+2026-09-09T23:02:02.6639820Z [36;1m[0m
+2026-09-09T23:02:02.6640260Z [36;1m  # Export for later steps[0m
+2026-09-09T23:02:02.6641020Z [36;1m  echo "X86_GFORTRAN=$GFORTRAN_PATH" >> $GITHUB_ENV[0m
+2026-09-09T23:02:02.6642100Z [36;1m  echo "X86_GCC_PREFIX=$(arch -x86_64 /usr/local/bin/brew --prefix gcc)" >> $GITHUB_ENV[0m
+2026-09-09T23:02:02.6643060Z [36;1melse[0m
+2026-09-09T23:02:02.6643610Z [36;1m  echo "ERROR: Failed to install x86_64 Homebrew"[0m
+2026-09-09T23:02:02.6644290Z [36;1m  exit 1[0m
+2026-09-09T23:02:02.6644730Z [36;1mfi[0m
+2026-09-09T23:02:02.6716090Z shell: /bin/bash -e {0}
+2026-09-09T23:02:02.6716620Z env:
+2026-09-09T23:02:02.6717270Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:02.6718390Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.13.15/x64/lib/pkgconfig
+2026-09-09T23:02:02.6719490Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:02.6720520Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:02.6721560Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:02.6722400Z ##[endgroup]
+2026-09-09T23:02:02.7008700Z ===== Installing x86_64 Homebrew and gfortran =====
+2026-09-09T23:02:02.7015380Z x86_64 Homebrew installed
+2026-09-09T23:02:02.9101120Z Homebrew 6.0.18
+2026-09-09T23:02:02.9669060Z Homebrew/homebrew-core (git revision a18de1aa60a; last commit 2026-08-24)
+2026-09-09T23:02:03.0228180Z Homebrew/homebrew-cask (git revision 012c48f6314; last commit 2026-08-24)
+2026-09-09T23:02:03.0230150Z Installing x86_64 gcc...
+2026-09-09T23:02:07.3774950Z [32m==>[0m [1mDownloading bottle manifests[0m
+2026-09-09T23:02:07.4057760Z ✔︎ Bottle Manifest gcc (16.2.0)
+2026-09-09T23:02:07.4060620Z [34m==>[0m [1mWould install 1 formula:[0m
+2026-09-09T23:02:07.4061210Z gcc
+2026-09-09T23:02:07.4972490Z [32m==>[0m [1mFetching downloads for: [32mgcc[39m[0m
+2026-09-09T23:02:16.1426340Z ✔︎ Bottle gcc (16.2.0)
+2026-09-09T23:02:16.8077800Z [34m==>[0m [1mPouring gcc--16.2.0.sequoia.bottle.tar.gz[0m
+2026-09-09T23:02:34.2180670Z 🍺  /usr/local/Cellar/gcc/16.2.0: 1,812 files, 543.9MB
+2026-09-09T23:02:34.3581640Z Found gfortran at: /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:02:34.3583510Z Checking gfortran architecture:
+2026-09-09T23:02:34.3717270Z /usr/local/opt/gcc/bin/gfortran: Mach-O 64-bit executable x86_64
+2026-09-09T23:02:34.4606630Z ##[group]Run python -m cibuildwheel --output-dir wheelhouse
+2026-09-09T23:02:34.4608890Z [36;1mpython -m cibuildwheel --output-dir wheelhouse[0m
+2026-09-09T23:02:34.4714440Z shell: /bin/bash -e {0}
+2026-09-09T23:02:34.4716460Z env:
+2026-09-09T23:02:34.4721150Z   pythonLocation: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:34.4723480Z   PKG_CONFIG_PATH: /Users/runner/hostedtoolcache/Python/3.13.15/x64/lib/pkgconfig
+2026-09-09T23:02:34.4724980Z   Python_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:34.4728050Z   Python2_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:34.4730120Z   Python3_ROOT_DIR: /Users/runner/hostedtoolcache/Python/3.13.15/x64
+2026-09-09T23:02:34.4732170Z   X86_GFORTRAN: /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:02:34.4733910Z   X86_GCC_PREFIX: /usr/local/opt/gcc
+2026-09-09T23:02:34.4736140Z   CIBW_BUILD_VERBOSITY: 1
+2026-09-09T23:02:34.4738010Z   CIBW_ARCHS_MACOS: x86_64
+2026-09-09T23:02:34.4740200Z   CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=15.0 ARCHFLAGS="-arch x86_64" GFORTRAN_PATH=/usr/local/opt/gcc/bin/gfortran PATH=/usr/local/opt/gcc/bin:$PATH
+
+2026-09-09T23:02:34.4743650Z   CIBW_BEFORE_BUILD_MACOS: echo "===== Build Environment =====" && echo "GFORTRAN_PATH: $GFORTRAN_PATH" && echo "ARCHFLAGS: $ARCHFLAGS" && echo "PATH: $PATH" && which gfortran && file "$GFORTRAN_PATH" && python compile_eq3_6.py && python prepare_databases.py
+
+2026-09-09T23:02:34.4748270Z ##[endgroup]
+2026-09-09T23:02:35.0049930Z 
+2026-09-09T23:02:35.0050620Z      _ _       _ _   _       _           _
+2026-09-09T23:02:35.0053150Z  ___|_| |_ _ _|_| |_| |_ _ _| |_ ___ ___| |
+2026-09-09T23:02:35.0053750Z |  _| | . | | | | | . | | | |   | -_| -_| |
+2026-09-09T23:02:35.0054300Z |___|_|___|___|_|_|___|_____|_|_|___|___|_|
+2026-09-09T23:02:35.0054750Z 
+2026-09-09T23:02:35.0054930Z cibuildwheel version 3.3.1
+2026-09-09T23:02:35.0055250Z 
+2026-09-09T23:02:35.0055410Z Build options:
+2026-09-09T23:02:35.0056090Z   platform: macos
+2026-09-09T23:02:35.0130480Z   [38;5;244mallow_empty: False[0m
+2026-09-09T23:02:35.0131450Z   [38;5;244marchitectures: x86_64[0m
+2026-09-09T23:02:35.0132020Z   build_selector: 
+2026-09-09T23:02:35.0132550Z     build_config: cp310-* cp311-* cp312-* cp313-* cp314-*
+2026-09-09T23:02:35.0133650Z     skip_config: *-win32 *-manylinux_i686 *-musllinux* pp*
+2026-09-09T23:02:35.0134320Z     requires_python: >=3.10
+2026-09-09T23:02:35.0135120Z     enable: [][0m
+2026-09-09T23:02:35.0135910Z   output_dir: /Users/runner/work/aqequil/aqequil/wheelhouse[0m
+2026-09-09T23:02:35.0136750Z   package_dir: /Users/runner/work/aqequil/aqequil[0m
+2026-09-09T23:02:35.0137400Z   test_selector: 
+2026-09-09T23:02:35.0137990Z     skip_config: *[0m
+2026-09-09T23:02:35.0138680Z   [38;5;244mbefore_all: [0m
+2026-09-09T23:02:35.0139270Z   before_build: 
+2026-09-09T23:02:35.0141900Z     echo "===== Build Environment =====" && echo "GFORTRAN_PATH: $GFORTRAN_PATH" && echo "ARCHFLAGS: $ARCHFLAGS" && echo "PATH: $PATH" && which gfortran && file "$GFORTRAN_PATH" && python compile_eq3_6.py && python prepare_databases.py[0m
+2026-09-09T23:02:35.0143850Z   [38;5;244mbefore_test: [0m
+2026-09-09T23:02:35.0144400Z   [38;5;244mbuild_frontend: build[0m
+2026-09-09T23:02:35.0144960Z   build_verbosity: 1[0m
+2026-09-09T23:02:35.0145650Z   [38;5;244mconfig_settings: [0m
+2026-09-09T23:02:35.0146480Z   [38;5;244mcontainer_engine: docker[0m
+2026-09-09T23:02:35.0147460Z   [38;5;244mdependency_constraints: pinned[0m
+2026-09-09T23:02:35.0148240Z   environment: 
+2026-09-09T23:02:35.0148790Z     MACOSX_DEPLOYMENT_TARGET=15.0
+2026-09-09T23:02:35.0149310Z     ARCHFLAGS="-arch x86_64"
+2026-09-09T23:02:35.0150260Z     GFORTRAN_PATH=/usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:02:35.0151480Z     PATH=/usr/local/opt/gcc/bin:$PATH[0m
+2026-09-09T23:02:35.0152170Z   [38;5;244mmanylinux_images: None[0m
+2026-09-09T23:02:35.0152990Z   [38;5;244mmusllinux_images: None[0m
+2026-09-09T23:02:35.0153800Z   [38;5;244mpyodide_version: None[0m
+2026-09-09T23:02:35.0155410Z   [38;5;244mrepair_command: delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}[0m
+2026-09-09T23:02:35.0156730Z   [38;5;244mtest_command: [0m
+2026-09-09T23:02:35.0157270Z   [38;5;244mtest_environment: [0m
+2026-09-09T23:02:35.0157820Z   [38;5;244mtest_extras: [0m
+2026-09-09T23:02:35.0158330Z   [38;5;244mtest_groups: [0m
+2026-09-09T23:02:35.0158860Z   [38;5;244mtest_requires: [0m
+2026-09-09T23:02:35.0159380Z   [38;5;244mtest_runtime: 
+2026-09-09T23:02:35.0159890Z [38;5;244m    args: ()[0m
+2026-09-09T23:02:35.0160390Z   [38;5;244mtest_sources: [0m
+2026-09-09T23:02:35.0160920Z   [38;5;244mxbuild_tools: None[0m
+2026-09-09T23:02:35.0161280Z 
+2026-09-09T23:02:35.0161570Z Cache folder: /Users/runner/Library/Caches/cibuildwheel
+2026-09-09T23:02:35.0162020Z 
+2026-09-09T23:02:35.0237980Z ##[warning]cibuildwheel: Invalid skip selector: 'pp*'. This selector matches a group that wasn't enabled. Enable it using the `enable` option or remove this selector. This selector will have no effect. 
+2026-09-09T23:02:35.0248180Z Here we go!
+2026-09-09T23:02:35.0248620Z 
+2026-09-09T23:02:35.0248630Z 
+2026-09-09T23:02:35.0248630Z 
+2026-09-09T23:02:35.0249080Z [1m[34mBuilding cp310-macosx_x86_64 wheel[0m
+2026-09-09T23:02:35.0249910Z CPython 3.10 macOS x86_64
+2026-09-09T23:02:35.0250240Z 
+2026-09-09T23:02:35.0250870Z ##[group]Installing Python cp310...
+2026-09-09T23:02:35.0251220Z 
+2026-09-09T23:02:35.0251410Z + pkgutil --pkgs
+2026-09-09T23:02:35.0393100Z + Download https://www.python.org/ftp/python/3.10.11/python-3.10.11-macos11.pkg to /Users/runner/Library/Caches/cibuildwheel/cpython-installer/python-3.10.11-macos11.pkg
+2026-09-09T23:02:35.5282030Z + sudo installer -pkg /Users/runner/Library/Caches/cibuildwheel/cpython-installer/python-3.10.11-macos11.pkg -target /
+2026-09-09T23:02:57.3116610Z installer: Package name is Python
+2026-09-09T23:02:57.3141870Z installer: Upgrading at base path /
+2026-09-09T23:02:57.3142580Z installer: The upgrade was successful.
+2026-09-09T23:02:57.3167270Z + /Library/Frameworks/Python.framework/Versions/3.10/bin/python3 /Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/cibuildwheel/resources/install_certifi.py
+2026-09-09T23:02:57.9448820Z Collecting certifi
+2026-09-09T23:02:57.9651890Z   Downloading certifi-2026.7.22-py3-none-any.whl (136 kB)
+2026-09-09T23:02:57.9796720Z      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 137.0/137.0 kB 11.3 MB/s eta 0:00:00
+2026-09-09T23:02:58.0247780Z Installing collected packages: certifi
+2026-09-09T23:02:58.0385720Z Successfully installed certifi-2026.7.22
+2026-09-09T23:02:58.1201470Z  -- pip install --upgrade certifi
+2026-09-09T23:02:58.1202190Z  -- removing any existing file or link
+2026-09-09T23:02:58.1202850Z  -- creating symlink to certifi certificate bundle
+2026-09-09T23:02:58.1203560Z  -- setting permissions
+2026-09-09T23:02:58.1223640Z  -- update complete
+2026-09-09T23:02:58.1277260Z ##[endgroup]
+2026-09-09T23:02:58.1278560Z                                                              [32m✓ [0m23.10s
+2026-09-09T23:02:58.1279790Z ##[group]Setting up build environment...
+2026-09-09T23:02:58.1280180Z 
+2026-09-09T23:02:58.1286020Z + Download https://github.com/pypa/get-virtualenv/releases/download/20.35.4/virtualenv.pyz to /Users/runner/Library/Caches/cibuildwheel/virtualenv-20.35.4.pyz
+2026-09-09T23:02:58.5557550Z + /Library/Frameworks/Python.framework/Versions/3.13/bin/python -sS /Users/runner/Library/Caches/cibuildwheel/virtualenv-20.35.4.pyz --activators= --no-periodic-update --pip=25.3 --no-setuptools --symlink-app-data --python /Library/Frameworks/Python.framework/Versions/3.10/bin/python3.10 /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv
+2026-09-09T23:03:01.5103110Z created virtual environment CPython3.10.11.final.0-64 in 2650ms
+2026-09-09T23:03:01.5590640Z   creator CPython3Posix(dest=/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv, clear=False, no_vcs_ignore=False, global=False)
+2026-09-09T23:03:01.5596740Z   seeder FromAppData(download=False, pip=25.3, via=symlink, app_data_dir=/Users/runner/Library/Application Support/virtualenv)
+2026-09-09T23:03:01.5599010Z     added seed packages: pip==25.3
+2026-09-09T23:03:01.5602320Z + which python
+2026-09-09T23:03:01.5945520Z /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/bin/python
+2026-09-09T23:03:01.5959390Z + python --version
+2026-09-09T23:03:01.6152840Z Python 3.10.11
+2026-09-09T23:03:01.6159900Z + which pip
+2026-09-09T23:03:01.6222580Z /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/bin/pip
+2026-09-09T23:03:01.6233070Z + pip --version
+2026-09-09T23:03:01.9173790Z pip 25.3 from /private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/lib/python3.10/site-packages/pip (python 3.10)
+2026-09-09T23:03:01.9431150Z ##[endgroup]
+2026-09-09T23:03:01.9437590Z                                                               [32m✓ [0m3.82s
+2026-09-09T23:03:01.9440160Z ##[group]Installing build tools...
+2026-09-09T23:03:01.9441650Z 
+2026-09-09T23:03:01.9446230Z + pip install --upgrade delocate 'build[virtualenv]' -c file:///Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/cibuildwheel/resources/constraints-python310.txt
+2026-09-09T23:03:02.7439350Z Collecting delocate
+2026-09-09T23:03:02.8289720Z   Downloading delocate-0.13.0-py3-none-any.whl.metadata (15 kB)
+2026-09-09T23:03:02.9037240Z Collecting build[virtualenv]
+2026-09-09T23:03:02.9286660Z   Downloading build-1.3.0-py3-none-any.whl.metadata (5.6 kB)
+2026-09-09T23:03:03.0417960Z Collecting packaging>=20.9 (from delocate)
+2026-09-09T23:03:03.0653580Z   Downloading packaging-25.0-py3-none-any.whl.metadata (3.3 kB)
+2026-09-09T23:03:03.1169230Z Collecting typing_extensions>=4.12.2 (from delocate)
+2026-09-09T23:03:03.1410560Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+2026-09-09T23:03:03.1687940Z Collecting macholib (from delocate)
+2026-09-09T23:03:03.1938080Z   Downloading macholib-1.16.4-py2.py3-none-any.whl.metadata (12 kB)
+2026-09-09T23:03:03.2196390Z Collecting pyproject_hooks (from build[virtualenv])
+2026-09-09T23:03:03.2228820Z   Using cached pyproject_hooks-1.2.0-py3-none-any.whl.metadata (1.3 kB)
+2026-09-09T23:03:03.2642550Z Collecting tomli>=1.1.0 (from build[virtualenv])
+2026-09-09T23:03:03.2894200Z   Downloading tomli-2.3.0-py3-none-any.whl.metadata (10 kB)
+2026-09-09T23:03:03.3756160Z Collecting virtualenv>=20.17 (from build[virtualenv])
+2026-09-09T23:03:03.4009340Z   Downloading virtualenv-20.35.4-py3-none-any.whl.metadata (4.6 kB)
+2026-09-09T23:03:03.4380440Z Collecting distlib<1,>=0.3.7 (from virtualenv>=20.17->build[virtualenv])
+2026-09-09T23:03:03.4635520Z   Downloading distlib-0.4.0-py2.py3-none-any.whl.metadata (5.2 kB)
+2026-09-09T23:03:03.5104430Z Collecting filelock<4,>=3.12.2 (from virtualenv>=20.17->build[virtualenv])
+2026-09-09T23:03:03.5349790Z   Downloading filelock-3.20.2-py3-none-any.whl.metadata (2.1 kB)
+2026-09-09T23:03:03.7914600Z Collecting platformdirs<5,>=3.9.1 (from virtualenv>=20.17->build[virtualenv])
+2026-09-09T23:03:03.8917960Z   Downloading platformdirs-4.5.1-py3-none-any.whl.metadata (12 kB)
+2026-09-09T23:03:03.9797410Z Collecting altgraph>=0.17 (from macholib->delocate)
+2026-09-09T23:03:03.9864410Z   Downloading altgraph-0.17.5-py2.py3-none-any.whl.metadata (7.5 kB)
+2026-09-09T23:03:03.9924990Z Downloading delocate-0.13.0-py3-none-any.whl (238 kB)
+2026-09-09T23:03:04.0554640Z Downloading build-1.3.0-py3-none-any.whl (23 kB)
+2026-09-09T23:03:04.0860550Z Downloading packaging-25.0-py3-none-any.whl (66 kB)
+2026-09-09T23:03:04.1160830Z Downloading tomli-2.3.0-py3-none-any.whl (14 kB)
+2026-09-09T23:03:04.1490910Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+2026-09-09T23:03:04.1819950Z Downloading virtualenv-20.35.4-py3-none-any.whl (6.0 MB)
+2026-09-09T23:03:04.3186190Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.0/6.0 MB 45.2 MB/s  0:00:00
+2026-09-09T23:03:04.3432610Z Downloading distlib-0.4.0-py2.py3-none-any.whl (469 kB)
+2026-09-09T23:03:04.3976070Z Downloading filelock-3.20.2-py3-none-any.whl (16 kB)
+2026-09-09T23:03:04.4306070Z Downloading platformdirs-4.5.1-py3-none-any.whl (18 kB)
+2026-09-09T23:03:04.4635190Z Downloading macholib-1.16.4-py2.py3-none-any.whl (38 kB)
+2026-09-09T23:03:04.4964700Z Downloading altgraph-0.17.5-py2.py3-none-any.whl (21 kB)
+2026-09-09T23:03:04.5061390Z Using cached pyproject_hooks-1.2.0-py3-none-any.whl (10 kB)
+2026-09-09T23:03:04.5579790Z Installing collected packages: distlib, altgraph, typing_extensions, tomli, pyproject_hooks, platformdirs, packaging, macholib, filelock, virtualenv, delocate, build
+2026-09-09T23:03:05.2455850Z 
+2026-09-09T23:03:05.2495640Z Successfully installed altgraph-0.17.5 build-1.3.0 delocate-0.13.0 distlib-0.4.0 filelock-3.20.2 macholib-1.16.4 packaging-25.0 platformdirs-4.5.1 pyproject_hooks-1.2.0 tomli-2.3.0 typing_extensions-4.15.0 virtualenv-20.35.4
+2026-09-09T23:03:05.3159710Z + python -m pip freeze --all
+2026-09-09T23:03:05.7892280Z ##[endgroup]
+2026-09-09T23:03:05.8895170Z                                                               [32m✓ [0m3.84s
+2026-09-09T23:03:05.9292330Z ##[group]Running before_build...
+2026-09-09T23:03:05.9346840Z 
+2026-09-09T23:03:06.0350580Z + echo "===== Build Environment =====" && echo "GFORTRAN_PATH: $GFORTRAN_PATH" && echo "ARCHFLAGS: $ARCHFLAGS" && echo "PATH: $PATH" && which gfortran && file "$GFORTRAN_PATH" && python compile_eq3_6.py && python prepare_databases.py
+2026-09-09T23:03:06.1008630Z 
+2026-09-09T23:03:06.1235360Z ===== Build Environment =====
+2026-09-09T23:03:06.1363650Z GFORTRAN_PATH: /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:03:06.1405760Z ARCHFLAGS: -arch x86_64
+2026-09-09T23:03:06.1471250Z PATH: /usr/local/opt/gcc/bin:/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/bin:/Users/runner/hostedtoolcache/Python/3.13.15/x64/bin:/Users/runner/hostedtoolcache/Python/3.13.15/x64:/usr/local/lib/ruby/gems/3.3.0/bin:/usr/local/opt/ruby@3.3/bin:/usr/local/opt/pipx_bin:/Users/runner/.cargo/bin:/usr/local/opt/curl/bin:/usr/local/bin:/usr/local/sbin:/Users/runner/bin:/Users/runner/.yarn/bin:/Users/runner/Library/Android/sdk/tools:/Users/runner/Library/Android/sdk/platform-tools:/Library/Frameworks/Python.framework/Versions/Current/bin:/Library/Frameworks/Mono.framework/Versions/Current/Commands:/usr/bin:/bin:/usr/sbin:/sbin:/Users/runner/.dotnet/tools
+2026-09-09T23:03:06.1516160Z /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:03:06.1517420Z /usr/local/opt/gcc/bin/gfortran: Mach-O 64-bit executable x86_64
+2026-09-09T23:06:14.7718780Z src/wr3pkd.f:166:116:
+2026-09-09T23:06:14.7719400Z ============================================================
+2026-09-09T23:06:14.7719970Z 
+2026-09-09T23:06:14.7720210Z Compiling EQ3/6 executables for aqequil
+2026-09-09T23:06:14.7721620Z ============================================================
+2026-09-09T23:06:14.7722170Z Platform: darwin
+2026-09-09T23:06:14.7722550Z Python: 3.10.11
+2026-09-09T23:06:14.7722900Z Machine: x86_64
+2026-09-09T23:06:14.7723550Z Using explicit gfortran path from GFORTRAN_PATH: /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:06:14.7724440Z Using compiler: /usr/local/opt/gcc/bin/gfortran
+2026-09-09T23:06:14.7725330Z Gfortran directory: /usr/local/opt/gcc/bin
+2026-09-09T23:06:14.7726620Z Building EQ3/6 from /Users/runner/work/aqequil/aqequil/aqequil/eq3_6_src
+2026-09-09T23:06:14.7727530Z ARCHFLAGS environment variable: '-arch x86_64'
+2026-09-09T23:06:14.7728110Z Building for macOS x86_64
+2026-09-09T23:06:14.7728650Z Cleaning previous builds...
+2026-09-09T23:06:14.7729780Z Cleaned /Users/runner/work/aqequil/aqequil/aqequil/bin
+2026-09-09T23:06:14.7730630Z Preserved /Users/runner/work/aqequil/aqequil/aqequil/bin/__init__.py
+2026-09-09T23:06:14.7731390Z Compiling EQ3/6 executables...
+2026-09-09T23:06:14.7731860Z make -C src/eq3nr
+2026-09-09T23:06:14.7733100Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/aaaeq3.o src/aaaeq3.f
+2026-09-09T23:06:14.7734160Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/arrset.o src/arrset.f
+2026-09-09T23:06:14.7735160Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/arrsim.o src/arrsim.f
+2026-09-09T23:06:14.7736170Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/bkdeq3.o src/bkdeq3.f
+2026-09-09T23:06:14.7737170Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chkinx.o src/chkinx.f
+2026-09-09T23:06:14.7738180Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dawfix.o src/dawfix.f
+2026-09-09T23:06:14.7739190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dfaltx.o src/dfaltx.f
+2026-09-09T23:06:14.7740190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/echox.o src/echox.f
+2026-09-09T23:06:14.7741170Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/eq3nr.o src/eq3nr.f
+2026-09-09T23:06:14.7742450Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intbs3.o src/intbs3.f
+2026-09-09T23:06:14.7743480Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intge3.o src/intge3.f
+2026-09-09T23:06:14.7744490Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intieb.o src/intieb.f
+2026-09-09T23:06:14.7745510Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intinx.o src/intinx.f
+2026-09-09T23:06:14.7746520Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intnsp.o src/intnsp.f
+2026-09-09T23:06:14.7748330Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/jfloha.o src/jfloha.f
+2026-09-09T23:06:14.7749360Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ndiagx.o src/ndiagx.f
+2026-09-09T23:06:14.7750550Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3ind.o src/rd3ind.f
+2026-09-09T23:06:14.7751680Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3inw.o src/rd3inw.f
+2026-09-09T23:06:14.7752720Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/scripx.o src/scripx.f
+2026-09-09T23:06:14.7753730Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/setpk3.o src/setpk3.f
+2026-09-09T23:06:14.7755310Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/setup.o src/setup.f
+2026-09-09T23:06:14.7756330Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/stpk36.o src/stpk36.f
+2026-09-09T23:06:14.7757340Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3pkd.o src/wr3pkd.f
+2026-09-09T23:06:14.7758370Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3pkw.o src/wr3pkw.f
+2026-09-09T23:06:14.7759970Z make -C ../eqlib
+2026-09-09T23:06:14.7760550Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/aaaeql.o src/aaaeql.f
+2026-09-09T23:06:14.7761500Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/absswa.o src/absswa.f
+2026-09-09T23:06:14.7762430Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/abswpk.o src/abswpk.f
+2026-09-09T23:06:14.7763380Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/adgexj.o src/adgexj.f
+2026-09-09T23:06:14.7766030Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/adgexp.o src/adgexp.f
+2026-09-09T23:06:14.7766970Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/afcalc.o src/afcalc.f
+2026-09-09T23:06:14.7767890Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/alters.o src/alters.f
+2026-09-09T23:06:14.7768830Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/autosw.o src/autosw.f
+2026-09-09T23:06:14.7769750Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/balcon.o src/balcon.f
+2026-09-09T23:06:14.7770670Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/betacf.o src/betacf.f
+2026-09-09T23:06:14.7771600Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/betas.o src/betas.f
+2026-09-09T23:06:14.7772520Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/betgam.o src/betgam.f
+2026-09-09T23:06:14.7773450Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/bspchk.o src/bspchk.f
+2026-09-09T23:06:14.7774400Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/bsplkp.o src/bsplkp.f
+2026-09-09T23:06:14.7776320Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/calk.o src/calk.f
+2026-09-09T23:06:14.7777260Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cdakey.o src/cdakey.f
+2026-09-09T23:06:14.7778180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cdardx.o src/cdardx.f
+2026-09-09T23:06:14.7779110Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cdrscx.o src/cdrscx.f
+2026-09-09T23:06:14.7780050Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cdrssd.o src/cdrssd.f
+2026-09-09T23:06:14.7780980Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cfracf.o src/cfracf.f
+2026-09-09T23:06:14.7782610Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/chsgex.o src/chsgex.f
+2026-09-09T23:06:14.7783670Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/clones.o src/clones.f
+2026-09-09T23:06:14.7785420Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cmpdat.o src/cmpdat.f
+2026-09-09T23:06:14.7786480Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cnvndx.o src/cnvndx.f
+2026-09-09T23:06:14.7787430Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/coefdr.o src/coefdr.f
+2026-09-09T23:06:14.7788350Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/coefel.o src/coefel.f
+2026-09-09T23:06:14.7789270Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/coefst.o src/coefst.f
+2026-09-09T23:06:14.7790180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ctds.o src/ctds.f
+2026-09-09T23:06:14.7791080Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dfbasp.o src/dfbasp.f
+2026-09-09T23:06:14.7792680Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/echgex.o src/echgex.f
+2026-09-09T23:06:14.7793630Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/echolk.o src/echolk.f
+2026-09-09T23:06:14.7794540Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/elim.o src/elim.f
+2026-09-09T23:06:14.7795540Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evdat2.o src/evdat2.f
+2026-09-09T23:06:14.7796490Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evdat3.o src/evdat3.f
+2026-09-09T23:06:14.7797520Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evdat4.o src/evdat4.f
+2026-09-09T23:06:14.7798470Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evdata.o src/evdata.f
+2026-09-09T23:06:14.7799400Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evdatr.o src/evdatr.f
+2026-09-09T23:06:14.7800570Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fbassw.o src/fbassw.f
+2026-09-09T23:06:14.7801610Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fdomsp.o src/fdomsp.f
+2026-09-09T23:06:14.7802660Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/flgchk.o src/flgchk.f
+2026-09-09T23:06:14.7803590Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/flgset.o src/flgset.f
+2026-09-09T23:06:14.7804520Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gabswx.o src/gabswx.f
+2026-09-09T23:06:14.7805450Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gaffsd.o src/gaffsd.f
+2026-09-09T23:06:14.7807150Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gafscl.o src/gafscl.f
+2026-09-09T23:06:14.7808090Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gafsir.o src/gafsir.f
+2026-09-09T23:06:14.7809020Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gbfac.o src/gbfac.f
+2026-09-09T23:06:14.7809930Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gcdrtw.o src/gcdrtw.f
+2026-09-09T23:06:14.7810850Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gcdrw.o src/gcdrw.f
+2026-09-09T23:06:14.7811740Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gcsts.o src/gcsts.f
+2026-09-09T23:06:14.7812650Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gdlgxw.o src/gdlgxw.f
+2026-09-09T23:06:14.7813570Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gegexs.o src/gegexs.f
+2026-09-09T23:06:14.7814490Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gegexw.o src/gegexw.f
+2026-09-09T23:06:14.7815420Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gibasp.o src/gibasp.f
+2026-09-09T23:06:14.7816340Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gntpr.o src/gntpr.f
+2026-09-09T23:06:14.7833110Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gpheh.o src/gpheh.f
+2026-09-09T23:06:14.7834320Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/grdxsp.o src/grdxsp.f
+2026-09-09T23:06:14.7835460Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gspion.o src/gspion.f
+2026-09-09T23:06:14.7836390Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gszm.o src/gszm.f
+2026-09-09T23:06:14.7837290Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gwdenp.o src/gwdenp.f
+2026-09-09T23:06:14.7838210Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/hpsat.o src/hpsat.f
+2026-09-09T23:06:14.7839120Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/inbdot.o src/inbdot.f
+2026-09-09T23:06:14.7840050Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indata.o src/indata.f
+2026-09-09T23:06:14.7840970Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indatc.o src/indatc.f
+2026-09-09T23:06:14.7841890Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indatd.o src/indatd.f
+2026-09-09T23:06:14.7842820Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indath.o src/indath.f
+2026-09-09T23:06:14.7843750Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indatp.o src/indatp.f
+2026-09-09T23:06:14.7844680Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/indats.o src/indats.f
+2026-09-09T23:06:14.7845850Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/intbsw.o src/intbsw.f
+2026-09-09T23:06:14.7846800Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/intexi.o src/intexi.f
+2026-09-09T23:06:14.7847720Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/intsbs.o src/intsbs.f
+2026-09-09T23:06:14.7848640Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/inttfx.o src/inttfx.f
+2026-09-09T23:06:14.7849560Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/inupt.o src/inupt.f
+2026-09-09T23:06:14.7851010Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/jesite.o src/jesite.f
+2026-09-09T23:06:14.7851980Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/jflaux.o src/jflaux.f
+2026-09-09T23:06:14.7853040Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/matrix.o src/matrix.f
+2026-09-09T23:06:14.7854090Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/mdrgex.o src/mdrgex.f
+2026-09-09T23:06:14.7855020Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/nbasis.o src/nbasis.f
+2026-09-09T23:06:14.7855940Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ncmpex.o src/ncmpex.f
+2026-09-09T23:06:14.7856990Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ncmpve.o src/ncmpve.f
+2026-09-09T23:06:14.7857920Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ncmpvh.o src/ncmpvh.f
+2026-09-09T23:06:14.7858840Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/newton.o src/newton.f
+2026-09-09T23:06:14.7859880Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ngcadv.o src/ngcadv.f
+2026-09-09T23:06:14.7860840Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/nphase.o src/nphase.f
+2026-09-09T23:06:14.7863800Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/nrstep.o src/nrstep.f
+2026-09-09T23:06:14.7864770Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/pcorrm.o src/pcorrm.f
+2026-09-09T23:06:14.7865710Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/pcorrx.o src/pcorrx.f
+2026-09-09T23:06:14.7866650Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prpheh.o src/prpheh.f
+2026-09-09T23:06:14.7867580Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prreac.o src/prreac.f
+2026-09-09T23:06:14.7868510Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtacr.o src/prtacr.f
+2026-09-09T23:06:14.7869450Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtalk.o src/prtalk.f
+2026-09-09T23:06:14.7870390Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtaqs.o src/prtaqs.f
+2026-09-09T23:06:14.7871330Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prteca.o src/prteca.f
+2026-09-09T23:06:14.7872250Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtfug.o src/prtfug.f
+2026-09-09T23:06:14.7873480Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtgex.o src/prtgex.f
+2026-09-09T23:06:14.7874830Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtmip.o src/prtmip.f
+2026-09-09T23:06:14.7875920Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtnca.o src/prtnca.f
+2026-09-09T23:06:14.7877050Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtntt.o src/prtntt.f
+2026-09-09T23:06:14.7877990Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtpct.o src/prtpct.f
+2026-09-09T23:06:14.7878920Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtrdx.o src/prtrdx.f
+2026-09-09T23:06:14.7879850Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtsat.o src/prtsat.f
+2026-09-09T23:06:14.7880780Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtsca.o src/prtsca.f
+2026-09-09T23:06:14.7881700Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtsia.o src/prtsia.f
+2026-09-09T23:06:14.7882690Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtsip.o src/prtsip.f
+2026-09-09T23:06:14.7883660Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtsso.o src/prtsso.f
+2026-09-09T23:06:14.7884600Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prtvpa.o src/prtvpa.f
+2026-09-09T23:06:14.7885540Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/sortsp.o src/sortsp.f
+2026-09-09T23:06:14.7886450Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/srchn.o src/srchn.f
+2026-09-09T23:06:14.7887370Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/srchne.o src/srchne.f
+2026-09-09T23:06:14.7888300Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/supprs.o src/supprs.f
+2026-09-09T23:06:14.7889230Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/switch.o src/switch.f
+2026-09-09T23:06:14.7890150Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/swtchb.o src/swtchb.f
+2026-09-09T23:06:14.7891070Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/swtchk.o src/swtchk.f
+2026-09-09T23:06:14.7891990Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/wr6pkd.o src/wr6pkd.f
+2026-09-09T23:06:14.7892930Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/wr6pkw.o src/wr6pkw.f
+2026-09-09T23:06:14.7904470Z ar rsc ../../lib/libeqlib.a obj/aaaeql.o obj/absswa.o obj/abswpk.o obj/adgexj.o obj/adgexp.o obj/afcalc.o obj/alters.o obj/autosw.o obj/balcon.o obj/betacf.o obj/betas.o obj/betgam.o obj/bspchk.o obj/bsplkp.o obj/calk.o obj/cdakey.o obj/cdardx.o obj/cdrscx.o obj/cdrssd.o obj/cfracf.o obj/chsgex.o obj/clones.o obj/cmpdat.o obj/cnvndx.o obj/coefdr.o obj/coefel.o obj/coefst.o obj/ctds.o obj/dfbasp.o obj/echgex.o obj/echolk.o obj/elim.o obj/evdat2.o obj/evdat3.o obj/evdat4.o obj/evdata.o obj/evdatr.o obj/fbassw.o obj/fdomsp.o obj/flgchk.o obj/flgset.o obj/gabswx.o obj/gaffsd.o obj/gafscl.o obj/gafsir.o obj/gbfac.o obj/gcdrtw.o obj/gcdrw.o obj/gcsts.o obj/gdlgxw.o obj/gegexs.o obj/gegexw.o obj/gibasp.o obj/gntpr.o obj/gpheh.o obj/grdxsp.o obj/gspion.o obj/gszm.o obj/gwdenp.o obj/hpsat.o obj/inbdot.o obj/indata.o obj/indatc.o obj/indatd.o obj/indath.o obj/indatp.o obj/indats.o obj/intbsw.o obj/intexi.o obj/intsbs.o obj/inttfx.o obj/inupt.o obj/jesite.o obj/jflaux.o obj/matrix.o obj/mdrgex.o obj/nbasis.o obj/ncmpex.o obj/ncmpve.o obj/ncmpvh.o obj/newton.o obj/ngcadv.o obj/nphase.o obj/nrstep.o obj/pcorrm.o obj/pcorrx.o obj/prpheh.o obj/prreac.o obj/prtacr.o obj/prtalk.o obj/prtaqs.o obj/prteca.o obj/prtfug.o obj/prtgex.o obj/prtmip.o obj/prtnca.o obj/prtntt.o obj/prtpct.o obj/prtrdx.o obj/prtsat.o obj/prtsca.o obj/prtsia.o obj/prtsip.o obj/prtsso.o obj/prtvpa.o obj/sortsp.o obj/srchn.o obj/srchne.o obj/supprs.o obj/switch.o obj/swtchb.o obj/swtchk.o obj/wr6pkd.o obj/wr6pkw.o
+2026-09-09T23:06:14.7916520Z make -C ../eqlibu
+2026-09-09T23:06:14.7917090Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/aaaelu.o src/aaaelu.f
+2026-09-09T23:06:14.7918020Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/arrmxn.o src/arrmxn.f
+2026-09-09T23:06:14.7919060Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cejust.o src/cejust.f
+2026-09-09T23:06:14.7920010Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/chreal.o src/chreal.f
+2026-09-09T23:06:14.7920950Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/chrint.o src/chrint.f
+2026-09-09T23:06:14.7922190Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/chump.o src/chump.f
+2026-09-09T23:06:14.7923130Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cliefu.o src/cliefu.f
+2026-09-09T23:06:14.7924050Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/copyaa.o src/copyaa.f
+2026-09-09T23:06:14.7924980Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/copyca.o src/copyca.f
+2026-09-09T23:06:14.7925900Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/copyia.o src/copyia.f
+2026-09-09T23:06:14.7926820Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/copyla.o src/copyla.f
+2026-09-09T23:06:14.7927750Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/daxpy.o src/daxpy.f
+2026-09-09T23:06:14.7928650Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ddot.o src/ddot.f
+2026-09-09T23:06:14.7929530Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dgefa.o src/dgefa.f
+2026-09-09T23:06:14.7930440Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dgesl.o src/dgesl.f
+2026-09-09T23:06:14.7931350Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dotpra.o src/dotpra.f
+2026-09-09T23:06:14.7932260Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dscal.o src/dscal.f
+2026-09-09T23:06:14.7933180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/dscram.o src/dscram.f
+2026-09-09T23:06:14.7934100Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fcopya.o src/fcopya.f
+2026-09-09T23:06:14.7935010Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fctrl.o src/fctrl.f
+2026-09-09T23:06:14.7935930Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/flpars.o src/flpars.f
+2026-09-09T23:06:14.7936860Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fmspnm.o src/fmspnm.f
+2026-09-09T23:06:14.7937780Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/fmspnx.o src/fmspnx.f
+2026-09-09T23:06:14.7938760Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/getbasename.o src/getbasename.f
+2026-09-09T23:06:14.7939760Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/getlu.o src/getlu.f
+2026-09-09T23:06:14.7940690Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ginvrt.o src/ginvrt.f
+2026-09-09T23:06:14.7941610Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gmarko.o src/gmarko.f
+2026-09-09T23:06:14.7942550Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/iarmxn.o src/iarmxn.f
+2026-09-09T23:06:14.7943480Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/idamax.o src/idamax.f
+2026-09-09T23:06:14.7944410Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ifnobl.o src/ifnobl.f
+2026-09-09T23:06:14.7945340Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ilnobl.o src/ilnobl.f
+2026-09-09T23:06:14.7946260Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initav.o src/initav.f
+2026-09-09T23:06:14.7947180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initaz.o src/initaz.f
+2026-09-09T23:06:14.7948100Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initcb.o src/initcb.f
+2026-09-09T23:06:14.7949500Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initcv.o src/initcv.f
+2026-09-09T23:06:14.7950430Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initii.o src/initii.f
+2026-09-09T23:06:14.7951350Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initim.o src/initim.f
+2026-09-09T23:06:14.7952270Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initiv.o src/initiv.f
+2026-09-09T23:06:14.7953190Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initiz.o src/initiz.f
+2026-09-09T23:06:14.7954260Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/initlv.o src/initlv.f
+2026-09-09T23:06:14.7955190Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/intchr.o src/intchr.f
+2026-09-09T23:06:14.7956120Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/jiarmn.o src/jiarmn.f
+2026-09-09T23:06:14.7957040Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/jiarmx.o src/jiarmx.f
+2026-09-09T23:06:14.7958060Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/lejust.o src/lejust.f
+2026-09-09T23:06:14.7959030Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/lindep.o src/lindep.f
+2026-09-09T23:06:14.7960270Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/locase.o src/locase.f
+2026-09-09T23:06:14.7961420Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/minvrt.o src/minvrt.f
+2026-09-09T23:06:14.7962490Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/msolvr.o src/msolvr.f
+2026-09-09T23:06:14.7963450Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/multav.o src/multav.f
+2026-09-09T23:06:14.7964390Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/openin.o src/openin.f
+2026-09-09T23:06:14.7965330Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/openou.o src/openou.f
+2026-09-09T23:06:14.7966280Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/parslj.o src/parslj.f
+2026-09-09T23:06:14.7967200Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/parsln.o src/parsln.f
+2026-09-09T23:06:14.7968130Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/platfd.o src/platfd.f
+2026-09-09T23:06:14.7969070Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/polfit.o src/polfit.f
+2026-09-09T23:06:14.7970010Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/prcndi.o src/prcndi.f
+2026-09-09T23:06:14.7970930Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/qsortw.o src/qsortw.f
+2026-09-09T23:06:14.7971840Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rdd1l.o src/rdd1l.f
+2026-09-09T23:06:14.7972760Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rdd1lh.o src/rdd1lh.f
+2026-09-09T23:06:14.7973660Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rdd2l.o src/rdd2l.f
+2026-09-09T23:06:14.7974570Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rdd2lh.o src/rdd2lh.f
+2026-09-09T23:06:14.7975490Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rddixc.o src/rddixc.f
+2026-09-09T23:06:14.7976400Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/realch.o src/realch.f
+2026-09-09T23:06:14.7977330Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rijust.o src/rijust.f
+2026-09-09T23:06:14.7978250Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rscaly.o src/rscaly.f
+2026-09-09T23:06:14.7979180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/runtim.o src/runtim.f
+2026-09-09T23:06:14.7980100Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/scalx1.o src/scalx1.f
+2026-09-09T23:06:14.7981020Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ssortw.o src/ssortw.f
+2026-09-09T23:06:14.7981940Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/stripl.o src/stripl.f
+2026-09-09T23:06:14.7982850Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/texp.o src/texp.f
+2026-09-09T23:06:14.7983750Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/timdat.o src/timdat.f
+2026-09-09T23:06:14.7984690Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/tleapy.o src/tleapy.f
+2026-09-09T23:06:14.7985580Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/tlg.o src/tlg.f
+2026-09-09T23:06:14.7986470Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/undflw.o src/undflw.f
+2026-09-09T23:06:14.7987800Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/upcase.o src/upcase.f
+2026-09-09T23:06:14.7995600Z ar rsc ../../lib/libeqlibu.a obj/aaaelu.o obj/arrmxn.o obj/cejust.o obj/chreal.o obj/chrint.o obj/chump.o obj/cliefu.o obj/copyaa.o obj/copyca.o obj/copyia.o obj/copyla.o obj/daxpy.o obj/ddot.o obj/dgefa.o obj/dgesl.o obj/dotpra.o obj/dscal.o obj/dscram.o obj/fcopya.o obj/fctrl.o obj/flpars.o obj/fmspnm.o obj/fmspnx.o obj/getbasename.o obj/getlu.o obj/ginvrt.o obj/gmarko.o obj/iarmxn.o obj/idamax.o obj/ifnobl.o obj/ilnobl.o obj/initav.o obj/initaz.o obj/initcb.o obj/initcv.o obj/initii.o obj/initim.o obj/initiv.o obj/initiz.o obj/initlv.o obj/intchr.o obj/jiarmn.o obj/jiarmx.o obj/lejust.o obj/lindep.o obj/locase.o obj/minvrt.o obj/msolvr.o obj/multav.o obj/openin.o obj/openou.o obj/parslj.o obj/parsln.o obj/platfd.o obj/polfit.o obj/prcndi.o obj/qsortw.o obj/rdd1l.o obj/rdd1lh.o obj/rdd2l.o obj/rdd2lh.o obj/rddixc.o obj/realch.o obj/rijust.o obj/rscaly.o obj/runtim.o obj/scalx1.o obj/ssortw.o obj/stripl.o obj/texp.o obj/timdat.o obj/tleapy.o obj/tlg.o obj/undflw.o obj/upcase.o
+2026-09-09T23:06:14.8003470Z make -C ../eqlibg
+2026-09-09T23:06:14.8004070Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/aaaelg.o src/aaaelg.f
+2026-09-09T23:06:14.8004990Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/bdmlx.o src/bdmlx.f
+2026-09-09T23:06:14.8005900Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/bdslx.o src/bdslx.f
+2026-09-09T23:06:14.8006810Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ca3bar.o src/ca3bar.f
+2026-09-09T23:06:14.8007720Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cabar.o src/cabar.f
+2026-09-09T23:06:14.8008620Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cfje.o src/cfje.f
+2026-09-09T23:06:14.8009520Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cfjest.o src/cfjest.f
+2026-09-09T23:06:14.8010430Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cfxi.o src/cfxi.f
+2026-09-09T23:06:14.8011330Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cfxist.o src/cfxist.f
+2026-09-09T23:06:14.8012250Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/csigm.o src/csigm.f
+2026-09-09T23:06:14.8013170Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/cwrpjt.o src/cwrpjt.f
+2026-09-09T23:06:14.8014090Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/elmdd.o src/elmdd.f
+2026-09-09T23:06:14.8015000Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/evptzc.o src/evptzc.f
+2026-09-09T23:06:14.8015920Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gbdot.o src/gbdot.f
+2026-09-09T23:06:14.8017230Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gcoeff.o src/gcoeff.f
+2026-09-09T23:06:14.8018160Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gcscal.o src/gcscal.f
+2026-09-09T23:06:14.8019080Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gdavie.o src/gdavie.f
+2026-09-09T23:06:14.8019980Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gdd.o src/gdd.f
+2026-09-09T23:06:14.8020870Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gelam.o src/gelam.f
+2026-09-09T23:06:14.8021780Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gesum.o src/gesum.f
+2026-09-09T23:06:14.8022680Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gfdhc.o src/gfdhc.f
+2026-09-09T23:06:14.8023580Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gfdho.o src/gfdho.f
+2026-09-09T23:06:14.8024490Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ghj0.o src/ghj0.f
+2026-09-09T23:06:14.8025380Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gmdsm.o src/gmdsm.f
+2026-09-09T23:06:14.8026280Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gmsum.o src/gmsum.f
+2026-09-09T23:06:14.8027180Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gpj0.o src/gpj0.f
+2026-09-09T23:06:14.8028070Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gsdsm.o src/gsdsm.f
+2026-09-09T23:06:14.8028970Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gselm.o src/gselm.f
+2026-09-09T23:06:14.8029870Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gsgsm.o src/gsgsm.f
+2026-09-09T23:06:14.8031130Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gslam.o src/gslam.f
+2026-09-09T23:06:14.8032050Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/gssum.o src/gssum.f
+2026-09-09T23:06:14.8032960Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/lambda.o src/lambda.f
+2026-09-09T23:06:14.8033890Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/lamgex.o src/lamgex.f
+2026-09-09T23:06:14.8034820Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/nactop.o src/nactop.f
+2026-09-09T23:06:14.8035740Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/nbsgam.o src/nbsgam.f
+2026-09-09T23:06:14.8036670Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ptzchk.o src/ptzchk.f
+2026-09-09T23:06:14.8037600Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/ptztab.o src/ptztab.f
+2026-09-09T23:06:14.8038520Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/rc3ocf.o src/rc3ocf.f
+2026-09-09T23:06:14.8039440Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/wterm.o src/wterm.f
+2026-09-09T23:06:14.8040330Z gfortran -O3 -arch x86_64 -I../../include -c -o obj/zsrt.o src/zsrt.f
+2026-09-09T23:06:14.8044740Z ar rsc ../../lib/libeqlibg.a obj/aaaelg.o obj/bdmlx.o obj/bdslx.o obj/ca3bar.o obj/cabar.o obj/cfje.o obj/cfjest.o obj/cfxi.o obj/cfxist.o obj/csigm.o obj/cwrpjt.o obj/elmdd.o obj/evptzc.o obj/gbdot.o obj/gcoeff.o obj/gcscal.o obj/gdavie.o obj/gdd.o obj/gelam.o obj/gesum.o obj/gfdhc.o obj/gfdho.o obj/ghj0.o obj/gmdsm.o obj/gmsum.o obj/gpj0.o obj/gsdsm.o obj/gselm.o obj/gsgsm.o obj/gslam.o obj/gssum.o obj/lambda.o obj/lamgex.o obj/nactop.o obj/nbsgam.o obj/ptzchk.o obj/ptztab.o obj/rc3ocf.o obj/wterm.o obj/zsrt.o
+2026-09-09T23:06:14.8051950Z gfortran -O3 -arch x86_64 -Jmod -o ../../bin/eq3nr obj/aaaeq3.o obj/arrset.o obj/arrsim.o obj/bkdeq3.o obj/chkinx.o obj/dawfix.o obj/dfaltx.o obj/echox.o obj/eq3nr.o obj/intbs3.o obj/intge3.o obj/intieb.o obj/intinx.o obj/intnsp.o obj/jfloha.o obj/ndiagx.o obj/rd3ind.o obj/rd3inw.o obj/scripx.o obj/setpk3.o obj/setup.o obj/stpk36.o obj/wr3pkd.o obj/wr3pkw.o ../../lib/libeqlib.a ../../lib/libeqlibu.a ../../lib/libeqlibg.a
+2026-09-09T23:06:14.8055280Z make -C src/eq6
+2026-09-09T23:06:14.8055890Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/mod6xf.o src/mod6xf.f
+2026-09-09T23:06:14.8056910Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/mod6pt.o src/mod6pt.f
+2026-09-09T23:06:14.8057910Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/aaaeq6.o src/aaaeq6.f
+2026-09-09T23:06:14.8058910Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/absswb.o src/absswb.f
+2026-09-09T23:06:14.8059910Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/aderiv.o src/aderiv.f
+2026-09-09T23:06:14.8060920Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/adprpl.o src/adprpl.f
+2026-09-09T23:06:14.8062000Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ataylr.o src/ataylr.f
+2026-09-09T23:06:14.8063040Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/bderiv.o src/bderiv.f
+2026-09-09T23:06:14.8064050Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/betars.o src/betars.f
+2026-09-09T23:06:14.8065050Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/bkdeq6.o src/bkdeq6.f
+2026-09-09T23:06:14.8066040Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/caft1.o src/caft1.f
+2026-09-09T23:06:14.8067030Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cdappl.o src/cdappl.f
+2026-09-09T23:06:14.8068040Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chdxec.o src/chdxec.f
+2026-09-09T23:06:14.8069040Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chdxgr.o src/chdxgr.f
+2026-09-09T23:06:14.8070050Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chdxgz.o src/chdxgz.f
+2026-09-09T23:06:14.8071050Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chdxtr.o src/chdxtr.f
+2026-09-09T23:06:14.8072060Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chdxtz.o src/chdxtz.f
+2026-09-09T23:06:14.8073420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chkinz.o src/chkinz.f
+2026-09-09T23:06:14.8074430Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chksar.o src/chksar.f
+2026-09-09T23:06:14.8075440Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chksir.o src/chksir.f
+2026-09-09T23:06:14.8076440Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chksrr.o src/chksrr.f
+2026-09-09T23:06:14.8077440Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chkstc.o src/chkstc.f
+2026-09-09T23:06:14.8078450Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chksti.o src/chksti.f
+2026-09-09T23:06:14.8079450Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chktmx.o src/chktmx.f
+2026-09-09T23:06:14.8080460Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chktpl.o src/chktpl.f
+2026-09-09T23:06:14.8081460Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chktpr.o src/chktpr.f
+2026-09-09T23:06:14.8082470Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/chzrsr.o src/chzrsr.f
+2026-09-09T23:06:14.8083470Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckawmn.o src/ckawmn.f
+2026-09-09T23:06:14.8084890Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckawmx.o src/ckawmx.f
+2026-09-09T23:06:14.8085950Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckawpl.o src/ckawpl.f
+2026-09-09T23:06:14.8086960Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckawpr.o src/ckawpr.f
+2026-09-09T23:06:14.8087960Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckehmn.o src/ckehmn.f
+2026-09-09T23:06:14.8088960Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckehmx.o src/ckehmx.f
+2026-09-09T23:06:14.8089960Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckehpl.o src/ckehpl.f
+2026-09-09T23:06:14.8090970Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckehpr.o src/ckehpr.f
+2026-09-09T23:06:14.8091910Z   166 |      $ ' follows on this file.',t80,'|')
+2026-09-09T23:06:14.8092640Z       |                                                                                                                    1
+2026-09-09T23:06:14.8093560Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8094250Z src/wr6pkd.f:1270:116:
+2026-09-09T23:06:14.8094510Z 
+2026-09-09T23:06:14.8094710Z  1270 |      $ ' follows on this file.',t80,'|')
+2026-09-09T23:06:14.8095440Z       |                                                                                                                    1
+2026-09-09T23:06:14.8096350Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8097240Z make[1]: Circular obj/mod6pt.o <- obj/mod6pt.o dependency dropped.
+2026-09-09T23:06:14.8098090Z make[1]: Circular obj/mod6xf.o <- obj/mod6pt.o dependency dropped.
+2026-09-09T23:06:14.8098950Z make[1]: Circular obj/mod6xf.o <- obj/mod6xf.o dependency dropped.
+2026-09-09T23:06:14.8099620Z src/gmmmat.f:213:0:
+2026-09-09T23:06:14.8099860Z 
+2026-09-09T23:06:14.8100010Z   213 |      $        ' of ',a,'.')
+2026-09-09T23:06:14.8100650Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8101330Z src/gmmmat.f:318:0:
+2026-09-09T23:06:14.8101560Z 
+2026-09-09T23:06:14.8101710Z   318 |      $        ' of ',a,'.')
+2026-09-09T23:06:14.8102340Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8103020Z src/intmat.f:241:0:
+2026-09-09T23:06:14.8103250Z 
+2026-09-09T23:06:14.8103440Z   241 |      $            ' will be constructed.')
+2026-09-09T23:06:14.8104150Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8104820Z src/rdpz2.f:211:0:
+2026-09-09T23:06:14.8105050Z 
+2026-09-09T23:06:14.8105300Z   211 |      $    ' data block for the pair',/7x,a,', ',a,'. The',
+2026-09-09T23:06:14.8106090Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8106880Z src/rd3d8.f:1567:0:
+2026-09-09T23:06:14.8107160Z 
+2026-09-09T23:06:14.8107470Z  1567 |      $            ' phase',/7x,a,'. Increase the dimensioning',
+2026-09-09T23:06:14.8108670Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8116910Z src/rd3d8b.f:1385:0:
+2026-09-09T23:06:14.8117210Z 
+2026-09-09T23:06:14.8117500Z  1385 |      $            ' phase',/7x,a,'. Increase the dimensioning',
+2026-09-09T23:06:14.8118320Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8118990Z src/wr3d8.f:730:56:
+2026-09-09T23:06:14.8119230Z 
+2026-09-09T23:06:14.8119430Z   730 |  1465     format('|',a,' - ',a,':'t80,'|')
+2026-09-09T23:06:14.8120010Z       |                                                        1
+2026-09-09T23:06:14.8120730Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8121410Z src/wr3w8.f:162:42:
+2026-09-09T23:06:14.8121630Z 
+2026-09-09T23:06:14.8121850Z   162 |  1510 format(4x,'iebal3= 'i3,/5x,'uebal= ',a)
+2026-09-09T23:06:14.8122420Z       |                                          1
+2026-09-09T23:06:14.8123110Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8123780Z src/wr3w8.f:237:46:
+2026-09-09T23:06:14.8124010Z 
+2026-09-09T23:06:14.8124720Z   237 |  1760     format(5x,'cgexj= '1pe12.5,5x,'zgexj= ',e12.5)
+2026-09-09T23:06:14.8125380Z       |                                              1
+2026-09-09T23:06:14.8126070Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8126750Z src/xcon3.f:1209:0:
+2026-09-09T23:06:14.8126980Z 
+2026-09-09T23:06:14.8127190Z  1209 |      $    /7x'for special basis switching.')
+2026-09-09T23:06:14.8127910Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8128590Z src/rd6d8b.f:825:102:
+2026-09-09T23:06:14.8128830Z 
+2026-09-09T23:06:14.8129130Z   825 |      $  ' the pressure.',/7x,'The pressure will be set to be in',
+2026-09-09T23:06:14.8129960Z       |                                                                                                      1
+2026-09-09T23:06:14.8130820Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8131490Z src/xcon6.f:2179:0:
+2026-09-09T23:06:14.8131720Z 
+2026-09-09T23:06:14.8131940Z  2179 |      $    /7x'for special basis switching.')
+2026-09-09T23:06:14.8132660Z Warning: Legacy Extension: Missing comma in FORMAT string at (1)
+2026-09-09T23:06:14.8133190Z 
+2026-09-09T23:06:14.8133590Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckfrsr.o src/ckfrsr.f
+2026-09-09T23:06:14.8134600Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cko2mn.o src/cko2mn.f
+2026-09-09T23:06:14.8135610Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cko2mx.o src/cko2mx.f
+2026-09-09T23:06:14.8136610Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cko2pl.o src/cko2pl.f
+2026-09-09T23:06:14.8137610Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cko2pr.o src/cko2pr.f
+2026-09-09T23:06:14.8138610Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckphmn.o src/ckphmn.f
+2026-09-09T23:06:14.8139630Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckphmx.o src/ckphmx.f
+2026-09-09T23:06:14.8140640Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckphpl.o src/ckphpl.f
+2026-09-09T23:06:14.8141650Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ckphpr.o src/ckphpr.f
+2026-09-09T23:06:14.8142650Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/clress.o src/clress.f
+2026-09-09T23:06:14.8143650Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/combmb.o src/combmb.f
+2026-09-09T23:06:14.8144650Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cophlm.o src/cophlm.f
+2026-09-09T23:06:14.8145650Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cophpl.o src/cophpl.f
+2026-09-09T23:06:14.8146660Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/cophpr.o src/cophpr.f
+2026-09-09T23:06:14.8147670Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/corrfd.o src/corrfd.f
+2026-09-09T23:06:14.8148670Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/crrate.o src/crrate.f
+2026-09-09T23:06:14.8149830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/csfar.o src/csfar.f
+2026-09-09T23:06:14.8150830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/d1ptay.o src/d1ptay.f
+2026-09-09T23:06:14.8151830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/d1ztay.o src/d1ztay.f
+2026-09-09T23:06:14.8152830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/d2ptay.o src/d2ptay.f
+2026-09-09T23:06:14.8153830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/d2ztay.o src/d2ztay.f
+2026-09-09T23:06:14.8154830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dadjdx.o src/dadjdx.f
+2026-09-09T23:06:14.8155830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dfaltz.o src/dfaltz.f
+2026-09-09T23:06:14.8156840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dscramc.o src/dscramc.f
+2026-09-09T23:06:14.8157860Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dscrax.o src/dscrax.f
+2026-09-09T23:06:14.8158870Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/dumpdp.o src/dumpdp.f
+2026-09-09T23:06:14.8160130Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/echoz.o src/echoz.f
+2026-09-09T23:06:14.8161100Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/eq6.o src/eq6.f
+2026-09-09T23:06:14.8162160Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/eqcalc.o src/eqcalc.f
+2026-09-09T23:06:14.8163190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/eqphas.o src/eqphas.f
+2026-09-09T23:06:14.8164190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/eqshel.o src/eqshel.f
+2026-09-09T23:06:14.8165200Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/escalc.o src/escalc.f
+2026-09-09T23:06:14.8166190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/evratc.o src/evratc.f
+2026-09-09T23:06:14.8167190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/exivar.o src/exivar.f
+2026-09-09T23:06:14.8168190Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/fcopyx.o src/fcopyx.f
+2026-09-09T23:06:14.8169210Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/fpbdpp.o src/fpbdpp.f
+2026-09-09T23:06:14.8170230Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/fpbflo.o src/fpbflo.f
+2026-09-09T23:06:14.8171240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/fpbnpp.o src/fpbnpp.f
+2026-09-09T23:06:14.8172250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/fpexrc.o src/fpexrc.f
+2026-09-09T23:06:14.8173250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gakmat.o src/gakmat.f
+2026-09-09T23:06:14.8174250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/garmat.o src/garmat.f
+2026-09-09T23:06:14.8175250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gmmmat.o src/gmmmat.f
+2026-09-09T23:06:14.8176240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gndacb.o src/gndacb.f
+2026-09-09T23:06:14.8177240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/goback.o src/goback.f
+2026-09-09T23:06:14.8178250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gpress.o src/gpress.f
+2026-09-09T23:06:14.8179260Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gsmder.o src/gsmder.f
+2026-09-09T23:06:14.8180260Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gsmdez.o src/gsmdez.f
+2026-09-09T23:06:14.8181250Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gtemp.o src/gtemp.f
+2026-09-09T23:06:14.8182240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/gwhcfa.o src/gwhcfa.f
+2026-09-09T23:06:14.8183240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/iiemop.o src/iiemop.f
+2026-09-09T23:06:14.8184240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intbs6.o src/intbs6.f
+2026-09-09T23:06:14.8185230Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/integr.o src/integr.f
+2026-09-09T23:06:14.8186240Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intmat.o src/intmat.f
+2026-09-09T23:06:14.8187420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intmtb.o src/intmtb.f
+2026-09-09T23:06:14.8188430Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/intrct.o src/intrct.f
+2026-09-09T23:06:14.8189430Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/jgibbs.o src/jgibbs.f
+2026-09-09T23:06:14.8190420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ldlxrc.o src/ldlxrc.f
+2026-09-09T23:06:14.8191420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ldlxrd.o src/ldlxrd.f
+2026-09-09T23:06:14.8192420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/makrsr.o src/makrsr.f
+2026-09-09T23:06:14.8193420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/miidxz.o src/miidxz.f
+2026-09-09T23:06:14.8194420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/mincsp.o src/mincsp.f
+2026-09-09T23:06:14.8195420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/nlkffg.o src/nlkffg.f
+2026-09-09T23:06:14.8196420Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/optmzr.o src/optmzr.f
+2026-09-09T23:06:14.8197410Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/path.o src/path.f
+2026-09-09T23:06:14.8198660Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/pderiv.o src/pderiv.f
+2026-09-09T23:06:14.8199700Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/phsdrp.o src/phsdrp.f
+2026-09-09T23:06:14.8200700Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/prrsr.o src/prrsr.f
+2026-09-09T23:06:14.8201700Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/prtrct.o src/prtrct.f
+2026-09-09T23:06:14.8202710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/pshfta.o src/pshfta.f
+2026-09-09T23:06:14.8203710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ptaylr.o src/ptaylr.f
+2026-09-09T23:06:14.8204690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/raff.o src/raff.f
+2026-09-09T23:06:14.8205670Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6ind.o src/rd6ind.f
+2026-09-09T23:06:14.8206670Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6inw.o src/rd6inw.f
+2026-09-09T23:06:14.8207670Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rderiv.o src/rderiv.f
+2026-09-09T23:06:14.8208680Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/reacts.o src/reacts.f
+2026-09-09T23:06:14.8209690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rsatch.o src/rsatch.f
+2026-09-09T23:06:14.8210690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rsetup.o src/rsetup.f
+2026-09-09T23:06:14.8211690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rtaylr.o src/rtaylr.f
+2026-09-09T23:06:14.8212690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rtcalc.o src/rtcalc.f
+2026-09-09T23:06:14.8213690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/satchk.o src/satchk.f
+2026-09-09T23:06:14.8214690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/scripz.o src/scripz.f
+2026-09-09T23:06:14.8215690Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/sderiv.o src/sderiv.f
+2026-09-09T23:06:14.8216710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/search.o src/search.f
+2026-09-09T23:06:14.8217710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/setffg.o src/setffg.f
+2026-09-09T23:06:14.8218710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/setpk6.o src/setpk6.f
+2026-09-09T23:06:14.8219810Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/setrcp.o src/setrcp.f
+2026-09-09T23:06:14.8220810Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/sfncge.o src/sfncge.f
+2026-09-09T23:06:14.8221820Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/shftph.o src/shftph.f
+2026-09-09T23:06:14.8222820Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/sippdp.o src/sippdp.f
+2026-09-09T23:06:14.8223830Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/stepfd.o src/stepfd.f
+2026-09-09T23:06:14.8224840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/stpkmd.o src/stpkmd.f
+2026-09-09T23:06:14.8225980Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/suprdx.o src/suprdx.f
+2026-09-09T23:06:14.8226990Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/timeca.o src/timeca.f
+2026-09-09T23:06:14.8229280Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/tivchk.o src/tivchk.f
+2026-09-09T23:06:14.8230840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/tpadv.o src/tpadv.f
+2026-09-09T23:06:14.8232320Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/tstari.o src/tstari.f
+2026-09-09T23:06:14.8233730Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/tstrdx.o src/tstrdx.f
+2026-09-09T23:06:14.8234910Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wrentu.o src/wrentu.f
+2026-09-09T23:06:14.8235930Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wrtabc.o src/wrtabc.f
+2026-09-09T23:06:14.8236940Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wrtabx.o src/wrtabx.f
+2026-09-09T23:06:14.8237960Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/xderiv.o src/xderiv.f
+2026-09-09T23:06:14.8239460Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/zderiv.o src/zderiv.f
+2026-09-09T23:06:14.8240480Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/ztaylr.o src/ztaylr.f
+2026-09-09T23:06:14.8255080Z gfortran -O3 -arch x86_64 -Jmod -o ../../bin/eq6 obj/mod6pt.o obj/mod6xf.o obj/aaaeq6.o obj/absswb.o obj/aderiv.o obj/adprpl.o obj/ataylr.o obj/bderiv.o obj/betars.o obj/bkdeq6.o obj/caft1.o obj/cdappl.o obj/chdxec.o obj/chdxgr.o obj/chdxgz.o obj/chdxtr.o obj/chdxtz.o obj/chkinz.o obj/chksar.o obj/chksir.o obj/chksrr.o obj/chkstc.o obj/chksti.o obj/chktmx.o obj/chktpl.o obj/chktpr.o obj/chzrsr.o obj/ckawmn.o obj/ckawmx.o obj/ckawpl.o obj/ckawpr.o obj/ckehmn.o obj/ckehmx.o obj/ckehpl.o obj/ckehpr.o obj/ckfrsr.o obj/cko2mn.o obj/cko2mx.o obj/cko2pl.o obj/cko2pr.o obj/ckphmn.o obj/ckphmx.o obj/ckphpl.o obj/ckphpr.o obj/clress.o obj/combmb.o obj/cophlm.o obj/cophpl.o obj/cophpr.o obj/corrfd.o obj/crrate.o obj/csfar.o obj/d1ptay.o obj/d1ztay.o obj/d2ptay.o obj/d2ztay.o obj/dadjdx.o obj/dfaltz.o obj/dscramc.o obj/dscrax.o obj/dumpdp.o obj/echoz.o obj/eq6.o obj/eqcalc.o obj/eqphas.o obj/eqshel.o obj/escalc.o obj/evratc.o obj/exivar.o obj/fcopyx.o obj/fpbdpp.o obj/fpbflo.o obj/fpbnpp.o obj/fpexrc.o obj/gakmat.o obj/garmat.o obj/gmmmat.o obj/gndacb.o obj/goback.o obj/gpress.o obj/gsmder.o obj/gsmdez.o obj/gtemp.o obj/gwhcfa.o obj/iiemop.o obj/intbs6.o obj/integr.o obj/intmat.o obj/intmtb.o obj/intrct.o obj/jgibbs.o obj/ldlxrc.o obj/ldlxrd.o obj/makrsr.o obj/miidxz.o obj/mincsp.o obj/nlkffg.o obj/optmzr.o obj/path.o obj/pderiv.o obj/phsdrp.o obj/prrsr.o obj/prtrct.o obj/pshfta.o obj/ptaylr.o obj/raff.o obj/rd6ind.o obj/rd6inw.o obj/rderiv.o obj/reacts.o obj/rsatch.o obj/rsetup.o obj/rtaylr.o obj/rtcalc.o obj/satchk.o obj/scripz.o obj/sderiv.o obj/search.o obj/setffg.o obj/setpk6.o obj/setrcp.o obj/sfncge.o obj/shftph.o obj/sippdp.o obj/stepfd.o obj/stpkmd.o obj/suprdx.o obj/timeca.o obj/tivchk.o obj/tpadv.o obj/tstari.o obj/tstrdx.o obj/wrentu.o obj/wrtabc.o obj/wrtabx.o obj/xderiv.o obj/zderiv.o obj/ztaylr.o ../../lib/libeqlib.a ../../lib/libeqlibg.a ../../lib/libeqlibu.a
+2026-09-09T23:06:14.8269770Z make -C src/eqpt
+2026-09-09T23:06:14.8270300Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/aaaeqt.o src/aaaeqt.f
+2026-09-09T23:06:14.8271140Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/adalph.o src/adalph.f
+2026-09-09T23:06:14.8271970Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/artrip.o src/artrip.f
+2026-09-09T23:06:14.8272790Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/bkdeqp.o src/bkdeqp.f
+2026-09-09T23:06:14.8273620Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/bldspc.o src/bldspc.f
+2026-09-09T23:06:14.8274450Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/coasst.o src/coasst.f
+2026-09-09T23:06:14.8275280Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/cpcomb.o src/cpcomb.f
+2026-09-09T23:06:14.8276100Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/elesck.o src/elesck.f
+2026-09-09T23:06:14.8276920Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/eqpt.o src/eqpt.f
+2026-09-09T23:06:14.8277920Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/etoo2.o src/etoo2.f
+2026-09-09T23:06:14.8278730Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/g1dat.o src/g1dat.f
+2026-09-09T23:06:14.8279530Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/gakey.o src/gakey.f
+2026-09-09T23:06:14.8280330Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/ggridp.o src/ggridp.f
+2026-09-09T23:06:14.8281150Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/gnenb.o src/gnenb.f
+2026-09-09T23:06:14.8281970Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/gspidx.o src/gspidx.f
+2026-09-09T23:06:14.8282800Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/hdrchk.o src/hdrchk.f
+2026-09-09T23:06:14.8283610Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/intrp.o src/intrp.f
+2026-09-09T23:06:14.8284420Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/ldbar2.o src/ldbar2.f
+2026-09-09T23:06:14.8285240Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/ldbar3.o src/ldbar3.f
+2026-09-09T23:06:14.8286040Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/ldbar4.o src/ldbar4.f
+2026-09-09T23:06:14.8286870Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/naqsck.o src/naqsck.f
+2026-09-09T23:06:14.8287960Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/nelcck.o src/nelcck.f
+2026-09-09T23:06:14.8288800Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/neleck.o src/neleck.f
+2026-09-09T23:06:14.8289620Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/ngasck.o src/ngasck.f
+2026-09-09T23:06:14.8290430Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/nminck.o src/nminck.f
+2026-09-09T23:06:14.8291260Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/nrxnck.o src/nrxnck.f
+2026-09-09T23:06:14.8292070Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/nssock.o src/nssock.f
+2026-09-09T23:06:14.8292880Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/nxspck.o src/nxspck.f
+2026-09-09T23:06:14.8293700Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/pcraq.o src/pcraq.f
+2026-09-09T23:06:14.8294500Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/pcrsg.o src/pcrsg.f
+2026-09-09T23:06:14.8295300Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/pcrss.o src/pcrss.f
+2026-09-09T23:06:14.8296120Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/prrecy.o src/prrecy.f
+2026-09-09T23:06:14.8296940Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdazp.o src/rdazp.f
+2026-09-09T23:06:14.8297760Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdgrid.o src/rdgrid.f
+2026-09-09T23:06:14.8298590Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpar.o src/rdpar.f
+2026-09-09T23:06:14.8299390Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpca.o src/rdpca.f
+2026-09-09T23:06:14.8300190Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpn2.o src/rdpn2.f
+2026-09-09T23:06:14.8301000Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpn2n.o src/rdpn2n.f
+2026-09-09T23:06:14.8301810Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpni.o src/rdpni.f
+2026-09-09T23:06:14.8302610Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpnn.o src/rdpnn.f
+2026-09-09T23:06:14.8303430Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdppsi.o src/rdppsi.f
+2026-09-09T23:06:14.8304240Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpth.o src/rdpth.f
+2026-09-09T23:06:14.8305050Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpz2.o src/rdpz2.f
+2026-09-09T23:06:14.8305850Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpz3.o src/rdpz3.f
+2026-09-09T23:06:14.8306660Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdpzet.o src/rdpzet.f
+2026-09-09T23:06:14.8307480Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdwele.o src/rdwele.f
+2026-09-09T23:06:14.8308300Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rdwttl.o src/rdwttl.f
+2026-09-09T23:06:14.8309120Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rxnchk.o src/rxnchk.f
+2026-09-09T23:06:14.8309940Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/rxnsck.o src/rxnsck.f
+2026-09-09T23:06:14.8310750Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/srch22.o src/srch22.f
+2026-09-09T23:06:14.8311650Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/srch33.o src/srch33.f
+2026-09-09T23:06:14.8312480Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tegrid.o src/tegrid.f
+2026-09-09T23:06:14.8313290Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/thetck.o src/thetck.f
+2026-09-09T23:06:14.8314310Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tpraa.o src/tpraa.f
+2026-09-09T23:06:14.8315130Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tpraac.o src/tpraac.f
+2026-09-09T23:06:14.8315940Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tpraz.o src/tpraz.f
+2026-09-09T23:06:14.8316740Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprca.o src/tprca.f
+2026-09-09T23:06:14.8317550Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprcc.o src/tprcc.f
+2026-09-09T23:06:14.8318370Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprcca.o src/tprcca.f
+2026-09-09T23:06:14.8319190Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprn2.o src/tprn2.f
+2026-09-09T23:06:14.8319990Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprn2n.o src/tprn2n.f
+2026-09-09T23:06:14.8320810Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprna.o src/tprna.f
+2026-09-09T23:06:14.8321610Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprnc.o src/tprnc.f
+2026-09-09T23:06:14.8322420Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprnca.o src/tprnca.f
+2026-09-09T23:06:14.8323230Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tprnn.o src/tprnn.f
+2026-09-09T23:06:14.8324170Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/tripck.o src/tripck.f
+2026-09-09T23:06:14.8325010Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/vazpck.o src/vazpck.f
+2026-09-09T23:06:14.8325840Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/vxspck.o src/vxspck.f
+2026-09-09T23:06:14.8326660Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/wrazp.o src/wrazp.f
+2026-09-09T23:06:14.8327460Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/wrhdr.o src/wrhdr.f
+2026-09-09T23:06:14.8328260Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/wrpar.o src/wrpar.f
+2026-09-09T23:06:14.8329230Z gfortran -O3 -arch x86_64 -Jmod -c  -o obj/wrpz23.o src/wrpz23.f
+2026-09-09T23:06:14.8336800Z gfortran -O3 -arch x86_64 -Jmod -o ../../bin/eqpt obj/aaaeqt.o obj/adalph.o obj/artrip.o obj/bkdeqp.o obj/bldspc.o obj/coasst.o obj/cpcomb.o obj/elesck.o obj/eqpt.o obj/etoo2.o obj/g1dat.o obj/gakey.o obj/ggridp.o obj/gnenb.o obj/gspidx.o obj/hdrchk.o obj/intrp.o obj/ldbar2.o obj/ldbar3.o obj/ldbar4.o obj/naqsck.o obj/nelcck.o obj/neleck.o obj/ngasck.o obj/nminck.o obj/nrxnck.o obj/nssock.o obj/nxspck.o obj/pcraq.o obj/pcrsg.o obj/pcrss.o obj/prrecy.o obj/rdazp.o obj/rdgrid.o obj/rdpar.o obj/rdpca.o obj/rdpn2.o obj/rdpn2n.o obj/rdpni.o obj/rdpnn.o obj/rdppsi.o obj/rdpth.o obj/rdpz2.o obj/rdpz3.o obj/rdpzet.o obj/rdwele.o obj/rdwttl.o obj/rxnchk.o obj/rxnsck.o obj/srch22.o obj/srch33.o obj/tegrid.o obj/thetck.o obj/tpraa.o obj/tpraac.o obj/tpraz.o obj/tprca.o obj/tprcc.o obj/tprcca.o obj/tprn2.o obj/tprn2n.o obj/tprna.o obj/tprnc.o obj/tprnca.o obj/tprnn.o obj/tripck.o obj/vazpck.o obj/vxspck.o obj/wrazp.o obj/wrhdr.o obj/wrpar.o obj/wrpz23.o ../../lib/libeqlibu.a
+2026-09-09T23:06:14.8344210Z make -C src/xcon3
+2026-09-09T23:06:14.8344840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/aaaxc3.o src/aaaxc3.f
+2026-09-09T23:06:14.8345860Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/bkdxc3.o src/bkdxc3.f
+2026-09-09T23:06:14.8346870Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3d7.o src/rd3d7.f
+2026-09-09T23:06:14.8347850Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3d8.o src/rd3d8.f
+2026-09-09T23:06:14.8348840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3d8b.o src/rd3d8b.f
+2026-09-09T23:06:14.8349840Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3w6.o src/rd3w6.f
+2026-09-09T23:06:14.8350810Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3w7.o src/rd3w7.f
+2026-09-09T23:06:14.8351790Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd3w8.o src/rd3w8.f
+2026-09-09T23:06:14.8352760Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3d7.o src/wr3d7.f
+2026-09-09T23:06:14.8353750Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3d72.o src/wr3d72.f
+2026-09-09T23:06:14.8354740Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3d8.o src/wr3d8.f
+2026-09-09T23:06:14.8355710Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3w6.o src/wr3w6.f
+2026-09-09T23:06:14.8356920Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3w7.o src/wr3w7.f
+2026-09-09T23:06:14.8358100Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr3w8.o src/wr3w8.f
+2026-09-09T23:06:14.8359100Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/xcon3.o src/xcon3.f
+2026-09-09T23:06:14.8361340Z gfortran -O3 -arch x86_64 -Jmod -o ../../bin/xcon3 obj/aaaxc3.o obj/bkdxc3.o obj/rd3d7.o obj/rd3d8.o obj/rd3d8b.o obj/rd3w6.o obj/rd3w7.o obj/rd3w8.o obj/wr3d7.o obj/wr3d72.o obj/wr3d8.o obj/wr3w6.o obj/wr3w7.o obj/wr3w8.o obj/xcon3.o ../../lib/libeqlibu.a
+2026-09-09T23:06:14.8363420Z make -C src/xcon6
+2026-09-09T23:06:14.8364040Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/aaaxc6.o src/aaaxc6.f
+2026-09-09T23:06:14.8365060Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/bkdxc6.o src/bkdxc6.f
+2026-09-09T23:06:14.8366070Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6d7.o src/rd6d7.f
+2026-09-09T23:06:14.8367080Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6d8.o src/rd6d8.f
+2026-09-09T23:06:14.8368270Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6d8b.o src/rd6d8b.f
+2026-09-09T23:06:14.8369310Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6dvz.o src/rd6dvz.f
+2026-09-09T23:06:14.8370310Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6w6.o src/rd6w6.f
+2026-09-09T23:06:14.8371320Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6w7.o src/rd6w7.f
+2026-09-09T23:06:14.8372330Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6w72.o src/rd6w72.f
+2026-09-09T23:06:14.8373350Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6w8.o src/rd6w8.f
+2026-09-09T23:06:14.8374390Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/rd6wvz.o src/rd6wvz.f
+2026-09-09T23:06:14.8375390Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6d7.o src/wr6d7.f
+2026-09-09T23:06:14.8376390Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6d72.o src/wr6d72.f
+2026-09-09T23:06:14.8377390Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6d8.o src/wr6d8.f
+2026-09-09T23:06:14.8378370Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6w6.o src/wr6w6.f
+2026-09-09T23:06:14.8379350Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6w7.o src/wr6w7.f
+2026-09-09T23:06:14.8380330Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6w72.o src/wr6w72.f
+2026-09-09T23:06:14.8381350Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/wr6w8.o src/wr6w8.f
+2026-09-09T23:06:14.8382370Z gfortran -O3 -arch x86_64 -Jmod -c -I../../include -o obj/xcon6.o src/xcon6.f
+2026-09-09T23:06:14.8385060Z gfortran -O3 -arch x86_64 -Jmod -o ../../bin/xcon6 obj/aaaxc6.o obj/bkdxc6.o obj/rd6d7.o obj/rd6d8.o obj/rd6d8b.o obj/rd6dvz.o obj/rd6w6.o obj/rd6w7.o obj/rd6w72.o obj/rd6w8.o obj/rd6wvz.o obj/wr6d7.o obj/wr6d72.o obj/wr6d8.o obj/wr6w6.o obj/wr6w7.o obj/wr6w72.o obj/wr6w8.o obj/xcon6.o ../../lib/libeqlibu.a
+2026-09-09T23:06:14.8387430Z 
+2026-09-09T23:06:14.8387830Z Copying executables to /Users/runner/work/aqequil/aqequil/aqequil/bin
+2026-09-09T23:06:14.8388770Z   [OK] eq3nr (1114.7 KB)
+2026-09-09T23:06:14.8411860Z   [OK] eq6 (1935.8 KB)
+2026-09-09T23:06:14.8412390Z   [OK] eqpt (676.4 KB)
+2026-09-09T23:06:14.8412790Z   [OK] xcon3 (436.1 KB)
+2026-09-09T23:06:14.8413210Z   [OK] xcon6 (889.2 KB)
+2026-09-09T23:06:14.8413660Z [OK] Successfully compiled EQ3/6 executables
+2026-09-09T23:06:14.8414240Z ============================================================
+2026-09-09T23:06:14.8414800Z Compilation successful!
+2026-09-09T23:06:14.8415280Z ============================================================
+2026-09-09T23:06:15.9605230Z ============================================================
+2026-09-09T23:06:15.9605960Z Preparing thermodynamic databases for aqequil
+2026-09-09T23:06:15.9606600Z ============================================================
+2026-09-09T23:06:15.9607160Z Platform: darwin
+2026-09-09T23:06:15.9608210Z Python: 3.10.11
+2026-09-09T23:06:15.9608680Z Downloading database files from WORM-db...
+2026-09-09T23:06:15.9609720Z Downloading data0.wrm from https://raw.githubusercontent.com/worm-portal/WORM-db/master/data0.wrm...
+2026-09-09T23:06:15.9610840Z [OK] Downloaded data0.wrm (601.2 KB)
+2026-09-09T23:06:15.9612010Z Downloading wrm_data_latest.csv from https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_latest.csv...
+2026-09-09T23:06:15.9613410Z [OK] Downloaded wrm_data_latest.csv (430.3 KB)
+2026-09-09T23:06:15.9614560Z Downloading elements.csv from https://raw.githubusercontent.com/worm-portal/WORM-db/master/elements.csv...
+2026-09-09T23:06:15.9615700Z [OK] Downloaded elements.csv (4.3 KB)
+2026-09-09T23:06:15.9616880Z Downloading solid_solutions.csv from https://raw.githubusercontent.com/worm-portal/WORM-db/master/solid_solutions.csv...
+2026-09-09T23:06:15.9618150Z [OK] Downloaded solid_solutions.csv (3.5 KB)
+2026-09-09T23:06:15.9619330Z Downloading wrm_data_logK.csv from https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK.csv...
+2026-09-09T23:06:15.9621220Z [OK] Downloaded wrm_data_logK.csv (3.8 KB)
+2026-09-09T23:06:15.9622440Z Downloading wrm_data_logK_S.csv from https://raw.githubusercontent.com/worm-portal/WORM-db/master/wrm_data_logK_S.csv...
+2026-09-09T23:06:15.9623980Z [OK] Downloaded wrm_data_logK_S.csv (10.3 KB)
+2026-09-09T23:06:15.9625310Z Downloading speciation_groups_WORM.txt from https://raw.githubusercontent.com/worm-portal/WORM-db/master/speciation_groups_WORM.txt...
+2026-09-09T23:06:15.9626700Z [OK] Downloaded speciation_groups_WORM.txt (22.0 KB)
+2026-09-09T23:06:15.9627150Z 
+2026-09-09T23:06:15.9627360Z Compiling data0.wrm to data1.wrm with EQPT...
+2026-09-09T23:06:15.9628260Z Running EQPT on /var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/tmpy5v0i_7f/data0.wrm...
+2026-09-09T23:06:15.9629310Z Using EQPT at: /Users/runner/work/aqequil/aqequil/aqequil/bin/eqpt
+2026-09-09T23:06:15.9630030Z [OK] Created data1.wrm (377.9 KB)
+2026-09-09T23:06:15.9630360Z 
+2026-09-09T23:06:15.9630560Z Copying files to databases directory...
+2026-09-09T23:06:15.9631390Z [OK] Copied data0.wrm to /Users/runner/work/aqequil/aqequil/aqequil/databases/data0.wrm
+2026-09-09T23:06:15.9632720Z [OK] Copied wrm_data_latest.csv to /Users/runner/work/aqequil/aqequil/aqequil/databases/wrm_data_latest.csv
+2026-09-09T23:06:15.9634110Z [OK] Copied elements.csv to /Users/runner/work/aqequil/aqequil/aqequil/databases/elements.csv
+2026-09-09T23:06:15.9635510Z [OK] Copied solid_solutions.csv to /Users/runner/work/aqequil/aqequil/aqequil/databases/solid_solutions.csv
+2026-09-09T23:06:15.9636980Z [OK] Copied wrm_data_logK.csv to /Users/runner/work/aqequil/aqequil/aqequil/databases/wrm_data_logK.csv
+2026-09-09T23:06:15.9638430Z [OK] Copied wrm_data_logK_S.csv to /Users/runner/work/aqequil/aqequil/aqequil/databases/wrm_data_logK_S.csv
+2026-09-09T23:06:15.9640050Z [OK] Copied speciation_groups_WORM.txt to /Users/runner/work/aqequil/aqequil/aqequil/databases/speciation_groups_WORM.txt
+2026-09-09T23:06:15.9641520Z [OK] Copied data1.wrm to /Users/runner/work/aqequil/aqequil/aqequil/databases/data1.wrm
+2026-09-09T23:06:15.9642670Z [OK] Copied data0.wrm to /Users/runner/work/aqequil/aqequil/aqequil/test_data/data0.wrm
+2026-09-09T23:06:15.9643540Z ============================================================
+2026-09-09T23:06:15.9644120Z [OK] Database preparation successful!
+2026-09-09T23:06:15.9644660Z ============================================================
+2026-09-09T23:06:15.9704720Z ##[endgroup]
+2026-09-09T23:06:15.9705880Z                                                             [32m✓ [0m190.19s
+2026-09-09T23:06:15.9707040Z ##[group]Building wheel...
+2026-09-09T23:06:15.9707350Z 
+2026-09-09T23:06:15.9711640Z + python -m build /Users/runner/work/aqequil/aqequil --wheel --outdir=/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/built_wheel
+2026-09-09T23:06:16.0803210Z * Creating isolated environment: venv+pip...
+2026-09-09T23:06:16.0876580Z * Installing packages in isolated environment:
+2026-09-09T23:06:17.9091820Z   - setuptools>=61.0
+2026-09-09T23:06:17.9092270Z   - setuptools_scm>=8
+2026-09-09T23:06:17.9092670Z   - wheel
+2026-09-09T23:06:17.9093050Z * Getting build dependencies for wheel...
+2026-09-09T23:06:18.5848540Z Traceback (most recent call last):
+2026-09-09T23:06:18.5862110Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/lib/python3.10/site-packages/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
+2026-09-09T23:06:18.5864060Z     main()
+2026-09-09T23:06:18.5865770Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/lib/python3.10/site-packages/pyproject_hooks/_in_process/_in_process.py", line 373, in main
+2026-09-09T23:06:18.5867710Z     json_out["return_val"] = hook(**hook_input["kwargs"])
+2026-09-09T23:06:18.5870430Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/lib/python3.10/site-packages/pyproject_hooks/_in_process/_in_process.py", line 143, in get_requires_for_build_wheel
+2026-09-09T23:06:18.5872540Z     return hook(config_settings)
+2026-09-09T23:06:18.5874210Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/build_meta.py", line 333, in get_requires_for_build_wheel
+2026-09-09T23:06:18.5876060Z     return self._get_build_requires(config_settings, requirements=[])
+2026-09-09T23:06:18.5877890Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/build_meta.py", line 301, in _get_build_requires
+2026-09-09T23:06:18.5879470Z     self.run_setup()
+2026-09-09T23:06:18.5880880Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/build_meta.py", line 317, in run_setup
+2026-09-09T23:06:18.5882510Z     exec(code, locals())  # noqa: S102 # exec is intentional here
+2026-09-09T23:06:18.5883220Z   File "<string>", line 112, in <module>
+2026-09-09T23:06:18.5884670Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/__init__.py", line 117, in setup
+2026-09-09T23:06:18.5886330Z     return distutils.core.setup(**attrs)  # type: ignore[return-value]
+2026-09-09T23:06:18.5888190Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/_distutils/core.py", line 142, in setup
+2026-09-09T23:06:18.5889710Z     dist.parse_config_files()
+2026-09-09T23:06:18.5891220Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/dist.py", line 762, in parse_config_files
+2026-09-09T23:06:18.5893030Z     pyprojecttoml.apply_configuration(self, filename, ignore_option_errors)
+2026-09-09T23:06:18.5895050Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/pyprojecttoml.py", line 73, in apply_configuration
+2026-09-09T23:06:18.5896800Z     return _apply(dist, config, filepath)
+2026-09-09T23:06:18.5898470Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 54, in apply
+2026-09-09T23:06:18.5900160Z     _apply_project_table(dist, config, root_dir)
+2026-09-09T23:06:18.5902030Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 82, in _apply_project_table
+2026-09-09T23:06:18.5903890Z     corresp(dist, value, root_dir)
+2026-09-09T23:06:18.5905790Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 184, in _long_description
+2026-09-09T23:06:18.5908260Z     text = expand.read_files(file, root_dir)
+2026-09-09T23:06:18.5910030Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/expand.py", line 126, in read_files
+2026-09-09T23:06:18.5911630Z     return '\n'.join(
+2026-09-09T23:06:18.5913320Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/expand.py", line 127, in <genexpr>
+2026-09-09T23:06:18.5914870Z     _read_file(path)
+2026-09-09T23:06:18.5917520Z   File "/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/build-env-ys4rb88f/lib/python3.10/site-packages/setuptools/config/expand.py", line 143, in _read_file
+2026-09-09T23:06:18.5919650Z     return f.read()
+2026-09-09T23:06:18.5920660Z   File "/Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/codecs.py", line 322, in decode
+2026-09-09T23:06:18.5921900Z     (result, consumed) = self._buffer_decode(data, self.errors, final)
+2026-09-09T23:06:18.5923030Z UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb0 in position 6309: invalid start byte
+2026-09-09T23:06:18.6956160Z 
+2026-09-09T23:06:18.6967650Z ERROR Backend subprocess exited when trying to invoke get_requires_for_build_wheel
+2026-09-09T23:06:18.7838520Z ##[endgroup]
+2026-09-09T23:06:18.7849310Z ##[error]cibuildwheel: Command ['/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/build/venv/bin/python', '-m', 'build', '/Users/runner/work/aqequil/aqequil', '--wheel', '--outdir=/private/var/folders/20/jp1_0n3n7kndh6rnbqb5344m0000gn/T/cibw-run-8dzqcl67/cp310-macosx_x86_64/built_wheel'] failed with code 1. 
+2026-09-09T23:06:18.7889610Z                                                               [31m✕ [0m2.81s
+2026-09-09T23:06:18.7890690Z 
+2026-09-09T23:06:18.8600290Z ##[error]Process completed with exit code 1.
+2026-09-09T23:06:18.8905090Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-09T23:06:18.8907930Z Post job cleanup.
+2026-09-09T23:06:19.3714390Z [command]/usr/local/bin/git version
+2026-09-09T23:06:19.3856700Z git version 2.55.0
+2026-09-09T23:06:19.4803240Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/f30f9ed4-9c54-4543-b922-58e004ec1dae/.gitconfig'
+2026-09-09T23:06:19.5599800Z Temporarily overriding HOME='/Users/runner/work/_temp/f30f9ed4-9c54-4543-b922-58e004ec1dae' before making global git config changes
+2026-09-09T23:06:19.5672350Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-09T23:06:19.6066890Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/aqequil/aqequil
+2026-09-09T23:06:19.6115060Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-09T23:06:19.6301080Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-09T23:06:20.0215320Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-09T23:06:20.1254700Z http.https://github.com/.extraheader
+2026-09-09T23:06:20.4156000Z [command]/usr/local/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-09-09T23:06:20.4277330Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-09T23:06:20.4354120Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-09T23:06:20.4446700Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-09T23:06:20.5330280Z Cleaning up orphan processes
+2026-09-09T23:06:21.2761130Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

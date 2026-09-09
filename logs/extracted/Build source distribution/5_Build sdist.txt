@@ -1,0 +1,66 @@
+﻿2026-09-09T23:01:52.4936477Z ##[group]Run python -m build --sdist
+2026-09-09T23:01:52.4936944Z [36;1mpython -m build --sdist[0m
+2026-09-09T23:01:52.4975324Z shell: /usr/bin/bash -e {0}
+2026-09-09T23:01:52.4975689Z env:
+2026-09-09T23:01:52.4976024Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-09T23:01:52.4976535Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib/pkgconfig
+2026-09-09T23:01:52.4977279Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-09T23:01:52.4977770Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-09T23:01:52.4978236Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.16/x64
+2026-09-09T23:01:52.4978685Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.16/x64/lib
+2026-09-09T23:01:52.4979075Z ##[endgroup]
+2026-09-09T23:01:52.6285225Z * Creating isolated environment: venv+pip...
+2026-09-09T23:01:52.6692416Z * Installing packages in isolated environment:
+2026-09-09T23:01:52.6693351Z   - setuptools>=61.0
+2026-09-09T23:01:52.6693973Z   - setuptools_scm>=8
+2026-09-09T23:01:52.6694445Z   - wheel
+2026-09-09T23:01:54.0648165Z * Getting build dependencies for sdist...
+2026-09-09T23:01:54.7061131Z Traceback (most recent call last):
+2026-09-09T23:01:54.7068511Z   File "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/pyproject_hooks/_in_process/_in_process.py", line 389, in <module>
+2026-09-09T23:01:54.7069688Z     main()
+2026-09-09T23:01:54.7070774Z   File "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/pyproject_hooks/_in_process/_in_process.py", line 373, in main
+2026-09-09T23:01:54.7071996Z     json_out["return_val"] = hook(**hook_input["kwargs"])
+2026-09-09T23:01:54.7072566Z                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7073874Z   File "/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/site-packages/pyproject_hooks/_in_process/_in_process.py", line 317, in get_requires_for_build_sdist
+2026-09-09T23:01:54.7075136Z     return hook(config_settings)
+2026-09-09T23:01:54.7075563Z            ^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7076601Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/build_meta.py", line 338, in get_requires_for_build_sdist
+2026-09-09T23:01:54.7077953Z     return self._get_build_requires(config_settings, requirements=[])
+2026-09-09T23:01:54.7078648Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7079721Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/build_meta.py", line 301, in _get_build_requires
+2026-09-09T23:01:54.7081069Z     self.run_setup()
+2026-09-09T23:01:54.7081916Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/build_meta.py", line 317, in run_setup
+2026-09-09T23:01:54.7082593Z     exec(code, locals())  # noqa: S102 # exec is intentional here
+2026-09-09T23:01:54.7082936Z     ^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7083209Z   File "<string>", line 112, in <module>
+2026-09-09T23:01:54.7083711Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/__init__.py", line 117, in setup
+2026-09-09T23:01:54.7084319Z     return distutils.core.setup(**attrs)  # type: ignore[return-value]
+2026-09-09T23:01:54.7084708Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7085238Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/_distutils/core.py", line 142, in setup
+2026-09-09T23:01:54.7085749Z     dist.parse_config_files()
+2026-09-09T23:01:54.7086279Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/dist.py", line 762, in parse_config_files
+2026-09-09T23:01:54.7086966Z     pyprojecttoml.apply_configuration(self, filename, ignore_option_errors)
+2026-09-09T23:01:54.7088112Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/pyprojecttoml.py", line 73, in apply_configuration
+2026-09-09T23:01:54.7088719Z     return _apply(dist, config, filepath)
+2026-09-09T23:01:54.7088996Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7089559Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 54, in apply
+2026-09-09T23:01:54.7090451Z     _apply_project_table(dist, config, root_dir)
+2026-09-09T23:01:54.7091141Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 82, in _apply_project_table
+2026-09-09T23:01:54.7091952Z     corresp(dist, value, root_dir)
+2026-09-09T23:01:54.7093144Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/_apply_pyprojecttoml.py", line 184, in _long_description
+2026-09-09T23:01:54.7094051Z     text = expand.read_files(file, root_dir)
+2026-09-09T23:01:54.7094345Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-09-09T23:01:54.7094914Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/expand.py", line 126, in read_files
+2026-09-09T23:01:54.7095446Z     return '\n'.join(
+2026-09-09T23:01:54.7095660Z            ^^^^^^^^^^
+2026-09-09T23:01:54.7096128Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/expand.py", line 127, in <genexpr>
+2026-09-09T23:01:54.7096642Z     _read_file(path)
+2026-09-09T23:01:54.7097397Z   File "/tmp/build-env-dl55w_cs/lib/python3.11/site-packages/setuptools/config/expand.py", line 143, in _read_file
+2026-09-09T23:01:54.7097927Z     return f.read()
+2026-09-09T23:01:54.7098132Z            ^^^^^^^^
+2026-09-09T23:01:54.7098398Z   File "<frozen codecs>", line 322, in decode
+2026-09-09T23:01:54.7098879Z UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb0 in position 6309: invalid start byte
+2026-09-09T23:01:54.7493919Z TIP pass --env-dir and --sdist-extract-dir to keep the build environment and sources, then see https://build.pypa.io/en/stable/how-to/troubleshooting.html#debug-a-failed-build for help debugging a failed build
+2026-09-09T23:01:54.7495471Z 
+2026-09-09T23:01:54.7495957Z ERROR Backend subprocess exited when trying to invoke get_requires_for_build_sdist
+2026-09-09T23:01:54.7665045Z ##[error]Process completed with exit code 1.

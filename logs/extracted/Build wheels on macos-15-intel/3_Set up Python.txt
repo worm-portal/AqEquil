@@ -1,0 +1,15 @@
+﻿2026-09-09T23:01:57.0038210Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-09-09T23:01:57.0042460Z ##[group]Run actions/setup-python@v5
+2026-09-09T23:01:57.0043080Z with:
+2026-09-09T23:01:57.0043520Z   python-version: 3.13
+2026-09-09T23:01:57.0044050Z   check-latest: false
+2026-09-09T23:01:57.0049730Z   token: ***
+2026-09-09T23:01:57.0050250Z   update-environment: true
+2026-09-09T23:01:57.0050910Z   allow-prereleases: false
+2026-09-09T23:01:57.0051480Z   freethreaded: false
+2026-09-09T23:01:57.0051990Z ##[endgroup]
+2026-09-09T23:01:57.2132610Z ##[group]Installed versions
+2026-09-09T23:01:57.2220910Z (node:2836) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-09-09T23:01:57.2222830Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-09-09T23:01:57.2224040Z Successfully set up CPython (3.13.15)
+2026-09-09T23:01:57.2226180Z ##[endgroup]
